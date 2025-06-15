@@ -289,7 +289,7 @@ void vmm_direct_map_huge(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64
 }
 
 void vmm_install(void) {
-    for (uintptr_t addr = 0x0; addr < 0x10000000 /* 256MiB */; addr += 0x200000)
+    for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE /* 256MiB */; addr += 0x200000)
         vmm_direct_map_huge(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
 
     kernel_pd = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));

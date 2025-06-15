@@ -511,6 +511,7 @@ int init() {
     ext2_read_inode(&ext2fs, 2, ext2fs.root_inode);
 
     ext2_mount(&ext2fs, vfs_root, 2);
+    printf("\033[92m * \033[97mInitialized ext2fs\033[0m\n");
     return 0;
 }
 

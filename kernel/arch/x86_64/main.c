@@ -105,7 +105,6 @@ const char *arch_get_cmdline(void) {
 void generic_load_modules(void) {
 	assert(mboot);
 	mboot2_load_modules(mboot);
-    printf("\033[92m * \033[97mInitialized modules\033[0m\n");
 }
 
 void mubsan_log(const char* fmt, ...) {
@@ -123,8 +122,8 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
     vga_clear();
     serial_install();
     
-    dprintf("%s %d.%d-%s %s %s %s\n",
-        __kernel_name, __kernel_version_major, __kernel_version_minor,
+    dprintf("%s %d.%d.%d-%s %s %s %s\n",
+        __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
     assert(mboot_magic == 0x36d76289);

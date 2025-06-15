@@ -13,7 +13,7 @@ ifeq ($(ARCH),x86_64)
     ASFLAGS := -f elf64 -g -F dwarf
     CCFLAGS := -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
-    QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -m 256M -M q35
+    QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -m 256M -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0
 else ifeq ($(ARCH),riscv64)
 	AS = riscv64-elf-as
 	CC = riscv64-elf-gcc
@@ -32,7 +32,7 @@ KERNEL_S_SOURCES := $(shell find kernel -type f -name '*.S' ! -path "kernel/arch
 KERNEL_C_SOURCES := $(shell find kernel -type f -name '*.c' ! -path "kernel/arch/*")
 MODULE_C_SOURCES := $(shell find modules -type f -name '*.c')
 ARCH_S_SOURCES   := $(shell find $(ARCH_DIR) -type f -name '*.S' | sed 's|^\./||')
-ARCH_C_SOURCES   := $(shell find $(ARCH_DIR) -type f -name '*.c' | sed 's|^\./||') kernel/target_arch.c
+ARCH_C_SOURCES   := $(shell find $(ARCH_DIR) -type f -name '*.c' | sed 's|^\./||')
 
 # Get object files
 KERNEL_OBJS := $(addprefix bin/, $(KERNEL_S_SOURCES:.S=.S.o) $(ARCH_S_SOURCES:.S=.S.o) $(KERNEL_C_SOURCES:.c=.c.o) $(ARCH_C_SOURCES:.c=.c.o))
@@ -45,7 +45,7 @@ MODULE_BINARIES := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.elf))
 LOAD_ADDR := 0xFFFF800010000000 # TODO: should be in 0xFFFFFFFF8-------
 
 .PHONY: all
-all: kernel/target_arch.c kernel ubsan modules apps iso hdd
+all: kernel ubsan modules apps iso hdd
 
 .PHONY: run
 run: all
@@ -84,16 +84,12 @@ apps:
 bin/kernel/%.c.o: kernel/%.c
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(CCFLAGS) -c $< -o $@
+	@$(CC) $(CCFLAGS) -DGIT_COMMIT_HASH=\"$(shell git rev-parse --short HEAD)\" -c $< -o $@
 
 bin/kernel/%.S.o: kernel/%.S
 	@echo " AS $<"
 	@mkdir -p "$$(dirname $@)"
 	@$(AS) $(ASFLAGS) -o $@ $<
-
-kernel/target_arch.c: bin/.target
-	@echo "const char *__kernel_arch = \"$(ARCH)\";" > $@
-	@echo "const char *__kernel_commit_hash = \"$(shell git rev-parse --short HEAD)\";" >> $@
 
 bin/.target:
 	mkdir -p "$$(dirname $@)"
