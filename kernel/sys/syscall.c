@@ -536,7 +536,7 @@ long sys_uname(struct utsname *utsname) {
     strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
     strncpy(utsname->nodename, hostname, sizeof utsname->nodename);
     /* TODO: should use snprintf here */
-    sprintf(utsname->release, "%d.%d", __kernel_version_major, __kernel_version_minor);
+    sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
     sprintf(utsname->version, "%s-dirty %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
     return 0;
 }
