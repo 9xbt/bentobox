@@ -26,6 +26,16 @@ typedef int64_t  Elf64_Sxword;
 #define EI_PAD         9
 #define EI_NIDENT      16
 
+#define ET_NONE		0
+#define ET_REL 		1
+#define ET_EXEC		2
+#define ET_DYN		3
+#define ET_CORE		4
+#define ET_LOOS		0xFE00
+#define ET_HIOS		0xFEFF
+#define ET_LOPROC	0xFF00
+#define ET_HIPROC	0xFFFF
+
 typedef struct {
     unsigned char e_ident[EI_NIDENT];
     Elf64_Half e_type;
