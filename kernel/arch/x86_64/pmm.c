@@ -10,8 +10,8 @@
 #include <kernel/spinlock.h>
 #include <kernel/multiboot.h>
 
-uint8_t *pmm_bitmap = NULL;
-uint64_t pmm_bitmap_size = 0;
+uint8_t *mmu_bitmap = NULL;
+uint64_t mmu_bitmap_size = 0;
 uint64_t mmu_page_count = 0;
 uint64_t mmu_usable_mem = 0;
 uint64_t mmu_used_pages = 0;
@@ -43,21 +43,23 @@ void pmm_install(void) {
         }
     }
 
-    pmm_bitmap = (uint8_t *)PAGE_SIZE;
+    mmu_bitmap = &end;
     mmu_page_count = highest_address / PAGE_SIZE;
-    pmm_bitmap_size = ALIGN_UP(mmu_page_count / 8, PAGE_SIZE);
-    memset(pmm_bitmap, 0xFF, pmm_bitmap_size);
+    mmu_bitmap_size = ALIGN_UP(mmu_page_count / 8, PAGE_SIZE);
+    memset(mmu_bitmap, 0xFF, mmu_bitmap_size);
 
     for (i = 0; i < (mmap->size - sizeof(struct multiboot_tag_mmap)) / mmap->entry_size; i++) {
         mmmt = &mmap->entries[i];
 
         if (mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
             for (uint64_t j = 0; j < mmmt->len; j += PAGE_SIZE) {
-                bitmap_clear(pmm_bitmap, (mmmt->addr + j) / PAGE_SIZE);
+                bitmap_clear(mmu_bitmap, (mmmt->addr + j) / PAGE_SIZE);
             }
             mmu_usable_mem += mmmt->len;
         }
     }
+
+    mmu_mark_used(mmu_bitmap, mmu_bitmap_size / PAGE_SIZE);
 
     struct multiboot_tag_module *mod = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE);
     while (mod) {
@@ -67,23 +69,23 @@ void pmm_install(void) {
 
 	mmu_mark_used(mboot, 2);
     
-    dprintf("%s:%d: initialized bitmap at 0x%p\n", __FILE__, __LINE__, (uint64_t)pmm_bitmap);
+    dprintf("%s:%d: initialized bitmap at 0x%p\n", __FILE__, __LINE__, (uint64_t)mmu_bitmap);
     dprintf("%s:%d: usable memory: %luK\n", __FILE__, __LINE__, mmu_usable_mem / 1024 - mmu_used_pages * 4);
 }
 
 void mmu_mark_used(void *ptr, size_t page_count) {
     for (size_t i = 0; i < page_count * PAGE_SIZE; i += PAGE_SIZE) {
-        bitmap_set(pmm_bitmap, ((uintptr_t)ptr + i) / PAGE_SIZE);
+        bitmap_set(mmu_bitmap, ((uintptr_t)ptr + i) / PAGE_SIZE);
     }
     mmu_used_pages += page_count;
 }
 
-uint64_t pmm_find_pages(uint64_t page_count) {
+uint64_t mmu_find_pages(uint64_t page_count) {
     uint64_t pages = 0;
     uint64_t first_page = 0;
 
     for (uint64_t i = 0; i < mmu_page_count; i++) {
-        if (!bitmap_get(pmm_bitmap, i)) {
+        if (!bitmap_get(mmu_bitmap, i)) {
             if (pages == 0) {
                 first_page = i;
             }
@@ -91,7 +93,7 @@ uint64_t pmm_find_pages(uint64_t page_count) {
             if (pages == page_count) {
                 for (uint64_t j = 0; j < page_count; j++) {
                     acquire(&pmm_lock);
-                    bitmap_set(pmm_bitmap, first_page + j);
+                    bitmap_set(mmu_bitmap, first_page + j);
                     release(&pmm_lock);
                 }
 
@@ -106,37 +108,29 @@ uint64_t pmm_find_pages(uint64_t page_count) {
 }
 
 void *mmu_alloc(size_t page_count) {
-    uint64_t pages = pmm_find_pages(page_count);
-    
-    if (!pages)
+    uint64_t pages = mmu_find_pages(page_count);
+    if (!pages) {
         panic("allocation failed: out of memory");
-
-    uint64_t phys_addr = pages * PAGE_SIZE;
-    
-    return (void*)(phys_addr);
+    }
+    return (void *)(pages * PAGE_SIZE);
 }
 
 void mmu_free(void *ptr, size_t page_count) {
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
-    if ((uintptr_t)ptr == 0x52b000) {
-        //panic("breakpoint");
-    }
-
-    if ((uintptr_t)ptr < KERNEL_PHYS_BASE || page > pmm_bitmap_size * 8) {
-        panic("invalid deallocation @ 0x%p", ptr);
-        printf("%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
+    if ((uintptr_t)ptr < KERNEL_PHYS_BASE || page > mmu_bitmap_size * 8) {
+        dprintf("%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
         return;
     }
 
     acquire(&pmm_lock);
     for (uint64_t i = 0; i < page_count; i++) {
-        if (!bitmap_get(pmm_bitmap, page + i)) {
-            panic("double free @ 0x%p", ptr);
-            //dprintf("%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
+        if (!bitmap_get(mmu_bitmap, page + i)) {
+            dprintf("%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
+            release(&pmm_lock);
             return;
         }
-        bitmap_clear(pmm_bitmap, page + i);
+        bitmap_clear(mmu_bitmap, page + i);
     }
     release(&pmm_lock);
     
