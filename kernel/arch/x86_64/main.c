@@ -123,8 +123,8 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
     vga_clear();
     serial_install();
     
-    dprintf("%s %d.%d-%s %s %s %s\n",
-        __kernel_name, __kernel_version_major, __kernel_version_minor,
+    dprintf("%s %d.%d.%d-%s %s %s %s\n",
+        __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
     assert(mboot_magic == 0x36d76289);
