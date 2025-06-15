@@ -15,7 +15,7 @@ const char *__kernel_arch = "unknown";
 #endif
 
 #ifdef GIT_COMMIT_HASH
-const char *__kernel_commit_hash = "dirty " GIT_COMMIT_HASH;
+const char *__kernel_commit_hash = GIT_COMMIT_HASH;
 #else
-const char *__kernel_commit_hash = "dirty unknown";
+const char *__kernel_commit_hash = "unknown";
 #endif
