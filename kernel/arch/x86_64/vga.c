@@ -77,6 +77,10 @@ void vga_putchar(const char c) {
                 vga_ansi_code[vga_ansi_index] = 0;
                 vga_ansi_index = 0;
                 int code = atoi(vga_ansi_code + 2);
+                if (code == 1) {
+                    code = atoi(vga_ansi_code + 4);
+                    code += 60;
+                }
                 if (code == 0) {
                     vga_color = 0x07;
                 } else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {

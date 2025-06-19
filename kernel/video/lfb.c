@@ -9,7 +9,7 @@
 #include <kernel/multiboot.h>
 
 struct framebuffer lfb;
-struct flanterm_context *ft_ctx;
+struct flanterm_context *ft_ctx = NULL;
 
 static int alloc_n = 0, grid_size;
 struct flanterm_fb_context *fb_ctx;
@@ -158,6 +158,13 @@ void lfb_change_font(const char *path) {
 
 void lfb_get_ws(struct winsize *ws) {
     if (!ws) return;
+    if (!ft_ctx) {
+        ws->ws_row = 25;
+        ws->ws_col = 80;
+        ws->ws_xpixel = 0;
+        ws->ws_ypixel = 0;
+        return;
+    }
 
     ws->ws_row = ft_ctx->rows;
     ws->ws_col = ft_ctx->cols;

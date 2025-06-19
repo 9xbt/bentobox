@@ -133,6 +133,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] Userspace exposed framebuffer
 - [ ] TTY operations
 - [ ] Move vfs_node->open to fd->open
+- [ ] Lazy ELF loading
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
