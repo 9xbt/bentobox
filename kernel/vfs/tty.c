@@ -1,14 +1,20 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/vfs.h>
+#include <kernel/sched.h>
+
+long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    return vfs_read(this->fd_table[0].node, buffer, offset, len);
+}
+
+long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    return vfs_write(this->fd_table[1].node, buffer, offset, len);
+}
 
 void tty_initialize(void) {
-    vfs_node_t *stdin = vfs_open(NULL, "/dev/keyboard", false);
-    vfs_node_t *stdout = vfs_open(NULL, "/dev/console", false);
-
     vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
-    tty->read = stdin->read;
-    tty->write = stdout->write;
+    tty->read = tty_read;
+    tty->write = tty_write;
     tty->isatty = true;
     vfs_add_device(tty);
 }
