@@ -433,5 +433,5 @@ void sched_start_all_cores(void) {
 }
 
 void sched_install(void) {
-    printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
+    //printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
 }

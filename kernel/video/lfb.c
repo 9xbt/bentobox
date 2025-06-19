@@ -42,6 +42,7 @@ void lfb_initialize(void) {
     if (!fb || fb->common.framebuffer_addr == 0xB8000) {
         dprintf("%s:%d: framebuffer not found\n", __FILE__, __LINE__);
         vga_disable_cursor();
+        vga_copy_to_text();
         return;
     }
     dprintf("%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
@@ -75,6 +76,8 @@ void lfb_initialize(void) {
         0, 0,
         0
     );
+
+    vga_copy_to_framebuffer();
 #else
     unimplemented;
 #endif

@@ -98,7 +98,7 @@ void smp_initialize(void) {
     }
 
     dprintf("%s:%d: started %d processors\n", __FILE__, __LINE__, smp_running_cpus);
-    printf("\033[92m * \033[97mInitialized SMP with %d CPU%s\033[0m\n", smp_running_cpus, smp_running_cpus == 1 ? "" : "s");
+    //printf("\033[92m * \033[97mInitialized SMP with %d CPU%s\033[0m\n", smp_running_cpus, smp_running_cpus == 1 ? "" : "s");
 
     /* TODO: return by jumping to __builtin_extract_return_addr(__builtin_return_address(0)) when compiling with UBSAN? */
 }

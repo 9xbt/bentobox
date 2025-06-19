@@ -89,5 +89,5 @@ void ioapic_install(void) {
     asm volatile ("sti");
 
     dprintf("%s:%d: initialized I/O APIC with %d interrupts\n", __FILE__, __LINE__, count + 1);\
-    printf("\033[92m * \033[97mInitialized I/O APIC\033[0m\n");
+    //printf("\033[92m * \033[97mInitialized I/O APIC\033[0m\n");
 }

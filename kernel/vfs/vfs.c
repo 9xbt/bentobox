@@ -313,5 +313,6 @@ void vfs_install(void) {
     console_initialize();
     tmpfs_initialize();
 
-    printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");
+    dprintf("%s:%d: initialized VFS\n", __FILE__, __LINE__);
+    //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");
 }

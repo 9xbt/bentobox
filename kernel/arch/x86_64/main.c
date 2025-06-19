@@ -138,7 +138,7 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	create_kernel_heap();
 	lfb_initialize();
 
-	printf("\n  \033[97mStarting up \033[94mbentobox (%s)\033[0m\n\n", __kernel_arch);
+	//printf("\n  \033[97mStarting up \033[94mbentobox (%s)\033[0m\n\n", __kernel_arch);
 
 	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
 	acpi_install();

@@ -127,6 +127,7 @@ struct pci_device *pci_get_device_from_vendor(uint16_t vendor, uint16_t device) 
 }
 
 void pci_scan(void) {
+    dprintf("%s:%d: finding PCI devices\n", __FILE__, __LINE__);
     uint8_t function;
     uint8_t bus;
 
@@ -142,5 +143,5 @@ void pci_scan(void) {
             pci_check_bus(bus);
         }
     }
-    printf("\033[92m * \033[97mInitialized PCI\033[0m\n");
+    //printf("\033[92m * \033[97mInitialized PCI\033[0m\n");
 }

@@ -11,7 +11,7 @@
 uint8_t vga_x = 0;
 uint8_t vga_y = 0;
 uint8_t vga_color = 0x07;
-uint16_t *vga_buffer = (uint16_t *)0xB8000;
+uint16_t *vga_buffer = (uint16_t *)0x20000;
 
 int vga_ansi_index = 0;
 char vga_ansi_code[8] = {0};
@@ -36,7 +36,7 @@ uint8_t ansi_to_vga(int ansi) {
 }
 
 void vga_clear(void) {
-    for (int i = 0; i < 80 * 25; i++)
+    for (int i = vga_y * 80 + vga_x; i < 80 * 25; i++)
         vga_buffer[i] = vga_color << 8;
 }
 
@@ -64,9 +64,7 @@ void vga_putchar(const char c) {
                 vga_toggle_cursor();
                 return;
             case 'J':
-                if (vga_ansi_code[2] == '2') {
-                    vga_clear();
-                }
+                vga_clear();
                 vga_ansi_index = 0;
                 memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
                 vga_toggle_cursor();
@@ -74,7 +72,7 @@ void vga_putchar(const char c) {
             case 'H':
                 vga_x = 0, vga_y = 0, vga_ansi_index = 0;
                 memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
-                break;
+                return;
             case 'm':
                 vga_ansi_code[vga_ansi_index] = 0;
                 vga_ansi_index = 0;
@@ -152,4 +150,21 @@ void vga_toggle_cursor(void) {
     uint16_t *cell = &vga_buffer[vga_y * 80 + vga_x];
     uint8_t attr = *cell >> 8;
     *cell = (*cell & 0xFF) | (((attr << 4) | (attr >> 4)) << 8);
+}
+
+void vga_copy_to_framebuffer(void) {
+    for (int row = 0; row < 25; row++) {
+        char empty = vga_buffer[row * 80] & 0xff;
+        if (!empty || empty == ' ') break;
+
+        for (int col = 0; col < 80; col++) {
+            printf("%c", vga_buffer[row * 80 + col] & 0xff);
+        }
+        printf("\n");
+    }
+}
+
+void vga_copy_to_text(void) {
+    memcpy((void *)0xB8000, vga_buffer, 80 * 25 * 2);
+    vga_buffer = (uint16_t *)0xB8000;
 }

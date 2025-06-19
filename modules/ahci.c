@@ -466,7 +466,7 @@ int init() {
     sda->read = sda_read;
     vfs_add_device(sda);
 
-    printf("\033[92m * \033[97mInitialized AHCI driver\033[0m\n");
+    //printf("\033[92m * \033[97mInitialized AHCI driver\033[0m\n");
     return 0;
 }
 

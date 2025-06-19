@@ -10,3 +10,5 @@ void vga_putchar(const char c);
 void vga_scroll(void);
 void vga_disable_cursor(void);
 void vga_toggle_cursor(void);
+void vga_copy_to_framebuffer(void);
+void vga_copy_to_text(void);

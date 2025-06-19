@@ -7,6 +7,7 @@
 
 extern void generic_load_modules(void);
 extern void debugcon_entry(void);
+extern void arch_redirect_debug(void);
 
 void generic_startup(void) {
     vfs_install();
@@ -18,5 +19,6 @@ void generic_startup(void) {
 void generic_main(void) {
     dprintf("%s:%d: running init process\n", __FILE__, __LINE__);
     spawn("/bin/init", 0, NULL, NULL);
+    arch_redirect_debug();
 	sched_start_all_cores();
 }

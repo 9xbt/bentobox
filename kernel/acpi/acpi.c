@@ -95,7 +95,7 @@ void acpi_install() {
     fadt_init();
     madt_init();
 
-    printf("\033[92m * \033[97mInitialized ACPI tables\033[0m\n");
+    //printf("\033[92m * \033[97mInitialized ACPI tables\033[0m\n");
 }
 
 void acpi_reboot(void) {

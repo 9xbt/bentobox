@@ -15,6 +15,7 @@
 atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 uint16_t serial_base = COM1;
 struct fifo serial_fifo;
+vfs_node_t *serial_redirect = NULL;
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
@@ -71,10 +72,13 @@ int dprintf(const char *fmt, ...) {
     va_start(args, fmt);
     char buf[1024] = {0};
     int ret = vsprintf(buf, fmt, args);
-    if (serial_base == COM1) {
-        serial_puts(buf);
-    } else {
+    if (!serial_redirect) {
+        if (serial_base == COM1) {
+            serial_puts(buf);
+        }
         puts(buf);
+    } else {
+        vfs_write(serial_redirect, buf, 0, strlen(buf));
     }
     va_end(args);
     return ret;
@@ -145,4 +149,8 @@ void serial_initialize(void) {
     serial0->write = serial_write;
     serial0->read = serial_read;
     vfs_add_device(serial0);
+}
+
+void arch_redirect_debug(void) {
+    serial_redirect = vfs_open(NULL, "/dev/serial0", false);
 }
