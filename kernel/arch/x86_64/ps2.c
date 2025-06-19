@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdbool.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/arch/x86_64/idt.h>
@@ -5,6 +6,7 @@
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
+#include <kernel/ioctl.h>
 #include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -121,10 +123,30 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
     return i;
 }
 
+long ps2_ioctl(int fd_num, int op, void *arg) {
+    struct fd *fd = &this->fd_table[fd_num];
+    switch (op) {
+        case TCGETS:
+            memcpy(arg, &fd->tio, sizeof(struct termios));
+            return 0;
+        case TCSETS:
+        case TCSETSW:
+            memcpy(&fd->tio, arg, sizeof(struct termios));
+            return 0;
+        case TIOCGNAME:
+            strcpy(arg, "/dev/keyboard");
+            return 0;
+        default:
+            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            return -EINVAL;
+    }
+}
+
 void ps2_initialize(void) {
     struct vfs_node *keyboard = vfs_create_node("keyboard", VFS_CHARDEVICE);
     keyboard->read = ps2_keyboard_read;
     keyboard->isatty = true;
+    keyboard->ioctl = ps2_ioctl;
     vfs_add_device(keyboard);
 }
 

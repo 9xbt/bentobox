@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdatomic.h>
+#include <kernel/ioctl.h>
 #include <kernel/flanterm.h>
 #include <kernel/multiboot.h>
 
@@ -10,13 +11,6 @@ struct framebuffer {
     uint32_t height;
     uint32_t pitch;
     struct multiboot_tag_framebuffer *fb;
-};
-
-struct winsize {
-    unsigned short ws_row;
-    unsigned short ws_col;
-    unsigned short ws_xpixel;
-    unsigned short ws_ypixel;
 };
 
 extern struct framebuffer lfb;

@@ -7,8 +7,7 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
-#include <sys/termios.h>
-#include <asm-generic/ioctls.h>
+
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/user.h>
@@ -42,16 +41,6 @@
 #define AT_FDCWD -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
-#define TIOCGNAME       0x5483
-#define KDFONTOP        0x4B72
-#define PIO_UNIMAP	    0x4B67
-#define PIO_UNIMAPCLR   0x4B68
-
-#define KD_FONT_OP_SET          0
-#define KD_FONT_OP_GET          1
-#define KD_FONT_OP_SET_DEFAULT  2
-#define KD_FONT_OP_COPY         3
-
 #define IOV_MAX 1024
 
 struct linux_dirent64 {
@@ -65,14 +54,6 @@ struct linux_dirent64 {
 struct iovec {
     void *iov_base;
     size_t iov_len;
-};
-
-struct console_font_op {
-    unsigned int op;
-    unsigned int flags;
-    unsigned int width, height;
-    unsigned int charcount;
-    unsigned char *data;
 };
 
 long sys_exit(long status) {
@@ -142,77 +123,11 @@ long sys_wait4(int pid, int *wstatus) {
 
 long sys_ioctl(int fd_num, int op, void *arg) {
     struct fd *fd = &this->fd_table[fd_num];
-    switch (op) {
-        case TCGETS:
-            if (fd->node->isatty) {
-                if (!arg)
-                    return -EFAULT;
-
-                memcpy(arg, &fd->tio, sizeof(struct termios));
-                return 0;
-            } else {
-                return -ENOTTY;
-            }
-        case TCSETS:
-        case TCSETSW:
-            if (!fd->node->isatty)
-                return -ENOTTY;
-            if (!arg)
-                return -EFAULT;
-
-            memcpy(&fd->tio, arg, sizeof(struct termios));
-            return 0;
-        case TIOCGWINSZ:
-            if (!fd->node->isatty)
-                return -ENOTTY;
-            if (!arg)
-                return -EFAULT;
-
-            lfb_get_ws((struct winsize *)arg);
-            return 0;
-        case TIOCGNAME:
-            if (!fd->node)
-                return -EBADF;
-            if (!arg)
-                return -EFAULT;
-            
-            vfs_resolve_path(arg, fd->node);
-            return 0;
-        case KDFONTOP:
-            if (!fd->node->isatty)
-                return -ENOTTY;
-            if (!arg)
-                return -EFAULT;
-
-            struct console_font_op *fop = (struct console_font_op *)arg;
-            switch (fop->op) {
-                case KD_FONT_OP_SET: {
-                    unsigned int vpitch = 32;
-                    unsigned int bpc = fop->height;
-                    
-                    vfs_node_t *file = vfs_open(NULL, "/tmp/font", true);
-                    size_t off = 0;
-                    for (unsigned int i = 0; i < fop->charcount; i++) {
-                        vfs_write(file, (void *)fop->data + (i * vpitch), off, bpc);
-                        off += bpc;
-                    }
-                    
-                    vfs_close(file);
-                    lfb_change_font("/tmp/font");
-                    vfs_remove_node(file);
-                    return 0;
-                }
-                default:
-                    return -EINVAL;
-            }
-        case PIO_UNIMAP:
-            return 0;
-        case PIO_UNIMAPCLR:
-            return 0;
-        default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
-            return -EINVAL;
-    }
+    if (!fd->node->isatty)
+        return -ENOTTY;
+    if (!arg)
+        return -EFAULT;
+    return fd->node->ioctl(fd_num, op, arg);
 }
 
 long sys_lseek(int fd_num, off_t offset, int whence) {

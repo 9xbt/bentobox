@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stddef.h>
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/io.h>
@@ -5,6 +6,7 @@
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
+#include <kernel/ioctl.h>
 #include <kernel/sched.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -72,10 +74,11 @@ int dprintf(const char *fmt, ...) {
     va_start(args, fmt);
     char buf[1024] = {0};
     int ret = vsprintf(buf, fmt, args);
-    if (serial_base == COM1) {
+    
+    if (!serial_redirect) {
+        if (serial_base == COM1) {
         serial_puts(buf);
     }
-    if (!serial_redirect) {
         puts(buf);
     } else {
         static long offset = 0;
@@ -142,15 +145,43 @@ void irq4_handler(struct registers *r) {
     lapic_eoi();
 }
 
+long serial_ioctl(int fd_num, int op, void *arg) {
+    struct fd *fd = &this->fd_table[fd_num];
+    switch (op) {
+        case TCGETS:
+            memcpy(arg, &fd->tio, sizeof(struct termios));
+            return 0;
+        case TCSETS:
+        case TCSETSW:
+            memcpy(&fd->tio, arg, sizeof(struct termios));
+            return 0;
+        case TIOCGWINSZ: {
+            struct winsize *ws = (struct winsize *)arg;
+            ws->ws_row = 25;
+            ws->ws_col = 80;
+            ws->ws_xpixel = 0;
+            ws->ws_ypixel = 0;
+            return 0;
+        }
+        case TIOCGNAME:
+            strcpy(arg, "/dev/serial0");
+            return 0;
+        default:
+            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            return -EINVAL;
+    }
+}
+
 void serial_initialize(void) {
     fifo_init(&serial_fifo, 64);
     irq_register(4, irq4_handler);
     outb(COM1 + 1, 0x01);
 
-    struct vfs_node *serial0 = vfs_create_node("serial0", VFS_CHARDEVICE);
+    struct vfs_node *serial0 = vfs_create_node("serial0", VFS_CHARDEVICE); /* FIXME rename this to ttyS0? */
     serial0->write = serial_write;
     serial0->read = serial_read;
     serial0->isatty = true;
+    serial0->ioctl = serial_ioctl;
     vfs_add_device(serial0);
 }
 

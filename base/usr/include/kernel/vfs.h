@@ -28,6 +28,7 @@ typedef struct vfs_node {
     struct vfs_node *next;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
+    long(*ioctl)(int fd, int op, void *arg);
     char *symlink_target;
     atomic_flag lock;
     bool isatty;

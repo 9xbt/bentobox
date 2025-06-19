@@ -116,12 +116,12 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] TSC timing
 - [X] exec()
 - [X] fork()
-- [ ] Fix ATA driver not reading/writing more than 256 sectors at a time
+~~- [ ] Fix ATA driver not reading/writing more than 256 sectors at a time~~
 - [X] waitpid()
     - [X] Signals
 - [X] Fix signals on SMP
 - [X] Move syscalls to other files
-- [ ] ioctl() font changing
+- [X] ioctl() font changing
 - [X] tmpfs
 - [X] char *const env[]
 - [X] Fix bash crashing (unaligned stack)
@@ -134,6 +134,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] TTY operations
 - [ ] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
+- [ ] Move FD termios to VFS nodes
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
