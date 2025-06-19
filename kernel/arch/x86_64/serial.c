@@ -74,11 +74,10 @@ int dprintf(const char *fmt, ...) {
     va_start(args, fmt);
     char buf[1024] = {0};
     int ret = vsprintf(buf, fmt, args);
-    
-    if (!serial_redirect) {
-        if (serial_base == COM1) {
+    if (serial_base == COM1) {
         serial_puts(buf);
     }
+    if (!serial_redirect) {
         puts(buf);
     } else {
         static long offset = 0;
