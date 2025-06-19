@@ -28,15 +28,16 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
 
 ## Building (x86_64)
 To build, you need to install the following packages:
-- dev-essential
+- build-essential
 - nasm
-- grub
+- grub-pc
 - xorriso
 - mtools
 - qemu-system-x86
 - genext2fs
-
-Then run `git submodule update --init` to clone submodules.
+- meson
+- curl
+- git
 
 After that, you need to build mlibc. Run `make mlibc-setup`.
 
