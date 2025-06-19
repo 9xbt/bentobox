@@ -41,6 +41,7 @@
 #define SYS_getdents64      217
 #define SYS_set_tid_address 218
 #define SYS_clock_gettime   228
+#define SYS_exit_group      231
 #define SYS_newfstatat      262
 #define SYS_utimensat       280
 #define SYS_dup3            292

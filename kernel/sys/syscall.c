@@ -76,7 +76,11 @@ struct console_font_op {
 };
 
 long sys_exit(long status) {
-    //dprintf("%s:%d: %s: exiting with status %lu\n", __FILE__, __LINE__, __func__, r->rdi);
+    sched_kill(this, status);
+    __builtin_unreachable();
+}
+
+long sys_exit_group(long status) {
     sched_kill(this, status);
     __builtin_unreachable();
 }
@@ -828,6 +832,7 @@ static syscall_func syscalls[] = {
     [SYS_getdents64]        = (syscall_func)(uintptr_t)sys_getdents64,
     [SYS_set_tid_address]   = (syscall_func)(uintptr_t)sys_set_tid_address,
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
+    [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit_group,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,
     [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3
