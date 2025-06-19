@@ -72,13 +72,15 @@ int dprintf(const char *fmt, ...) {
     va_start(args, fmt);
     char buf[1024] = {0};
     int ret = vsprintf(buf, fmt, args);
+    if (serial_base == COM1) {
+        serial_puts(buf);
+    }
     if (!serial_redirect) {
-        if (serial_base == COM1) {
-            serial_puts(buf);
-        }
         puts(buf);
     } else {
-        vfs_write(serial_redirect, buf, 0, strlen(buf));
+        static long offset = 0;
+        vfs_write(serial_redirect, buf, offset, strlen(buf));
+        offset += strlen(buf);
     }
     va_end(args);
     return ret;
@@ -153,5 +155,5 @@ void serial_initialize(void) {
 }
 
 void arch_redirect_debug(void) {
-    serial_redirect = vfs_open(NULL, "/dev/serial0", false);
+    serial_redirect = vfs_open(NULL, "/tmp/kmsg", true);
 }
