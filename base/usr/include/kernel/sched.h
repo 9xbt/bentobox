@@ -61,7 +61,7 @@ struct task {
     uint64_t kernel_stack_bottom;
     struct vma_head *vma;
     uint64_t user_gs;
-    struct vfs_node *dir;
+    struct vfs_node *cwd;
 
     uint32_t pending_signals;
     void (*signal_handlers[16])(struct task *, int);

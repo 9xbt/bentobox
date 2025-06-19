@@ -219,7 +219,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
 }
 
 int exec(const char *file, int argc, char *const argv[], char *const env[]) {
-    struct vfs_node *fptr = vfs_open(NULL, file);
+    struct vfs_node *fptr = vfs_open(this->cwd, file);
     if (!fptr || fptr->type != VFS_FILE) {
         //printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
         return -1;
@@ -392,6 +392,7 @@ long fork(struct registers *r) {
     this->children = proc;
     proc->parent = this;
     proc->doing_blocking_io = false;
+    proc->cwd = this->cwd;
     memcpy(proc->fxsave, this->fxsave, sizeof proc->fxsave);
     memcpy(proc->fd_table, this->fd_table, sizeof proc->fd_table);
     memcpy(proc->sections, this->sections, sizeof proc->sections);

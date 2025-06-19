@@ -163,7 +163,7 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     }
     
     if (!target) {
-        dprintf("Target %s not found!\n", symlink->symlink_target);
+        dprintf("%s:%d: target %s not found\n", __FILE__, __LINE__, symlink->symlink_target);
         return NULL;
     }
     
@@ -174,8 +174,9 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
 }
 
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path) {
+    //dprintf("vfs: opening %s from %s\n", path, current->name);
     if (!path) return NULL;
-    if (!current) current = vfs_root;
+    if (path[0] == '/' || !current) current = vfs_root;
 
     if (!strcmp(path, ".")) {
         return current;
@@ -254,7 +255,7 @@ int vfs_close(struct vfs_node *node) {
 }
 
 void vfs_resolve_path(char *s, struct vfs_node *node) {
-    if (!node) return;
+    if (!node) node = vfs_root;
 
     char path[MAX_PATH] = "";
     struct vfs_node *current = node;

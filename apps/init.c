@@ -5,6 +5,8 @@
 #include <sys/wait.h>
 #include <sys/utsname.h>
 
+#define HOME "/root"
+
 int main(int argc, char *argv[]) {
     struct utsname sysinfo;
 
@@ -25,6 +27,8 @@ int main(int argc, char *argv[]) {
         fclose(fptr);
     }
 
+    chdir(HOME);
+
     for (;;) {
         pid_t pid = fork();
 
@@ -35,7 +39,7 @@ int main(int argc, char *argv[]) {
 
         if (pid == 0) {
             char *arg[] = { "/usr/bin/bash", NULL };
-            char *envp[] = { "HOME=/root", NULL };
+            char *envp[] = { "HOME=" HOME, NULL };
             execve(arg[0], arg, envp);
             perror("execvp");
             exit(1);

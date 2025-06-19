@@ -191,20 +191,20 @@ long sys_close(int fd) {
 }
 
 long sys_access(const char *pathname) {
-    if (vfs_open(NULL, pathname)) {
+    if (vfs_open(this->cwd, pathname)) {
         return F_OK;
     }
-    return -1;
+    return -ENOENT;
 }
 
-long sys_dup() {
-    unimplemented;
-    return -ENOSYS;
+long sys_dup(int oldfd) {
+    int newfd = fd_open("/", 0);
+    return fd_dup(oldfd, newfd);
 }
 
-long sys_dup3(int oldfd_num, int newfd_num, int flags) {
+long sys_dup3(int oldfd, int newfd, int flags) {
     (void)flags;
-    return fd_dup(oldfd_num, newfd_num);
+    return fd_dup(oldfd, newfd);
 }
 
 long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count) {
@@ -302,7 +302,7 @@ long sys_stat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(NULL, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname);
     if (!node) {
         return -ENOENT;
     }
@@ -357,9 +357,9 @@ long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restr
     
     struct vfs_node *node = NULL;
     if (pathname[0] == '/') {
-        node = vfs_open(NULL, pathname);
+        node = vfs_open(this->cwd, pathname);
     } else if (dirfd == AT_FDCWD) {
-        node = vfs_open(NULL, pathname);
+        node = vfs_open(this->cwd, pathname);
     } else {
         if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
             return -EBADF;
@@ -633,7 +633,7 @@ long sys_lstat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(NULL, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname);
     if (!node) {
         return -ENOENT;
     }
@@ -663,7 +663,7 @@ long sys_utimensat() {
 }
 
 long sys_unlink(const char *pathname) {
-    struct vfs_node *node = vfs_open(this->dir, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname);
     if (!node)
         return -ENOENT;
     vfs_close(node);
@@ -722,6 +722,23 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
     }
 }
 
+long sys_chdir(const char *path) {
+    vfs_node_t *newdir = vfs_open(this->cwd, path);
+    if (!newdir)
+        return -ENOENT;
+    this->cwd = newdir;
+    return 0;
+}
+
+long sys_getcwd(char *buf, size_t size) {
+    char path[MAX_PATH];
+    vfs_resolve_path(path, this->cwd);
+    if (size < (size_t)strlen(path) + 1)
+        return -ENAMETOOLONG;
+    strcpy(buf, path);
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 static syscall_func syscalls[] = {
@@ -749,6 +766,8 @@ static syscall_func syscalls[] = {
     [SYS_wait4]             = (syscall_func)(uintptr_t)sys_wait4,
     [SYS_uname]             = (syscall_func)(uintptr_t)sys_uname,
     [SYS_fcntl]             = (syscall_func)(uintptr_t)sys_fcntl,
+    [SYS_getcwd]            = (syscall_func)(uintptr_t)sys_getcwd,
+    [SYS_chdir]             = (syscall_func)(uintptr_t)sys_chdir,
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
     [SYS_getuid]            = (syscall_func)(uintptr_t)sys_getuid,
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,
