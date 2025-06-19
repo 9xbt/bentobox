@@ -207,7 +207,7 @@ struct task *sched_new_user_task(void *entry, const char *name, int argc, char *
     *mxcsr |= 0x8040;
     proc->children = NULL;
     proc->parent = NULL;
-    proc->dir = vfs_root;
+    proc->cwd = vfs_root;
     proc->doing_blocking_io = false;
 
     return proc;

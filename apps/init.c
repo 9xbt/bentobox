@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
         if (pid == 0) {
             char *arg[] = { "/usr/bin/bash", NULL };
-            char *envp[] = { "HOME=" HOME, NULL };
+            char *envp[] = { "HOME=" HOME, "TERM=xterm-256color", NULL };
             execve(arg[0], arg, envp);
             perror("execvp");
             exit(1);
