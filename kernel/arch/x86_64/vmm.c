@@ -32,8 +32,7 @@ void vmm_flush_tlb(uintptr_t virt) {
 
 __attribute__((no_sanitize("undefined")))
 void vmm_switch_pm(uintptr_t *pm) {
-    if (pm == NULL)
-        panic("Attempted to load a NULL pagemap!");
+    assert(pm != NULL);
 
     uint64_t flags;
     __asm__ volatile ("pushfq\n\tpopq %0\n\t" : "=r" (flags) : : "memory");

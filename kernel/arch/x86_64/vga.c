@@ -11,7 +11,7 @@
 uint8_t vga_x = 0;
 uint8_t vga_y = 0;
 uint8_t vga_color = 0x07;
-uint16_t *vga_buffer = (uint16_t *)0x20000;
+volatile uint16_t *vga_buffer = (uint16_t *)0x20000;
 
 int vga_ansi_index = 0;
 char vga_ansi_code[8] = {0};
@@ -116,6 +116,13 @@ void vga_putchar(const char c) {
             vga_x = 0;
             break;
         case '\t':
+            for (int i = 0; i < 4; i++) {
+                vga_x++;
+                if (vga_x >= 80) { 
+                    vga_x = 0;
+                    vga_y++;
+                }
+            }
             break;
         default:
             vga_buffer[vga_y * 80 + vga_x] = (vga_color << 8) | c;
