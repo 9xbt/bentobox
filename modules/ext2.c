@@ -485,7 +485,7 @@ int init() {
     ext2_cache_init();
 
     //hda = vfs_open(NULL, "/dev/hda");
-    hda = vfs_open(NULL, "/dev/sda");
+    hda = vfs_open(NULL, "/dev/sda", false);
 
     ext2_sb *sb = (ext2_sb *)kmalloc(512);
     vfs_read(hda, (void *)sb, 1024, sizeof(ext2_sb));

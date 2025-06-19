@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <kernel/vfs.h>
 
+#define TMPFS_ROOT 999999
 #define TMPFS_HASH_SIZE 256
 
 long tmpfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);

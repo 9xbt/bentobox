@@ -64,30 +64,18 @@ void vfs_add_node(struct vfs_node *root, struct vfs_node *node) {
 }
 
 int vfs_remove_node(struct vfs_node *node) {
-    if (!node) {
-        dprintf("Node is null!\n");
+    if (!node)
         return -EINVAL;
-    }
-    
-    if (node == vfs_root) {
-        dprintf("Node is /!\n");
+    if (node == vfs_root)
         return -EBUSY;
-    }
-    
-    if (node->open) {
-        dprintf("Node is open!\n");
+    if (node->open)
         return -EBUSY;
-    }
-    
-    if (node->type == VFS_DIRECTORY && node->children != NULL) {
-        dprintf("Node has children!\n");
+    if (node->type == VFS_DIRECTORY && node->children != NULL)
         return -ENOTEMPTY;
-    }
     
     if (node->parent) {
         uint8_t parent_perms = (node->parent->perms >> 6) & 0x7;
         if (!(parent_perms & 0x2)) {
-            dprintf("Access denied!\n");
             return -EACCES;
         }
     }
@@ -97,7 +85,7 @@ int vfs_remove_node(struct vfs_node *node) {
         dir = dir->parent;
     }
 
-    if (dir->inode == 999999) {
+    if (dir->inode == TMPFS_ROOT) {
         if (tmpfs_remove_file(node) == -EINVAL) {
             return -EINVAL;
         }   
@@ -157,9 +145,9 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     
     struct vfs_node *target;
     if (symlink->symlink_target[0] == '/') {
-        target = vfs_open(vfs_root, symlink->symlink_target);
+        target = vfs_open(vfs_root, symlink->symlink_target, false);
     } else {
-        target = vfs_open(symlink->parent, symlink->symlink_target);
+        target = vfs_open(symlink->parent, symlink->symlink_target, false);
     }
     
     if (!target) {
@@ -173,7 +161,7 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     return target;
 }
 
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path) {
+struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create) {
     //dprintf("vfs: opening %s from %s\n", path, current->name);
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
@@ -196,8 +184,6 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path) {
     char *copy = kmalloc(strlen(path) + 1);
     strcpy(copy, path);
     char *token = strtok(copy, "/");
-
-    bool is_tmp = (token && !strcmp(token, "tmp") && current == vfs_root);
 
     struct vfs_node *node = current;
     while (token != NULL) {
@@ -232,9 +218,16 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path) {
             if (!found) {
                 kfree(copy);
 
-                if (is_tmp) {
-                    struct vfs_node *file = tmpfs_create_file(vfs_open(NULL, "/tmp"), filename);
-                    return file;
+                if (create) {
+                    // Check if the final directory (where file will be created) is /tmp
+                    char final_path[MAX_PATH];
+                    vfs_resolve_path(final_path, node);
+                    bool is_tmp = !strcmp(final_path, "/tmp");
+                    
+                    if (is_tmp) {
+                        struct vfs_node *file = tmpfs_create_file(node, filename);
+                        return file;
+                    }
                 }
                 return NULL;
             }

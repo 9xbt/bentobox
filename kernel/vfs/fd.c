@@ -30,7 +30,7 @@ struct fd fd_new(struct vfs_node *node, int flags) {
 }
 
 int fd_open(const char *path, int flags) {
-    struct vfs_node *node = vfs_open(this->cwd, path);
+    struct vfs_node *node = vfs_open(this->cwd, path, true);
     if (!node) return -1;
 
     for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {

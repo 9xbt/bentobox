@@ -81,7 +81,7 @@ void lfb_initialize(void) {
 }
 
 void lfb_change_font(const char *path) {
-    struct vfs_node *file = vfs_open(NULL, path);
+    struct vfs_node *file = vfs_open(NULL, path, true);
     if (!file) return;
 
     if (font) kfree(font);

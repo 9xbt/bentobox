@@ -208,6 +208,6 @@ int tmpfs_remove_file(struct vfs_node *node) {
 
 void tmpfs_initialize(void) {
     struct vfs_node *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
-    tmp->inode = 999999;
+    tmp->inode = TMPFS_ROOT;
     vfs_add_node(NULL, tmp);
 }

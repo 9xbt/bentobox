@@ -191,7 +191,7 @@ long sys_close(int fd) {
 }
 
 long sys_access(const char *pathname) {
-    if (vfs_open(this->cwd, pathname)) {
+    if (vfs_open(this->cwd, pathname, false)) {
         return F_OK;
     }
     return -ENOENT;
@@ -302,7 +302,7 @@ long sys_stat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(this->cwd, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
     if (!node) {
         return -ENOENT;
     }
@@ -357,9 +357,9 @@ long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restr
     
     struct vfs_node *node = NULL;
     if (pathname[0] == '/') {
-        node = vfs_open(this->cwd, pathname);
+        node = vfs_open(this->cwd, pathname, false);
     } else if (dirfd == AT_FDCWD) {
-        node = vfs_open(this->cwd, pathname);
+        node = vfs_open(this->cwd, pathname, false);
     } else {
         if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
             return -EBADF;
@@ -633,7 +633,7 @@ long sys_lstat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(this->cwd, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
     if (!node) {
         return -ENOENT;
     }
@@ -663,7 +663,7 @@ long sys_utimensat() {
 }
 
 long sys_unlink(const char *pathname) {
-    struct vfs_node *node = vfs_open(this->cwd, pathname);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
     if (!node)
         return -ENOENT;
     vfs_close(node);
@@ -723,7 +723,7 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
 }
 
 long sys_chdir(const char *path) {
-    vfs_node_t *newdir = vfs_open(this->cwd, path);
+    vfs_node_t *newdir = vfs_open(this->cwd, path, false);
     if (!newdir)
         return -ENOENT;
     this->cwd = newdir;

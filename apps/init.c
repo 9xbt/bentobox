@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
         } else {
             int status;
             waitpid(pid, &status, 0);
-            fprintf(stderr, "init: restarting /bin/bash\n");
         }
     }
     return -1;
