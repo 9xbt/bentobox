@@ -23,6 +23,6 @@ cd ../bash/
     CC="$CC" \
     CFLAGS_FOR_BUILD="$CFLAGS" \
     LDFLAGS="$LDFLAGS"
-make -j($nproc)
+make -j$(nproc)
 mkdir -p ../bentobox/base/usr/bin
 cp bash ../bentobox/base/usr/bin/bash

@@ -17,6 +17,7 @@ extern void ps2_initialize(void);
 extern void serial_initialize(void);
 extern void console_initialize(void);
 extern void tmpfs_initialize(void);
+extern void tty_initialize(void);
 
 struct vfs_node *vfs_root = NULL;
 struct vfs_node *vfs_dev = NULL;
@@ -44,6 +45,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->read = NULL;
     node->write = NULL;
     node->symlink_target = NULL;
+    node->isatty = false;
     release(&node->lock);
     return node;
 }
@@ -302,6 +304,7 @@ void vfs_install(void) {
     vfs_root->read = NULL;
     vfs_root->write = NULL;
     vfs_root->symlink_target = NULL;
+    vfs_root->isatty = false;
     release(&vfs_root->lock);
 
     vfs_dev = vfs_create_node("dev", VFS_DIRECTORY);
@@ -312,6 +315,7 @@ void vfs_install(void) {
     serial_initialize();
     console_initialize();
     tmpfs_initialize();
+    tty_initialize();
 
     dprintf("%s:%d: initialized VFS\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");

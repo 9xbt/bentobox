@@ -124,6 +124,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
 void ps2_initialize(void) {
     struct vfs_node *keyboard = vfs_create_node("keyboard", VFS_CHARDEVICE);
     keyboard->read = ps2_keyboard_read;
+    keyboard->isatty = true;
     vfs_add_device(keyboard);
 }
 

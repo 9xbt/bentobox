@@ -30,6 +30,7 @@ typedef struct vfs_node {
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     char *symlink_target;
     atomic_flag lock;
+    bool isatty;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root;
