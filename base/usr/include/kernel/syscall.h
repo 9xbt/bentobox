@@ -17,6 +17,7 @@
 #define SYS_writev          20
 #define SYS_access          21
 #define SYS_dup             32
+#define SYS_nanosleep       35
 #define SYS_getpid          39
 #define SYS_clone           56
 #define SYS_execve          59

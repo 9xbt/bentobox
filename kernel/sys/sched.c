@@ -299,7 +299,8 @@ void sched_unblock(struct task *proc) {
 }
 
 void sched_sleep(int us) {
-    this->time.end = hpet_get_ticks() + us * (hpet_period / 1000000);
+    if (us == 0) return;
+    this->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
     sched_block(TASK_SLEEPING);
 }
 

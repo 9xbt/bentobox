@@ -790,6 +790,11 @@ long sys_getcwd(char *buf, size_t size) {
     return 0;
 }
 
+long sys_nanosleep(const struct timespec *duration, ...) {
+    sched_sleep((uint64_t)duration->tv_sec * 1000000UL + (uint64_t)duration->tv_nsec / 1000UL);
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 static syscall_func syscalls[] = {
@@ -810,6 +815,7 @@ static syscall_func syscalls[] = {
     [SYS_writev]            = (syscall_func)(uintptr_t)sys_writev,
     [SYS_access]            = (syscall_func)(uintptr_t)sys_access,
     [SYS_dup]               = (syscall_func)(uintptr_t)sys_dup,
+    [SYS_nanosleep]         = (syscall_func)(uintptr_t)sys_nanosleep,
     [SYS_getpid]            = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_clone]             = (syscall_func)(uintptr_t)sys_clone,
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
