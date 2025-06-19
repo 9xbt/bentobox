@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdbool.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>
@@ -175,7 +176,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     struct vfs_node *fptr = vfs_open(NULL, file, false);
     if (!fptr || fptr->type != VFS_FILE) {
         printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
-        return -1;
+        return -ENOENT;
     }
 
     void *buffer = kmalloc(fptr->size);
@@ -186,19 +187,19 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
         printf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
         kfree(buffer);
-        return -1;
+        return -ENOEXEC;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
         printf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
         kfree(buffer);
-        return -1;
+        return -ENOEXEC;
     }
 
     if (ehdr->e_type != ET_EXEC) {
         printf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
         kfree(buffer);
-        return -1;
+        return -ENOEXEC;
     }
 
     struct task *proc = sched_new_user_task((void *)ehdr->e_entry, file, argc, argv, env);
@@ -222,7 +223,7 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     struct vfs_node *fptr = vfs_open(this->cwd, file, false);
     if (!fptr || fptr->type != VFS_FILE) {
         //printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
-        return -1;
+        return -ENOENT;
     }
 
     void *buffer = kmalloc(fptr->size);
@@ -249,15 +250,15 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        printf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
+        dprintf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
         kfree(buffer);
-        return -1;
+        return -ENOEXEC;
     }
 
     if (ehdr->e_type != ET_EXEC) {
-        printf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
+        dprintf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
         kfree(buffer);
-        return -1;
+        return -ENOEXEC;
     }
 
     sched_lock();

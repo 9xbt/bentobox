@@ -88,7 +88,7 @@ long sys_exit_group(long status) {
 long sys_read(int fd_num, void *buffer, size_t len) {
     struct fd *fd = &this->fd_table[fd_num];
     if (!fd->node) {
-        return -1;
+        return -ENOENT;
     }
     if (fd->node->read) {
         long ret = vfs_read(fd->node, buffer, fd->offset, len);
@@ -101,7 +101,7 @@ long sys_read(int fd_num, void *buffer, size_t len) {
 long sys_write(int fd_num, void *buffer, size_t len) {
     struct fd *fd = &this->fd_table[fd_num];
     if (!fd->node) {
-        return -1;
+        return -ENOENT;
     }
     if (fd->node->write) {
         long ret = vfs_write(fd->node, buffer, fd->offset, len);
@@ -550,7 +550,7 @@ long sys_getppid(void) {
     if (this->parent)
         return this->parent->pid;
     else
-        return -1;
+        return 1;
 }
 
 long sys_getpgid(int pid) {

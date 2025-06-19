@@ -264,25 +264,25 @@ void vfs_resolve_path(char *s, struct vfs_node *node) {
 }
 
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if (!node /*|| !node->open*/) return -1;
+    if (!node /*|| !node->open*/) return -ENOENT;
     if (node->read) {
         //acquire(&node->lock);
         long ret = node->read(node, buffer, offset, len);
         //release(&node->lock);
         return ret;
     }
-    return -1;
+    return -EINVAL;
 }
 
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if (!node /*|| !node->open*/) return -1;
+    if (!node /*|| !node->open*/) return -ENOENT;
     if (node->write) {
         //acquire(&node->lock);
         long ret = node->write(node, buffer, offset, len);
         //release(&node->lock);
         return ret;
     }
-    return -1;
+    return -EINVAL;
 }
 
 bool vfs_poll(struct vfs_node *node) {
