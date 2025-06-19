@@ -122,7 +122,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Fix signals on SMP
 - [X] Move syscalls to other files
 - [ ] ioctl() font changing
-- [ ] tmpfs
+- [X] tmpfs
 - [X] char *const env[]
 - [X] Fix bash crashing (unaligned stack)
 - [X] newfstatat
@@ -133,12 +133,4 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] Userspace exposed framebuffer
 
 ## Screenshots
-![image](https://github.com/user-attachments/assets/5b9f076e-b8c6-45ee-9f03-ad815217c9a3)
-
-*/bin/sh running some commands*
-
-![image](https://github.com/user-attachments/assets/a6effec3-41a1-49ad-aad4-2acb928a91e5)
-
-*Spinning donut demo*
-
-
+![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
