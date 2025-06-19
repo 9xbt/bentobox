@@ -17,9 +17,11 @@
 #define SYS_writev          20
 #define SYS_access          21
 #define SYS_dup             32
+#define SYS_dup2            33
 #define SYS_nanosleep       35
 #define SYS_getpid          39
 #define SYS_clone           56
+#define SYS_fork            57
 #define SYS_execve          59
 #define SYS_exit            60
 #define SYS_wait4           61
@@ -33,6 +35,7 @@
 #define SYS_getgid          104
 #define SYS_geteuid         107
 #define SYS_getegid         108
+#define SYS_setppid         109
 #define SYS_getppid         110
 #define SYS_getpgid         121
 #define SYS_arch_prctl      158
@@ -44,5 +47,6 @@
 #define SYS_clock_gettime   228
 #define SYS_exit_group      231
 #define SYS_newfstatat      262
+#define SYS_pselect6        270
 #define SYS_utimensat       280
 #define SYS_dup3            292

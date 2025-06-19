@@ -123,6 +123,11 @@ long sys_execve(const char *pathname, char *const *argv, char *const *envp) {
 }
 
 long sys_clone(struct registers *r) {
+    /* TODO: properly do this */
+    return fork(r);
+}
+
+long sys_fork(struct registers *r) {
     return fork(r);
 }
 
@@ -149,12 +154,12 @@ long sys_ioctl(int fd_num, int op, void *arg) {
                 return -ENOTTY;
             }
         case TCSETS:
+        case TCSETSW:
             if (!fd->node->isatty)
                 return -ENOTTY;
             if (!arg)
                 return -EFAULT;
 
-            dprintf("fd: %d\n", fd_num);
             memcpy(&fd->tio, arg, sizeof(struct termios));
             return 0;
         case TIOCGWINSZ:
@@ -250,6 +255,10 @@ long sys_access(const char *pathname) {
 
 long sys_dup(int oldfd) {
     int newfd = fd_open("/", 0);
+    return fd_dup(oldfd, newfd);
+}
+
+long sys_dup2(int oldfd, int newfd) {
     return fd_dup(oldfd, newfd);
 }
 
@@ -559,6 +568,10 @@ long sys_getpgid(int pid) {
     return pid;
 }
 
+long sys_setpgid(void) {
+    return 0;
+}
+
 long sys_clock_gettime(int clockid, struct timespec *tp) {
     (void)clockid;
     if (!tp)
@@ -795,6 +808,10 @@ long sys_nanosleep(const struct timespec *duration, ...) {
     return 0;
 }
 
+long sys_pselect6() {
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 static syscall_func syscalls[] = {
@@ -815,9 +832,11 @@ static syscall_func syscalls[] = {
     [SYS_writev]            = (syscall_func)(uintptr_t)sys_writev,
     [SYS_access]            = (syscall_func)(uintptr_t)sys_access,
     [SYS_dup]               = (syscall_func)(uintptr_t)sys_dup,
+    [SYS_dup2]              = (syscall_func)(uintptr_t)sys_dup2,
     [SYS_nanosleep]         = (syscall_func)(uintptr_t)sys_nanosleep,
     [SYS_getpid]            = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_clone]             = (syscall_func)(uintptr_t)sys_clone,
+    [SYS_fork]              = (syscall_func)(uintptr_t)sys_fork,
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
     [SYS_exit]              = (syscall_func)(uintptr_t)sys_exit,
     [SYS_wait4]             = (syscall_func)(uintptr_t)sys_wait4,
@@ -830,6 +849,7 @@ static syscall_func syscalls[] = {
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,
     [SYS_geteuid]           = (syscall_func)(uintptr_t)sys_geteuid,
     [SYS_getegid]           = (syscall_func)(uintptr_t)sys_getegid,
+    [SYS_setppid]           = (syscall_func)(uintptr_t)sys_setpgid,
     [SYS_getppid]           = (syscall_func)(uintptr_t)sys_getppid,
     [SYS_getpgid]           = (syscall_func)(uintptr_t)sys_getpgid,
     [SYS_arch_prctl]        = (syscall_func)(uintptr_t)sys_arch_prctl,
@@ -840,12 +860,13 @@ static syscall_func syscalls[] = {
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
     [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit_group,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
+    [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,
     [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3
 };
 
 void syscall_handler(struct registers *r) {
-    if (r->rax > sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
+    if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
         dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
         sched_unlock();
@@ -853,5 +874,5 @@ void syscall_handler(struct registers *r) {
     }
 
     syscall_func handler = syscalls[r->rax];
-    r->rax = handler(r->rax == SYS_clone ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
+    r->rax = handler((r->rax == SYS_clone || r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
 }
