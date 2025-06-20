@@ -11,7 +11,7 @@
 uint8_t vga_x = 0;
 uint8_t vga_y = 0;
 uint8_t vga_color = 0x07;
-volatile uint16_t *vga_buffer = (uint16_t *)0x20000;
+volatile uint16_t *vga_buffer = (uint16_t *)0x20000; /* initial buffer */
 
 int vga_ansi_index = 0;
 char vga_ansi_code[8] = {0};
@@ -158,7 +158,7 @@ void vga_toggle_cursor(void) {
     static _Bool skip = 1;
     if (skip) { skip = 0; return; }
     
-    uint16_t *cell = &vga_buffer[vga_y * 80 + vga_x];
+    volatile uint16_t *cell = &vga_buffer[vga_y * 80 + vga_x];
     uint8_t attr = *cell >> 8;
     *cell = (*cell & 0xFF) | (((attr << 4) | (attr >> 4)) << 8);
 }
@@ -176,6 +176,6 @@ void vga_copy_to_framebuffer(void) {
 }
 
 void vga_copy_to_text(void) {
-    memcpy((void *)0xB8000, vga_buffer, 80 * 25 * 2);
+    memcpy((void *)0xB8000, (void *)0x20000, 80 * 25 * 2);
     vga_buffer = (uint16_t *)0xB8000;
 }
