@@ -4,7 +4,6 @@
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/lapic.h>
-#include <kernel/lfb.h>
 #include <kernel/mmu.h>
 #include <kernel/acpi.h>
 #include <kernel/panic.h>

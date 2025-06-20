@@ -1,6 +1,6 @@
 #include <kernel/arch/x86_64/vga.h>
 #include <kernel/mmu.h>
-#include <kernel/lfb.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/psf.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -8,7 +8,7 @@
 #include <kernel/flanterm.h>
 #include <kernel/multiboot.h>
 
-struct framebuffer lfb;
+struct framebuffer framebuffer;
 struct flanterm_context *ft_ctx = NULL;
 
 static int alloc_n = 0, grid_size;
@@ -16,9 +16,9 @@ struct flanterm_fb_context *fb_ctx;
 struct flanterm_fb_char *grid;
 static void *font = NULL;
 
-static void *lfb_malloc(size_t count) {
+static void *ft_malloc(size_t count) {
     void *ptr = kmalloc(count);
-    /* dirty hacks*/
+    /* dirty hacks */
     if (alloc_n == 0) {
         fb_ctx = ptr;
     }
@@ -30,57 +30,8 @@ static void *lfb_malloc(size_t count) {
     return ptr;
 }
 
-static void lfb_free(void *ptr, size_t count) {
+static void ft_free(void *ptr, size_t count) {
     kfree(ptr);
-}
-
-void lfb_initialize(void) {
-#ifdef __x86_64__
-    extern void *mboot;
-    struct multiboot_tag_framebuffer *fb = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
-
-    if (!fb || fb->common.framebuffer_addr == 0xB8000) {
-        dprintf("%s:%d: framebuffer not found\n", __FILE__, __LINE__);
-        vga_disable_cursor();
-        vga_copy_to_text();
-        return;
-    }
-    dprintf("%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
-
-    mmu_map_pages((ALIGN_UP((fb->common.framebuffer_pitch * fb->common.framebuffer_height), PAGE_SIZE) / PAGE_SIZE), VIRTUAL(fb->common.framebuffer_addr), (void *)fb->common.framebuffer_addr, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-
-    lfb.addr = (uint64_t)VIRTUAL(fb->common.framebuffer_addr);
-    lfb.width = fb->common.framebuffer_width;
-    lfb.height = fb->common.framebuffer_height;
-    lfb.pitch = fb->common.framebuffer_pitch;
-    lfb.fb = fb;
-
-    ft_ctx = flanterm_fb_init(
-        lfb_malloc,
-        lfb_free,
-        (uint32_t *)lfb.addr,
-        fb->common.framebuffer_width,
-        fb->common.framebuffer_height,
-        fb->common.framebuffer_pitch,
-        fb->framebuffer_red_mask_size,
-        fb->framebuffer_red_field_position,
-        fb->framebuffer_green_mask_size,
-        fb->framebuffer_green_field_position,
-        fb->framebuffer_blue_mask_size,
-        fb->framebuffer_blue_field_position,
-        NULL,
-        NULL, NULL,
-        NULL, NULL,
-        NULL, NULL,
-        NULL, 0, 0, 1,
-        0, 0,
-        0
-    );
-
-    vga_copy_to_framebuffer();
-#else
-    unimplemented;
-#endif
 }
 
 void lfb_change_font(const char *path) {
@@ -116,20 +67,20 @@ void lfb_change_font(const char *path) {
     memcpy(copy, grid, grid_size);
 
     alloc_n = 0;
-    flanterm_deinit(ft_ctx, lfb_free);
+    flanterm_deinit(ft_ctx, ft_free);
     ft_ctx = flanterm_fb_init(
-        lfb_malloc,
-        lfb_free,
-        (uint32_t *)lfb.addr,
-        lfb.fb->common.framebuffer_width,
-        lfb.fb->common.framebuffer_height,
-        lfb.fb->common.framebuffer_pitch,
-        lfb.fb->framebuffer_red_mask_size,
-        lfb.fb->framebuffer_red_field_position,
-        lfb.fb->framebuffer_green_mask_size,
-        lfb.fb->framebuffer_green_field_position,
-        lfb.fb->framebuffer_blue_mask_size,
-        lfb.fb->framebuffer_blue_field_position,
+        ft_malloc,
+        ft_free,
+        (uint32_t *)framebuffer.addr,
+        framebuffer.fb->common.framebuffer_width,
+        framebuffer.fb->common.framebuffer_height,
+        framebuffer.fb->common.framebuffer_pitch,
+        framebuffer.fb->framebuffer_red_mask_size,
+        framebuffer.fb->framebuffer_red_field_position,
+        framebuffer.fb->framebuffer_green_mask_size,
+        framebuffer.fb->framebuffer_green_field_position,
+        framebuffer.fb->framebuffer_blue_mask_size,
+        framebuffer.fb->framebuffer_blue_field_position,
         NULL,
         NULL, NULL,
         NULL, NULL,
@@ -168,6 +119,55 @@ void lfb_get_ws(struct winsize *ws) {
 
     ws->ws_row = ft_ctx->rows;
     ws->ws_col = ft_ctx->cols;
-    ws->ws_xpixel = lfb.width;
-    ws->ws_ypixel = lfb.height;
+    ws->ws_xpixel = framebuffer.width;
+    ws->ws_ypixel = framebuffer.height;
+}
+
+void framebuffer_initialize(void) {
+#ifdef __x86_64__
+    extern void *mboot;
+    struct multiboot_tag_framebuffer *fb = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+
+    if (!fb || fb->common.framebuffer_addr == 0xB8000) {
+        dprintf("%s:%d: framebuffer not found\n", __FILE__, __LINE__);
+        vga_disable_cursor();
+        vga_copy_to_text();
+        return;
+    }
+    dprintf("%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
+
+    mmu_map_pages((ALIGN_UP((fb->common.framebuffer_pitch * fb->common.framebuffer_height), PAGE_SIZE) / PAGE_SIZE), VIRTUAL(fb->common.framebuffer_addr), (void *)fb->common.framebuffer_addr, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+
+    framebuffer.addr = (uint64_t)VIRTUAL(fb->common.framebuffer_addr);
+    framebuffer.width = fb->common.framebuffer_width;
+    framebuffer.height = fb->common.framebuffer_height;
+    framebuffer.pitch = fb->common.framebuffer_pitch;
+    framebuffer.fb = fb;
+
+    ft_ctx = flanterm_fb_init(
+        ft_malloc,
+        ft_free,
+        (uint32_t *)framebuffer.addr,
+        fb->common.framebuffer_width,
+        fb->common.framebuffer_height,
+        fb->common.framebuffer_pitch,
+        fb->framebuffer_red_mask_size,
+        fb->framebuffer_red_field_position,
+        fb->framebuffer_green_mask_size,
+        fb->framebuffer_green_field_position,
+        fb->framebuffer_blue_mask_size,
+        fb->framebuffer_blue_field_position,
+        NULL,
+        NULL, NULL,
+        NULL, NULL,
+        NULL, NULL,
+        NULL, 0, 0, 1,
+        0, 0,
+        0
+    );
+
+    vga_copy_to_framebuffer();
+#else
+    unimplemented;
+#endif
 }

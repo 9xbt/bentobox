@@ -262,27 +262,35 @@ uint32_t ext2_read_singly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buf, uint
     kfree(blocks);
     kfree(valid_blocks);
     
-    uint32_t remaining = count - (valid_count * fs->block_size);
-    return remaining > count ? 0 : remaining;
+    uint32_t bytes_read = valid_count * fs->block_size;
+    return (bytes_read > count) ? count : bytes_read;
 }
 
 uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t doubly_block_id, uint8_t *buf, uint32_t count) {
     uint32_t *blocks = (uint32_t*)kmalloc(fs->block_size);
     uint32_t block_count = fs->block_size / 4;
-
     uint32_t count_block = DIV_CEILING(count, fs->block_size);
+    
     ext2_read_block(fs, doubly_block_id, blocks, fs->block_size);
+    
     uint32_t remaining = count;
+    uint32_t buf_offset = 0;
     uint32_t rem_limit = fs->block_size * fs->block_size / 4;
 
-    for (uint32_t i = 0; i < count_block; i++) {
-        if (i == block_count) break;
+    for (uint32_t i = 0; i < count_block && i < block_count && remaining > 0; i++) {
         if (blocks[i] == 0) break;
-        ext2_read_singly_blocks(fs, blocks[i], buf + (i * rem_limit), (remaining > rem_limit ? rem_limit : remaining));
-        remaining -= rem_limit;
+        
+        uint32_t to_read = (remaining > rem_limit) ? rem_limit : remaining;
+        uint32_t bytes_read = ext2_read_singly_blocks(fs, blocks[i], buf + buf_offset, to_read);
+        
+        remaining -= bytes_read;
+        buf_offset += bytes_read;
+        
+        if (bytes_read < to_read) break;
     }
+    
     kfree(blocks);
-    return remaining;
+    return count - remaining;
 }
 
 void ext2_read_inode_blocks_range(ext2_fs *fs, ext2_inode *in, uint8_t *buf, uint32_t start_block, uint32_t block_count) {

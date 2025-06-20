@@ -7,7 +7,6 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
-
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/user.h>
@@ -15,7 +14,7 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
-#include <kernel/lfb.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/sched.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
@@ -414,41 +413,35 @@ long sys_arch_prctl(int op, long extra) {
     return 0;
 }
 
-long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t offset) {
+    if (length == 0)
+        return -EINVAL;
+
     if (flags & MAP_ANONYMOUS) {
-        if (offset != 0 || fd != -1) {
-            return -EINVAL;
+        if (offset != 0 || fd_num != -1) return -EINVAL;
+
+        uint64_t vma_flags = PTE_USER;
+        if (prot != PROT_NONE) {
+            if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
+            if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
         }
-    }
-    
-    uint64_t vma_flags = PTE_USER;
-    if (prot != PROT_NONE) {
-        if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
-        if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
-    }
 
-    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
-    void *ptr;
+        size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+        void *ptr = (flags & MAP_FIXED)
+            ? vma_map(this->vma, pages, 0, (uint64_t)addr, vma_flags)
+            : vma_map(this->vma, pages, 0, 0, vma_flags);
 
-    if (flags & MAP_FIXED) {
-        if (addr == NULL) {
-            sched_unlock();
-            return -EINVAL;
-        }
-        ptr = vma_map(this->vma, pages, 0, (uint64_t)addr, vma_flags);
-    } else {
-        ptr = vma_map(this->vma, pages, 0, 0, vma_flags);
+        if (!ptr) return -ENOMEM;
+
+        if (prot != PROT_NONE) memset(ptr, 0, length);
+
+        return (long)ptr;
     }
 
-    if (!ptr)
-        return -ENOMEM;
-
-    sched_lock();
-    if ((flags & MAP_ANONYMOUS) && (prot != PROT_NONE)) {
-        memset(ptr, 0, length);
-    }
-    sched_unlock();
-    return (long)ptr;
+    struct fd *fd = &this->fd_table[fd_num];
+    if (!fd->node || !fd->node->mmap)
+        return -ENODEV;
+    return fd->node->mmap(addr, length, prot, flags, fd_num, offset);
 }
 
 long sys_munmap(void *addr, size_t length) {

@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <sys/stat.h>
 
 #define MAX_PATH            256
 #define MAX_NESTED_SYMLINKS 10
@@ -29,6 +30,7 @@ typedef struct vfs_node {
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*ioctl)(int fd, int op, void *arg);
+    long(*mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
     char *symlink_target;
     atomic_flag lock;
     bool isatty;

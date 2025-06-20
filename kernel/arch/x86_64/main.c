@@ -12,7 +12,7 @@
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/mmu.h>
 #include <kernel/pci.h>
-#include <kernel/lfb.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/acpi.h>
 #include <kernel/args.h>
 #include <kernel/panic.h>
@@ -135,8 +135,8 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	pmm_install();
 	tss_install();
 	vmm_install();
-	create_kernel_heap();
-	lfb_initialize();
+	create_kernel_heap(); // TODO: fancy this
+	framebuffer_initialize();
 
 	//printf("\n  \033[97mStarting up \033[94mbentobox (%s)\033[0m\n\n", __kernel_arch);
 

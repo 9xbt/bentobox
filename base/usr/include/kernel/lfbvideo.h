@@ -13,10 +13,10 @@ struct framebuffer {
     struct multiboot_tag_framebuffer *fb;
 };
 
-extern struct framebuffer lfb;
+extern struct framebuffer framebuffer;
 extern struct flanterm_context *ft_ctx;
 
 void fb_draw_char(struct framebuffer *fb, uint32_t x, uint32_t y, uint8_t c, uint32_t fore, uint32_t back);
-void lfb_initialize(void);
-void lfb_get_ws(struct winsize *ws);
 void lfb_change_font(const char *path);
+void lfb_get_ws(struct winsize *ws);
+void framebuffer_initialize(void);

@@ -4,7 +4,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/lapic.h>
-#include <kernel/lfb.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
 #include <kernel/ioctl.h>

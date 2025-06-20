@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/lfb.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/vfs.h>
 #include <kernel/ioctl.h>
 #include <kernel/printf.h>
