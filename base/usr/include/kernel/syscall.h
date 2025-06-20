@@ -47,6 +47,7 @@
 #define SYS_clock_gettime   228
 #define SYS_exit_group      231
 #define SYS_newfstatat      262
+#define SYS_faccessat       269
 #define SYS_pselect6        270
 #define SYS_utimensat       280
 #define SYS_dup3            292

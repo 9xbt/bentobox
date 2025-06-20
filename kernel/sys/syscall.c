@@ -165,9 +165,34 @@ long sys_close(int fd) {
 
 long sys_access(const char *pathname) {
     if (vfs_open(this->cwd, pathname, false)) {
-        return F_OK;
+        return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
     }
     return -ENOENT;
+}
+
+long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
+    if (!pathname)
+        return -EFAULT;
+    if (dirfd == AT_FDCWD) {
+        if (vfs_open(this->cwd, pathname, false)) {
+            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
+        }
+        return -ENOENT;
+    }
+    struct fd *fd = &this->fd_table[dirfd];
+    if (!fd->node)
+        return -EBADF;
+    if (pathname[0] != '/') {
+        if (vfs_open(fd->node, pathname, false)) {
+            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
+        }
+        return -ENOENT;
+    } else {
+        if (vfs_open(NULL, pathname, false)) {
+            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
+        }
+        return -ENOENT;
+    }
 }
 
 long sys_dup(int oldfd) {
@@ -777,6 +802,7 @@ static syscall_func syscalls[] = {
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
     [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit_group,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
+    [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,
     [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3
