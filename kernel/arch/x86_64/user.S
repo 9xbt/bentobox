@@ -32,7 +32,9 @@ syscall_entry:
 
     mov rdi, rsp
 
+    push 0  ; alignment
     call syscall_handler
+    pop rax
 
     pop r15
     pop r14
