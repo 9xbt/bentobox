@@ -738,7 +738,7 @@ long sys_getcwd(char *buf, size_t size) {
     return 0;
 }
 
-long sys_nanosleep(const struct timespec *duration, ...) {
+long sys_nanosleep(const struct timespec *duration) {
     sched_sleep((uint64_t)duration->tv_sec * 1000000UL + (uint64_t)duration->tv_nsec / 1000UL);
     return 0;
 }

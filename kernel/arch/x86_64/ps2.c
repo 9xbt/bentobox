@@ -126,6 +126,8 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
 }
 
 long ps2_ioctl(int fd_num, int op, void *arg) {
+    static int mode = K_XLATE;
+
     struct fd *fd = &this->fd_table[fd_num];
     switch (op) {
         case TCGETS:
@@ -133,6 +135,7 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
             break;
         case TCSETS:
         case TCSETSW:
+        case TCSETSF:
             memcpy(&fd->tio, arg, sizeof(struct termios));
             break;
         case TIOCGWINSZ:
@@ -141,6 +144,15 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
         case TIOCGNAME:
             strcpy(arg, "/dev/keyboard");
             break;
+        case KDGKBTYPE:
+            *(int *)arg = KB_101;
+            return 0;
+        case KDGKBMODE:
+            *(int *)arg = mode;
+            return 0;
+        case KDSKBMODE:
+            mode = (unsigned long)arg;
+            return 0;
         default:
             dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;

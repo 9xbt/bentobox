@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/vfs.h>
@@ -12,7 +13,8 @@ long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long tty_ioctl(int fd, int op, void *arg) {
-    return this->fd_table[0].node->ioctl(fd, op, arg);
+    long ret = this->fd_table[0].node->ioctl(fd, op, arg);
+    return ret == -EINVAL ? this->fd_table[1].node->ioctl(fd, op, arg) : ret;
 }
 
 void tty_initialize(void) {
