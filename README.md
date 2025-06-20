@@ -71,6 +71,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Framebuffer support
 - [ ] PS/2 drivers
     - [X] Keyboard
+        - [ ] Arrow key support
     - [ ] Mouse
 - [ ] Userspace support
     - [X] TSS
@@ -135,6 +136,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
 - [ ] Move FD termios to VFS nodes
+- [ ] faccessat
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

@@ -4,6 +4,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/lapic.h>
+#include <kernel/lfb.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
 #include <kernel/ioctl.h>
@@ -95,6 +96,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
 
         switch (c) {
             case '\0':
+            case '\t':
                 break;
             case '\n':
             case '\r':
@@ -128,18 +130,22 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
     switch (op) {
         case TCGETS:
             memcpy(arg, &fd->tio, sizeof(struct termios));
-            return 0;
+            break;
         case TCSETS:
         case TCSETSW:
             memcpy(&fd->tio, arg, sizeof(struct termios));
+            break;
+        case TIOCGWINSZ:
+            lfb_get_ws((struct winsize *)arg);
             return 0;
         case TIOCGNAME:
             strcpy(arg, "/dev/keyboard");
-            return 0;
+            break;
         default:
             dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
+    return 0;
 }
 
 void ps2_initialize(void) {

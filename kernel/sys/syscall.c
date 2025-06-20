@@ -123,6 +123,8 @@ long sys_wait4(int pid, int *wstatus) {
 
 long sys_ioctl(int fd_num, int op, void *arg) {
     struct fd *fd = &this->fd_table[fd_num];
+    if (fd_num < 0)
+        return -EBADF;
     if (!fd->node->isatty)
         return -ENOTTY;
     if (!arg)
