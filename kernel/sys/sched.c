@@ -190,7 +190,7 @@ struct task *sched_new_user_task(void *entry, const char *name, int argc, char *
     proc->stack = stack_top;
     proc->stack_bottom = (uint64_t)stack_bottom;
     proc->stack_bottom_phys = (uint64_t)stack_bottom_phys;
-    proc->kernel_stack = (uint64_t)kernel_stack + (4 * PAGE_SIZE);
+    proc->kernel_stack = (uint64_t)kernel_stack + (4 * PAGE_SIZE); // FIXME alignment
     proc->kernel_stack_bottom = (uint64_t)kernel_stack;
     proc->gs = (uint64_t)proc;
     proc->fs = 0;

@@ -9,14 +9,14 @@ bool ioapic_enabled = false;
 
 __attribute__((no_sanitize("undefined")))
 uint32_t ioapic_read(struct madt_ioapic* ioapic, uint8_t reg) {
-    uint32_t* ioapic_addr = (uint32_t*)(uintptr_t)ioapic->address;
+    volatile uint32_t* ioapic_addr = (uint32_t*)(uintptr_t)ioapic->address;
     ioapic_addr[0] = reg;
     return ioapic_addr[4];
 }
 
 __attribute__((no_sanitize("undefined")))
 void ioapic_write(struct madt_ioapic* ioapic, uint8_t reg, uint32_t value) {
-    uint32_t* ioapic_addr = (uint32_t*)(uintptr_t)ioapic->address;
+    volatile uint32_t* ioapic_addr = (uint32_t*)(uintptr_t)ioapic->address;
     ioapic_addr[0] = reg;
     ioapic_addr[4] = value;
 }

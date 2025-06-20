@@ -12,6 +12,7 @@
 
 uint64_t hpet_address = 0;
 uint32_t hpet_period = 0;
+struct acpi_hpet *hpet = NULL;
 
 __attribute__((no_sanitize("undefined")))
 uint64_t hpet_read(uint32_t reg) {
@@ -44,7 +45,7 @@ void hpet_read_time(long *sec, long *nsec) {
 }
 
 void hpet_install(void) {
-    struct acpi_hpet *hpet = acpi_find_table("HPET");
+    hpet = acpi_find_table("HPET");
 
     if (args_contains("hpet_mhz")) {
         hpet_address = (uint64_t)VIRTUAL(0xFED00000);

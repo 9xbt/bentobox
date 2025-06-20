@@ -451,7 +451,7 @@ int init() {
     ahci_write_reg(AHCI_IS, 0xFFFFFFFF);
 
     uint32_t pi = ahci_read_reg(AHCI_PI);
-    for (int i = 0; i < 32; i++) {
+    for (i = 0; i < 32; i++) {
         if (pi & 1) {
             uint32_t type = ahci_check_type(i);
             if (type == AHCI_DEV_SATA) {

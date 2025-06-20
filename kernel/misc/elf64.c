@@ -321,7 +321,7 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     this->vma = vma_create();
 
     if (this->sections[0].length > 0) {
-        for (int i = 0; this->sections[i].length; i++) {
+        for (i = 0; this->sections[i].length; i++) {
             for (size_t j = 0; j < ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE; j++) {
                 mmu_free((void *)mmu_get_physical(this->pml4, this->sections[i].ptr + j * PAGE_SIZE), 1);
             }

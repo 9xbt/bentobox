@@ -15,7 +15,6 @@
 #define KERNEL_VIRT_BASE 0xFFFF800000000000
 #define KERNEL_PHYS_BASE 0x100000
 
-extern uintptr_t *pml;
 extern uintptr_t *kernel_pd;
 
 void pmm_install(void);

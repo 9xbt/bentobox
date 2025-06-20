@@ -95,9 +95,9 @@ void arch_fatal(void) {
 }
 
 const char *arch_get_cmdline(void) {
-	struct multiboot_tag_string *cmdline = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_CMDLINE);
-	if (cmdline) {
-		return cmdline->string;
+	struct multiboot_tag_string *s = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_CMDLINE);
+	if (s) {
+		return s->string;
 	}
 	return "";
 }

@@ -11,7 +11,7 @@ ifeq ($(ARCH),x86_64)
 	LD = ld
     ARCH_DIR := kernel/arch/x86_64
     ASFLAGS := -f elf64 -g -F dwarf
-    CCFLAGS := -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone
+    CCFLAGS := -O2 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone #-mno-80387 -mno-sse -mno-sse2
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
     QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -m 256M -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0
 else ifeq ($(ARCH),riscv64)
@@ -60,8 +60,8 @@ run-gdb: all
 	@qemu-system-$(ARCH) $(QEMUFLAGS) -S -s
 
 .PHONY: run-kvm-vnc
-run-kvm-vnc:
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -smp 12 -accel kvm -vnc 0.0.0.0:0
+run-kvm-vnc: all
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -smp 12 -accel kvm 
 
 .PHONY: mlibc-setup
 mlibc-setup:

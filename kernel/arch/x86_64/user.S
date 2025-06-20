@@ -31,7 +31,10 @@ syscall_entry:
     popf
 
     mov rdi, rsp
+
+    add rsp, 8  ; stack alignment
     call syscall_handler
+    sub rsp, 8
 
     pop r15
     pop r14
