@@ -6,6 +6,18 @@
 #include <kernel/string.h>
 #include <kernel/lfbvideo.h>
 
+struct fb_var_screeninfo vinfo = {
+    .xres = 1280,
+    .yres = 800,
+    .xres_virtual = 1280,
+    .yres_virtual = 800,
+    .bits_per_pixel = 32,
+    .transp = { .offset = 24, .length = 8, .msb_right = 0 },
+    .red    = { .offset = 16, .length = 8, .msb_right = 0 },
+    .green  = { .offset = 8,  .length = 8, .msb_right = 0 },
+    .blue   = { .offset = 0,  .length = 8, .msb_right = 0 },
+};
+
 long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
     if (addr == NULL) {
         return framebuffer.addr + offset;
@@ -15,20 +27,9 @@ long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t of
 
 long fbdev_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     memcpy((void *)(framebuffer.addr + (uintptr_t)offset), buffer, len);
+    dprintf("fbdev write! %lu bytes\n", len);
     return len;
 }
-
-struct fb_var_screeninfo vinfo = {
-    .xres = 1280,
-    .yres = 800,
-    .xres_virtual = 1280,
-    .yres_virtual = 800,
-    .bits_per_pixel = 32,
-    .red =   { .offset = 16, .length = 8, .msb_right = 0 },
-    .green = { .offset = 8,  .length = 8, .msb_right = 0 },
-    .blue =  { .offset = 0,  .length = 8, .msb_right = 0 },
-    .transp = { .offset = 24, .length = 8, .msb_right = 0 }, // optional alpha
-};
 
 long fbdev_ioctl(int fd_num, int op, void *arg) {
     struct fd *fd = &this->fd_table[fd_num];

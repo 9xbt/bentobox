@@ -15,6 +15,7 @@ struct framebuffer {
 
 extern struct framebuffer framebuffer;
 extern struct flanterm_context *ft_ctx;
+extern struct fb_var_screeninfo vinfo;
 
 void fb_draw_char(struct framebuffer *fb, uint32_t x, uint32_t y, uint8_t c, uint32_t fore, uint32_t back);
 void lfb_change_font(const char *path);

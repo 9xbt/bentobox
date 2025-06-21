@@ -623,6 +623,42 @@ long sys_writev(int fd_num, const struct iovec *iov, int iovcnt) {
     return total_written;
 }
 
+long sys_readv(int fd_num, const struct iovec *iov, int iovcnt) {
+    if (iovcnt < 0 || iovcnt > IOV_MAX)
+        return -EINVAL;
+    if (!iov && iovcnt > 0)
+        return -EFAULT;
+    
+    struct fd *fd = &this->fd_table[fd_num];
+    if (!fd->node)
+        return -EBADF;
+    if (!fd->node->read)
+        return -EINVAL;
+    
+    ssize_t total_read = 0;
+    
+    for (int i = 0; i < iovcnt; i++) {
+        if (!iov[i].iov_base && iov[i].iov_len > 0)
+            return -EFAULT;
+        if (iov[i].iov_len == 0)
+            continue;
+        
+        long ret = fd->node->read(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len);
+        if (ret < 0) {
+            if (total_read == 0)
+                return ret;
+            break;
+        }
+        
+        fd->offset += ret;
+        total_read += ret;
+        
+        if ((size_t)ret < iov[i].iov_len)
+            break;
+    }
+    return total_read;
+}
+
 long sys_set_tid_address(int *tidptr) {
     return this->pid;
 }
@@ -764,6 +800,7 @@ static syscall_func syscalls[] = {
     [SYS_rt_sigaction]      = (syscall_func)(uintptr_t)sys_rt_sigaction,
     [SYS_rt_sigprocmask]    = (syscall_func)(uintptr_t)sys_rt_sigprocmask,
     [SYS_ioctl]             = (syscall_func)(uintptr_t)sys_ioctl,
+    [SYS_readv]             = (syscall_func)(uintptr_t)sys_readv,
     [SYS_writev]            = (syscall_func)(uintptr_t)sys_writev,
     [SYS_access]            = (syscall_func)(uintptr_t)sys_access,
     [SYS_dup]               = (syscall_func)(uintptr_t)sys_dup,
@@ -802,6 +839,8 @@ static syscall_func syscalls[] = {
 };
 
 void syscall_handler(struct registers *r) {
+    //dprintf("(%lu) start... ", r->rax);
+
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
         dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
@@ -811,4 +850,6 @@ void syscall_handler(struct registers *r) {
 
     syscall_func handler = syscalls[r->rax];
     r->rax = handler((r->rax == SYS_clone || r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
+
+    //dprintf("end\n");
 }

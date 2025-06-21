@@ -14,6 +14,7 @@
 #define SYS_rt_sigaction    13
 #define SYS_rt_sigprocmask  14
 #define SYS_ioctl           16
+#define SYS_readv           19
 #define SYS_writev          20
 #define SYS_access          21
 #define SYS_dup             32
