@@ -11,6 +11,7 @@ struct fd fd_new(struct vfs_node *node, int flags) {
     fd.node = node;
     fd.flags = flags;
     fd.offset = 0;
+    fd.open = true;
 
     fd.tio.c_iflag = BRKINT | ICRNL | IXON;
     fd.tio.c_oflag = OPOST | ONLCR;
@@ -34,7 +35,7 @@ int fd_open(const char *path, int flags) {
     if (!node) return -ENOENT;
 
     for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {
-        if (!this->fd_table[i].node) {
+        if (!this->fd_table[i].node && !this->fd_table[i].open) {
             this->fd_table[i] = fd_new(node, flags);
             if (flags & O_APPEND) {
                 this->fd_table[i].offset = node->size - 1;

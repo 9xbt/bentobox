@@ -131,14 +131,15 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] SIOCGWINSZ
 - [X] Fix bash build
 - [X] Fix mlibc symlinks
-- [ ] Userspace exposed framebuffer
-- [ ] TTY operations
+- [X] Userspace exposed framebuffer
+- [X] TTY operations
 - [ ] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
 - [ ] Move FD termios to VFS nodes
-- [ ] faccessat
+- [X] faccessat
 - [ ] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
+- [ ] Proper VFS drivers
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

@@ -21,7 +21,6 @@
 #define SYS_dup2            33
 #define SYS_nanosleep       35
 #define SYS_getpid          39
-#define SYS_clone           56
 #define SYS_fork            57
 #define SYS_execve          59
 #define SYS_exit            60

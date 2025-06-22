@@ -60,3 +60,5 @@ struct vfs_node *vfs_create_symlink(const char *name, const char *target);
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);
 bool vfs_poll(struct vfs_node *node);
 int vfs_remove_node(struct vfs_node *node);
+long vfs_check_perms(struct vfs_node *node, int mode);
+unsigned int vfs_convert_mode(enum vfs_node_type type, uint16_t perms);

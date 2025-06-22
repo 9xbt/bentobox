@@ -22,121 +22,121 @@
 #include <kernel/syscall.h>
 #include <kernel/version.h>
 
-#define SEEK_SET    0
-#define SEEK_CUR    1
-#define SEEK_END    2
-
-#define	R_OK	4
-#define	W_OK	2
-#define	X_OK	1
-#define	F_OK	0
-
-#define DT_REG  8
-#define DT_BLK  6
-#define DT_DIR  4
-#define DT_CHR  2
-#define DT_UNKNOWN 0
-
-#define AT_FDCWD -100
-#define AT_SYMLINK_NOFOLLOW 0x100
-
-#define IOV_MAX 1024
-
-struct linux_dirent64 {
-    uint64_t       d_ino;
-    int64_t        d_off;
-    unsigned short d_reclen;
-    unsigned char  d_type;
-    char           d_name[];
-};
-
-struct iovec {
-    void *iov_base;
-    size_t iov_len;
-};
-
-long sys_exit(long status) {
-    sched_kill(this, status);
-    __builtin_unreachable();
-}
-
-long sys_exit_group(long status) {
-    sched_kill(this, status);
-    __builtin_unreachable();
-}
-
-long sys_read(int fd_num, void *buffer, size_t len) {
+long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
     struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node) {
+    if (!fd->node)
         return -ENOENT;
-    }
-    if (fd->node->read) {
-        long ret = vfs_read(fd->node, buffer, fd->offset, len);
-        fd->offset += ret;
-        return ret;
-    }
+    if ((!fd->node->write && write) || (!fd->node->read && !write))
+        return 0;
+
+    long ret = write ?
+        vfs_write(fd->node, buffer, fd->offset, len) :
+        vfs_read(fd->node, buffer, fd->offset, len);
+    fd->offset += ret;
+    return ret;
     return 0;
 }
 
-long sys_write(int fd_num, void *buffer, size_t len) {
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node) {
+long sys_read(int fd, void *buffer, size_t len) {
+    return sys_read_write(fd, buffer, len, false);
+}
+
+long sys_write(int fd, void *buffer, size_t len) {
+    return sys_read_write(fd, buffer, len, true);
+}
+
+long sys_open(const char *pathname, int flags, mode_t mode) {
+    (void)mode;
+    return fd_open(pathname, flags);
+}
+
+long sys_close(int fd) {
+    return fd_close(fd);
+}
+
+long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
+    if (!node)
         return -ENOENT;
+    
+    memset(statbuf, 0, sizeof(struct stat));
+    statbuf->st_mode = vfs_convert_mode(node->type, node->perms);
+    statbuf->st_nlink = 0;
+    statbuf->st_uid = 0;
+    statbuf->st_gid = 0;
+    if (symlink) {
+        // TODO do this properly
+        statbuf->st_nlink = 1;
+        statbuf->st_ino = node->inode;
     }
-    if (fd->node->write) {
-        long ret = vfs_write(fd->node, buffer, fd->offset, len);
-        fd->offset += ret;
-        return ret;
+    
+    switch (node->type) {
+        case VFS_FILE:
+            statbuf->st_size = node->size;
+            break;
+        case VFS_DIRECTORY:
+            statbuf->st_size = 4096;
+            break;
+        default:
+            break;
     }
     return 0;
 }
 
-long sys_getpid(void) {
-    return this->pid;
-}
-
-long sys_execve(const char *pathname, char *const *argv, char *const *envp) {
-    int argc;
-    for (argc = 0; argv[argc]; argc++);
-
-    return exec(pathname, argc, argv, envp);
-}
-
-long sys_clone(struct registers *r) {
-    /* TODO: properly do this */
-    return fork(r);
-}
-
-long sys_fork(struct registers *r) {
-    return fork(r);
-}
-
-long sys_wait4(int pid, int *wstatus) {
-    if (!this->children) {
-        return -ECHILD;
-    }
-    sched_block(TASK_PAUSED);
-    *wstatus = this->child_exit;
-    return 0;
-}
-
-long sys_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = &this->fd_table[fd_num];
-    if (fd_num < 0)
-        return -EBADF;
-    if (!fd->node->isatty)
-        return -ENOTTY;
-    if (!arg)
+long sys_stat(const char *pathname, struct stat *statbuf) {
+    if (!pathname || !statbuf)
         return -EFAULT;
-    return fd->node->ioctl(fd_num, op, arg);
+    return vfs_stat(vfs_open(this->cwd, pathname, false, false), statbuf, false);
+}
+
+long sys_fstat(int fd_num, struct stat *statbuf) {
+    struct fd *fd = &this->fd_table[fd_num];
+    if (!fd->node || !statbuf)
+        return -EFAULT;
+    return vfs_stat(fd->node, statbuf, false);
+}
+
+long sys_lstat(const char *pathname, struct stat *statbuf) {
+    if (!pathname || !statbuf)
+        return -EFAULT;
+    return vfs_stat(vfs_open(this->cwd, pathname, false, false), statbuf, true);
+}
+
+long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restrict statbuf, int flags) {
+    (void)flags;
+    if (!pathname || !statbuf)
+        return -EFAULT;
+    
+    struct vfs_node *node = NULL;
+    if (pathname[0] == '/') {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else if (dirfd == AT_FDCWD) {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else {
+        if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
+            return -EBADF;
+        }
+
+        struct fd *dir_fd = &this->fd_table[dirfd];
+        if (dir_fd->node->type != VFS_DIRECTORY)
+            return -ENOTDIR;
+
+        struct vfs_node *child = dir_fd->node->children;
+        while (child) {
+            if (!strcmp(child->name, pathname)) {
+                node = child;
+                break;
+            }
+            child = child->next;
+        }
+    }
+    return vfs_stat(node, statbuf, true);
 }
 
 long sys_lseek(int fd_num, off_t offset, int whence) {
     struct fd *fd = &this->fd_table[fd_num];
 
-    if (fd->node->type == VFS_CHARDEVICE) {
+    if (fd->node->type == VFS_CHARDEVICE)
         return -ESPIPE;
-    }
 
     switch (whence) {
         case SEEK_SET:
@@ -153,45 +153,194 @@ long sys_lseek(int fd_num, off_t offset, int whence) {
     return fd->offset;
 }
 
-long sys_open(const char *pathname, int flags, mode_t mode) {
-    (void)mode;
-    return fd_open(pathname, flags);
-}
+long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t offset) {
+    if (length == 0)
+        return -EINVAL;
 
-long sys_close(int fd) {
-    return fd_close(fd);
-}
+    if (flags & MAP_ANONYMOUS) {
+        if (offset != 0 || fd_num != -1) return -EINVAL;
 
-long sys_access(const char *pathname) {
-    if (vfs_open(this->cwd, pathname, false, false)) {
-        return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
+        uint64_t vma_flags = PTE_USER;
+        if (prot != PROT_NONE) {
+            if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
+            if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
+        }
+
+        size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+        void *ptr = (flags & MAP_FIXED)
+            ? vma_map(this->vma, pages, 0, (uint64_t)addr, vma_flags)
+            : vma_map(this->vma, pages, 0, 0, vma_flags);
+
+        if (!ptr) return -ENOMEM;
+
+        if (prot != PROT_NONE) memset(ptr, 0, length);
+
+        return (long)ptr;
     }
-    return -ENOENT;
+
+    struct fd *fd = &this->fd_table[fd_num];
+    if (!fd->node || !fd->node->mmap)
+        return -ENODEV;
+    return fd->node->mmap(addr, length, prot, flags, fd_num, offset);
+}
+
+long sys_munmap(void *addr, size_t length) {
+    if (addr == NULL ||
+        (uintptr_t)addr % PAGE_SIZE != 0 ||
+        length == 0)
+        return -EINVAL;
+
+    sched_lock();
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+    uintptr_t start_addr = (uintptr_t)addr;
+    uintptr_t end_addr = start_addr + (pages * PAGE_SIZE);
+
+    uintptr_t current_addr = start_addr;
+
+    while (current_addr < end_addr) {
+        vma_unmap_addr(this->vma, (void *)current_addr);
+        current_addr += PAGE_SIZE;
+    }
+
+    sched_unlock();
+    return 0;
+}
+
+long sys_brk(void *addr) {
+    size_t i;
+    for (i = 0; i < sizeof this->sections / sizeof(struct task_section); i++) {
+        if (this->sections[i].ptr == 0)
+            break;
+    }
+    
+    if (i == 0) {
+        dprintf("%s:%d: WARNING: '%s' has no sections\n", __FILE__, __LINE__, this->name);
+        return -ENOMEM;
+    }
+    
+    struct task_section *section = &this->sections[i - 1];
+    uintptr_t current_brk = section->ptr + section->length;
+    
+    uintptr_t new_brk = (uintptr_t)addr;
+    if (!new_brk || new_brk < section->ptr || new_brk == current_brk)
+        return current_brk;
+    
+    if (new_brk > current_brk) {
+        uintptr_t map_start = ALIGN_UP(current_brk, PAGE_SIZE);
+        uintptr_t map_end = ALIGN_UP(new_brk, PAGE_SIZE);
+        size_t length = map_end - map_start;
+        
+        if (length > 0) {
+            size_t pages = length / PAGE_SIZE;
+            void *new_addr = vma_map(this->vma, pages, 0, map_start, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+            if (!new_addr) {
+                return current_brk;
+            }
+        }
+        section->length = new_brk - section->ptr;
+        
+    } else {
+        uintptr_t unmap_start = ALIGN_UP(new_brk, PAGE_SIZE);
+        uintptr_t unmap_end = ALIGN_UP(current_brk, PAGE_SIZE);
+        size_t length = unmap_end - unmap_start;
+        
+        if (length > 0) {
+            dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
+        }
+        section->length = new_brk - section->ptr;
+    }
+    
+    return new_brk;
+}
+
+long sys_rt_sigaction() {
+    return 0;
+}
+
+long sys_rt_sigprocmask() {
+    return 0;
+}
+
+long sys_ioctl(int fd_num, int op, void *arg) {
+    struct fd *fd = &this->fd_table[fd_num];
+    if (fd_num < 0)
+        return -EBADF;
+    if (!fd->node->isatty)
+        return -ENOTTY;
+    if (!arg)
+        return -EFAULT;
+    return fd->node->ioctl(fd_num, op, arg);
+}
+
+struct iovec {
+    void *iov_base;
+    size_t iov_len;
+};
+
+#define IOV_MAX 1024
+
+long sys_read_writev(int fd_num, const struct iovec *iov, int iovcnt, bool write) {
+    if (iovcnt < 0 || iovcnt > IOV_MAX)
+        return -EINVAL;
+    if (!iov && iovcnt > 0)
+        return -EFAULT;
+    
+    struct fd *fd = &this->fd_table[fd_num];
+    if (!fd->node)
+        return -EBADF;
+    if ((!fd->node->write && write) || (!fd->node->read && !write))
+        return -EINVAL;
+    
+    ssize_t total_written = 0;
+    
+    for (int i = 0; i < iovcnt; i++) {
+        if (!iov[i].iov_base && iov[i].iov_len > 0)
+            return -EFAULT;
+        if (iov[i].iov_len == 0)
+            continue;
+        
+        long ret = write ?
+            fd->node->write(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len) :
+            fd->node->read(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len);
+        if (ret < 0) {
+            if (total_written == 0)
+                return ret;
+            break;
+        }
+        
+        fd->offset += ret;
+        total_written += ret;
+        
+        if ((size_t)ret < iov[i].iov_len)
+            break;
+    }
+    return total_written;
+}
+
+long sys_writev(int fd, const struct iovec *iov, int iovcnt) {
+    return sys_read_writev(fd, iov, iovcnt, true);
+}
+
+long sys_readv(int fd, const struct iovec *iov, int iovcnt) {
+    return sys_read_writev(fd, iov, iovcnt, false);
+}
+
+long sys_access(const char *pathname, int mode) {
+    return vfs_check_perms(vfs_open(this->cwd, pathname, false, false), mode);
 }
 
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     if (!pathname)
         return -EFAULT;
-    if (dirfd == AT_FDCWD) {
-        if (vfs_open(this->cwd, pathname, false, false)) {
-            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
-        }
-        return -ENOENT;
-    }
+    if (dirfd == AT_FDCWD)
+        return vfs_check_perms(vfs_open(this->cwd, pathname, false, false), mode);
     struct fd *fd = &this->fd_table[dirfd];
     if (!fd->node)
         return -EBADF;
-    if (pathname[0] != '/') {
-        if (vfs_open(fd->node, pathname, false, false)) {
-            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
-        }
-        return -ENOENT;
-    } else {
-        if (vfs_open(NULL, pathname, false, false)) {
-            return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
-        }
-        return -ENOENT;
-    }
+    if (pathname[0] != '/')
+        return vfs_check_perms(vfs_open(fd->node, pathname, false, false), mode);
+    else
+        return vfs_check_perms(vfs_open(NULL, pathname, false, false), mode);
 }
 
 long sys_dup(int oldfd) {
@@ -207,6 +356,217 @@ long sys_dup3(int oldfd, int newfd, int flags) {
     (void)flags;
     return fd_dup(oldfd, newfd);
 }
+
+long sys_nanosleep(const struct timespec *duration) {
+    sched_sleep((uint64_t)duration->tv_sec * 1000000UL + (uint64_t)duration->tv_nsec / 1000UL);
+    return 0;
+}
+
+long sys_fork(struct registers *r) {
+    return fork(r);
+}
+
+long sys_execve(const char *pathname, char *const *argv, char *const *envp) {
+    int argc;
+    for (argc = 0; argv[argc]; argc++);
+
+    return exec(pathname, argc, argv, envp);
+}
+
+long sys_exit(long status) {
+    sched_kill(this, status);
+    __builtin_unreachable();
+}
+
+long sys_wait4(int pid, int *wstatus) {
+    if (!this->children) {
+        return -ECHILD;
+    }
+    sched_block(TASK_PAUSED);
+    *wstatus = this->child_exit;
+    return 0;
+}
+
+char hostname[256] = "localhost";
+
+long sys_uname(struct utsname *utsname) {
+    if (!utsname)
+        return -EFAULT;
+
+    strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
+    strncpy(utsname->nodename, hostname, sizeof utsname->nodename);
+    /* TODO: should use snprintf here */
+    sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
+    sprintf(utsname->version, "%s-dirty %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    return 0;
+}
+
+long sys_fcntl(int fd_num, int cmd, long arg) {
+    if (fd_num < 0 ||
+        fd_num >= (signed)(sizeof this->fd_table / sizeof(struct fd)) ||
+        !this->fd_table[fd_num].node) {
+        return -EBADF;
+    }
+
+    struct fd *fd = &this->fd_table[fd_num];
+    switch (cmd) {
+        case F_DUPFD: {
+            int start_fd = (arg < 0) ? 0 : (int)arg;
+            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
+                if (!this->fd_table[i].node) {
+                    this->fd_table[i] = *fd;
+                    return i;
+                }
+            }
+            return -EMFILE;
+        }
+        case F_DUPFD_CLOEXEC: {
+            int start_fd = (arg < 0) ? 0 : (int)arg;
+            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
+                if (!this->fd_table[i].node) {
+                    this->fd_table[i] = *fd;
+                    this->fd_table[i].flags |= FD_CLOEXEC;
+                    return i;
+                }
+            }
+            return -EMFILE;
+        }
+        case F_GETFD:
+            return fd->flags & FD_CLOEXEC;
+        case F_SETFD:
+            if (arg & FD_CLOEXEC) {
+                fd->flags |= FD_CLOEXEC;
+            } else {
+                fd->flags &= ~FD_CLOEXEC;
+            }
+            return 0;
+        case F_GETFL:
+        case F_SETFL:
+            return 0;
+        case F_GETLK:
+        case F_SETLK:
+        case F_SETLKW:
+            return -ENOSYS;
+        default:
+            dprintf("%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
+            return -EINVAL;
+    }
+}
+
+long sys_getcwd(char *buf, size_t size) {
+    char path[MAX_PATH];
+    vfs_resolve_path(path, this->cwd);
+    if (size < (size_t)strlen(path) + 1)
+        return -ENAMETOOLONG;
+    strcpy(buf, path);
+    return 0;
+}
+
+long sys_chdir(const char *path) {
+    vfs_node_t *newdir = vfs_open(this->cwd, path, false, false);
+    if (!newdir)
+        return -ENOENT;
+    this->cwd = newdir;
+    return 0;
+}
+
+long sys_mkdir(const char *pathname, mode_t mode) {
+    if (!vfs_open(this->cwd, pathname, true, true)) {
+        return -EROFS;
+    }
+    return 0;
+}
+
+long sys_rmdir(const char *pathname, mode_t mode) {
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, true);
+    if (!node)
+        return -ENOENT;
+    if (node->type != VFS_DIRECTORY)
+        return -ENOTDIR;
+    return vfs_remove_node(node);
+}
+
+long sys_unlink(const char *pathname) {
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
+    if (!node)
+        return -ENOENT;
+    vfs_close(node);
+    return vfs_remove_node(node);
+}
+
+long sys_getuid(void) {
+    return 0;
+}
+
+long sys_getgid(void) {
+    return 0;
+}
+
+long sys_geteuid(void) {
+    return 0;
+}
+
+long sys_getegid(void) {
+    return 0;
+}
+
+long sys_getppid(void) {
+    if (this->parent)
+        return this->parent->pid;
+    else
+        return 1;
+}
+
+long sys_getpgid(int pid) {
+    if (!pid)
+        return this->pid;
+    return pid;
+}
+
+long sys_setpgid(void) {
+    return 0;
+}
+
+long sys_arch_prctl(int op, long extra) {
+    switch (op) {
+        case 0x1002: /* ARCH_SET_FS */
+            write_fs(extra);
+            this->fs = extra;
+            break;
+        default:
+            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            return -EINVAL;
+    }
+    return 0;
+}
+
+long sys_sethostname(const char *name, size_t len) {
+    if (!name)
+        return -EFAULT;
+    if (len > sizeof hostname)
+        return -EINVAL;
+    memcpy(hostname, name, len);
+    hostname[len] = 0;
+    return 0;
+}
+
+long sys_getpid(void) {
+    return this->pid;
+}
+
+struct linux_dirent64 {
+    uint64_t       d_ino;
+    int64_t        d_off;
+    unsigned short d_reclen;
+    unsigned char  d_type;
+    char           d_name[];
+};
+
+#define DT_REG  8
+#define DT_BLK  6
+#define DT_DIR  4
+#define DT_CHR  2
+#define DT_UNKNOWN 0
 
 long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count) {
     if (fd_num < 0 || fd_num >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[fd_num].node) {
@@ -273,238 +633,8 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
     return offset;
 }
 
-static unsigned int convert_mode(enum vfs_node_type type, uint16_t perms) {
-    unsigned int mode = 0;
-    
-    switch (type) {
-        case VFS_FILE:
-            mode |= S_IFREG;
-            break;
-        case VFS_DIRECTORY:
-            mode |= S_IFDIR;
-            break;
-        case VFS_CHARDEVICE:
-            mode |= S_IFCHR;
-            break;
-        case VFS_BLOCKDEVICE:
-            mode |= S_IFBLK;
-            break;
-        default:
-            mode |= S_IFREG;
-            break;
-    }
-    
-    mode |= (perms & 07777);
-    return mode;
-}
-
-long sys_stat(const char *pathname, struct stat *statbuf) {
-    if (!pathname || !statbuf) {
-        return -EFAULT;
-    }
-    
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
-    if (!node) {
-        return -ENOENT;
-    }
-    
-    memset(statbuf, 0, sizeof(struct stat));
-    
-    statbuf->st_mode = convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 0;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    
-    if (node->type == VFS_FILE) {
-        statbuf->st_size = node->size;
-    } else if (node->type == VFS_DIRECTORY) {
-        statbuf->st_size = 4096;
-    } else {
-        statbuf->st_size = 0;
-    }
-    return 0;
-}
-
-long sys_fstat(int fd_num, struct stat *statbuf) {
-    struct fd *fd = &this->fd_table[fd_num];
-
-    if (!fd->node || !statbuf) {
-        return -EFAULT;
-    }
-    
-    struct vfs_node *node = fd->node;
-    
-    memset(statbuf, 0, sizeof(struct stat));
-    
-    statbuf->st_mode = convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 0;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    
-    if (node->type == VFS_FILE) {
-        statbuf->st_size = node->size;
-    } else if (node->type == VFS_DIRECTORY) {
-        statbuf->st_size = 4096;
-    } else {
-        statbuf->st_size = 0;
-    }
-    return 0;
-}
-
-long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restrict statbuf, int flags) {
-    (void)flags;
-    if (!pathname || !statbuf)
-        return -EFAULT;
-    
-    struct vfs_node *node = NULL;
-    if (pathname[0] == '/') {
-        node = vfs_open(this->cwd, pathname, false, false);
-    } else if (dirfd == AT_FDCWD) {
-        node = vfs_open(this->cwd, pathname, false, false);
-    } else {
-        if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
-            return -EBADF;
-        }
-
-        struct fd *dir_fd = &this->fd_table[dirfd];
-        if (dir_fd->node->type != VFS_DIRECTORY)
-            return -ENOTDIR;
-
-        struct vfs_node *child = dir_fd->node->children;
-        while (child) {
-            if (!strcmp(child->name, pathname)) {
-                node = child;
-                break;
-            }
-            child = child->next;
-        }
-    }
-
-    if (!node)
-        return -ENOENT;
-
-    memset(statbuf, 0, sizeof(struct stat));
-    statbuf->st_mode = convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 1;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    statbuf->st_ino = node->inode;
-
-    if (node->type == VFS_FILE) {
-        statbuf->st_size = node->size;
-    } else if (node->type == VFS_DIRECTORY) {
-        statbuf->st_size = 4096;
-    } else {
-        statbuf->st_size = 0;
-    }
-    return 0;
-}
-
-long sys_arch_prctl(int op, long extra) {
-    switch (op) {
-        case 0x1002: /* ARCH_SET_FS */
-            write_fs(extra);
-            this->fs = extra;
-            break;
-        default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
-            return -EINVAL;
-    }
-    return 0;
-}
-
-long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t offset) {
-    if (length == 0)
-        return -EINVAL;
-
-    if (flags & MAP_ANONYMOUS) {
-        if (offset != 0 || fd_num != -1) return -EINVAL;
-
-        uint64_t vma_flags = PTE_USER;
-        if (prot != PROT_NONE) {
-            if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
-            if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
-        }
-
-        size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
-        void *ptr = (flags & MAP_FIXED)
-            ? vma_map(this->vma, pages, 0, (uint64_t)addr, vma_flags)
-            : vma_map(this->vma, pages, 0, 0, vma_flags);
-
-        if (!ptr) return -ENOMEM;
-
-        if (prot != PROT_NONE) memset(ptr, 0, length);
-
-        return (long)ptr;
-    }
-
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node || !fd->node->mmap)
-        return -ENODEV;
-    return fd->node->mmap(addr, length, prot, flags, fd_num, offset);
-}
-
-long sys_munmap(void *addr, size_t length) {
-    if (addr == NULL ||
-        (uintptr_t)addr % PAGE_SIZE != 0 ||
-        length == 0)
-        return -EINVAL;
-
-    sched_lock();
-    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
-    uintptr_t start_addr = (uintptr_t)addr;
-    uintptr_t end_addr = start_addr + (pages * PAGE_SIZE);
-
-    uintptr_t current_addr = start_addr;
-
-    while (current_addr < end_addr) {
-        vma_unmap_addr(this->vma, (void *)current_addr);
-        current_addr += PAGE_SIZE;
-    }
-
-    sched_unlock();
-    return 0;
-}
-
-long sys_rt_sigaction() {
-    return 0;
-}
-
-long sys_rt_sigprocmask() {
-    return 0;
-}
-
-long sys_getuid(void) {
-    return 0;
-}
-
-long sys_getgid(void) {
-    return 0;
-}
-
-long sys_geteuid(void) {
-    return 0;
-}
-
-long sys_getegid(void) {
-    return 0;
-}
-
-long sys_getppid(void) {
-    if (this->parent)
-        return this->parent->pid;
-    else
-        return 1;
-}
-
-long sys_getpgid(int pid) {
-    if (!pid)
-        return this->pid;
-    return pid;
-}
-
-long sys_setpgid(void) {
-    return 0;
+long sys_set_tid_address(int *tidptr) {
+    return this->pid;
 }
 
 long sys_clock_gettime(int clockid, struct timespec *tp) {
@@ -516,288 +646,14 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
     return 0;
 }
 
-char hostname[256] = "localhost";
-
-long sys_sethostname(const char *name, size_t len) {
-    if (!name)
-        return -EFAULT;
-    if (len > sizeof hostname)
-        return -EINVAL;
-    memcpy(hostname, name, len);
-    hostname[len] = 0;
-    return 0;
-}
-
-long sys_uname(struct utsname *utsname) {
-    if (!utsname)
-        return -EFAULT;
-
-    strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
-    strncpy(utsname->nodename, hostname, sizeof utsname->nodename);
-    /* TODO: should use snprintf here */
-    sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
-    sprintf(utsname->version, "%s-dirty %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
-    return 0;
-}
-
-long sys_brk(void *addr) {
-    size_t i;
-    for (i = 0; i < sizeof this->sections / sizeof(struct task_section); i++) {
-        if (this->sections[i].ptr == 0)
-            break;
-    }
-    
-    if (i == 0) {
-        dprintf("%s:%d: WARNING: '%s' has no sections\n", __FILE__, __LINE__, this->name);
-        return -ENOMEM;
-    }
-    
-    struct task_section *section = &this->sections[i - 1];
-    uintptr_t current_brk = section->ptr + section->length;
-    
-    uintptr_t new_brk = (uintptr_t)addr;
-    if (!new_brk || new_brk < section->ptr || new_brk == current_brk)
-        return current_brk;
-    
-    if (new_brk > current_brk) {
-        uintptr_t map_start = ALIGN_UP(current_brk, PAGE_SIZE);
-        uintptr_t map_end = ALIGN_UP(new_brk, PAGE_SIZE);
-        size_t length = map_end - map_start;
-        
-        if (length > 0) {
-            size_t pages = length / PAGE_SIZE;
-            void *new_addr = vma_map(this->vma, pages, 0, map_start, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-            if (!new_addr) {
-                return current_brk;
-            }
-        }
-        section->length = new_brk - section->ptr;
-        
-    } else {
-        uintptr_t unmap_start = ALIGN_UP(new_brk, PAGE_SIZE);
-        uintptr_t unmap_end = ALIGN_UP(current_brk, PAGE_SIZE);
-        size_t length = unmap_end - unmap_start;
-        
-        if (length > 0) {
-            dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
-        }
-        section->length = new_brk - section->ptr;
-    }
-    
-    return new_brk;
-}
-
-long sys_writev(int fd_num, const struct iovec *iov, int iovcnt) {
-    if (iovcnt < 0 || iovcnt > IOV_MAX)
-        return -EINVAL;
-    if (!iov && iovcnt > 0)
-        return -EFAULT;
-    
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node)
-        return -EBADF;
-    if (!fd->node->write)
-        return -EINVAL;
-    
-    ssize_t total_written = 0;
-    
-    for (int i = 0; i < iovcnt; i++) {
-        if (!iov[i].iov_base && iov[i].iov_len > 0)
-            return -EFAULT;
-        if (iov[i].iov_len == 0)
-            continue;
-        
-        long ret = fd->node->write(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len);
-        if (ret < 0) {
-            if (total_written == 0)
-                return ret;
-            break;
-        }
-        
-        fd->offset += ret;
-        total_written += ret;
-        
-        if ((size_t)ret < iov[i].iov_len)
-            break;
-    }
-    return total_written;
-}
-
-long sys_readv(int fd_num, const struct iovec *iov, int iovcnt) {
-    if (iovcnt < 0 || iovcnt > IOV_MAX)
-        return -EINVAL;
-    if (!iov && iovcnt > 0)
-        return -EFAULT;
-    
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node)
-        return -EBADF;
-    if (!fd->node->read)
-        return -EINVAL;
-    
-    ssize_t total_read = 0;
-    
-    for (int i = 0; i < iovcnt; i++) {
-        if (!iov[i].iov_base && iov[i].iov_len > 0)
-            return -EFAULT;
-        if (iov[i].iov_len == 0)
-            continue;
-        
-        long ret = fd->node->read(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len);
-        if (ret < 0) {
-            if (total_read == 0)
-                return ret;
-            break;
-        }
-        
-        fd->offset += ret;
-        total_read += ret;
-        
-        if ((size_t)ret < iov[i].iov_len)
-            break;
-    }
-    return total_read;
-}
-
-long sys_set_tid_address(int *tidptr) {
-    return this->pid;
-}
-
-long sys_lstat(const char *pathname, struct stat *statbuf) {
-    if (!pathname || !statbuf) {
-        return -EFAULT;
-    }
-    
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
-    if (!node) {
-        return -ENOENT;
-    }
-    
-    memset(statbuf, 0, sizeof(struct stat));
-    
-    statbuf->st_mode = convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 1;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    statbuf->st_ino = node->inode;
-    
-    if (node->type == VFS_FILE) {
-        statbuf->st_size = node->size;
-    } else if (node->type == VFS_DIRECTORY) {
-        statbuf->st_size = 4096;
-    } else {
-        statbuf->st_size = 0;
-    }
-    
+long sys_pselect6() {
+    unimplemented;
     return 0;
 }
 
 long sys_utimensat() {
     unimplemented;
     return -ENOENT;
-}
-
-long sys_unlink(const char *pathname) {
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
-    if (!node)
-        return -ENOENT;
-    vfs_close(node);
-    return vfs_remove_node(node);
-}
-
-long sys_fcntl(int fd_num, int cmd, long arg) {
-    if (fd_num < 0 ||
-        fd_num >= (signed)(sizeof this->fd_table / sizeof(struct fd)) ||
-        !this->fd_table[fd_num].node) {
-        return -EBADF;
-    }
-
-    struct fd *fd = &this->fd_table[fd_num];
-    switch (cmd) {
-        case F_DUPFD: {
-            int start_fd = (arg < 0) ? 0 : (int)arg;
-            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
-                if (!this->fd_table[i].node) {
-                    this->fd_table[i] = *fd;
-                    return i;
-                }
-            }
-            return -EMFILE;
-        }
-        case F_DUPFD_CLOEXEC: {
-            int start_fd = (arg < 0) ? 0 : (int)arg;
-            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
-                if (!this->fd_table[i].node) {
-                    this->fd_table[i] = *fd;
-                    this->fd_table[i].flags |= FD_CLOEXEC;
-                    return i;
-                }
-            }
-            return -EMFILE;
-        }
-        case F_GETFD:
-            return fd->flags & FD_CLOEXEC;
-        case F_SETFD:
-            if (arg & FD_CLOEXEC) {
-                fd->flags |= FD_CLOEXEC;
-            } else {
-                fd->flags &= ~FD_CLOEXEC;
-            }
-            return 0;
-        case F_GETFL:
-        case F_SETFL:
-            return 0;
-        case F_GETLK:
-        case F_SETLK:
-        case F_SETLKW:
-            return -ENOSYS;
-        default:
-            dprintf("%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
-            return -EINVAL;
-    }
-}
-
-long sys_chdir(const char *path) {
-    vfs_node_t *newdir = vfs_open(this->cwd, path, false, false);
-    if (!newdir)
-        return -ENOENT;
-    this->cwd = newdir;
-    return 0;
-}
-
-long sys_getcwd(char *buf, size_t size) {
-    char path[MAX_PATH];
-    vfs_resolve_path(path, this->cwd);
-    if (size < (size_t)strlen(path) + 1)
-        return -ENAMETOOLONG;
-    strcpy(buf, path);
-    return 0;
-}
-
-long sys_nanosleep(const struct timespec *duration) {
-    sched_sleep((uint64_t)duration->tv_sec * 1000000UL + (uint64_t)duration->tv_nsec / 1000UL);
-    return 0;
-}
-
-long sys_pselect6() {
-    unimplemented;
-    return 0;
-}
-
-long sys_mkdir(const char *pathname, mode_t mode) {
-    if (!vfs_open(this->cwd, pathname, true, true)) {
-        return -EROFS;
-    }
-    return 0;
-}
-
-long sys_rmdir(const char *pathname, mode_t mode) {
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false, true);
-    if (!node)
-        return -ENOENT;
-    if (node->type != VFS_DIRECTORY)
-        return -ENOTDIR;
-    return vfs_remove_node(node);
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);
@@ -824,7 +680,6 @@ static syscall_func syscalls[] = {
     [SYS_dup2]              = (syscall_func)(uintptr_t)sys_dup2,
     [SYS_nanosleep]         = (syscall_func)(uintptr_t)sys_nanosleep,
     [SYS_getpid]            = (syscall_func)(uintptr_t)sys_getpid,
-    [SYS_clone]             = (syscall_func)(uintptr_t)sys_clone,
     [SYS_fork]              = (syscall_func)(uintptr_t)sys_fork,
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
     [SYS_exit]              = (syscall_func)(uintptr_t)sys_exit,
@@ -849,7 +704,7 @@ static syscall_func syscalls[] = {
     [SYS_getdents64]        = (syscall_func)(uintptr_t)sys_getdents64,
     [SYS_set_tid_address]   = (syscall_func)(uintptr_t)sys_set_tid_address,
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
-    [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit_group,
+    [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
     [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
@@ -858,8 +713,6 @@ static syscall_func syscalls[] = {
 };
 
 void syscall_handler(struct registers *r) {
-    //dprintf("(%lu) start... ", r->rax);
-
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
         dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
@@ -868,7 +721,5 @@ void syscall_handler(struct registers *r) {
     }
 
     syscall_func handler = syscalls[r->rax];
-    r->rax = handler((r->rax == SYS_clone || r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-
-    //dprintf("end\n");
+    r->rax = handler((r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
 }

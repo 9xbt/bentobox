@@ -1,16 +1,15 @@
-#include "kernel/tmpfs.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stddef.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
+#include <kernel/tmpfs.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
-
-/* TODO: should node->open be handled by the VFS or the FD table? */
 
 extern void zero_initialize(void);
 extern void ps2_initialize(void);
@@ -140,7 +139,6 @@ void vfs_add_device(struct vfs_node *node) {
 }
 
 struct vfs_node *vfs_create_symlink(const char *name, const char *target) {
-    //printf("Creating symlink '%s' with target '%s'\n", name, target);
     struct vfs_node *node = vfs_create_node(name, VFS_SYMLINK);
     if (node && target) {
         node->symlink_target = kmalloc(strlen(target) + 1);
@@ -178,7 +176,6 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
 
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
     // TODO: make this support returning actual error codes
-    //dprintf("vfs: opening %s from %s\n", path, current->name);
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
 
@@ -258,8 +255,8 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
 }
 
 int vfs_close(struct vfs_node *node) {
-    //uint8_t owner_perms = (node->perms >> 6) & 0x7;
-    //if (!(owner_perms & 0x4)) return -EACCES;
+    if (node->busy)
+        return -EBUSY;
     return 0;
 }
 
@@ -302,6 +299,45 @@ bool vfs_poll(struct vfs_node *node) {
         asm ("pause");
     }
     return true;
+}
+
+long vfs_check_perms(struct vfs_node *node, int mode) {
+    if (!node)
+        return -ENOENT;
+    if (mode == F_OK)
+        return 0;
+    if (mode & R_OK && !(node->perms & (S_IRUSR | S_IRGRP | S_IROTH)))
+        return -EACCES;
+    if (mode & W_OK && !(node->perms & (S_IWUSR | S_IWGRP | S_IWOTH)))
+        return -EACCES;
+    if (mode & X_OK && !(node->perms & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        return -EACCES;
+    return 0;
+}
+
+unsigned int vfs_convert_mode(enum vfs_node_type type, uint16_t perms) {
+    unsigned int mode = 0;
+    
+    switch (type) {
+        case VFS_FILE:
+            mode |= S_IFREG;
+            break;
+        case VFS_DIRECTORY:
+            mode |= S_IFDIR;
+            break;
+        case VFS_CHARDEVICE:
+            mode |= S_IFCHR;
+            break;
+        case VFS_BLOCKDEVICE:
+            mode |= S_IFBLK;
+            break;
+        default:
+            mode |= S_IFREG;
+            break;
+    }
+    
+    mode |= (perms & 07777);
+    return mode;
 }
 
 void vfs_install(void) {

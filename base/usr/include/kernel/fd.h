@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <stdbool.h>
 #include <kernel/vfs.h>
 #include <sys/termios.h>
 
@@ -9,6 +10,7 @@
 
 struct fd {
     struct vfs_node *node;
+    bool open;
     int flags;
     size_t offset;
     struct termios tio;
