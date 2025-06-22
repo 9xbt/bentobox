@@ -30,6 +30,8 @@
 #define SYS_fcntl           72
 #define SYS_getcwd          79
 #define SYS_chdir           80
+#define SYS_mkdir           83
+#define SYS_rmdir           84
 #define SYS_unlink          87
 #define SYS_readlink        89
 #define SYS_getuid          102

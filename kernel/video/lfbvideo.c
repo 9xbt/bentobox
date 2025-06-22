@@ -35,7 +35,7 @@ static void ft_free(void *ptr, size_t count) {
 }
 
 void lfb_change_font(const char *path) {
-    struct vfs_node *file = vfs_open(NULL, path, true);
+    struct vfs_node *file = vfs_open(NULL, path, true, false);
     if (!file) return;
 
     if (font) kfree(font);

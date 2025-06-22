@@ -185,6 +185,6 @@ void serial_initialize(void) {
 }
 
 void arch_redirect_debug(void) {
-    serial_redirect = vfs_open(NULL, "/tmp/.kmsg", true);
+    serial_redirect = vfs_open(NULL, "/tmp/.kmsg", true, false);
     vfs_add_device(vfs_create_symlink("kmsg", "/tmp/.kmsg"));
 }

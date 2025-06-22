@@ -184,6 +184,7 @@ struct vfs_node *tmpfs_create_file(struct vfs_node *parent, const char *name) {
     
     file->read = tmpfs_read;
     file->write = tmpfs_write;
+    file->driver = VFS_DRIVER_TMPFS;
     
     static uint64_t next_inode = 1000000;
     file->inode = next_inode++;
@@ -209,5 +210,6 @@ int tmpfs_remove_file(struct vfs_node *node) {
 void tmpfs_initialize(void) {
     struct vfs_node *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
     tmp->inode = TMPFS_ROOT;
+    tmp->driver = VFS_DRIVER_TMPFS;
     vfs_add_node(NULL, tmp);
 }

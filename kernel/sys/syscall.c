@@ -163,7 +163,7 @@ long sys_close(int fd) {
 }
 
 long sys_access(const char *pathname) {
-    if (vfs_open(this->cwd, pathname, false)) {
+    if (vfs_open(this->cwd, pathname, false, false)) {
         return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
     }
     return -ENOENT;
@@ -173,7 +173,7 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     if (!pathname)
         return -EFAULT;
     if (dirfd == AT_FDCWD) {
-        if (vfs_open(this->cwd, pathname, false)) {
+        if (vfs_open(this->cwd, pathname, false, false)) {
             return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
         }
         return -ENOENT;
@@ -182,12 +182,12 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     if (!fd->node)
         return -EBADF;
     if (pathname[0] != '/') {
-        if (vfs_open(fd->node, pathname, false)) {
+        if (vfs_open(fd->node, pathname, false, false)) {
             return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
         }
         return -ENOENT;
     } else {
-        if (vfs_open(NULL, pathname, false)) {
+        if (vfs_open(NULL, pathname, false, false)) {
             return F_OK | R_OK | W_OK | X_OK; /* TODO: properly check permissions */
         }
         return -ENOENT;
@@ -303,7 +303,7 @@ long sys_stat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
     if (!node) {
         return -ENOENT;
     }
@@ -358,9 +358,9 @@ long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restr
     
     struct vfs_node *node = NULL;
     if (pathname[0] == '/') {
-        node = vfs_open(this->cwd, pathname, false);
+        node = vfs_open(this->cwd, pathname, false, false);
     } else if (dirfd == AT_FDCWD) {
-        node = vfs_open(this->cwd, pathname, false);
+        node = vfs_open(this->cwd, pathname, false, false);
     } else {
         if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
             return -EBADF;
@@ -668,7 +668,7 @@ long sys_lstat(const char *pathname, struct stat *statbuf) {
         return -EFAULT;
     }
     
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
     if (!node) {
         return -ENOENT;
     }
@@ -698,7 +698,7 @@ long sys_utimensat() {
 }
 
 long sys_unlink(const char *pathname) {
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
     if (!node)
         return -ENOENT;
     vfs_close(node);
@@ -758,7 +758,7 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
 }
 
 long sys_chdir(const char *path) {
-    vfs_node_t *newdir = vfs_open(this->cwd, path, false);
+    vfs_node_t *newdir = vfs_open(this->cwd, path, false, false);
     if (!newdir)
         return -ENOENT;
     this->cwd = newdir;
@@ -780,7 +780,24 @@ long sys_nanosleep(const struct timespec *duration) {
 }
 
 long sys_pselect6() {
+    unimplemented;
     return 0;
+}
+
+long sys_mkdir(const char *pathname, mode_t mode) {
+    if (!vfs_open(this->cwd, pathname, true, true)) {
+        return -EROFS;
+    }
+    return 0;
+}
+
+long sys_rmdir(const char *pathname, mode_t mode) {
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, true);
+    if (!node)
+        return -ENOENT;
+    if (node->type != VFS_DIRECTORY)
+        return -ENOTDIR;
+    return vfs_remove_node(node);
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);
@@ -816,6 +833,8 @@ static syscall_func syscalls[] = {
     [SYS_fcntl]             = (syscall_func)(uintptr_t)sys_fcntl,
     [SYS_getcwd]            = (syscall_func)(uintptr_t)sys_getcwd,
     [SYS_chdir]             = (syscall_func)(uintptr_t)sys_chdir,
+    [SYS_mkdir]             = (syscall_func)(uintptr_t)sys_mkdir,
+    [SYS_rmdir]             = (syscall_func)(uintptr_t)sys_rmdir,
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
     [SYS_getuid]            = (syscall_func)(uintptr_t)sys_getuid,
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,

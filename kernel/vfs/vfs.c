@@ -35,7 +35,7 @@ const char *vfs_types[] = {
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     struct vfs_node *node = (struct vfs_node *)kmalloc(sizeof(struct vfs_node));
     strcpy(node->name, name);
-    node->open = false;
+    node->busy = false;
     node->type = type;
     node->size = 0;
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
@@ -49,11 +49,14 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->isatty = false;
     node->ioctl = NULL;
     node->mmap = NULL;
-    release(&node->lock);
+    node->driver = VFS_DRIVER_OTHER;
+    node->create = NULL;
+    node->remove = NULL;
     return node;
 }
 
 void vfs_add_node(struct vfs_node *root, struct vfs_node *node) {
+    // TODO: make node inherit the driver of root?
     if (!root) root = vfs_root;
 
     node->parent = root;
@@ -73,7 +76,7 @@ int vfs_remove_node(struct vfs_node *node) {
         return -EINVAL;
     if (node == vfs_root)
         return -EBUSY;
-    if (node->open)
+    if (node->busy)
         return -EBUSY;
     if (node->type == VFS_DIRECTORY && node->children != NULL)
         return -ENOTEMPTY;
@@ -90,10 +93,17 @@ int vfs_remove_node(struct vfs_node *node) {
         dir = dir->parent;
     }
 
-    if (dir->inode == TMPFS_ROOT) {
-        if (tmpfs_remove_file(node) == -EINVAL) {
-            return -EINVAL;
-        }   
+    switch (dir->driver) {
+        case VFS_DRIVER_TMPFS:
+            if (node->type == VFS_DIRECTORY) break;
+            if (tmpfs_remove_file(node) == -EINVAL) {
+                return -EINVAL;
+            }
+            break;
+        case VFS_DRIVER_EXT2:
+            return -EROFS;
+        default:
+            break;
     }
     
     if (node->parent) {
@@ -150,9 +160,9 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     
     struct vfs_node *target;
     if (symlink->symlink_target[0] == '/') {
-        target = vfs_open(vfs_root, symlink->symlink_target, false);
+        target = vfs_open(vfs_root, symlink->symlink_target, false, false);
     } else {
-        target = vfs_open(symlink->parent, symlink->symlink_target, false);
+        target = vfs_open(symlink->parent, symlink->symlink_target, false, false);
     }
     
     if (!target) {
@@ -166,7 +176,8 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     return target;
 }
 
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create) {
+struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
+    // TODO: make this support returning actual error codes
     //dprintf("vfs: opening %s from %s\n", path, current->name);
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
@@ -224,15 +235,17 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                 kfree(copy);
 
                 if (create) {
-                    // Check if the final directory (where file will be created) is /tmp
-                    char final_path[MAX_PATH];
-                    vfs_resolve_path(final_path, node);
-                    bool is_tmp = !strcmp(final_path, "/tmp");
-                    
-                    if (is_tmp) {
-                        struct vfs_node *file = tmpfs_create_file(node, filename);
-                        return file;
+                    switch (node->driver) {
+                        case VFS_DRIVER_TMPFS:
+                            if (isdir) break;
+                            return tmpfs_create_file(node, filename);
+                        default:
+                            return NULL;
                     }
+                    struct vfs_node *dir = vfs_create_node(filename, VFS_DIRECTORY);
+                    dir->driver = node->driver;
+                    vfs_add_node(node, dir);
+                    return dir;
                 }
                 return NULL;
             }
@@ -240,15 +253,13 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
         token = strtok(NULL, "/");
     }
 
-    node->open = true;
     kfree(copy);
     return node;
 }
 
 int vfs_close(struct vfs_node *node) {
-    uint8_t owner_perms = (node->perms >> 6) & 0x7;
-    if (!(owner_perms & 0x4)) return -EACCES;
-    node->open = false;
+    //uint8_t owner_perms = (node->perms >> 6) & 0x7;
+    //if (!(owner_perms & 0x4)) return -EACCES;
     return 0;
 }
 
@@ -267,31 +278,29 @@ void vfs_resolve_path(char *s, struct vfs_node *node) {
 }
 
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if (!node /*|| !node->open*/) return -ENOENT;
+    if (!node) return -ENOENT;
+    if (node->busy) return -EBUSY;
     if (node->read) {
-        //acquire(&node->lock);
         long ret = node->read(node, buffer, offset, len);
-        //release(&node->lock);
         return ret;
     }
     return -EINVAL;
 }
 
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if (!node /*|| !node->open*/) return -ENOENT;
+    if (!node) return -ENOENT;
+    if (node->busy) return -EBUSY;
     if (node->write) {
-        //acquire(&node->lock);
         long ret = node->write(node, buffer, offset, len);
-        //release(&node->lock);
         return ret;
     }
     return -EINVAL;
 }
 
 bool vfs_poll(struct vfs_node *node) {
-    // TODO: use mutexes
-    acquire(&node->lock);
-    release(&node->lock);
+    while (node->busy) {
+        asm ("pause");
+    }
     return true;
 }
 
@@ -308,9 +317,10 @@ void vfs_install(void) {
     vfs_root->write = NULL;
     vfs_root->symlink_target = NULL;
     vfs_root->isatty = false;
-    release(&vfs_root->lock);
+    vfs_root->driver = VFS_DRIVER_OTHER;
 
     vfs_dev = vfs_create_node("dev", VFS_DIRECTORY);
+    vfs_dev->driver = VFS_DRIVER_DEVFS;
     vfs_add_node(vfs_root, vfs_dev);
 
     zero_initialize();

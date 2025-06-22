@@ -173,7 +173,7 @@ static void elf_load_sections(struct task *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *p
 }
 
 int spawn(const char *file, int argc, char *argv[], char *env[]) {
-    struct vfs_node *fptr = vfs_open(NULL, file, false);
+    struct vfs_node *fptr = vfs_open(NULL, file, false, false);
     if (!fptr || fptr->type != VFS_FILE) {
         printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
         return -ENOENT;
@@ -220,7 +220,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
 }
 
 int exec(const char *file, int argc, char *const argv[], char *const env[]) {
-    struct vfs_node *fptr = vfs_open(this->cwd, file, false);
+    struct vfs_node *fptr = vfs_open(this->cwd, file, false, false);
     if (!fptr || fptr->type != VFS_FILE) {
         //printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
         return -ENOENT;

@@ -17,10 +17,19 @@ typedef enum vfs_node_type {
     VFS_SYMLINK
 } vfs_node_type_t;
 
+typedef enum vfs_driver {
+    VFS_DRIVER_OTHER,
+    VFS_DRIVER_EXT2,
+    VFS_DRIVER_TMPFS,
+    VFS_DRIVER_DEVFS
+} vfs_driver_t;
+
 typedef struct vfs_node {
     char name[MAX_PATH];
-    bool open;
+    bool busy;
+    bool isatty;
     enum vfs_node_type type;
+    enum vfs_driver driver;
     size_t size;
     uint16_t perms;
     uint64_t inode;
@@ -31,9 +40,9 @@ typedef struct vfs_node {
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*ioctl)(int fd, int op, void *arg);
     long(*mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+    long(*create)(struct vfs_node *parent, const char *name);
+    long(*remove)(struct vfs_node *parent);
     char *symlink_target;
-    atomic_flag lock;
-    bool isatty;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root;
@@ -45,7 +54,7 @@ void vfs_resolve_path(char *s, struct vfs_node *node);
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len);
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type);
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create);
+struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir);
 int vfs_close(struct vfs_node *node);
 struct vfs_node *vfs_create_symlink(const char *name, const char *target);
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);

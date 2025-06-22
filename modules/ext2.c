@@ -517,6 +517,7 @@ void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t inode_num) {
                 if (node) {
                     node->size = child->size;
                     node->inode = entry->inode;
+                    node->driver = VFS_DRIVER_EXT2;
                     
                     if (type != EXT_SYM_LINK) {
                         node->read = ext2_read;
@@ -547,7 +548,7 @@ int init() {
     ext2_cache_init();
 
     //hda = vfs_open(NULL, "/dev/hda");
-    hda = vfs_open(NULL, "/dev/sda", false);
+    hda = vfs_open(NULL, "/dev/sda", false, false);
 
     ext2_sb *sb = (ext2_sb *)kmalloc(512);
     vfs_read(hda, (void *)sb, 1024, sizeof(ext2_sb));

@@ -38,7 +38,7 @@ long console_ioctl(int fd_num, int op, void *arg) {
                     unsigned int vpitch = 32;
                     unsigned int bpc = fop->height;
                     
-                    vfs_node_t *file = vfs_open(NULL, "/tmp/font", true);
+                    vfs_node_t *file = vfs_open(NULL, "/tmp/font", true, false);
                     size_t off = 0;
                     for (unsigned int i = 0; i < fop->charcount; i++) {
                         vfs_write(file, (void *)fop->data + (i * vpitch), off, bpc);
