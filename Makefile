@@ -84,7 +84,7 @@ apps:
 bin/kernel/%.c.o: kernel/%.c
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(CCFLAGS) -DGIT_COMMIT_HASH=\"$(shell git rev-parse --short HEAD)\" -c $< -o $@
+	@$(CC) $(CCFLAGS) -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\" -c $< -o $@
 
 bin/kernel/%.S.o: kernel/%.S
 	@echo " AS $<"

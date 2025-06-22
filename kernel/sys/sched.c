@@ -314,7 +314,7 @@ void sched_kill(struct task *proc, int status) {
         panic("Attempted to kill idle!");
     }
 
-    if (proc->parent) {
+    if (proc->parent && proc->parent->state != TASK_RUNNING) {
         send_signal(proc->parent, SIGCHLD, status);
     }
     

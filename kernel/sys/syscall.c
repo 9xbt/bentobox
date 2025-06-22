@@ -204,24 +204,13 @@ long sys_brk(void *addr) {
         
         if (length > 0) {
             size_t pages = length / PAGE_SIZE;
-            void *new_addr = vma_map(this->vma, pages, 0, map_start, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-            if (!new_addr) {
-                return current_brk;
-            }
+            void *phys = mmu_alloc(pages);
+            mmu_map_pages(pages, (void *)map_start, phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
         }
         section->length = new_brk - section->ptr;
-        
     } else {
-        uintptr_t unmap_start = ALIGN_UP(new_brk, PAGE_SIZE);
-        uintptr_t unmap_end = ALIGN_UP(current_brk, PAGE_SIZE);
-        size_t length = unmap_end - unmap_start;
-        
-        if (length > 0) {
-            dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
-        }
-        section->length = new_brk - section->ptr;
+        dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
     }
-    
     return new_brk;
 }
 
@@ -369,7 +358,7 @@ long sys_uname(struct utsname *utsname) {
     strncpy(utsname->nodename, hostname, sizeof utsname->nodename);
     /* TODO: should use snprintf here */
     sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
-    sprintf(utsname->version, "%s-dirty %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    sprintf(utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
     return 0;
 }
 
@@ -464,6 +453,18 @@ long sys_unlink(const char *pathname) {
         return -ENOENT;
     vfs_close(node);
     return vfs_remove_node(node);
+}
+
+long sys_readlink(const char *restrict pathname, char *restrict buf, size_t bufsiz) {
+    vfs_node_t *node = vfs_open(this->cwd, pathname, false, false);
+    if (!node)
+        return -ENOENT;
+    if (node->type != VFS_SYMLINK)
+        return -EINVAL;
+    if (!buf)
+        return -EFAULT;
+    strncpy(buf, node->symlink_target, bufsiz);
+    return 0;
 }
 
 long sys_getuid(void) {
@@ -619,8 +620,7 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
 }
 
 long sys_pselect6() {
-    unimplemented;
-    return 0;
+    return 1;
 }
 
 long sys_utimensat() {
@@ -663,6 +663,7 @@ static syscall_func syscalls[] = {
     [SYS_mkdir]             = (syscall_func)(uintptr_t)sys_mkdir,
     [SYS_rmdir]             = (syscall_func)(uintptr_t)sys_rmdir,
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
+    [SYS_readlink]          = (syscall_func)(uintptr_t)sys_readlink,
     [SYS_getuid]            = (syscall_func)(uintptr_t)sys_getuid,
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,
     [SYS_geteuid]           = (syscall_func)(uintptr_t)sys_geteuid,

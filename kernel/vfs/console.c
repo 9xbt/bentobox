@@ -1,3 +1,4 @@
+#include "kernel/assert.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -27,6 +28,9 @@ long console_ioctl(int fd_num, int op, void *arg) {
             return 0;
         case TIOCGWINSZ:
             lfb_get_ws((struct winsize *)arg);
+            return 0;
+        case TIOCSWINSZ:
+            unimplemented;
             return 0;
         case TIOCGNAME:
             strcpy(arg, "/dev/console");

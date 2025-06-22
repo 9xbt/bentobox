@@ -22,6 +22,7 @@ bool kb_shift = false;
 struct fifo kb_fifo;
 
 void irq1_handler(struct registers *r) {
+    int c;
     uint8_t key = inb(0x60);
     if (!(key & 0x80)) {
         switch (key) {
@@ -36,22 +37,36 @@ void irq1_handler(struct registers *r) {
                 kb_caps = !kb_caps;
                 break;
             default:
-                if (key >= sizeof(kb_map_keys)) {
-                    break;
-                }
                 if (kb_ctrl && key == 0x2E) {
                     for (uint32_t id = 0; id < madt_lapics; id++) {
                         send_signal(get_core(id)->current_proc, SIGINT, 0);
                     }
                     break;
                 }
+
                 if (kb_shift) {
-                    fifo_enqueue(&kb_fifo, kb_map_keys_shift[key]);
+                    c = kb_map_keys_shift[key];
                 } else if (kb_caps) {
-                    fifo_enqueue(&kb_fifo, kb_map_keys_caps[key]);
+                    c = kb_map_keys_caps[key];
                 } else {
-                    fifo_enqueue(&kb_fifo, kb_map_keys[key]);
+                    c = kb_map_keys[key];
                 }
+
+                if (c > 65535) {
+                    fifo_enqueue(&kb_fifo, '\033');
+                    fifo_enqueue(&kb_fifo, '[');
+                    fifo_enqueue(&kb_fifo, c-65535);
+                } else {
+                    fifo_enqueue(&kb_fifo, c);
+                }
+
+                //if (kb_shift) {
+                //    fifo_enqueue(&kb_fifo, kb_map_keys_shift[key]);
+                //} else if (kb_caps) {
+                //    fifo_enqueue(&kb_fifo, kb_map_keys_caps[key]);
+                //} else {
+                //    fifo_enqueue(&kb_fifo, kb_map_keys[key]);
+                //}
                 //sched_unblock_all_io();
                 break;
         }
@@ -65,10 +80,17 @@ void irq1_handler(struct registers *r) {
                 kb_ctrl = false;
                 break;
             default:
-                if (key - 0x80 >= sizeof(kb_map_keys)) {
-                    break;
+                if (kb_shift) {
+                    c = kb_map_keys_shift[key & 0x7F];
+                } else if (kb_caps) {
+                    c = kb_map_keys_caps[key & 0x7F];
+                } else {
+                    c = kb_map_keys[key & 0x7F];
                 }
-                fifo_enqueue(&kb_fifo, -kb_map_keys[key & 0x7F]);
+                
+                if (c < 65535) {
+                    fifo_enqueue(&kb_fifo, -c);
+                }
                 //sched_unblock_all_io();
                 break;
         }
@@ -95,8 +117,11 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
     struct termios *tio = &this->fd_table[0].tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        int c = getchar(tio->c_cc[VMIN] != 0);
+        int c;
+    again:
+        c = getchar(tio->c_cc[VMIN] != 0);
         if (c > 0) str[i++] = c;
+        else goto again;
 
         if (tio->c_lflag & ECHO)
             fprintf(stdout, "%c", c);
