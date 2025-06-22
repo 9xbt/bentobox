@@ -315,7 +315,7 @@ long vfs_check_perms(struct vfs_node *node, int mode) {
     return 0;
 }
 
-unsigned int vfs_convert_mode(enum vfs_node_type type, uint16_t perms) {
+static unsigned int convert_mode(enum vfs_node_type type, uint16_t perms) {
     unsigned int mode = 0;
     
     switch (type) {
@@ -338,6 +338,34 @@ unsigned int vfs_convert_mode(enum vfs_node_type type, uint16_t perms) {
     
     mode |= (perms & 07777);
     return mode;
+}
+
+long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
+    if (!node)
+        return -ENOENT;
+    
+    memset(statbuf, 0, sizeof(struct stat));
+    statbuf->st_mode = convert_mode(node->type, node->perms);
+    statbuf->st_nlink = 0;
+    statbuf->st_uid = 0;
+    statbuf->st_gid = 0;
+    if (symlink) {
+        // TODO do this properly
+        statbuf->st_nlink = 1;
+        statbuf->st_ino = node->inode;
+    }
+    
+    switch (node->type) {
+        case VFS_FILE:
+            statbuf->st_size = node->size;
+            break;
+        case VFS_DIRECTORY:
+            statbuf->st_size = 4096;
+            break;
+        default:
+            break;
+    }
+    return 0;
 }
 
 void vfs_install(void) {

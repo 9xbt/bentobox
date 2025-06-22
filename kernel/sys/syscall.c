@@ -54,34 +54,6 @@ long sys_close(int fd) {
     return fd_close(fd);
 }
 
-long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
-    if (!node)
-        return -ENOENT;
-    
-    memset(statbuf, 0, sizeof(struct stat));
-    statbuf->st_mode = vfs_convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 0;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    if (symlink) {
-        // TODO do this properly
-        statbuf->st_nlink = 1;
-        statbuf->st_ino = node->inode;
-    }
-    
-    switch (node->type) {
-        case VFS_FILE:
-            statbuf->st_size = node->size;
-            break;
-        case VFS_DIRECTORY:
-            statbuf->st_size = 4096;
-            break;
-        default:
-            break;
-    }
-    return 0;
-}
-
 long sys_stat(const char *pathname, struct stat *statbuf) {
     if (!pathname || !statbuf)
         return -EFAULT;
