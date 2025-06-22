@@ -16,7 +16,7 @@ long console_write(struct vfs_node *node, void *buffer, long offset, size_t len)
 }
 
 long console_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = &this->fd_table[fd_num];
+    struct fd *fd = &this->fd_table[0];
     switch (op) {
         case TCGETS:
             memcpy(arg, &fd->tio, sizeof(struct termios));

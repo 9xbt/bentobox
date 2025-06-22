@@ -41,7 +41,7 @@ void hpet_read_time(long *sec, long *nsec) {
     uint64_t total_nsec = (counter * (uint64_t)hpet_period) / 1000000ULL;
 
     if (sec) *sec = total_nsec / 1000000000ULL;
-    if (nsec) *nsec = total_nsec & 1000000000ULL;
+    if (nsec) *nsec = total_nsec % 1000000000ULL;
 }
 
 void hpet_install(void) {

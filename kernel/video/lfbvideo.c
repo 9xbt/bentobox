@@ -144,7 +144,6 @@ void framebuffer_initialize(void) {
     framebuffer.pitch = fb->common.framebuffer_pitch;
     framebuffer.fb = fb;
 
-    /*
     vinfo.xres = framebuffer.width;
     vinfo.yres = framebuffer.height;
     vinfo.xres_virtual = framebuffer.width;
@@ -156,7 +155,6 @@ void framebuffer_initialize(void) {
     vinfo.green.length = fb->framebuffer_green_mask_size;
     vinfo.blue.offset = fb->framebuffer_blue_field_position;
     vinfo.blue.length = fb->framebuffer_blue_mask_size;
-    */
 
     ft_ctx = flanterm_fb_init(
         ft_malloc,

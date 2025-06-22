@@ -66,11 +66,14 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
-int getchar(void) {
+int getchar(bool block) {
     int c = 0;
     while (!fifo_dequeue(&kb_fifo, &c)) {
         //sched_block(TASK_BLOCKING_IO);
         //this->doing_blocking_io = true;
+        if (!block) {
+            return -EAGAIN;
+        }
         sched_yield();
     }
     return c;
@@ -82,7 +85,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
     struct termios *tio = &this->fd_table[0].tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        int c = getchar();
+        int c = getchar(tio->c_cc[VMIN] != 0);
         str[i++] = c;
 
         if (tio->c_lflag & ECHO)
@@ -91,7 +94,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
     }
 
     while (i < len) {
-        int c = getchar();
+        int c = getchar(true);
         str[i] = c;
 
         switch (c) {
@@ -128,7 +131,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
 long ps2_ioctl(int fd_num, int op, void *arg) {
     static int mode = K_XLATE;
 
-    struct fd *fd = &this->fd_table[fd_num];
+    struct fd *fd = &this->fd_table[0];
     switch (op) {
         case TCGETS:
             memcpy(arg, &fd->tio, sizeof(struct termios));

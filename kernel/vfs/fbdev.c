@@ -7,6 +7,7 @@
 #include <kernel/lfbvideo.h>
 
 struct fb_var_screeninfo vinfo = {
+    /*
     .xres = 1280,
     .yres = 800,
     .xres_virtual = 1280,
@@ -16,6 +17,7 @@ struct fb_var_screeninfo vinfo = {
     .red    = { .offset = 16, .length = 8, .msb_right = 0 },
     .green  = { .offset = 8,  .length = 8, .msb_right = 0 },
     .blue   = { .offset = 0,  .length = 8, .msb_right = 0 },
+    */
 };
 
 long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
@@ -32,7 +34,7 @@ long fbdev_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long fbdev_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = &this->fd_table[fd_num];
+    //struct fd *fd = &this->fd_table[fd_num];
     switch (op) {
         case FBIOGET_VSCREENINFO:
             memcpy(arg, &vinfo, sizeof vinfo);
