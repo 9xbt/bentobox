@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <asm-generic/ioctls.h>
 #include <linux/kd.h>
@@ -14,10 +15,3 @@
 #define KD_FONT_OP_GET          1
 #define KD_FONT_OP_SET_DEFAULT  2
 #define KD_FONT_OP_COPY         3
-
-struct winsize {
-    unsigned short ws_row;
-    unsigned short ws_col;
-    unsigned short ws_xpixel;
-    unsigned short ws_ypixel;
-};;

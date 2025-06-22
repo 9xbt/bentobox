@@ -236,6 +236,12 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                         case VFS_DRIVER_TMPFS:
                             if (isdir) break;
                             return tmpfs_create_file(node, filename);
+                        case VFS_DRIVER_DEVFS: {
+                            if (isdir) break;
+                            struct vfs_node *file = vfs_create_node(filename, VFS_FILE);
+                            file->driver = node->driver;
+                            return file;
+                        }
                         default:
                             return NULL;
                     }
