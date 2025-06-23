@@ -61,9 +61,11 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] ATA driver
 - [X] AHCI driver
 - [X] ext2fs support
+    - [X] Direct blocks
+    - [X] Indirect blocks
     - [X] Singly linked blocks
     - [X] Doubly linked blocks
-    - [X] Triply linked blocks
+    - [ ] Triply linked blocks
     - [X] Reading
     - [ ] Writing
     - [X] Mounting
