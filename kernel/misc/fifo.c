@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <kernel/fifo.h>
 #include <kernel/malloc.h>
 #include <kernel/spinlock.h>

@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/vfs.h>
 #include <kernel/tmpfs.h>
 #include <kernel/malloc.h>

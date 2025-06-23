@@ -1,6 +1,6 @@
 #include <bits/types/struct_timeval.h>
 #include <linux/input.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <stdbool.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/arch/x86_64/idt.h>

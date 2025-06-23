@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <kernel/errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/poll.h>

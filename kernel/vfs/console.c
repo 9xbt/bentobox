@@ -1,5 +1,5 @@
 #include "kernel/assert.h"
-#include <errno.h>
+#include <kernel/errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/lfbvideo.h>

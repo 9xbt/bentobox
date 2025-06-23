@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <kernel/errno.h>
 #include <stdbool.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>

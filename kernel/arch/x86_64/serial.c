@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <kernel/errno.h>
 #include <stddef.h>
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/io.h>
