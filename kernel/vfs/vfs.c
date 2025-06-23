@@ -18,6 +18,7 @@ extern void console_initialize(void);
 extern void tmpfs_initialize(void);
 extern void tty_initialize(void);
 extern void fbdev_initialize(void);
+extern void procfs_initialize(void);
 
 struct vfs_node *vfs_root = NULL;
 struct vfs_node *vfs_dev = NULL;
@@ -236,10 +237,12 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                         case VFS_DRIVER_TMPFS:
                             if (isdir) break;
                             return tmpfs_create_file(node, filename);
-                        case VFS_DRIVER_DEVFS: {
+                        case VFS_DRIVER_DEVFS:
+                        case VFS_DRIVER_OTHER: {
                             if (isdir) break;
                             struct vfs_node *file = vfs_create_node(filename, VFS_FILE);
                             file->driver = node->driver;
+                            vfs_add_node(node, file);
                             return file;
                         }
                         default:
@@ -400,6 +403,7 @@ void vfs_install(void) {
     tmpfs_initialize();
     tty_initialize();
     fbdev_initialize();
+    procfs_initialize();
 
     dprintf("%s:%d: initialized VFS\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");

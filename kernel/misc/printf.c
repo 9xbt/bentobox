@@ -80,7 +80,7 @@ int vsprintf(char *s, const char *fmt, va_list args) {
         fmt++;
     }
 
-    return 0;
+    return ptr;
 }
 
 int vprintf(const char *fmt, va_list args) {
