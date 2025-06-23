@@ -216,7 +216,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     kfree(buffer);
     sched_add_task(proc, NULL);
     sched_yield();
-    return 0;
+    return proc->pid;
 }
 
 int exec(const char *file, int argc, char *const argv[], char *const env[]) {
@@ -392,7 +392,6 @@ long fork(struct registers *r) {
     proc->fs = this->fs;
     this->children = proc;
     proc->parent = this;
-    proc->doing_blocking_io = false;
     proc->cwd = this->cwd;
     memcpy(proc->fxsave, this->fxsave, sizeof proc->fxsave);
     memcpy(proc->fd_table, this->fd_table, sizeof proc->fd_table);

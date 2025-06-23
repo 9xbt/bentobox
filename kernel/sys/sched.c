@@ -399,6 +399,8 @@ void sched_start_all_cores(void) {
         core->idle_proc = idle;
         sched_add_task(idle, core);
         idle->pid = 0;
+        
+        next_pid -= 2;
     }
 
     irq_register(0x79 - 32, sched_schedule);
