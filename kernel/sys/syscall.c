@@ -132,8 +132,11 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
     if (flags & MAP_ANONYMOUS) {
         if (offset != 0 || fd_num != -1) return -EINVAL;
 
-        uint64_t vma_flags = PTE_USER;
-        if (prot != PROT_NONE) {
+        uint64_t vma_flags;
+        if (prot == PROT_NONE) {
+            vma_flags = PTE_PRESENT;
+        } else {
+            vma_flags = PTE_USER;
             if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
             if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
         }
