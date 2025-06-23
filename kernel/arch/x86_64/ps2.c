@@ -56,6 +56,7 @@ void irq1_handler(struct registers *r) {
                     fifo_enqueue(&kb_fifo, '\033');
                     fifo_enqueue(&kb_fifo, '[');
                     fifo_enqueue(&kb_fifo, c-65535);
+                    fifo_enqueue(&kb_fifo, '\0');
                 } else {
                     fifo_enqueue(&kb_fifo, c);
                 }
@@ -132,8 +133,12 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
         int c = getchar(true);
         if (c > 0) str[i] = c;
         else continue;
-
+        
         switch (c) {
+            case '\033':
+                /* we do not support ANSI escape codes */
+                while (getchar(true) != '\0') {}
+                break;
             case '\0':
             case '\t':
                 break;
