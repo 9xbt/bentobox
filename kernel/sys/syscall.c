@@ -454,7 +454,9 @@ long sys_unlink(const char *pathname) {
     struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
     if (!node)
         return -ENOENT;
-    vfs_close(node);
+    int ret = vfs_close(node);
+    if (ret < 0)
+        return ret;
     return vfs_remove_node(node);
 }
 
