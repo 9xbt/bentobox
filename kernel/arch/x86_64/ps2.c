@@ -60,15 +60,6 @@ void irq1_handler(struct registers *r) {
                 } else {
                     fifo_enqueue(&kb_fifo, c);
                 }
-
-                //if (kb_shift) {
-                //    fifo_enqueue(&kb_fifo, kb_map_keys_shift[key]);
-                //} else if (kb_caps) {
-                //    fifo_enqueue(&kb_fifo, kb_map_keys_caps[key]);
-                //} else {
-                //    fifo_enqueue(&kb_fifo, kb_map_keys[key]);
-                //}
-                //sched_unblock_all_io();
                 break;
         }
     } else {
@@ -92,7 +83,6 @@ void irq1_handler(struct registers *r) {
                 if (c < 65535) {
                     fifo_enqueue(&kb_fifo, -c);
                 }
-                //sched_unblock_all_io();
                 break;
         }
     }
@@ -102,12 +92,11 @@ void irq1_handler(struct registers *r) {
 int getchar(bool block) {
     int c = 0;
     while (!fifo_dequeue(&kb_fifo, &c)) {
-        //sched_block(TASK_BLOCKING_IO);
-        //this->doing_blocking_io = true;
         if (!block) {
             return -EAGAIN;
         }
-        sched_yield();
+        /* since we don't have proper I/O blocking, just halt until an interrupt comes */
+        asm ("hlt");
     }
     return c;
 }

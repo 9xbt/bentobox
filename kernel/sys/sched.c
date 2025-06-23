@@ -110,7 +110,6 @@ struct task *sched_new_task(void *entry, const char *name) {
     proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = NULL;
-    proc->doing_blocking_io = false;
 
     return proc;
 }
@@ -208,7 +207,6 @@ struct task *sched_new_user_task(void *entry, const char *name, int argc, char *
     proc->children = NULL;
     proc->parent = NULL;
     proc->cwd = vfs_root;
-    proc->doing_blocking_io = false;
 
     return proc;
 }
@@ -260,7 +258,7 @@ void sched_schedule(struct registers *r) {
             }
         }
 
-        if (this->state == TASK_RUNNING && !this->doing_blocking_io) {
+        if (this->state == TASK_RUNNING) {
             goto actually_switch;
         }
 
@@ -385,30 +383,6 @@ void sched_idle(void) {
     for (;;) {
         asm volatile ("hlt");
     }
-}
-
-void sched_unblock_all_io(void) {
-    sched_lock();
-    
-    for (uint32_t i = 0; i < madt_lapics; i++) {
-        struct cpu *core = get_core(i);
-        if (!core || !core->processes) {
-            continue;
-        }
-        
-        struct task *current = core->processes;
-        struct task *start = current;
-        
-        do {
-            if (current->doing_blocking_io) {
-                current->doing_blocking_io = false;
-            }
-            
-            current = current->next;
-        } while (current && current != start);
-    }
-    
-    sched_unlock();
 }
 
 void sched_start_all_cores(void) {

@@ -68,7 +68,6 @@ struct task {
     struct task *parent;
     struct task *children;
     int child_exit;
-    bool doing_blocking_io;
 };
 
 #define this this_core()->current_proc
@@ -85,6 +84,5 @@ void sched_sleep(int us);
 void sched_kill(struct task *proc, int status);
 void sched_idle(void);
 void sched_add_task(struct task *proc, struct cpu *core);
-void sched_unblock_all_io(void);
 struct task *sched_new_task(void *entry, const char *name);
 struct task *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);
