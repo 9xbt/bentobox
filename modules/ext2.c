@@ -1,3 +1,8 @@
+/*
+ * This driver is by far the messiest part of this kernel
+ *  - xrc2, 23/07/25
+ */
+
 #include <errno.h>
 #include <stdint.h>
 #include <kernel/mmu.h>
@@ -183,14 +188,14 @@ void ext2_read_block_cached(ext2_fs *fs, uint32_t block, void* buf, uint32_t cou
     vfs_read(hda, buffer, block * fs->block_size, fs->block_size);
     memcpy(buf, buffer, count);
     
-    int cache_idx = ext2_cache_find_lru();
-    if (!cache[cache_idx].data) {
-        cache[cache_idx].data = kmalloc(fs->block_size);
+    int i = ext2_cache_find_lru();
+    if (!cache[i].data) {
+        cache[i].data = kmalloc(fs->block_size);
     }
-    cache[cache_idx].block_num = block;
-    cache[cache_idx].valid = true;
-    cache[cache_idx].access_time = cache_access_counter;
-    memcpy(cache[cache_idx].data, buffer, fs->block_size);
+    cache[i].block_num = block;
+    cache[i].valid = true;
+    cache[i].access_time = cache_access_counter;
+    memcpy(cache[i].data, buffer, fs->block_size);
 }
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void* buf, uint32_t count) {
@@ -212,14 +217,14 @@ void ext2_read_block_range(ext2_fs *fs, uint32_t *blocks, uint32_t count, void* 
         ext2_read_blocks_sequential(fs, blocks[0], count, buf);
         
         for (uint32_t i = 0; i < count; i++) {
-            int cache_idx = ext2_cache_find_lru();
-            if (!cache[cache_idx].data) {
-                cache[cache_idx].data = kmalloc(fs->block_size);
+            int i = ext2_cache_find_lru();
+            if (!cache[i].data) {
+                cache[i].data = kmalloc(fs->block_size);
             }
-            cache[cache_idx].block_num = blocks[i];
-            cache[cache_idx].valid = true;
-            cache[cache_idx].access_time = cache_access_counter++;
-            memcpy(cache[cache_idx].data, (uint8_t*)buf + (i * fs->block_size), fs->block_size);
+            cache[i].block_num = blocks[i];
+            cache[i].valid = true;
+            cache[i].access_time = cache_access_counter++;
+            memcpy(cache[i].data, (uint8_t*)buf + (i * fs->block_size), fs->block_size);
         }
     } else {
         for (uint32_t i = 0; i < count; i++) {
@@ -308,16 +313,49 @@ uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t doubly_block_id, uint8_t 
             continue;
         }
         
-        uint32_t to_read = (remaining > bytes_per_singly - current_offset) ? 
-                          (bytes_per_singly - current_offset) : remaining;
-        
-        uint32_t read = ext2_read_singly_blocks(fs, blocks[i], buf + bytes_read, current_offset, to_read);
+        uint32_t count = (remaining > bytes_per_singly - current_offset) ? (bytes_per_singly - current_offset) : remaining;
+        uint32_t read = ext2_read_singly_blocks(fs, blocks[i], buf + bytes_read, current_offset, count);
         
         bytes_read += read;
         remaining -= read;
         current_offset = 0;
         
-        if (read < to_read) break;
+        if (read < count) break;
+    }
+    
+    kfree(blocks);
+    return bytes_read;
+}
+
+uint32_t ext2_read_triply_blocks(ext2_fs *fs, uint32_t triply_block_id, uint8_t *buf, uint32_t offset, uint32_t count) {
+    uint32_t *blocks = (uint32_t*)kmalloc(fs->block_size);
+    uint32_t block_count = fs->block_size / 4;
+    uint32_t singly_blocks_per_indirect = fs->block_size / 4;
+    uint32_t doubly_blocks_per_indirect = singly_blocks_per_indirect * singly_blocks_per_indirect;
+    uint32_t bytes_per_doubly = doubly_blocks_per_indirect * fs->block_size;
+    
+    ext2_read_block(fs, triply_block_id, blocks, fs->block_size);
+    
+    uint32_t bytes_read = 0;
+    uint32_t remaining = count;
+    uint32_t current_offset = offset;
+    
+    for (uint32_t i = 0; i < block_count && remaining > 0; i++) {
+        if (blocks[i] == 0) break;
+        
+        if (current_offset >= bytes_per_doubly) {
+            current_offset -= bytes_per_doubly;
+            continue;
+        }
+        
+        uint32_t count = (remaining > bytes_per_doubly - current_offset) ? (bytes_per_doubly - current_offset) : remaining;
+        uint32_t read = ext2_read_doubly_blocks(fs, blocks[i], buf + bytes_read, current_offset, count);
+        
+        bytes_read += read;
+        remaining -= read;
+        current_offset = 0;
+        
+        if (read < count) break;
     }
     
     kfree(blocks);
@@ -327,11 +365,13 @@ uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t doubly_block_id, uint8_t 
 void ext2_read_inode_blocks_range(ext2_fs *fs, ext2_inode *in, uint8_t *buf, uint32_t start_block, uint32_t block_count) {
     uint32_t blocks_per_singly = fs->block_size / 4;
     uint32_t blocks_per_doubly = blocks_per_singly * blocks_per_singly;
+    uint32_t blocks_per_triply = blocks_per_doubly * blocks_per_singly;
     
     uint32_t buf_offset = 0;
     uint32_t remaining_blocks = block_count;
     uint32_t current_block = start_block;
     
+    /* Direct blocks */
     if (current_block < 12 && remaining_blocks > 0) {
         uint32_t direct_start = current_block;
         uint32_t direct_count = (remaining_blocks + current_block > 12) ? (12 - current_block) : remaining_blocks;
@@ -360,6 +400,7 @@ void ext2_read_inode_blocks_range(ext2_fs *fs, ext2_inode *in, uint8_t *buf, uin
         current_block += direct_count;
     }
     
+    /* Indirect blocks */
     if (remaining_blocks > 0 && current_block < 12 + blocks_per_singly && in->singly_block_ptr != 0) {
         uint32_t singly_start_offset = (current_block >= 12) ? (current_block - 12) * fs->block_size : 0;
         uint32_t singly_count = remaining_blocks;
@@ -368,26 +409,51 @@ void ext2_read_inode_blocks_range(ext2_fs *fs, ext2_inode *in, uint8_t *buf, uin
             singly_count = 12 + blocks_per_singly - current_block;
         }
         
-        uint32_t bytes_to_read = singly_count * fs->block_size;
-        uint32_t bytes_read = ext2_read_singly_blocks(fs, in->singly_block_ptr, 
-                                                     buf + buf_offset, singly_start_offset, bytes_to_read);
+        uint32_t count = singly_count * fs->block_size;
+        uint32_t bytes_read = ext2_read_singly_blocks(fs, in->singly_block_ptr, buf + buf_offset, singly_start_offset, count);
         
         uint32_t blocks_read = bytes_read / fs->block_size;
         remaining_blocks -= blocks_read;
         buf_offset += bytes_read;
         current_block += blocks_read;
         
-        if (bytes_read < bytes_to_read) {
+        if (bytes_read < count) {
             return;
         }
     }
     
+    /* Doubly indirect blocks */
     if (remaining_blocks > 0 && current_block < 12 + blocks_per_singly + blocks_per_doubly && in->doubly_block_ptr != 0) {
         uint32_t doubly_start_offset = (current_block >= 12 + blocks_per_singly) ? 
-                                      (current_block - 12 - blocks_per_singly) * fs->block_size : 0;
+                                       (current_block - 12 - blocks_per_singly) * fs->block_size : 0;
+        
+        uint32_t doubly_count = remaining_blocks;
+        if (current_block + remaining_blocks > 12 + blocks_per_singly + blocks_per_doubly) {
+            doubly_count = 12 + blocks_per_singly + blocks_per_doubly - current_block;
+        }
+        
+        uint32_t count = doubly_count * fs->block_size;
+        uint32_t bytes_read = ext2_read_doubly_blocks(fs, in->doubly_block_ptr, 
+                                                 buf + buf_offset, doubly_start_offset, count);
+        
+        uint32_t blocks_read = bytes_read / fs->block_size;
+        remaining_blocks -= blocks_read;
+        buf_offset += bytes_read;
+        current_block += blocks_read;
+        
+        if (bytes_read < count) {
+            return;
+        }
+    }
+    
+    /* Triply indirect blocks */
+    if (remaining_blocks > 0 && current_block < 12 + blocks_per_singly + blocks_per_doubly + blocks_per_triply && in->triply_block_ptr != 0) {
+        uint32_t triply_start_offset =
+            (current_block >= 12 + blocks_per_singly + blocks_per_doubly) ? 
+            (current_block - 12 - blocks_per_singly - blocks_per_doubly) * fs->block_size : 0;
         
         uint32_t bytes_to_read = remaining_blocks * fs->block_size;
-        ext2_read_doubly_blocks(fs, in->doubly_block_ptr, buf + buf_offset, doubly_start_offset, bytes_to_read);
+        ext2_read_triply_blocks(fs, in->triply_block_ptr, buf + buf_offset, triply_start_offset, bytes_to_read);
     }
 }
 
