@@ -1,91 +1,49 @@
-#include <stdbool.h>
 #include <kernel/mmu.h>
-#include <kernel/malloc.h>
-#include <kernel/printf.h>
+#include <kernel/panic.h>
+#include <kernel/errno.h>
+#include <kernel/string.h>
 
-#define HEAP_MAGIC 0x58524332
+#define MSPACES 1
+#define ONLY_MSPACES 1
+#define FOOTERS 0
+#define HAVE_MMAP 0
+#define HAVE_MREMAP 0
+#define HAVE_MUNMAP 0
+#define HAVE_MORECORE 0
+#define LACKS_TIME_H 1
+#define LACKS_SYS_PARAM_H 1
+#define LACKS_FCNTL_H 1
+#define LACKS_UNISTD_H 1
+#define LACKS_ERRNO_H 1
+#define LACKS_SYS_MMAN_H 1
+#define LACKS_STRING_H 0
+#define LACKS_STDLIB_H 1
+#define LACKS_STDIO_H 1
+#define ABORT panic("Allocation aborted!");
+#define MSPACES 1
+#define ONLY_MSPACES 1
+#define FOOTERS 0
+#define USE_LOCKS 0
+#define NO_MALLOC_STATS 1
+#define LACKS_STDIO_H 1
+#define MALLOC_FAILURE_ACTION panic("Allocation failed!")
 
-struct heap *kernel_heap;
+#include <kernel/dlmalloc.c>
+
+#define HEAP_SIZE 16 * 1024 * 1024
+
+static void *heap_start = NULL;
+static mspace kspace;
+
+void malloc_initialize() {
+    heap_start = VIRTUAL_IDENT(mmu_alloc(HEAP_SIZE / PAGE_SIZE));
+    kspace = create_mspace_with_base(heap_start, HEAP_SIZE, 0);
+}
 
 void *kmalloc(size_t n) {
-    return heap_alloc(kernel_heap, n);
+    return mspace_malloc(kspace, n);
 }
 
 void kfree(void *ptr) {
-    heap_free(ptr);
-}
-
-void create_kernel_heap(void) {
-    kernel_heap = heap_create();
-}
-
-__attribute__((no_sanitize("undefined")))
-struct heap *heap_create(void) {
-    struct heap *h = (struct heap *)VIRTUAL(mmu_alloc(1));
-    mmu_map(h, PHYSICAL(h), PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-    h->head = (struct heap_block *)VIRTUAL(mmu_alloc(1));
-    mmu_map(h->head, PHYSICAL(h->head), PTE_PRESENT | PTE_WRITABLE | PTE_USER); // TODO: does this need fixing?
-    h->head->next = h->head;
-    h->head->prev = h->head;
-    h->head->size = 0;
-    h->head->magic = HEAP_MAGIC;
-    return h;
-}
-
-__attribute__((no_sanitize("undefined")))
-void heap_delete(struct heap *h) {
-    struct heap_block *current = h->head->next;
-    struct heap_block *next;
-
-    while (current != h->head) {
-        next = current->next;
-        size_t pages = DIV_CEILING(sizeof(struct heap_block) + current->size, PAGE_SIZE);
-        mmu_free(PHYSICAL(current), pages);
-        mmu_unmap_pages(pages, (void *)current);
-        current = next;
-    }
-
-    mmu_free(PHYSICAL(h->head), 1);
-    mmu_unmap(h->head);
-    mmu_free(PHYSICAL(h), 1);
-    mmu_unmap(h);
-}
-
-__attribute__((no_sanitize("undefined")))
-void *heap_alloc(struct heap *h, uint64_t n) {
-    if (n == 0) {
-        printf("%s:%d: \033[33mwarning:\033[0m allocating 0 bytes\n", __FILE__, __LINE__);
-    }
-
-    uint64_t pages = DIV_CEILING(sizeof(struct heap_block) + n, PAGE_SIZE);
-    
-    struct heap_block *block = (struct heap_block *)VIRTUAL(mmu_alloc(pages));
-    if (!block) {
-        printf("%s:%d: allocation failed\n", __FILE__, __LINE__);
-        return NULL;
-    }
-    mmu_map_pages(pages, block, PHYSICAL(block), PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-    block->next = h->head;
-    block->prev = h->head->prev;
-    block->size = n;
-    block->magic = HEAP_MAGIC;
-
-    return (void*)block + sizeof(struct heap_block);
-}
-
-__attribute__((no_sanitize("undefined")))
-void heap_free(void *ptr) {
-    struct heap_block *block = (struct heap_block *)(ptr - sizeof(struct heap_block));
-
-    if (block->magic != HEAP_MAGIC) {
-        printf("%s:%d: bad block magic at address 0x%x\n", __FILE__, __LINE__, (uint64_t)block);
-        return;
-    }
-
-    block->prev->next = block->next;
-    block->next->prev = block->prev;
-    uint64_t pages = DIV_CEILING(sizeof(struct heap_block) + block->size, PAGE_SIZE);
-
-    mmu_free(PHYSICAL(block), pages);
-    mmu_unmap_pages(pages, block);
+    mspace_free(kspace, ptr);
 }

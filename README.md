@@ -86,7 +86,8 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] `unimplemented` macro
 - [X] Simplify the PCI driver
 - [X] FIFO queues
-- [ ] Write a more efficient heap
+~~- [ ] Write a more efficient heap~~
+- [X] Move to dlmalloc
 - [ ] Make an OS specific toolchain
 - [X] 64-bit VFS
 - [X] Module metadata headers

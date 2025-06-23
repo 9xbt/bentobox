@@ -135,7 +135,9 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	pmm_install();
 	tss_install();
 	vmm_install();
-	create_kernel_heap(); // TODO: fancy this
+	extern void malloc_initialize();
+	malloc_initialize();
+	//create_kernel_heap(); // TODO: fancy this
 	framebuffer_initialize();
 
 	//printf("\n  \033[97mStarting up \033[94mbentobox (%s)\033[0m\n\n", __kernel_arch);

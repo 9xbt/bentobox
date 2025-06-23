@@ -43,7 +43,7 @@ struct task {
     uint64_t gs;
     uint64_t fs;
     struct registers ctx;
-    char align[8];
+    //char align[8];
     char fxsave[512];
 
     struct task *next;
