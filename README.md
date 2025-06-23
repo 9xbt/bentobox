@@ -133,14 +133,15 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Fix mlibc symlinks
 - [X] Userspace exposed framebuffer
 - [X] TTY operations
-- [ ] Move vfs_node->open to fd->open
+- [X] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
-- [ ] Move FD termios to VFS nodes
+~~- [ ] Move FD termios to VFS nodes~~
 - [X] faccessat
 - [ ] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
 - [ ] Proper VFS drivers
-- [ ] Fix fork() crashing because of brk() (musl bash 5.1)
+- [X] Fix fork() crashing because of brk() (musl bash 5.1)
+- [ ] Fix having a lot of children crashing the kernel
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

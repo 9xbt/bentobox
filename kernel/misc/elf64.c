@@ -402,7 +402,6 @@ long fork(struct registers *r) {
     for (size_t i = 0; i < sizeof this->sections / sizeof(struct task_section); i++) {
         if (this->sections[i].ptr == 0)
             break;
-        dprintf("Copying section %lu @ 0x%lx\n", i + 1, this->sections[i].ptr);
         for (size_t j = 0; j < ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE; j++) {
             void *phys = mmu_alloc(1);
             void *virt = (void *)(this->sections[i].ptr + j * PAGE_SIZE);
@@ -418,13 +417,7 @@ long fork(struct registers *r) {
     vma_copy_mappings(proc->vma, this->vma);
     vmm_switch_pm(this->pml4);
 
-    // TODO: fix this
-    //void *tmp = this->vma;
-    //this->vma = proc->vma;
-    //proc->vma = tmp;
-
     sched_add_task(proc, this_core());
-
     sched_unlock();
     return proc->pid;
 }
