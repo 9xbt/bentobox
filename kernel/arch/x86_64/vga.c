@@ -99,6 +99,8 @@ void vga_putchar(const char c) {
     }
 
     switch (c) {
+        case '\0':
+            break;
         case '\033':
             vga_ansi_code[0] = '\033';
             break;
