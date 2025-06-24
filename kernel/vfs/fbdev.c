@@ -6,19 +6,7 @@
 #include <kernel/string.h>
 #include <kernel/lfbvideo.h>
 
-struct fb_var_screeninfo vinfo = {
-    /*
-    .xres = 1280,
-    .yres = 800,
-    .xres_virtual = 1280,
-    .yres_virtual = 800,
-    .bits_per_pixel = 32,
-    .transp = { .offset = 24, .length = 8, .msb_right = 0 },
-    .red    = { .offset = 16, .length = 8, .msb_right = 0 },
-    .green  = { .offset = 8,  .length = 8, .msb_right = 0 },
-    .blue   = { .offset = 0,  .length = 8, .msb_right = 0 },
-    */
-};
+struct fb_var_screeninfo vinfo = {};
 
 long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
     if (addr == NULL) {
@@ -34,7 +22,6 @@ long fbdev_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long fbdev_ioctl(int fd_num, int op, void *arg) {
-    //struct fd *fd = &this->fd_table[fd_num];
     switch (op) {
         case FBIOGET_VSCREENINFO:
             memcpy(arg, &vinfo, sizeof vinfo);
@@ -47,6 +34,8 @@ long fbdev_ioctl(int fd_num, int op, void *arg) {
 }
 
 void fbdev_initialize(void) {
+    if (!framebuffer.addr) return;
+
     struct vfs_node *fb0 = vfs_create_node("fb0", VFS_CHARDEVICE);
     fb0->write = fbdev_write;
     fb0->mmap = fbdev_mmap;

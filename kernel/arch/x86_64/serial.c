@@ -14,10 +14,13 @@
 
 #define COM1 0x3f8
 
-atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 uint16_t serial_base = COM1;
+atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 struct fifo serial_fifo;
 vfs_node_t *serial_redirect = NULL;
+
+size_t serial_ringbuffer_i = 0;
+char serial_ringbuffer[1024];
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
@@ -171,6 +174,25 @@ long serial_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
+long kmsg_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    if ((size_t)offset >= sizeof(serial_ringbuffer))
+        return 0;
+    if (offset + len > sizeof(serial_ringbuffer))
+        len = sizeof(serial_ringbuffer) - offset;
+    memcpy(buffer, &serial_ringbuffer[offset], len);
+    return len;
+}
+
+
+long kmsg_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    char *src = (char *)buffer;
+    for (size_t i = 0; i < len; i++) {
+        size_t ri = (offset + i) % sizeof(serial_ringbuffer);
+        serial_ringbuffer[ri] = src[i];
+    }
+    return len;
+}
+
 void serial_initialize(void) {
     fifo_init(&serial_fifo, 64);
     irq_register(4, irq4_handler);
@@ -182,9 +204,13 @@ void serial_initialize(void) {
     serial0->isatty = true;
     serial0->ioctl = serial_ioctl;
     vfs_add_device(serial0);
+
+    struct vfs_node *kmsg = vfs_create_node("kmsg", VFS_CHARDEVICE);
+    kmsg->read = kmsg_read;
+    kmsg->write = kmsg_write;
+    vfs_add_device(kmsg);
 }
 
-void arch_redirect_debug(void) {
-    serial_redirect = vfs_open(NULL, "/tmp/.kmsg", true, false);
-    vfs_add_device(vfs_create_symlink("kmsg", "/tmp/.kmsg"));
+void arch_redirect_logs(void) {
+    serial_redirect = vfs_open(NULL, "/dev/kmsg", false, false);
 }

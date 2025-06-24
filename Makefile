@@ -61,7 +61,8 @@ run-gdb: all
 
 .PHONY: run-kvm-vnc
 run-kvm-vnc: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -smp 12 -accel kvm 
+#-smp 12 
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm 
 
 .PHONY: mlibc-setup
 mlibc-setup:
