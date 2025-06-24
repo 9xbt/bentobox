@@ -404,10 +404,13 @@ long fork(struct registers *r) {
         for (size_t j = 0; j < ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE; j++) {
             void *phys = mmu_alloc(1);
             void *virt = (void *)(this->sections[i].ptr + j * PAGE_SIZE);
+
+            uintptr_t ident = mmu_get_physical(this->pml4, (uintptr_t)virt);
             
             //dprintf("phys 0x%lx\n", phys);
+            //memcpy(VIRTUAL_IDENT(phys), virt, PAGE_SIZE);
+            memcpy(VIRTUAL_IDENT(phys), VIRTUAL_IDENT(ident), PAGE_SIZE);
             mmu_map(virt, phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-            memcpy(VIRTUAL_IDENT(phys), virt, PAGE_SIZE);
         }
     }
 

@@ -134,6 +134,7 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
 
         uint64_t vma_flags;
         if (prot == PROT_NONE) {
+            /* NOTE: this may break some userspace programs */
             vma_flags = PTE_PRESENT;
         } else {
             vma_flags = PTE_USER;
