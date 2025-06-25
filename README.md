@@ -145,6 +145,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] Proper VFS drivers
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)
 - [X] Fix having a lot of children crashing the kernel
+- [ ] Null out serial_redirect on panic
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
