@@ -278,6 +278,14 @@ long sys_access(const char *pathname, int mode) {
     return vfs_check_perms(vfs_open(this->cwd, pathname, false, false), mode);
 }
 
+long sys_select() {
+    return 0;
+}
+
+long sys_pselect6() {
+    return 0;
+}
+
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     if (!pathname)
         return -EFAULT;
@@ -609,10 +617,6 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
     return 0;
 }
 
-long sys_pselect6() {
-    return 1;
-}
-
 long sys_utimensat() {
     unimplemented;
     return -ENOENT;
@@ -638,6 +642,7 @@ static syscall_func syscalls[] = {
     [SYS_readv]             = (syscall_func)(uintptr_t)sys_readv,
     [SYS_writev]            = (syscall_func)(uintptr_t)sys_writev,
     [SYS_access]            = (syscall_func)(uintptr_t)sys_access,
+    [SYS_select]            = (syscall_func)(uintptr_t)sys_select,
     [SYS_dup]               = (syscall_func)(uintptr_t)sys_dup,
     [SYS_dup2]              = (syscall_func)(uintptr_t)sys_dup2,
     [SYS_nanosleep]         = (syscall_func)(uintptr_t)sys_nanosleep,
