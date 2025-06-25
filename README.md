@@ -3,9 +3,10 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
 
 ## Features on x86_64
 - Full architecture support
-    - GDT, IDT, LAPIC timer, (I/O)APIC, HPET, `syscall` instructions
+    - GDT, IDT, LAPIC timer, (I/O)APIC, HPET, SMP, `syscall` instruction
 - Terminal with VGA text mode and framebuffer console
     - PS/2 keyboard
+    - Serial driver
 - Memory management
     - Bitmap allocator
     - 4-level paging
@@ -77,7 +78,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Framebuffer support
 - [ ] PS/2 drivers
     - [X] Keyboard
-        - [ ] Arrow key support
+        - [X] Arrow key support
     - [ ] Mouse
 - [ ] Userspace support
     - [X] TSS
@@ -90,7 +91,8 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] `unimplemented` macro
 - [X] Simplify the PCI driver
 - [X] FIFO queues
-~~- [ ] Write a more efficient heap~~
+- ~~[ ] Write a more efficient heap~~
+- [X] Port dlmalloc
 - [X] Move to dlmalloc
 - [ ] Make an OS specific toolchain
 - [X] 64-bit VFS
