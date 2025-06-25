@@ -29,8 +29,8 @@ void vma_destroy(struct vma_head *h) {
 
     while (current != h->head) {
         next = current->next;
-        mmu_unmap_pages(current->size, (void *)current->virt);
-        mmu_free((void *)current->phys, current->size);
+        if (current->virt) mmu_unmap_pages(current->size, (void *)current->virt);
+        if (current->phys) mmu_free((void *)current->phys, current->size);
         mmu_unmap(current);
         mmu_free(PHYSICAL(current), 1);
         current = next;
@@ -50,18 +50,23 @@ void *vma_map(struct vma_head *h, uint64_t pages, uint64_t phys, uint64_t virt, 
     h->head->prev->next = block;
     h->head->prev = block;
     block->size = pages;
-    if (phys) {
-        block->phys = phys;
+    if (flags) {
+        if (phys) {
+            block->phys = phys;
+        } else {
+            block->phys = (uintptr_t)mmu_alloc(pages);
+        }
+        if (virt) {
+            block->virt = virt;
+        } else {
+            block->virt = (uintptr_t)VMA_VIRTUAL(block->phys);
+        }
+        mmu_map_pages(pages, (void *)block->virt, (void *)block->phys, flags);
     } else {
-        block->phys = (uintptr_t)mmu_alloc(pages);
+        block->phys = 0;
+        block->virt = 0;
     }
-    if (virt) {
-        block->virt = virt;
-    } else {
-        block->virt = (uintptr_t)VMA_VIRTUAL(block->phys);
-    }
-    mmu_map_pages(pages, (void *)block->virt, (void *)block->phys, flags);
-
+    
     block->checksum = block->phys + block->virt;
     block->flags = flags;
 

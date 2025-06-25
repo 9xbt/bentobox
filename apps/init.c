@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (pid == 0) {
-            char *arg[] = { "/usr/bin/bash", NULL };
+            char *arg[] = { "/usr/bin/bash-musl", NULL };
             char *envp[] = { "HOME=" HOME, "TERM=linux", NULL };
             execve(arg[0], arg, envp);
             perror("execvp");

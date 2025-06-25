@@ -68,6 +68,8 @@ struct task {
     struct task *parent;
     struct task *children;
     int child_exit;
+
+    uintptr_t brk;
 };
 
 #define this this_core()->current_proc

@@ -132,11 +132,8 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
     if (flags & MAP_ANONYMOUS) {
         if (offset != 0 || fd_num != -1) return -EINVAL;
 
-        uint64_t vma_flags;
-        if (prot == PROT_NONE) {
-            /* NOTE: this may break some userspace programs */
-            vma_flags = PTE_PRESENT;
-        } else {
+        uint64_t vma_flags = 0;
+        if (prot != PROT_NONE) {
             vma_flags = PTE_USER;
             if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
             if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
@@ -183,22 +180,10 @@ long sys_munmap(void *addr, size_t length) {
 }
 
 long sys_brk(void *addr) {
-    size_t i;
-    for (i = 0; i < sizeof this->sections / sizeof(struct task_section); i++) {
-        if (this->sections[i].ptr == 0)
-            break;
-    }
-    
-    if (i == 0) {
-        dprintf("%s:%d: WARNING: '%s' has no sections\n", __FILE__, __LINE__, this->name);
-        return -ENOMEM;
-    }
-    
-    struct task_section *section = &this->sections[i - 1];
-    uintptr_t current_brk = section->ptr + section->length;
+    uintptr_t current_brk = this->brk;
     
     uintptr_t new_brk = (uintptr_t)addr;
-    if (!new_brk || new_brk < section->ptr || new_brk == current_brk)
+    if (!new_brk || new_brk < current_brk || new_brk == current_brk)
         return current_brk;
     
     if (new_brk > current_brk) {
@@ -208,10 +193,9 @@ long sys_brk(void *addr) {
         
         if (length > 0) {
             size_t pages = length / PAGE_SIZE;
-            void *phys = mmu_alloc(pages);
-            mmu_map_pages(pages, (void *)map_start, phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+            vma_map(this->vma, pages, 0, map_start, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
         }
-        section->length = new_brk - section->ptr;
+        this->brk = map_end;
     } else {
         dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
     }

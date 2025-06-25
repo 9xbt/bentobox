@@ -157,6 +157,7 @@ static void elf_load_sections(struct task *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *p
 
             proc->sections[section].ptr = page_start;
             proc->sections[section].length = pages * PAGE_SIZE;
+            proc->brk = proc->sections[section].ptr + proc->sections[section].length;
             section++;
 
             if (phdr[i].p_filesz > 0) {
@@ -330,6 +331,7 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
             }
             mmu_unmap_pages(ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE, (void *)this->sections[i].ptr);
             this->sections[i].length = 0;
+            this->sections[i].ptr = 0;
         }
     }
 
@@ -407,12 +409,8 @@ long fork(struct registers *r) {
         for (size_t j = 0; j < ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE; j++) {
             void *phys = mmu_alloc(1);
             void *virt = (void *)(this->sections[i].ptr + j * PAGE_SIZE);
-
-            uintptr_t ident = mmu_get_physical(this->pml4, (uintptr_t)virt);
             
-            //dprintf("phys 0x%lx\n", phys);
-            //memcpy(VIRTUAL_IDENT(phys), virt, PAGE_SIZE);
-            memcpy(VIRTUAL_IDENT(phys), VIRTUAL_IDENT(ident), PAGE_SIZE);
+            memcpy(VIRTUAL_IDENT(phys), VIRTUAL_IDENT(mmu_get_physical(this->pml4, (uintptr_t)virt)), PAGE_SIZE);
             mmu_map(virt, phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
         }
     }
