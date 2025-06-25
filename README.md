@@ -2,23 +2,27 @@
 bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
 
 ## Features on x86_64
-- Multiboot 2 boot & module support
-- 4-level paging
-- VGA text mode and serial driver
-- Framebuffer console
-- PS/2 keyboard driver
-- ACPI table parsing (MADT & FADT)
-- LAPIC & IOAPIC support
-- HPET timer support
-- PCI driver
-- SMP-aware scheduler
-- Unix-style VFS
-- Elf64 loading
-- ATA and AHCI driver
-- ext2 support with caching
-- Userspace processes
-- SSE support
-- mlibc port
+- Full architecture support
+    - GDT, IDT, LAPIC timer, (I/O)APIC, HPET, `syscall` instructions
+- Terminal with VGA text mode and framebuffer console
+    - PS/2 keyboard
+- Memory management
+    - Bitmap allocator
+    - 4-level paging
+    - dlmalloc heap
+- (partial) ACPI mode
+    - MADT/FADT tables
+- Processes and scheduler
+    - SMP-aware scheduler with signal support
+- PCI device enumeration
+- Files
+    - Unix-style virtual filesystem
+    - ATA/AHCI storage drivers
+    - Filesystem (ext2)
+- Userspace
+    - Elf64 loader
+    - Linux syscalls (about 12% are currently implemented)
+    - Can run bash, busybox and doomgeneric
 
 ## Features on RISC-V
 - Virtio UART driver
@@ -146,7 +150,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)
 - [X] Fix having a lot of children crashing the kernel
 - [X] Null out serial_redirect on panic
-- [ ] Change feature list to be less exhaustive
+- [X] Change feature list to be less exhaustive
 - [ ] Don't print `warning: couldn't get next pml` when just checking a mapping
 
 ## Screenshots
