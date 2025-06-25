@@ -74,3 +74,11 @@ int fd_dup(int oldfd_num, int newfd_num) {
     memcpy(newfd, oldfd, sizeof(struct fd));
     return newfd_num;
 }
+
+struct fd *fd_get(int fd) {
+    if (fd < 0 || fd >= USER_MAX_FDS)
+        return NULL;
+    if (!this->fd_table[fd].node)
+        return NULL;
+    return &this->fd_table[fd];
+}

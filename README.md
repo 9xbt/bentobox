@@ -140,7 +140,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] Lazy ELF loading
 ~~- [ ] Move FD termios to VFS nodes~~
 - [X] faccessat
-- [ ] Check FD bounds in syscalls that don't
+- [X] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
 - [ ] Proper VFS drivers
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)

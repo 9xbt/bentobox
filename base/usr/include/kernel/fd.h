@@ -20,3 +20,4 @@ struct fd fd_new(struct vfs_node *node, int flags);
 int fd_open(const char *path, int flags);
 int fd_close(int fd);
 int fd_dup(int oldfd_num, int newfd_num);
+struct fd *fd_get(int fd);

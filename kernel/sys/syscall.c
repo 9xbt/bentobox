@@ -23,7 +23,9 @@
 #include <kernel/version.h>
 
 long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
-    struct fd *fd = &this->fd_table[fd_num];
+    struct fd *fd = fd_get(fd_num);
+    if (!fd || !fd->open)
+        return -EBADFD;
     if (!fd->node)
         return -ENOENT;
     if ((!fd->node->write && write) || (!fd->node->read && !write))
@@ -61,8 +63,10 @@ long sys_stat(const char *pathname, struct stat *statbuf) {
 }
 
 long sys_fstat(int fd_num, struct stat *statbuf) {
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node || !statbuf)
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
+        return -EBADF;
+    if (statbuf)
         return -EFAULT;
     return vfs_stat(fd->node, statbuf, false);
 }
@@ -88,7 +92,9 @@ long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restr
             return -EBADF;
         }
 
-        struct fd *dir_fd = &this->fd_table[dirfd];
+        struct fd *dir_fd = fd_get(dirfd);
+        if (!dir_fd)
+            return -EBADF;
         if (dir_fd->node->type != VFS_DIRECTORY)
             return -ENOTDIR;
 
@@ -105,8 +111,9 @@ long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restr
 }
 
 long sys_lseek(int fd_num, off_t offset, int whence) {
-    struct fd *fd = &this->fd_table[fd_num];
-
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
+        return -EBADF;
     if (fd->node->type == VFS_CHARDEVICE)
         return -ESPIPE;
 
@@ -151,8 +158,8 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
         return (long)ptr;
     }
 
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node || !fd->node->mmap)
+    struct fd *fd = fd_get(fd_num);
+    if (!fd || !fd->node->mmap)
         return -ENODEV;
     return fd->node->mmap(addr, length, prot, flags, fd_num, offset);
 }
@@ -211,8 +218,8 @@ long sys_rt_sigprocmask() {
 }
 
 long sys_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = &this->fd_table[fd_num];
-    if (fd_num < 0)
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
         return -EBADF;
     if (!fd->node->isatty)
         return -ENOTTY;
@@ -234,8 +241,8 @@ long sys_read_writev(int fd_num, const struct iovec *iov, int iovcnt, bool write
     if (!iov && iovcnt > 0)
         return -EFAULT;
     
-    struct fd *fd = &this->fd_table[fd_num];
-    if (!fd->node)
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
         return -EBADF;
     if ((!fd->node->write && write) || (!fd->node->read && !write))
         return -EINVAL;
@@ -291,8 +298,8 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
         return -EFAULT;
     if (dirfd == AT_FDCWD)
         return vfs_check_perms(vfs_open(this->cwd, pathname, false, false), mode);
-    struct fd *fd = &this->fd_table[dirfd];
-    if (!fd->node)
+    struct fd *fd = fd_get(dirfd);
+    if (!fd)
         return -EBADF;
     if (pathname[0] != '/')
         return vfs_check_perms(vfs_open(fd->node, pathname, false, false), mode);
@@ -359,35 +366,14 @@ long sys_uname(struct utsname *utsname) {
 }
 
 long sys_fcntl(int fd_num, int cmd, long arg) {
-    if (fd_num < 0 ||
-        fd_num >= (signed)(sizeof this->fd_table / sizeof(struct fd)) ||
-        !this->fd_table[fd_num].node) {
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
         return -EBADF;
-    }
-
-    struct fd *fd = &this->fd_table[fd_num];
     switch (cmd) {
-        case F_DUPFD: {
-            int start_fd = (arg < 0) ? 0 : (int)arg;
-            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
-                if (!this->fd_table[i].node) {
-                    this->fd_table[i] = *fd;
-                    return i;
-                }
-            }
-            return -EMFILE;
-        }
-        case F_DUPFD_CLOEXEC: {
-            int start_fd = (arg < 0) ? 0 : (int)arg;
-            for (int i = start_fd; i < (signed)(sizeof this->fd_table / sizeof(struct fd)); i++) {
-                if (!this->fd_table[i].node) {
-                    this->fd_table[i] = *fd;
-                    this->fd_table[i].flags |= FD_CLOEXEC;
-                    return i;
-                }
-            }
-            return -EMFILE;
-        }
+        case F_DUPFD:
+            return sys_dup(fd_num);
+        case F_DUPFD_CLOEXEC:
+            fd_get(sys_dup(fd_num))->flags |= FD_CLOEXEC;
         case F_GETFD:
             return fd->flags & FD_CLOEXEC;
         case F_SETFD:
@@ -540,11 +526,9 @@ struct linux_dirent64 {
 #define DT_UNKNOWN 0
 
 long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count) {
-    if (fd_num < 0 || fd_num >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[fd_num].node) {
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
         return -EBADF;
-    }
-
-    struct fd *fd = &this->fd_table[fd_num];
     struct vfs_node *dir = fd->node;
 
     if (dir->type != VFS_DIRECTORY) {
