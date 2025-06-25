@@ -29,6 +29,7 @@
 
 extern void generic_startup(void);
 extern void generic_main(void);
+extern void arch_redirect_logs(void);
 
 void *mboot = NULL;
 
@@ -83,6 +84,7 @@ void puts(char *s) {
 }
 
 void arch_prepare_fatal(void) {
+	arch_redirect_logs();
 	for (uint32_t i = 0; i < madt_lapics; i++) {
 		if (i == this_core()->lapic_id) continue;
 		lapic_ipi(i, 0x447D);

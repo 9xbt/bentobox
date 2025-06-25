@@ -6,7 +6,6 @@
 #include <kernel/version.h>
 
 extern void generic_load_modules(void);
-extern void debugcon_entry(void);
 extern void arch_redirect_logs(void);
 
 void generic_startup(void) {

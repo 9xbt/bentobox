@@ -66,7 +66,7 @@ long sys_fstat(int fd_num, struct stat *statbuf) {
     struct fd *fd = fd_get(fd_num);
     if (!fd)
         return -EBADF;
-    if (statbuf)
+    if (!statbuf)
         return -EFAULT;
     return vfs_stat(fd->node, statbuf, false);
 }

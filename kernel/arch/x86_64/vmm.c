@@ -45,7 +45,6 @@ void vmm_switch_pm(uintptr_t *pm) {
 uintptr_t *vmm_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
     if (lvl[entry] & PTE_PRESENT) return VIRTUAL_IDENT(PTE_GET_ADDR(lvl[entry]));
     if (!alloc) {
-        //panic("Couldn't get next PML\n");
         dprintf("%s:%d: \033[33mwarning:\033[0m couldn't get next pml\n", __FILE__, __LINE__);
         return NULL;
     }

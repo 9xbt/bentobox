@@ -120,7 +120,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] TSC timing
 - [X] exec()
 - [X] fork()
-~~- [ ] Fix ATA driver not reading/writing more than 256 sectors at a time~~
+- [ ] ~~Fix ATA driver not reading/writing more than 256 sectors at a time~~
 - [X] waitpid()
     - [X] Signals
 - [X] Fix signals on SMP
@@ -138,14 +138,16 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] TTY operations
 - [X] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
-~~- [ ] Move FD termios to VFS nodes~~
+- ~~[ ] Move FD termios to VFS nodes~~
 - [X] faccessat
 - [X] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
 - [ ] Proper VFS drivers
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)
 - [X] Fix having a lot of children crashing the kernel
-- [ ] Null out serial_redirect on panic
+- [X] Null out serial_redirect on panic
+- [ ] Change feature list to be less exhaustive
+- [ ] Don't print `warning: couldn't get next pml` when just checking a mapping
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
