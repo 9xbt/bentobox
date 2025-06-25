@@ -83,6 +83,10 @@ void vga_putchar(const char c) {
                 }
                 if (code == 0) {
                     vga_color = 0x07;
+                } else if (code == 39) {
+                    vga_color = (vga_color & 0xF0) | 0x07;
+                } else if (code == 49) {
+                    vga_color = (vga_color & 0x0F) | (0x70);
                 } else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
                     vga_color = (vga_color & 0xF0) | (ansi_to_vga(code) & 0x0F);
                 } else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
