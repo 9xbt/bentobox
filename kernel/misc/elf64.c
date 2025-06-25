@@ -1,8 +1,9 @@
-#include <kernel/errno.h>
 #include <stdbool.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>
 #include <kernel/elf64.h>
+#include <kernel/errno.h>
+#include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/module.h>
@@ -283,16 +284,18 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     argv_ptrs[argc] = 0;
     env_ptrs[envc] = 0;
 
-    int i = 0;
+    int i = 0, len;
     for (i = 0; i < envc; i++) {
-        depth += ALIGN_UP(strlen(env[i]) + 1, 16);
+        len = strlen(env[i]) + 1;
+        depth += ALIGN_UP(len, 16);
         env_ptrs[i] = (uint64_t)(USER_STACK_TOP - depth);
-        strcpy((char *)VIRTUAL_IDENT(stack_top_phys - depth), env[i]);
+        memmove((char *)VIRTUAL_IDENT(stack_top_phys - depth), env[i], len);
     }
     for (i = 0; i < argc; i++) {
-        depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+        len = strlen(argv[i]) + 1;
+        depth += ALIGN_UP(len, 16);
         argv_ptrs[i] = (uint64_t)(USER_STACK_TOP - depth);
-        strcpy((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i]);
+        memmove((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i], len);
     }
 
     depth += 8;
