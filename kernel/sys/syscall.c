@@ -676,10 +676,8 @@ static syscall_func syscalls[] = {
 };
 
 void syscall_handler(struct registers *r) {
-    dprintf("%lu(%lx,%lu,%lu,%lu,%lu,%lu)->", r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
-        //dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
+        dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
         sched_unlock();
         return;
@@ -687,5 +685,4 @@ void syscall_handler(struct registers *r) {
 
     syscall_func handler = syscalls[r->rax];
     r->rax = handler((r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
-    dprintf("%lx\n", r->rax);
 }
