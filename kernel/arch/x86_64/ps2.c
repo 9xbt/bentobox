@@ -36,6 +36,8 @@ void irq1_handler(struct registers *r) {
             case 0x3a:
                 kb_caps = !kb_caps;
                 break;
+            case 0xe0:
+                break;
             default:
                 if (kb_ctrl && key == 0x2E) {
                     for (uint32_t id = 0; id < madt_lapics; id++) {
@@ -70,6 +72,8 @@ void irq1_handler(struct registers *r) {
                 break;
             case 0x9d:
                 kb_ctrl = false;
+                break;
+            case 0xe0:
                 break;
             default:
                 if (kb_shift) {
