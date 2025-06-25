@@ -68,9 +68,8 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] ext2fs support
     - [X] Direct blocks
     - [X] Indirect blocks
-    - [X] Singly linked blocks
-    - [X] Doubly linked blocks
-    - [ ] Triply linked blocks
+    - [X] Doubly indirect blocks
+    - [ ] Triply indirect blocks
     - [X] Reading
     - [ ] Writing
     - [X] Mounting
