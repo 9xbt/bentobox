@@ -53,7 +53,7 @@ run: all
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -smp 12 -accel kvm
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -smp 8 -accel kvm
 
 .PHONY: run-gdb
 run-gdb: all
@@ -61,22 +61,7 @@ run-gdb: all
 
 .PHONY: run-kvm-vnc
 run-kvm-vnc: all
-#-smp 12 
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm 
-
-.PHONY: mlibc-setup
-mlibc-setup:
-	cd mlibc && meson setup build --strip --cross-file ../crossfile.txt -Dheaders_only=false -Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled -Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled -Dprefix=/opt/mlibc/ --wipe
-	make mlibc
-
-.PHONY: mlibc-clean
-mlibc-clean:
-	cd mlibc && ninja -C build clean
-
-.PHONY: mlibc
-mlibc:
-	cp base/usr/include/kernel/syscall.h mlibc/sysdeps/bentobox/include/bentobox/syscalls.h
-	cd mlibc && ninja -C build install
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm -smp 8
 
 .PHONY: apps
 apps:

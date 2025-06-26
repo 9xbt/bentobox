@@ -1,6 +1,6 @@
 # Toolchain
 AS = nasm
-CC = clang
+CC = musl-gcc
 LD = ld
 
 # Automatically find sources
@@ -9,11 +9,8 @@ S_SRCS = $(wildcard *.S)
 C_EXES = $(C_SRCS:.c=)
 S_EXES = $(S_SRCS:.S=)
 
-SYSROOT = /opt/mlibc
-OBJ = $(SYSROOT)/lib/crt0.o $(SYSROOT)/lib/crti.o $(SYSROOT)/lib/crtn.o $(SYSROOT)/lib/libc.a
-
 # Flags
-CFLAGS = -I$(SYSROOT)/include -ffreestanding -nostdlib -fno-pic -fno-stack-protector -mcmodel=large -g
+CFLAGS = -static -g
 ASFLAGS = -f elf64
 LDFLAGS =
 
@@ -27,9 +24,7 @@ dirs:
 
 $(OUT)/%: %.c
 	@echo " CC $<"
-	@$(CC) $(CFLAGS) -c $< -o $@.o
-	@$(LD) $(LDFLAGS) $@.o $(OBJ) -o $@
-	@rm $@.o
+	@$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/%: %.S
 	@echo " AS $<"
