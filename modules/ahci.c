@@ -96,7 +96,7 @@ typedef struct {
     uint8_t cmd;
     uint8_t featurel;
     
-    /* DWORD 1*/
+    /* DWORD 1 */
     uint8_t lba0;
     uint8_t lba1;
     uint8_t lba2;
@@ -228,7 +228,7 @@ ahci_port_t *ahci_init_disk(int port_num) {
     cmd |= HBA_CMD_ST;
     port_write_reg(port_num, PORT_CMD, cmd);
 
-    //dprintf("%s:%d: initialized port %d\n", __FILE__, __LINE__, port_num);
+    dprintf("%s:%d: initialized SATA port %d\n", __FILE__, __LINE__, port_num);
     return ahci_port;
 }
 
@@ -275,33 +275,22 @@ void ahci_send_cmd(int port_num, uint32_t slot) {
     }
     
     uint32_t cmd = port_read_reg(port_num, PORT_CMD);
-    cmd &= ~HBA_CMD_ST;
-    port_write_reg(port_num, PORT_CMD, cmd);
-    
+    port_write_reg(port_num, PORT_CMD, cmd & ~HBA_CMD_ST);
     while (port_read_reg(port_num, PORT_CMD) & HBA_CMD_CR) {
         __asm__ volatile ("pause");
     }
     
-    cmd = port_read_reg(port_num, PORT_CMD);
-    cmd |= HBA_CMD_FR | HBA_CMD_ST;
-    port_write_reg(port_num, PORT_CMD, cmd);
+    port_write_reg(port_num, PORT_CMD, (cmd & ~HBA_CMD_ST) | HBA_CMD_FR | HBA_CMD_ST);
     
     port_write_reg(port_num, PORT_CI, 1 << slot);
-    
     while (port_read_reg(port_num, PORT_CI) & (1 << slot)) {
         __asm__ volatile ("pause");
     }
     
-    cmd = port_read_reg(port_num, PORT_CMD);
-    cmd &= ~HBA_CMD_ST;
-    port_write_reg(port_num, PORT_CMD, cmd);
-    
+    port_write_reg(port_num, PORT_CMD, cmd & ~(HBA_CMD_ST | HBA_CMD_FRE));
     while (port_read_reg(port_num, PORT_CMD) & HBA_CMD_ST) {
         __asm__ volatile ("pause");
     }
-    
-    cmd &= ~HBA_CMD_FRE;
-    port_write_reg(port_num, PORT_CMD, cmd);
 }
 
 int ahci_op(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer, bool write) {
@@ -365,9 +354,7 @@ int ahci_read(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer
 }
 
 long sda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if (len == 0) {
-        return -1;
-    }
+    if (len == 0) return 0;
 
     size_t lba = offset / 512;
     size_t num_sectors = ALIGN_UP(len, 512) / 512;
