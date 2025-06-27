@@ -55,7 +55,7 @@ uintptr_t *vmm_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, boo
     return pml;
 }
 
-void mmu_map_huge(uintptr_t virt, uintptr_t phys, uint64_t flags) {
+void mmu_map_2mb(uintptr_t virt, uintptr_t phys, uint64_t flags) {
     uintptr_t pml4_index = (virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = (virt >> 30) & 0x1ff;
     uintptr_t pd_index = (virt >> 21) & 0x1ff;
@@ -66,7 +66,7 @@ void mmu_map_huge(uintptr_t virt, uintptr_t phys, uint64_t flags) {
     pd[pd_index] = phys | flags | (1 << 7);
 }
 
-void mmu_unmap_huge(uintptr_t virt) {
+void mmu_unmap_2mb(uintptr_t virt) {
     uintptr_t pml4_index = (virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = (virt >> 30) & 0x1ff;
     uintptr_t pd_index   = (virt >> 21) & 0x1ff;
@@ -220,7 +220,7 @@ uintptr_t mmu_get_physical(uintptr_t *pml4, uintptr_t virt) {
 void mmu_free_page_table(uintptr_t *table, int level) {
     if (level == 0 || !table) return;
 
-    if ((uintptr_t)table < 0xffffffff80000000) {
+    if ((uintptr_t)table < PHYS_MAP_BASE) {
         table = VIRTUAL_IDENT(table);
     }
 
@@ -255,8 +255,8 @@ uintptr_t *mmu_create_user_pm(struct task *proc) {
     for (int i = 256; i < 512; i++) {
         pml4[i] = kernel_pd[i];
     }
-    mmu_map_huge(0x000000, 0x000000, PTE_PRESENT | PTE_WRITABLE);
-    mmu_map_huge(0x200000, 0x200000, PTE_PRESENT | PTE_WRITABLE);
+    mmu_map_2mb(0x000000, 0x000000, PTE_PRESENT | PTE_WRITABLE);
+    mmu_map_2mb(0x200000, 0x200000, PTE_PRESENT | PTE_WRITABLE);
 
     return pml4;
 }
@@ -266,7 +266,7 @@ void mmu_destroy_user_pm(uintptr_t *pml4) {
     mmu_free(PHYSICAL_IDENT(pml4), 1);
 }
 
-void vmm_direct_map_huge(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
+void vmm_direct_map_2mb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
     uintptr_t pml4_index = (virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = (virt >> 30) & 0x1ff;
     uintptr_t pd_index   = (virt >> 21) & 0x1ff;
@@ -289,10 +289,29 @@ void vmm_direct_map_huge(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64
     pd[pd_index] = phys | flags | (1 << 7);
 }
 
+void mmu_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
+    uintptr_t pml4_index = (virt >> 39) & 0x1ff;
+    uintptr_t pdpt_index = (virt >> 30) & 0x1ff;
+    
+    if (!(pml4[pml4_index] & PTE_PRESENT)) {
+        uintptr_t *pdpt = (uintptr_t *)mmu_alloc(1);
+        memset(pdpt, 0, PAGE_SIZE);
+        pml4[pml4_index] = (uintptr_t)pdpt | PTE_PRESENT | PTE_WRITABLE | PTE_USER;
+    }
+    
+    uintptr_t *pdpt = (uintptr_t *)PTE_GET_ADDR(pml4[pml4_index]);
+    
+    pdpt[pdpt_index] = phys | flags | (1 << 7);
+}
+
 void vmm_install(void) {
-    // TODO: use gigabyte pages instead
-    for (uintptr_t addr = 0x0; addr < 65536 /*mmu_page_count*/ * PAGE_SIZE; addr += 0x200000)
-        vmm_direct_map_huge(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    if (mmu_page_count < 262144) { /* 1GB */
+        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_2M)
+            vmm_direct_map_2mb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    } else {
+        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_1G)
+            mmu_direct_map_1gb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    }
 	
     kernel_pd = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));
     this_core()->pml4 = kernel_pd;

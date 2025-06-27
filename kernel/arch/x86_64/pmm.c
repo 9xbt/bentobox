@@ -29,14 +29,14 @@ void pmm_install(void) {
     for (i = 0; i < (mmap->size - sizeof(struct multiboot_tag_mmap)) / mmap->entry_size; i++) {
         mmmt = &mmap->entries[i];
         
-        if (mmmt->addr < KERNEL_PHYS_BASE) {
+        if (mmmt->addr < 0x100000) {
             mmmt->type = MULTIBOOT_MEMORY_RESERVED;
             continue;
         }
 
         if (mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            if (mmmt->addr >= KERNEL_PHYS_BASE && mmmt->addr < (uintptr_t)&end) {
-                mmmt->len -= (uintptr_t)&end - KERNEL_PHYS_BASE;
+            if (mmmt->addr >= 0x100000 && mmmt->addr < (uintptr_t)&end) {
+                mmmt->len -= (uintptr_t)&end - 0x100000;
                 mmmt->addr = (uintptr_t)&end;
             }
             highest_address = mmmt->addr + mmmt->len;
@@ -118,7 +118,7 @@ void *mmu_alloc(size_t page_count) {
 void mmu_free(void *ptr, size_t page_count) {
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
-    if ((uintptr_t)ptr < KERNEL_PHYS_BASE || page > mmu_bitmap_size * 8) {
+    if ((uintptr_t)ptr < 0x100000 || page > mmu_bitmap_size * 8) {
         dprintf("%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
         return;
     }
