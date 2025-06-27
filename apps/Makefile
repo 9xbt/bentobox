@@ -1,6 +1,6 @@
 # Toolchain
 AS = nasm
-CC = musl-gcc
+CC = musl-clang
 LD = ld
 
 # Automatically find sources

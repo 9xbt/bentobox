@@ -6,12 +6,11 @@
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
 
-#define CURSOR_SIZE 2
-
 uint8_t vga_x = 0;
 uint8_t vga_y = 0;
 uint8_t vga_color = 0x07;
-volatile uint16_t *vga_buffer = (uint16_t *)0x20000; /* initial buffer */
+static uint16_t vga_initial_buffer[4000];
+volatile uint16_t *vga_buffer = vga_initial_buffer;
 
 int vga_ansi_index = 0;
 char vga_ansi_code[8] = {0};
@@ -183,6 +182,6 @@ void vga_copy_to_framebuffer(void) {
 }
 
 void vga_copy_to_text(void) {
-    memcpy((void *)0xB8000, (void *)0x20000, 80 * 25 * 2);
     vga_buffer = (uint16_t *)0xB8000;
+    memcpy((void *)vga_buffer, vga_initial_buffer, sizeof vga_initial_buffer);
 }

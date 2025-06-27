@@ -84,7 +84,7 @@ void puts(char *s) {
 }
 
 void arch_prepare_fatal(void) {
-	arch_redirect_logs();
+	serial_redirect = NULL;
 	for (uint32_t i = 0; i < madt_lapics; i++) {
 		if (i == this_core()->lapic_id) continue;
 		lapic_ipi(i, 0x447D);
@@ -139,6 +139,11 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	vmm_install();
 	malloc_initialize();
 	framebuffer_initialize();
+
+	//printf("Hello world!\n");
+
+	//for (;;) asm ("hlt");
+
 	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
 	acpi_install();
 	lapic_install();

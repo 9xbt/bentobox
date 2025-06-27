@@ -290,9 +290,10 @@ void vmm_direct_map_huge(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64
 }
 
 void vmm_install(void) {
-    for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += 0x200000)
+    // TODO: use gigabyte pages instead
+    for (uintptr_t addr = 0x0; addr < 65536 /*mmu_page_count*/ * PAGE_SIZE; addr += 0x200000)
         vmm_direct_map_huge(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
-
+	
     kernel_pd = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));
     this_core()->pml4 = kernel_pd;
     memcpy(kernel_pd, initial_pml[0], PAGE_SIZE);

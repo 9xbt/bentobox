@@ -9,8 +9,6 @@ syscall_entry:
     mov [gs:0], rsp
     mov rsp, [gs:8]
 
-    push 0
-    push 128
     push rax
     push rcx
     push rdx
@@ -48,7 +46,6 @@ syscall_entry:
     pop rdx
     pop rcx
     pop rax
-    add rsp, 16
 
     mov [gs:8], rsp
     mov rsp, [gs:0]

@@ -212,8 +212,5 @@ void serial_initialize(void) {
 }
 
 void arch_redirect_logs(void) {
-    if (!serial_redirect)
-        serial_redirect = vfs_open(NULL, "/dev/kmsg", false, false);
-    else
-        serial_redirect = NULL;
+    serial_redirect = vfs_open(NULL, "/dev/kmsg", false, false);
 }

@@ -101,6 +101,9 @@ void isr_handler(struct registers *r) {
     if (r->int_no == 2) {
         arch_fatal();
     }
+    if ((r->cs & 3) == 0x0) {
+        arch_prepare_fatal();
+    }
 
     /* just lock up if a fault happens inside this handler */
     static volatile bool faulted = false;
@@ -159,7 +162,6 @@ kill:
         sched_kill(this, 11);
     }
 
-    arch_prepare_fatal();
     arch_fatal();
 }
 
