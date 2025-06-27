@@ -73,7 +73,7 @@ static int tmpfs_resize(struct tmpfs_file_data *file_data, size_t new_size) {
         return 0;
     }
     
-    size_t new_allocated = (new_size + 4095) & ~4095; /* TODO: this should be 4096-sizeof(heap_block) */
+    size_t new_allocated = (new_size + 4095) & ~4095;
     void *new_data = kmalloc(new_allocated);
     if (!new_data) return -ENOMEM;
     
@@ -199,7 +199,7 @@ struct vfs_node *tmpfs_create_file(struct vfs_node *parent, const char *name) {
     return file;
 }
 
-int tmpfs_remove_file(struct vfs_node *node) {
+long tmpfs_remove_file(struct vfs_node *node) {
     if (!node || node->type != VFS_FILE)
         return -EINVAL;
     
@@ -211,5 +211,7 @@ void tmpfs_initialize(void) {
     struct vfs_node *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
     tmp->inode = TMPFS_ROOT;
     tmp->driver = VFS_DRIVER_TMPFS;
+    tmp->create = tmpfs_create_file;
+    tmp->remove = tmpfs_remove_file;
     vfs_add_node(NULL, tmp);
 }

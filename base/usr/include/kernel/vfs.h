@@ -40,8 +40,8 @@ typedef struct vfs_node {
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*ioctl)(int fd, int op, void *arg);
     long(*mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-    long(*create)(struct vfs_node *parent, const char *name);
-    long(*remove)(struct vfs_node *parent);
+    struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
+    long(*remove)(struct vfs_node *node);
     long(*poll)();
     char *symlink_target;
 } vfs_node_t;

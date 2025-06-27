@@ -233,25 +233,15 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                 kfree(copy);
 
                 if (create) {
-                    switch (node->driver) {
-                        case VFS_DRIVER_TMPFS:
-                            if (isdir) break;
-                            return tmpfs_create_file(node, filename);
-                        case VFS_DRIVER_DEVFS:
-                        case VFS_DRIVER_OTHER: {
-                            if (isdir) break;
-                            struct vfs_node *file = vfs_create_node(filename, VFS_FILE);
-                            file->driver = node->driver;
-                            vfs_add_node(node, file);
-                            return file;
-                        }
-                        default:
-                            return NULL;
+                    if (isdir) {
+                        struct vfs_node *dir = vfs_create_node(filename, VFS_DIRECTORY);
+                        dir->driver = node->driver;
+                        vfs_add_node(node, dir);
+                        return dir;
                     }
-                    struct vfs_node *dir = vfs_create_node(filename, VFS_DIRECTORY);
-                    dir->driver = node->driver;
-                    vfs_add_node(node, dir);
-                    return dir;
+                    if (node->create) {
+                        return node->create(node, filename);
+                    }
                 }
                 return NULL;
             }

@@ -93,6 +93,8 @@ void *kmalloc(size_t n) {
     if (!ptr) {
         panic("Allocation failed even after heap expansion");
     }
+
+    memset(ptr, 0, n);
     return ptr;
 }
 
