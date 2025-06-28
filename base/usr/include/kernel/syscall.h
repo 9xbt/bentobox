@@ -26,6 +26,7 @@
 #define SYS_execve          59
 #define SYS_exit            60
 #define SYS_wait4           61
+#define SYS_kill            62
 #define SYS_uname           63
 #define SYS_fcntl           72
 #define SYS_getcwd          79

@@ -342,12 +342,17 @@ long sys_exit(long status) {
     __builtin_unreachable();
 }
 
-long sys_wait4(int pid, int *wstatus) {
+long sys_wait4(long pid, int *wstatus) {
     if (!this->children) {
         return -ECHILD;
     }
     sched_block(TASK_PAUSED);
     *wstatus = this->child_exit;
+    return 0;
+}
+
+long sys_kill(long pid, int sig) {
+    sched_kill(sched_find_process_by_pid(pid), sig);
     return 0;
 }
 
@@ -635,6 +640,7 @@ static syscall_func syscalls[] = {
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
     [SYS_exit]              = (syscall_func)(uintptr_t)sys_exit,
     [SYS_wait4]             = (syscall_func)(uintptr_t)sys_wait4,
+    [SYS_kill]              = (syscall_func)(uintptr_t)sys_kill,
     [SYS_uname]             = (syscall_func)(uintptr_t)sys_uname,
     [SYS_fcntl]             = (syscall_func)(uintptr_t)sys_fcntl,
     [SYS_getcwd]            = (syscall_func)(uintptr_t)sys_getcwd,

@@ -139,11 +139,6 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	vmm_install();
 	malloc_initialize();
 	framebuffer_initialize();
-
-	//printf("Hello world!\n");
-
-	//for (;;) asm ("hlt");
-
 	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
 	acpi_install();
 	lapic_install();

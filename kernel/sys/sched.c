@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <stddef.h>
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/tss.h>
@@ -14,6 +15,7 @@
 #include <kernel/panic.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/spinlock.h>
@@ -26,7 +28,6 @@ static void sigchld(struct process *proc, int exit) {
 }
 
 static void sigint(struct process *proc, int _) {
-    fprintf(stdout, "^C\n");
     sched_kill(proc, 128 + SIGINT);
 }
 
@@ -67,16 +68,9 @@ void sched_add_task(struct process *proc, struct cpu *core) {
     if (!core) {
         core = get_core(next_cpu);
     }
-    if (!core->processes) {
-        proc->prev = proc;
-        proc->next = proc;
-        core->processes = proc;
-    } else {
-        proc->prev = core->processes->prev;
-        core->processes->prev->next = proc;
-        proc->next = core->processes;
-        core->processes->prev = proc;
-    }
+    
+    list_insert(core->processes, proc);
+
     next_cpu++;
     if (next_cpu >= madt_lapics)
         next_cpu = 0;
@@ -106,6 +100,7 @@ struct process *sched_new_task(void *entry, const char *name) {
     proc->fs = 0;
     proc->state = TASK_RUNNING;
     proc->user = false;
+    // FIXME kernel tasks don't really use this...
     proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/keyboard", false, false), 0);
     proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
@@ -159,6 +154,8 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
         argv_ptrs[i] = (uint64_t)(USER_STACK_TOP - depth);
         strcpy((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i]);
     }
+
+    // TODO: clean this up with macros
 
     depth += 8;
     *VIRTUAL_IDENT(stack_top_phys - depth) = 0;
@@ -214,70 +211,90 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
 void sched_schedule(struct registers *r) {
     sched_lock();
 
-    if (this) {
-        if (this->state != TASK_FRESH) {
-            memcpy(&(this->ctx), r, sizeof(struct registers));
-            this->gs = read_kernel_gs();
-            this->user_gs = read_gs();
-            asm volatile ("fxsave %0 " : : "m"(this->fxsave));
-        } else this->state = TASK_RUNNING;
-    } else {
-        this = process_list;
+    struct process *current_proc = this;
+    
+    if (current_proc && current_proc->state == TASK_KILLED) {
+        this_core()->current_proc = NULL;
+        current_proc = NULL;
+    }
+    
+    if (current_proc) {
+        if (current_proc->state != TASK_FRESH) {
+            memcpy(&(current_proc->ctx), r, sizeof(struct registers));
+            current_proc->gs = read_kernel_gs();
+            current_proc->user_gs = read_gs();
+            asm volatile ("fxsave %0 " : : "m"(current_proc->fxsave));
+        } else {
+            current_proc->state = TASK_RUNNING;
+        }
+    } else if (this_core()->processes->head) {
+        this_core()->current_proc = this_core()->processes->head;
+        current_proc = (struct process *)this_core()->current_proc->value;
     }
 
     size_t hpet_ticks = hpet_get_ticks();
-    if (this->state == TASK_RUNNING)
-        this->time.last = hpet_ticks - this->time.start;
+    if (current_proc && current_proc->state == TASK_RUNNING)
+        current_proc->time.last = hpet_ticks - current_proc->time.start;
 
-    if (!this->next) {
-        this = process_list;
-    } else {
-        this = this->next;
-    }
-
-    struct process *current = this;
+    struct node *start = this_core()->current_proc;
+    struct node *current = start;
+    struct process *next = NULL;
+    
     do {
-        if (this->state == TASK_SLEEPING &&
-            hpet_ticks >= this->time.end) {
-            this->state = TASK_RUNNING;
-            this->time.last = this->time.end - this->time.start;
-            break;
+        if (current && current->next) {
+            current = current->next;
+        } else {
+            current = this_core()->processes->head;
         }
-        if (this->state == TASK_SIGNAL) {
-            uint32_t pending = this->pending_signals;
-            this->pending_signals = 0;
-            this->state = TASK_RUNNING;
+        if (!current) break;
+        
+        struct process *proc = (struct process *)current->value;
+        
+        if (proc->state == TASK_KILLED) {
+            continue;
+        }
+        
+        if (proc->state == TASK_SLEEPING &&
+            hpet_ticks >= proc->time.end) {
+            proc->state = TASK_RUNNING;
+            proc->time.last = proc->time.end - proc->time.start;
+        }
+        
+        if (proc->state == TASK_SIGNAL) {
+            uint32_t pending = proc->pending_signals;
+            proc->pending_signals = 0;
+            proc->state = TASK_RUNNING;
             
             for (int sig = 1; sig <= 32; sig++) {
                 uint32_t sig_mask = 1 << (sig - 1);
                 
-                if ((pending & sig_mask) && this->signal_handlers[sig]) {
-                    int extra = (sig == SIGCHLD) ? this->child_exit : 0;
-                    this->signal_handlers[sig](this, extra);
+                if ((pending & sig_mask) && proc->signal_handlers[sig]) {
+                    int extra = (sig == SIGCHLD) ? proc->child_exit : 0;
+                    proc->signal_handlers[sig](proc, extra);
                 }
             }
         }
 
-        if (this->state == TASK_RUNNING) {
-            goto actually_switch;
+        if (proc->state == TASK_RUNNING) {
+            next = proc;
+            this_core()->current_proc = current;
+            goto schedule;
         }
+    } while (current != start);
 
-        this = this->next;
-    } while (this != current);
+    next = this_core()->idle_proc;
+schedule:
+    next->time.start = hpet_ticks;
 
-    this = this_core()->idle_proc;
-
-actually_switch:
-    this->time.start = hpet_ticks;
-
-    memcpy(r, &(this->ctx), sizeof(struct registers));
-    if (this_core()->pml4 != this->pml4)
-        vmm_switch_pm(this->pml4);
-    write_kernel_gs((uint64_t)this);
-    write_gs(this->user_gs);
-    set_kernel_stack(this->kernel_stack);
-    asm volatile ("fxrstor %0 " : : "m"(this->fxsave));
-    wrmsr(IA32_FS_BASE, this->fs);
+    memcpy(r, &(next->ctx), sizeof(struct registers));
+    if (this_core()->pml4 != next->pml4) {
+        vmm_switch_pm(next->pml4);
+    }
+    write_kernel_gs((uint64_t)next);
+    write_gs(next->user_gs);
+    set_kernel_stack(next->kernel_stack);
+    asm volatile ("fxrstor %0 " : : "m"(next->fxsave));
+    wrmsr(IA32_FS_BASE, next->fs);
 
     sched_unlock();
 }
@@ -288,7 +305,10 @@ void sched_yield(void) {
 }
 
 void sched_block(enum process_state reason) {
-    this->state = reason;
+    struct process *current_proc = this;
+    if (current_proc) {
+        current_proc->state = reason;
+    }
     sched_yield();
 }
 
@@ -298,11 +318,16 @@ void sched_unblock(struct process *proc) {
 
 void sched_sleep(int us) {
     if (us == 0) return;
-    this->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
+    struct process *current_proc = this;
+    if (current_proc) {
+        current_proc->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
+    }
     sched_block(TASK_SLEEPING);
 }
 
 void sched_kill(struct process *proc, int status) {
+    if (!proc) return;
+    
     sched_lock();
 
     if (proc->pid == 1) {
@@ -312,17 +337,36 @@ void sched_kill(struct process *proc, int status) {
         panic("Attempted to kill idle!");
     }
 
+    if (proc->state == TASK_KILLED) {
+        sched_unlock();
+        return;
+    }
+
     if (proc->parent && proc->parent->state != TASK_RUNNING) {
         send_signal(proc->parent, SIGCHLD, status);
     }
     
     proc->state = TASK_KILLED;
-    proc->prev->next = proc->next;
-    proc->next->prev = proc->prev;
-    proc->next = this_core()->terminated_processes;
-    this_core()->terminated_processes = proc;
     
-    sched_unblock(this_core()->cleaner_proc);
+    struct cpu *proc_core = NULL;
+    for (uint32_t i = 0; i < madt_lapics; i++) {
+        struct cpu *core = get_core(i);
+        if (list_find(core->processes, proc)) {
+            proc_core = core;
+            break;
+        }
+    }
+    
+    if (proc_core) {
+        list_remove_value(proc_core->processes, proc);
+        list_insert(proc_core->terminated_processes, proc);
+        
+        if (proc_core->current_proc && proc_core->current_proc->value == proc && proc != this) {
+            proc_core->current_proc = NULL;
+        }
+        sched_unblock(proc_core->cleaner_proc);
+    }
+    
     sched_unlock();
 
     if (proc == this) {
@@ -335,12 +379,12 @@ void sched_cleaner(void) {
     for (;;) {
         sched_lock();
         
-        struct process *proc = this_core()->terminated_processes;
+        struct process *proc = (struct process *)list_pop(this_core()->terminated_processes);
         if (!proc) {
+            sched_unlock();
             sched_block(TASK_PAUSED);
             continue;
         }
-        this_core()->terminated_processes = proc->next;
         
         if (proc->user) {
             //printf("Killing %d - %s!\n", proc->pid, proc->name);
@@ -385,6 +429,20 @@ void sched_idle(void) {
     }
 }
 
+struct process *sched_find_process_by_pid(long pid) {
+    for (uint32_t i = 0; i < madt_lapics; i++) {
+        struct cpu *core = get_core(i);
+        
+        foreach(node, core->processes) {
+            struct process *proc = (struct process *)node->value;
+            if (proc && proc->pid == pid) {
+                return proc;
+            }
+        }
+    }
+    return NULL;
+}
+
 void sched_start_all_cores(void) {
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);
@@ -407,6 +465,8 @@ void sched_start_all_cores(void) {
 void sched_install(void) {
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);
+        core->processes = list_create();
+        core->terminated_processes = list_create();
 
         struct process *idle = sched_new_task(sched_idle, "System Idle Process");
         idle->state = TASK_PAUSED;
@@ -416,5 +476,4 @@ void sched_install(void) {
     }
     next_pid = 1;
     dprintf("%s:%d: created %u idle processes\n", __FILE__, __LINE__, madt_lapics);
-    //printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
 }

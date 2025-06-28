@@ -46,8 +46,6 @@ struct process {
     char fxsave[512];
     uint64_t user_gs;
 
-    struct process *next;
-    struct process *prev;
     char *name;
     uint64_t *pml4;
     long pid;
@@ -71,7 +69,7 @@ struct process {
     uintptr_t brk;
 };
 
-#define this this_core()->current_proc
+#define this ((struct process *)(this_core()->current_proc ? this_core()->current_proc->value : NULL))
 #define process_list this_core()->processes
 
 void sched_install(void);
@@ -87,3 +85,4 @@ void sched_idle(void);
 void sched_add_task(struct process *proc, struct cpu *core);
 struct process *sched_new_task(void *entry, const char *name);
 struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);
+struct process *sched_find_process_by_pid(long pid);

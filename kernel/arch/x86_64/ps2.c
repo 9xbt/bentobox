@@ -41,7 +41,14 @@ void irq1_handler(struct registers *r) {
             default:
                 if (kb_ctrl && key == 0x2E) {
                     for (uint32_t id = 0; id < madt_lapics; id++) {
-                        send_signal(get_core(id)->current_proc, SIGINT, 0);
+                        struct cpu *core = get_core(id);
+                        if (core->current_proc && core->current_proc->value) {
+                            struct process *proc = (struct process *)core->current_proc->value;
+                            if (proc->user && proc->state != TASK_KILLED) {
+                                fprintf(stdout, "^C\n");
+                                send_signal(proc, SIGINT, 0);
+                            }
+                        }
                     }
                     break;
                 }
