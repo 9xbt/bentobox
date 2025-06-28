@@ -1,9 +1,8 @@
-#include "kernel/assert.h"
-#include <kernel/errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/vfs.h>
+#include <kernel/errno.h>
 #include <kernel/ioctl.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -30,7 +29,6 @@ long console_ioctl(int fd_num, int op, void *arg) {
             lfb_get_ws((struct winsize *)arg);
             return 0;
         case TIOCSWINSZ:
-            unimplemented;
             return 0;
         case TIOCGNAME:
             strcpy(arg, "/dev/console");

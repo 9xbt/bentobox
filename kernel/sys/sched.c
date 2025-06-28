@@ -1,4 +1,3 @@
-#include "kernel/list.h"
 #include <stddef.h>
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/tss.h>
@@ -10,6 +9,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>
+#include <kernel/list.h>
 #include <kernel/acpi.h>
 #include <kernel/sched.h>
 #include <kernel/panic.h>

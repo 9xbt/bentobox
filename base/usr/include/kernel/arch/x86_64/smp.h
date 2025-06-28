@@ -10,7 +10,6 @@ struct cpu {
     uint64_t lapic_id;
     uintptr_t *pml4;
 
-    //struct process *processes;
     struct list *processes;
     struct node *current_proc;
     struct process *cleaner_proc;

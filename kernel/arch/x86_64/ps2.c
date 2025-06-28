@@ -284,6 +284,8 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
         case TIOCGWINSZ:
             lfb_get_ws((struct winsize *)arg);
             return 0;
+        case TIOCSWINSZ:
+            return 0;
         case TIOCGNAME:
             strcpy(arg, "/dev/keyboard");
             break;
