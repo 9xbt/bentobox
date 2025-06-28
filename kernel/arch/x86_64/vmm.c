@@ -247,7 +247,7 @@ void mmu_free_page_table(uintptr_t *table, int level) {
     }
 }
 
-uintptr_t *mmu_create_user_pm(struct task *proc) {
+uintptr_t *mmu_create_user_pm(struct process *proc) {
     uintptr_t *pml4 = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));
     memset(pml4, 0, PAGE_SIZE);
     

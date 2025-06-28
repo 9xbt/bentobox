@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-/* This is a modified version of linux/include/asm-generic/errno.h */
 
 #pragma once
 

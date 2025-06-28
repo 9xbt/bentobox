@@ -311,5 +311,5 @@ void ps2_initialize(void) {
 void ps2_install(void) {
     fifo_init(&kb_fifo, 64);
     irq_register(1, irq1_handler);
-    dprintf("%s:%d: registered IRQ handler for PS/2 keyboard\n", __FILE__, __LINE__);
+    dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
 }

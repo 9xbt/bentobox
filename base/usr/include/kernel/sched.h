@@ -16,7 +16,7 @@
 #define USER_MAX_CHILDS 16
 #define USER_MAX_FDS    16
 
-enum task_state {
+enum process_state {
     TASK_RUNNING,
     TASK_PAUSED,
     TASK_SLEEPING,
@@ -26,47 +26,46 @@ enum task_state {
     TASK_BLOCKING_IO
 };
 
-struct task_time {
+struct process_time {
     uint64_t start;
     uint64_t end;
     uint64_t last;
 };
 
-struct task_section {
+struct process_section {
     uintptr_t ptr;
     size_t length;
 };
 
-struct task {
+struct process {
     uint64_t stack;
     uint64_t kernel_stack;
     uint64_t gs;
     uint64_t fs;
     struct registers ctx;
-    //char align[8];
     char fxsave[512];
+    uint64_t user_gs;
 
-    struct task *next;
-    struct task *prev;
+    struct process *next;
+    struct process *prev;
     char *name;
     uint64_t *pml4;
     long pid;
     bool user;
-    enum task_state state;
-    struct task_time time;
+    enum process_state state;
+    struct process_time time;
     struct fd fd_table[USER_MAX_FDS];
-    struct task_section sections[16];
+    struct process_section sections[16];
     uint64_t stack_bottom;
     uint64_t stack_bottom_phys;
     uint64_t kernel_stack_bottom;
     struct vma_head *vma;
-    uint64_t user_gs;
     struct vfs_node *cwd;
 
     uint32_t pending_signals;
-    void (*signal_handlers[16])(struct task *, int);
-    struct task *parent;
-    struct task *children;
+    void (*signal_handlers[16])(struct process *, int);
+    struct process *parent;
+    struct process *children;
     int child_exit;
 
     uintptr_t brk;
@@ -80,11 +79,11 @@ void sched_start_all_cores(void);
 void sched_yield(void);
 void sched_lock(void);
 void sched_unlock(void);
-void sched_block(enum task_state reason);
-void sched_unblock(struct task *proc);
+void sched_block(enum process_state reason);
+void sched_unblock(struct process *proc);
 void sched_sleep(int us);
-void sched_kill(struct task *proc, int status);
+void sched_kill(struct process *proc, int status);
 void sched_idle(void);
-void sched_add_task(struct task *proc, struct cpu *core);
-struct task *sched_new_task(void *entry, const char *name);
-struct task *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);
+void sched_add_task(struct process *proc, struct cpu *core);
+struct process *sched_new_task(void *entry, const char *name);
+struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);

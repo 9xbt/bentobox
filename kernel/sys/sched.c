@@ -20,17 +20,17 @@
 
 static long next_pid = 1, next_cpu = 0;
 
-static void sigchld(struct task *proc, int exit) {
+static void sigchld(struct process *proc, int exit) {
     proc->child_exit = exit;
     sched_unblock(proc);
 }
 
-static void sigint(struct task *proc, int _) {
+static void sigint(struct process *proc, int _) {
     fprintf(stdout, "^C\n");
     sched_kill(proc, 128 + SIGINT);
 }
 
-void send_signal(struct task *proc, int signal, int extra) {
+void send_signal(struct process *proc, int signal, int extra) {
     if (!proc || signal < 1 || signal > 32) {
         return;
     }
@@ -60,7 +60,7 @@ void sched_unlock(void) {
 #endif
 }
 
-void sched_add_task(struct task *proc, struct cpu *core) {
+void sched_add_task(struct process *proc, struct cpu *core) {
     sched_lock();
 
     proc->pid = next_pid++;
@@ -85,9 +85,9 @@ void sched_add_task(struct task *proc, struct cpu *core) {
     sched_unlock();
 }
 
-struct task *sched_new_task(void *entry, const char *name) {
-    struct task *proc = (struct task *)kmalloc(sizeof(struct task));
-    memset(proc, 0, sizeof(struct task));
+struct process *sched_new_task(void *entry, const char *name) {
+    struct process *proc = (struct process *)kmalloc(sizeof(struct process));
+    memset(proc, 0, sizeof(struct process));
     proc->pml4 = this_core()->pml4;
 
     uint64_t *stack = VIRTUAL(mmu_alloc(4));
@@ -114,15 +114,15 @@ struct task *sched_new_task(void *entry, const char *name) {
     return proc;
 }
 
-struct task *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]) {
+struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]) {
     if (!argc || !argv) {
         argc = 1;
         argv[0] = (char *)name;
         argv[1] = NULL;
     }
 
-    struct task *proc = (struct task *)kmalloc(sizeof(struct task));
-    memset(proc, 0, sizeof(struct task));
+    struct process *proc = (struct process *)kmalloc(sizeof(struct process));
+    memset(proc, 0, sizeof(struct process));
     proc->pml4 = mmu_create_user_pm(proc);
 
     uintptr_t stack_top = USER_STACK_TOP;
@@ -235,7 +235,7 @@ void sched_schedule(struct registers *r) {
         this = this->next;
     }
 
-    struct task *current = this;
+    struct process *current = this;
     do {
         if (this->state == TASK_SLEEPING &&
             hpet_ticks >= this->time.end) {
@@ -287,12 +287,12 @@ void sched_yield(void) {
     asm volatile ("int $0x79\n");
 }
 
-void sched_block(enum task_state reason) {
+void sched_block(enum process_state reason) {
     this->state = reason;
     sched_yield();
 }
 
-void sched_unblock(struct task *proc) {
+void sched_unblock(struct process *proc) {
     proc->state = TASK_RUNNING;
 }
 
@@ -302,7 +302,7 @@ void sched_sleep(int us) {
     sched_block(TASK_SLEEPING);
 }
 
-void sched_kill(struct task *proc, int status) {
+void sched_kill(struct process *proc, int status) {
     sched_lock();
 
     if (proc->pid == 1) {
@@ -335,7 +335,7 @@ void sched_cleaner(void) {
     for (;;) {
         sched_lock();
         
-        struct task *proc = this_core()->terminated_processes;
+        struct process *proc = this_core()->terminated_processes;
         if (!proc) {
             sched_block(TASK_PAUSED);
             continue;
@@ -389,19 +389,14 @@ void sched_start_all_cores(void) {
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);
         
-        struct task *cleaner = sched_new_task(sched_cleaner, "System");
+        struct process *cleaner = sched_new_task(sched_cleaner, "System");
+        cleaner->pid = next_pid;
         cleaner->state = TASK_PAUSED;
         core->cleaner_proc = cleaner;
         sched_add_task(cleaner, core);
-        
-        struct task *idle = sched_new_task(sched_idle, "Idle");
-        idle->state = TASK_PAUSED;
-        core->idle_proc = idle;
-        sched_add_task(idle, core);
-        idle->pid = 0;
-        
-        next_pid -= 2;
+        next_pid--;
     }
+    next_pid++;
 
     irq_register(0x79 - 32, sched_schedule);
     for (uint32_t i = madt_lapics - 1; i >= 0; i--) {
@@ -410,5 +405,16 @@ void sched_start_all_cores(void) {
 }
 
 void sched_install(void) {
+    for (uint32_t i = 0; i < madt_lapics; i++) {
+        struct cpu *core = get_core(i);
+
+        struct process *idle = sched_new_task(sched_idle, "System Idle Process");
+        idle->state = TASK_PAUSED;
+        core->idle_proc = idle;
+        sched_add_task(idle, core);
+        idle->pid = 0;
+    }
+    next_pid = 1;
+    dprintf("%s:%d: created %u idle processes\n", __FILE__, __LINE__, madt_lapics);
     //printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
 }

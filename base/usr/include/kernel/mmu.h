@@ -1,7 +1,7 @@
 #pragma once
-#include "kernel/sched.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/sched.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/vmm.h>
@@ -43,4 +43,4 @@ void  mmu_map_pages(size_t count, void *virt, void *phys, uint64_t flags);
 void  mmu_unmap_pages(size_t count, void *virt);
 void  mmu_destroy_user_pm(uintptr_t *pml4);
 uintptr_t mmu_get_physical(uintptr_t *pml4, uintptr_t virt);
-uintptr_t *mmu_create_user_pm(struct task *proc);
+uintptr_t *mmu_create_user_pm(struct process *proc);

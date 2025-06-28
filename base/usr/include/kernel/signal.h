@@ -4,4 +4,4 @@
 #define SIGINT  2
 #define SIGCHLD 1
 
-void send_signal(struct task *proc, int signal, int extra);
+void send_signal(struct process *proc, int signal, int extra);

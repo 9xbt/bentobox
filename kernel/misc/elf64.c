@@ -135,7 +135,7 @@ int elf_module(struct multiboot_tag_module *mod) {
     return metadata->init();
 }
 
-static void elf_load_sections(struct task *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
+static void elf_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
     //dprintf("%s:%d: mapping sections\n", __FILE__, __LINE__);
     
     int i, section = 0;
@@ -204,7 +204,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
         return -ENOEXEC;
     }
 
-    struct task *proc = sched_new_user_task((void *)ehdr->e_entry, file, argc, argv, env);
+    struct process *proc = sched_new_user_task((void *)ehdr->e_entry, file, argc, argv, env);
 
     sched_lock();
     vmm_switch_pm(proc->pml4);
@@ -348,8 +348,8 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
 long fork(struct registers *r) {
     sched_lock();
 
-    struct task *proc = (struct task *)kmalloc(sizeof(struct task));
-    memset(proc, 0, sizeof(struct task));
+    struct process *proc = (struct process *)kmalloc(sizeof(struct process));
+    memset(proc, 0, sizeof(struct process));
     proc->pml4 = mmu_create_user_pm(proc);
     this_core()->pml4 = proc->pml4;
 
@@ -403,7 +403,7 @@ long fork(struct registers *r) {
     memcpy(proc->sections, this->sections, sizeof proc->sections);
     memcpy(proc->signal_handlers, this->signal_handlers, sizeof proc->signal_handlers);
 
-    for (size_t i = 0; i < sizeof this->sections / sizeof(struct task_section); i++) {
+    for (size_t i = 0; i < sizeof this->sections / sizeof(struct process_section); i++) {
         if (this->sections[i].ptr == 0)
             break;
         for (size_t j = 0; j < ALIGN_UP(this->sections[i].length, PAGE_SIZE) / PAGE_SIZE; j++) {

@@ -23,6 +23,10 @@ long procfs_meminfo_read(struct vfs_node *node, void *buffer, long offset, size_
 }
 
 void procfs_initialize(void) {
-    vfs_open(NULL, "/proc", true, true)->driver = VFS_DRIVER_OTHER;
-    vfs_open(NULL, "/proc/meminfo", true, false)->read = procfs_meminfo_read;
+    struct vfs_node *proc = vfs_create_node("proc", VFS_DIRECTORY);
+    vfs_add_node(NULL, proc);
+
+    struct vfs_node *meminfo = vfs_create_node("meminfo", VFS_CHARDEVICE);
+    meminfo->read = procfs_meminfo_read;
+    vfs_add_node(proc, meminfo);
 }
