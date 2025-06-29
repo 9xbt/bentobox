@@ -23,7 +23,6 @@ volatile uint8_t smp_running_cpus = 1;
 static atomic_flag smp_init_lock = ATOMIC_FLAG_INIT;
 
 struct cpu bsp = {
-    .id = 0,
     .lapic_id = 0,
     .processes = NULL,
     .current_proc = NULL
@@ -58,7 +57,6 @@ void smp_initialize(void) {
         acquire(&smp_init_lock);
 
         struct cpu *core = (struct cpu *)kmalloc(sizeof(struct cpu));
-        core->id = i;
         core->lapic_id = madt_lapic_list[i]->id;
         core->processes = NULL;
         core->current_proc = NULL;

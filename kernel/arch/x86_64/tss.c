@@ -20,9 +20,9 @@ void write_tss(int cpu, uint64_t rsp0) {
 }
 
 void tss_install(void) {
-    write_tss(this_core()->id, (uint64_t)mmu_alloc(1) + PAGE_SIZE);
+    write_tss(this_core()->lapic_id, (uint64_t)mmu_alloc(1) + PAGE_SIZE);
 }
 
 void set_kernel_stack(uint64_t stack) {
-    tss[this_core()->id].rsp0 = stack;
+    tss[this_core()->lapic_id].rsp0 = stack;
 }

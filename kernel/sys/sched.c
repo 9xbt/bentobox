@@ -350,7 +350,7 @@ void sched_kill(struct process *proc, int status) {
     proc->state = TASK_KILLED;
     list_insert(terminated_process_list, proc);
     
-    sched_unblock(this_core()->cleaner_proc);
+    sched_unblock(this_core()->cleaner_proc->value);
     sched_unlock();
 
     if (yield) {
@@ -423,8 +423,7 @@ void sched_jumpstart(void) {
         struct process *cleaner = sched_new_task(sched_cleaner, "System");
         cleaner->pid = next_pid;
         cleaner->state = TASK_PAUSED;
-        core->cleaner_proc = cleaner;
-        sched_add_task(cleaner, core);
+        core->cleaner_proc = sched_add_task(cleaner, core);
         next_pid--;
     }
     next_pid++;
