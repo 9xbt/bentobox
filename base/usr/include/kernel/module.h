@@ -5,3 +5,5 @@ struct Module {
     int (*init)();
     int (*fini)();
 };
+
+void load_modules();

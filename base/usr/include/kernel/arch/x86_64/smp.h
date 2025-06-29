@@ -6,15 +6,18 @@
 #define SMP_MAX_CORES 32
 
 struct cpu {
+    // TODO: just use the LAPIC ID
     uint64_t id;
     uint64_t lapic_id;
-    uintptr_t *pml4;
+    uintptr_t *pml4; // Rename to a more generic name?
 
-    struct list *processes;
-    struct node *current_proc;
+    //struct process *processes;
+    //struct process *current_proc;
+    list_t *processes;
+    node_t *current_proc;
     struct process *cleaner_proc;
-    struct process *idle_proc;
-    struct list *terminated_processes;
+    node_t *idle_proc;
+    list_t *terminated_processes;
     atomic_flag sched_lock;
     atomic_flag vmm_lock;
 };

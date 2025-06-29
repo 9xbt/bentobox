@@ -211,6 +211,6 @@ void serial_initialize(void) {
     vfs_add_device(kmsg);
 }
 
-void arch_redirect_logs(void) {
+void serial_redirect_debug(void) {
     serial_redirect = vfs_open(NULL, "/dev/kmsg", false, false);
 }
