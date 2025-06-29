@@ -6,7 +6,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/lapic.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 #include <kernel/vfs.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>

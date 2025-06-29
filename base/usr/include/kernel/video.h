@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdatomic.h>
 #include <kernel/ioctl.h>
-#include <kernel/flanterm.h>
 #include <kernel/multiboot.h>
+#include <kernel/3rdparty/flanterm.h>
 
 struct framebuffer {
     uint64_t addr;

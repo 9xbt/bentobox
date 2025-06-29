@@ -12,7 +12,7 @@
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/mmu.h>
 #include <kernel/pci.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 #include <kernel/acpi.h>
 #include <kernel/args.h>
 #include <kernel/panic.h>
@@ -23,9 +23,9 @@
 #include <kernel/printf.h>
 #include <kernel/assert.h>
 #include <kernel/version.h>
-#include <kernel/flanterm.h>
 #include <kernel/spinlock.h>
 #include <kernel/multiboot.h>
+#include <kernel/3rdparty/flanterm.h>
 
 extern void generic_startup(void);
 extern void generic_main(void);

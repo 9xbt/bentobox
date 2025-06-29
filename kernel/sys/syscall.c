@@ -14,7 +14,7 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 #include <kernel/sched.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>

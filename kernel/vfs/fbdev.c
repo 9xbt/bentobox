@@ -4,7 +4,7 @@
 #include <kernel/ioctl.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 
 struct fb_var_screeninfo vinfo = {};
 

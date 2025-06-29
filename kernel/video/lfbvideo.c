@@ -1,12 +1,12 @@
 #include <kernel/arch/x86_64/vga.h>
 #include <kernel/mmu.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 #include <kernel/psf.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/assert.h>
-#include <kernel/flanterm.h>
 #include <kernel/multiboot.h>
+#include <kernel/3rdparty/flanterm.h>
 
 struct framebuffer framebuffer;
 struct flanterm_context *ft_ctx = NULL;

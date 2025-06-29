@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/lfbvideo.h>
+#include <kernel/video.h>
 #include <kernel/vfs.h>
 #include <kernel/errno.h>
 #include <kernel/ioctl.h>
