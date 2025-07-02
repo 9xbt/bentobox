@@ -39,15 +39,9 @@ void irq1_handler(struct registers *r) {
             case 0xe0:
                 break;
             default:
-                if (kb_ctrl && key == 0x2E) {
-                    for (uint32_t id = 0; id < madt_lapics; id++) {
-                        printf("^C\n");
-                        send_signal(get_core(id)->current_proc->value, SIGINT, 0);
-                    }
-                    break;
-                }
-
-                if (kb_shift) {
+                if (kb_ctrl && kb_map_keys_caps[key] >= 'A' && kb_map_keys_caps[key] <= 'Z') {
+                    c = kb_map_keys_caps[key] - 'A' + 1;
+                } else if (kb_shift) {
                     c = kb_map_keys_shift[key];
                 } else if (kb_caps) {
                     c = kb_map_keys_caps[key];
@@ -118,8 +112,16 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
         if (c > 0) str[i++] = c;
         else goto again;
 
-        if (tio->c_lflag & ECHO)
-            fprintf(stdout, "%c", c);
+        switch (c) {
+            case 0x3:
+                printf("^C\n");
+                send_signal(sched_get_foreground(), SIGINT, 0);
+                break;
+            default:
+                if (tio->c_lflag & ECHO)
+                    fprintf(stdout, "%c", c);
+                break;
+        }
         return i;
     }
 
@@ -129,6 +131,10 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
         else continue;
         
         switch (c) {
+            case 0x3:
+                printf("^C\n");
+                send_signal(sched_get_foreground(), SIGINT, 0);
+                break;
             case '\033':
                 /* we do not support ANSI escape codes */
                 while (getchar(true) != '\0') {}
@@ -163,7 +169,7 @@ long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t 
     return i;
 }
 
-int ascii_to_keycode(char c) {
+int ascii_to_linux_keycode(char c) {
     switch (c) {
         case 'a': case 'A': return KEY_A;
         case 'b': case 'B': return KEY_B;
@@ -256,7 +262,7 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 
     struct input_event iev;
     iev.type = EV_KEY;
-    iev.code = ascii_to_keycode(c > 0 ? c : -c);
+    iev.code = ascii_to_linux_keycode(c > 0 ? c : -c);
     iev.value = c > 0;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;

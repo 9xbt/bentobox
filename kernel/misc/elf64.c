@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <stdbool.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>
@@ -270,15 +271,11 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     this->ctx.rip = ehdr->e_entry;
     this->state = TASK_FRESH;
 
-    uintptr_t stack_top_phys = this->stack_bottom_phys + (USER_STACK_SIZE * PAGE_SIZE);
-    long depth = 16;
-
     int envc = 0;
     if (env) for (; env[envc]; envc++);
 
-    if ((argc + envc) % 2 == 0) {
-        depth += 8;
-    }
+    uintptr_t stack_top_phys = this->stack_bottom_phys + (USER_STACK_SIZE * PAGE_SIZE);
+    long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 
     uint64_t argv_ptrs[argc + 1];
     uint64_t env_ptrs[envc + 1];
@@ -288,35 +285,27 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     int i = 0, len;
     for (i = 0; i < envc; i++) {
         len = strlen(env[i]) + 1;
-        depth += ALIGN_UP(len, 16);
-        env_ptrs[i] = (uint64_t)(USER_STACK_TOP - depth);
+        env_ptrs[i] = (uint64_t)(USER_STACK_TOP - (depth += ALIGN_UP(len, 16)));
         memmove((char *)VIRTUAL_IDENT(stack_top_phys - depth), env[i], len);
     }
     for (i = 0; i < argc; i++) {
         len = strlen(argv[i]) + 1;
-        depth += ALIGN_UP(len, 16);
-        argv_ptrs[i] = (uint64_t)(USER_STACK_TOP - depth);
+        argv_ptrs[i] = (uint64_t)(USER_STACK_TOP - (depth += ALIGN_UP(len, 16)));
         memmove((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i], len);
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = 0;
-
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
     for (i = envc - 1; i >= 0; i--) {
         depth += 8;
         *VIRTUAL_IDENT(stack_top_phys - depth) = env_ptrs[i];
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = 0;
-
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
     for (i = argc - 1; i >= 0; i--) {
-        depth += 8;
-        *VIRTUAL_IDENT(stack_top_phys - depth) = argv_ptrs[i];
+        *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argv_ptrs[i];
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = argc;
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argc;
     
     this->ctx.rsp = USER_STACK_TOP - depth;
     memset(VIRTUAL_IDENT(this->stack_bottom_phys), 0, (USER_STACK_SIZE * PAGE_SIZE) - depth);
@@ -395,7 +384,8 @@ long fork(struct registers *r) {
     proc->user = true;
     proc->gs = this->gs;
     proc->fs = this->fs;
-    this->children = proc;
+    proc->children = list_create();
+    list_insert(this->children, proc);
     proc->parent = this;
     proc->cwd = this->cwd;
     memcpy(proc->fxsave, this->fxsave, sizeof proc->fxsave);

@@ -46,8 +46,6 @@ struct process {
     char fxsave[512];
     uint64_t user_gs;
 
-    //struct process *next;
-    //struct process *prev;
     char *name;
     uint64_t *pml4;
     long pid;
@@ -61,14 +59,14 @@ struct process {
     uint64_t kernel_stack_bottom;
     struct vma_head *vma;
     struct vfs_node *cwd;
+    uintptr_t brk;
 
     uint32_t pending_signals;
-    void (*signal_handlers[16])(struct process *, int);
+    void (*signal_handlers[32])(struct process *, int);
     struct process *parent;
-    struct process *children;
-    int child_exit;
-
-    uintptr_t brk;
+    list_t *children;
+    int signal_data;
+    list_t *poll_list;
 };
 
 #define this ((struct process *)(this_core()->current_proc ? this_core()->current_proc->value : NULL))
@@ -88,3 +86,4 @@ void sched_idle(void);
 node_t *sched_add_task(struct process *proc, struct cpu *core);
 struct process *sched_new_task(void *entry, const char *name);
 struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);
+struct process *sched_get_foreground(void);

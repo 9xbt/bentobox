@@ -23,7 +23,7 @@
 static long next_pid = 1, next_cpu = 0;
 
 static void sigchld(struct process *proc, int exit) {
-    proc->child_exit = exit;
+    proc->signal_data = exit;
     sched_unblock(proc);
 }
 
@@ -41,7 +41,7 @@ void send_signal(struct process *proc, int signal, int extra) {
     proc->pending_signals |= (1 << (signal - 1));
     
     if (signal == SIGCHLD) {
-        proc->child_exit = extra;
+        proc->signal_data = extra;
     }
     proc->state = TASK_SIGNAL;
     
@@ -68,18 +68,6 @@ node_t *sched_add_task(struct process *proc, struct cpu *core) {
     if (!core) {
         core = get_core(next_cpu);
     }
-    #if 0
-    if (!core->processes) {
-        proc->prev = proc;
-        proc->next = proc;
-        core->processes = proc;
-    } else {
-        proc->prev = core->processes->prev;
-        core->processes->prev->next = proc;
-        proc->next = core->processes;
-        core->processes->prev = proc;
-    }
-    #endif
     node_t *node = list_insert(core->processes, proc);
 
     next_cpu++;
@@ -87,6 +75,7 @@ node_t *sched_add_task(struct process *proc, struct cpu *core) {
         next_cpu = 0;
     else if (next_cpu < 0)
         next_cpu = madt_lapics - 1;
+
     sched_unlock();
     return node;
 }
@@ -116,6 +105,7 @@ struct process *sched_new_task(void *entry, const char *name) {
     proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = NULL;
+    proc->children = list_create();
 
     return proc;
 }
@@ -139,15 +129,11 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     mmu_map_pages(USER_STACK_SIZE, (void *)stack_bottom, (void *)stack_bottom_phys, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
     mmu_map_pages(4, kernel_stack, PHYSICAL(kernel_stack), PTE_PRESENT | PTE_WRITABLE);
 
-    memset(VIRTUAL_IDENT(stack_bottom_phys), 0, (USER_STACK_SIZE * PAGE_SIZE));
-    long depth = 16;
-
     int envc = 0;
     if (env) for (; env[envc]; envc++);
 
-    if ((argc + envc) % 2 == 0) {
-        depth += 8;
-    }
+    memset(VIRTUAL_IDENT(stack_bottom_phys), 0, (USER_STACK_SIZE * PAGE_SIZE));
+    long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 
     uint64_t argv_ptrs[argc + 1];
     uint64_t env_ptrs[envc + 1];
@@ -166,24 +152,18 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
         strcpy((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i]);
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = 0;
-
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
     for (i = envc - 1; i >= 0; i--) {
         depth += 8;
         *VIRTUAL_IDENT(stack_top_phys - depth) = env_ptrs[i];
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = 0;
-
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
     for (i = argc - 1; i >= 0; i--) {
-        depth += 8;
-        *VIRTUAL_IDENT(stack_top_phys - depth) = argv_ptrs[i];
+        *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argv_ptrs[i];
     }
 
-    depth += 8;
-    *VIRTUAL_IDENT(stack_top_phys - depth) = argc;
+    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argc;
     
     proc->ctx.rsp = stack_top - depth;
     proc->ctx.rip = (uint64_t)entry;
@@ -210,7 +190,8 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     uint32_t *mxcsr = (uint32_t *)(proc->fxsave + 24);
     *mxcsr = 0x1920;
     *mxcsr |= 0x8040;
-    proc->children = NULL;
+    proc->children = list_create();
+    proc->poll_list = list_create();
     proc->parent = NULL;
     proc->cwd = vfs_root;
 
@@ -248,16 +229,15 @@ void sched_schedule(struct registers *r) {
         node_t *current = node;
         do {
             if (!current) {
+                if (!this_core()->processes->head) break;
                 current = this_core()->processes->head;
-                if (!current) break;
             }
-            
-            struct process *proc = (struct process*)current->value;
-            if (!proc) {
+            if (!current->value) {
                 current = current->next;
                 continue;
             }
-
+            
+            struct process *proc = current->value;
             if (proc->state == TASK_SLEEPING && hpet_ticks >= proc->time.end) {
                 proc->state = TASK_RUNNING;
                 proc->time.last = proc->time.end - proc->time.start;
@@ -274,7 +254,7 @@ void sched_schedule(struct registers *r) {
                     uint32_t sig_mask = 1 << (sig - 1);
                     
                     if ((pending & sig_mask) && proc->signal_handlers[sig]) {
-                        int extra = (sig == SIGCHLD) ? proc->child_exit : 0;
+                        int extra = (sig == SIGCHLD) ? proc->signal_data : 0;
                         proc->signal_handlers[sig](proc, extra);
                     }
                 }
@@ -290,7 +270,6 @@ void sched_schedule(struct registers *r) {
             current = current->next;
             if (!current) current = this_core()->processes->head;
         } while (current != start);
-        
         break;
     }
 
@@ -331,22 +310,29 @@ void sched_sleep(int us) {
     sched_block(TASK_SLEEPING);
 }
 
+struct process *sched_get_foreground(void) {
+    struct process *proc;
+    for (uint32_t id = 0; id < madt_lapics; id++) {
+        proc = get_core(id)->current_proc->value;
+        if (proc) return proc;
+    }
+    return NULL;
+}
+
 void sched_kill(struct process *proc, int status) {
     sched_lock();
 
-    if (proc->pid == 1) {
+    if (proc->pid == 1)
         panic("Attempted to kill init!");
-    }
-    if (proc->pid == 0) {
-        panic("Attempted to kill idle!");
-    }
+    if (proc->pid == 0)
+        panic("Attempted to kill idle task!");
 
     if (proc->parent && proc->parent->state != TASK_RUNNING) {
         send_signal(proc->parent, SIGCHLD, status);
     }
     
     bool yield = proc == this;
-
+    
     proc->state = TASK_KILLED;
     list_insert(terminated_process_list, proc);
     
@@ -372,10 +358,11 @@ void sched_cleaner(void) {
         
         struct process *proc = node->value;
         list_remove(terminated_process_list, node);
+        list_remove_value(process_list, proc);
         
         if (proc->user) {
             if (proc->parent) {
-                proc->parent->children = NULL;
+                list_remove_value(proc->parent->children, proc);
             }
             
             extern atomic_flag flanterm_lock;
@@ -402,6 +389,7 @@ void sched_cleaner(void) {
             mmu_unmap_pages(4, (void *)proc->stack_bottom);
             mmu_free(PHYSICAL(proc->stack_bottom), 4);
         }
+        list_free(proc->children);
 
         sched_unlock();
         kfree(proc);
@@ -446,6 +434,6 @@ void sched_install(void) {
         idle->pid = 0;
     }
     next_pid = 1;
-    dprintf("%s:%d: initialized process list(s)\n", __FILE__, __LINE__);
+    dprintf("%s:%d: initialized process lists\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
 }

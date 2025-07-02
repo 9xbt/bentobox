@@ -343,11 +343,11 @@ long sys_exit(long status) {
 }
 
 long sys_wait4(int pid, int *wstatus) {
-    if (!this->children) {
+    if (!this->children->head) {
         return -ECHILD;
     }
     sched_block(TASK_PAUSED);
-    *wstatus = this->child_exit;
+    *wstatus = this->signal_data;
     return 0;
 }
 

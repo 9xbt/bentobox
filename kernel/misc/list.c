@@ -9,6 +9,15 @@ list_t *list_create(void) {
     return list;
 }
 
+void list_free(list_t *list) {
+    node_t *node = list->head;
+    while (node) {
+        node_t *next = node->next;
+        kfree(node);
+        node = next;
+    }
+}
+
 void list_append(list_t *list, node_t *node) {
     node->owner = list;
     if (!list->length) {
