@@ -158,6 +158,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
     - [ ] Process stealing
     - [ ] Priorities
     - [ ] CPU usage calculation
+- [ ] TTY work
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

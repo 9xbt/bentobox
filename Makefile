@@ -1,5 +1,5 @@
-# Target architecture
 ARCH ?= x86_64
+QEMU_CORES ?= 8
 
 # Output image name
 IMAGE_NAME = image
@@ -53,7 +53,7 @@ run: all
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -smp 8 -accel kvm
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -accel kvm -smp $(QEMU_CORES)
 
 .PHONY: run-gdb
 run-gdb: all
@@ -61,7 +61,7 @@ run-gdb: all
 
 .PHONY: run-kvm-vnc
 run-kvm-vnc: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm -smp 8
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm -smp $(QEMU_CORES)
 
 .PHONY: apps
 apps:

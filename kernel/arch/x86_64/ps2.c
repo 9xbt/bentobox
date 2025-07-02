@@ -282,7 +282,7 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
             memcpy(&fd->tio, arg, sizeof(struct termios));
             break;
         case TIOCGWINSZ:
-            lfb_get_ws((struct winsize *)arg);
+            framebuffer_get_winsize((struct winsize *)arg);
             return 0;
         case TIOCSWINSZ:
             return 0;
@@ -297,6 +297,10 @@ long ps2_ioctl(int fd_num, int op, void *arg) {
             return 0;
         case KDSKBMODE:
             mode = (unsigned long)arg;
+            return 0;
+        case PIO_UNIMAP:
+            return 0;
+        case PIO_UNIMAPCLR:
             return 0;
         default:
             dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);

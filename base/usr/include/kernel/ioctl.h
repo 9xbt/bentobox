@@ -6,7 +6,7 @@
 #include <linux/kd.h>
 #include <linux/fb.h>
 
-#define TIOCGNAME       0x5483
+#define TIOCGNAME       0x5483 // TODO: deprecate this
 #define KDFONTOP        0x4B72
 #define PIO_UNIMAP	    0x4B67
 #define PIO_UNIMAPCLR   0x4B68

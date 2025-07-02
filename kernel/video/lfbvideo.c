@@ -34,13 +34,10 @@ static void ft_free(void *ptr, size_t count) {
     kfree(ptr);
 }
 
-void lfb_change_font(const char *path) {
-    struct vfs_node *file = vfs_open(NULL, path, true, false);
-    if (!file) return;
-
+void framebuffer_setfont(const char *fontdata, size_t fontlen) {
     if (font) kfree(font);
-    font = kmalloc(file->size);
-    vfs_read(file, font, 0, file->size);
+    font = kmalloc(fontlen);
+    memcpy(font, fontdata, fontlen);
 
     struct psf1_header *psf1 = font;
     struct psf2_header *psf2 = font;
@@ -102,12 +99,10 @@ void lfb_change_font(const char *path) {
     }
 
     kfree(copy);
-    vfs_close(file);
-
     printf("\033[%d;%dH\n", y, x);
 }
 
-void lfb_get_ws(struct winsize *ws) {
+void framebuffer_get_winsize(struct winsize *ws) {
     if (!ws) return;
     if (!ft_ctx) {
         ws->ws_row = 25;

@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
 static const int kb_map_keys[] = {
     0, 27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -28,3 +29,4 @@ static const int kb_map_keys_caps[] = {
 };
 
 void ps2_install(void);
+int getchar(bool block);
