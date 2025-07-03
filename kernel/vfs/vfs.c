@@ -14,7 +14,6 @@
 extern void zero_initialize(void);
 extern void ps2_initialize(void);
 extern void serial_initialize(void);
-extern void console_initialize(void);
 extern void tmpfs_initialize(void);
 extern void tty_initialize(void);
 extern void fbdev_initialize(void);
@@ -345,6 +344,7 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
     statbuf->st_uid = 0;
     statbuf->st_gid = 0;
     statbuf->st_ino = node->inode;
+    /** TODO: report block usage (st_blocks) */
     
     switch (node->type) {
         case VFS_FILE:
@@ -385,7 +385,6 @@ void vfs_install(void) {
     zero_initialize();
     ps2_initialize();
     serial_initialize();
-    console_initialize();
     tmpfs_initialize();
     tty_initialize();
     fbdev_initialize();

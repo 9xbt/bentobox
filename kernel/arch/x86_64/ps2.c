@@ -20,7 +20,6 @@
 bool kb_caps = false;
 bool kb_ctrl = false;
 bool kb_shift = false;
-struct fifo kb_fifo;
 
 void irq1_handler(struct registers *r) {
     int c = 0;
@@ -51,12 +50,12 @@ void irq1_handler(struct registers *r) {
                 }
 
                 if (c > 65535) {
-                    fifo_enqueue(&kb_fifo, '\033');
-                    fifo_enqueue(&kb_fifo, '[');
-                    fifo_enqueue(&kb_fifo, c-65535);
-                    fifo_enqueue(&kb_fifo, '\0');
+                    tty_enqueue('\033');
+                    tty_enqueue('[');
+                    tty_enqueue(c-65535);
+                    tty_enqueue('\0');
                 } else {
-                    fifo_enqueue(&kb_fifo, c);
+                    tty_enqueue(c);
                 }
                 break;
         }
@@ -81,97 +80,15 @@ void irq1_handler(struct registers *r) {
                 }
                 
                 if (c < 65535) {
-                    fifo_enqueue(&kb_fifo, -c);
+                    tty_enqueue(-c);
                 }
                 break;
         }
     }
-    tty_enqueue(c);
     lapic_eoi();
 }
 
-int getchar(bool block) {
-    int c = 0;
-    while (!fifo_dequeue(&kb_fifo, &c)) {
-        if (!block) {
-            return -EAGAIN;
-        }
-        /* since we don't have proper I/O blocking, just halt until an interrupt comes */
-        asm ("hlt");
-    }
-    return c;
-}
-
-long ps2_keyboard_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    char *str = buffer;
-    size_t i = 0;
-    struct termios *tio = &this->fd_table[0].tio;
-
-    if ((tio->c_lflag & ICANON) == 0) {
-        int c;
-    again:
-        c = getchar(tio->c_cc[VMIN] != 0);
-        if (c > 0) str[i++] = c;
-        else goto again;
-
-        switch (c) {
-            case 0x3:
-                printf("^C\n");
-                send_signal(sched_get_foreground(), SIGINT, 0);
-                break;
-            default:
-                if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "%c", c);
-                break;
-        }
-        return i;
-    }
-
-    while (i < len) {
-        int c = getchar(true);
-        if (c > 0) str[i] = c;
-        else continue;
-        
-        switch (c) {
-            case 0x3:
-                printf("^C\n");
-                send_signal(sched_get_foreground(), SIGINT, 0);
-                break;
-            case '\033':
-                /* we do not support ANSI escape codes */
-                while (getchar(true) != '\0') {}
-                break;
-            case '\0':
-            case '\t':
-                break;
-            case '\n':
-            case '\r':
-                if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "\n");
-                str[i++] = '\n';
-                str[i] = '\0';
-                return i;
-            case '\b':
-            case 127:
-                if (i > 0) {
-                    if (tio->c_lflag & ECHO)
-                        fprintf(stdout, "\b \b");
-                    str[i] = '\0';
-                    i--;
-                }
-                break;
-            default:
-                if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "%c", c);
-                i++;
-                break;
-        }
-    }
-
-    return i;
-}
-
-int ascii_to_linux_keycode(char c) {
+static int ascii_to_linux_keycode(char c) {
     switch (c) {
         case 'a': case 'A': return KEY_A;
         case 'b': case 'B': return KEY_B;
@@ -258,9 +175,8 @@ int ascii_to_linux_keycode(char c) {
 }
 
 long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    int c;
-    if (!fifo_dequeue(&kb_fifo, &c))
-        return 0;
+    int c = tty_dequeue(false);
+    if (c == -EAGAIN) return 0;
 
     struct input_event iev;
     iev.type = EV_KEY;
@@ -270,61 +186,13 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
     return sizeof iev;
 }
 
-long ps2_ioctl(int fd_num, int op, void *arg) {
-    static int mode = K_XLATE;
-
-    struct fd *fd = &this->fd_table[0];
-    switch (op) {
-        case TCGETS:
-            memcpy(arg, &fd->tio, sizeof(struct termios));
-            break;
-        case TCSETS:
-        case TCSETSW:
-        case TCSETSF:
-            memcpy(&fd->tio, arg, sizeof(struct termios));
-            break;
-        case TIOCGWINSZ:
-            framebuffer_get_winsize((struct winsize *)arg);
-            return 0;
-        case TIOCSWINSZ:
-            return 0;
-        case TIOCGNAME:
-            strcpy(arg, "/dev/keyboard");
-            break;
-        case KDGKBTYPE:
-            *(int *)arg = KB_101;
-            return 0;
-        case KDGKBMODE:
-            *(int *)arg = mode;
-            return 0;
-        case KDSKBMODE:
-            mode = (unsigned long)arg;
-            return 0;
-        case PIO_UNIMAP:
-            return 0;
-        case PIO_UNIMAPCLR:
-            return 0;
-        default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
-            return -EINVAL;
-    }
-    return 0;
-}
-
 void ps2_initialize(void) {
-    struct vfs_node *keyboard = vfs_create_node("keyboard", VFS_CHARDEVICE);
-    keyboard->read = ps2_keyboard_read;
-    keyboard->isatty = true;
-    keyboard->tty_ops.ioctl = ps2_ioctl;
-    vfs_add_device(keyboard);
-
     struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
     event0->read = ps2_keyboard_read_event;
     vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
 }
 
 void ps2_install(void) {
-    fifo_init(&kb_fifo, 64);
     irq_register(1, irq1_handler);
     dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
 }
