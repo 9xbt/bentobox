@@ -46,6 +46,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->tty_ops.ioctl = NULL;
     node->mmap = NULL;
     node->driver = VFS_DRIVER_OTHER;
+    node->close = NULL;
     return node;
 }
 
@@ -231,6 +232,8 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
 int vfs_close(struct vfs_node *node) {
     if (node->busy)
         return -EBUSY;
+    if (node->close)
+        return node->close(node);
     return 0;
 }
 
@@ -249,6 +252,7 @@ void vfs_resolve_path(char *s, struct vfs_node *node) {
 }
 
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
     if (node->read) {
@@ -259,6 +263,7 @@ long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
     if (node->write) {

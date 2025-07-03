@@ -30,10 +30,7 @@ struct fd fd_new(struct vfs_node *node, int flags) {
     return fd;
 }
 
-int fd_open(const char *path, int flags) {
-    struct vfs_node *node = vfs_open(this->cwd, path, (flags & O_CREAT) ? true : false, false);
-    if (!node) return -ENOENT;
-
+int fd_create(struct vfs_node *node, int flags) {
     for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {
         if (!this->fd_table[i].node && !this->fd_table[i].open) {
             this->fd_table[i] = fd_new(node, flags);
@@ -43,8 +40,30 @@ int fd_open(const char *path, int flags) {
             return i;
         }
     }
-    vfs_close(node);
-    return -EMFILE;
+    return -1;
+}
+
+int fd_open(const char *path, int flags) {
+    struct vfs_node *node = vfs_open(this->cwd, path, (flags & O_CREAT) ? true : false, false);
+    if (!node) return -ENOENT;
+
+    /*
+    for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {
+        if (!this->fd_table[i].node && !this->fd_table[i].open) {
+            this->fd_table[i] = fd_new(node, flags);
+            if (flags & O_APPEND) {
+                this->fd_table[i].offset = node->size - 1;
+            }
+            return i;
+        }
+    }
+    */
+    int fd = fd_create(node, flags);
+    if (fd < 0) {
+        vfs_close(node);
+        return -EMFILE;
+    }
+    return fd;
 }
 
 int fd_close(int fd) {

@@ -21,6 +21,7 @@
 #include <kernel/string.h>
 #include <kernel/syscall.h>
 #include <kernel/version.h>
+#include <kernel/unixpipe.h>
 
 long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
     struct fd *fd = fd_get(fd_num);
@@ -283,6 +284,10 @@ long sys_readv(int fd, const struct iovec *iov, int iovcnt) {
 
 long sys_access(const char *pathname, int mode) {
     return vfs_check_perms(vfs_open(this->cwd, pathname, false, false), mode);
+}
+
+long sys_pipe(int pipefd[2]) {
+    return unixpipe_new(pipefd);
 }
 
 long sys_select() {
@@ -629,6 +634,7 @@ static syscall_func syscalls[] = {
     [SYS_readv]             = (syscall_func)(uintptr_t)sys_readv,
     [SYS_writev]            = (syscall_func)(uintptr_t)sys_writev,
     [SYS_access]            = (syscall_func)(uintptr_t)sys_access,
+    [SYS_pipe]              = (syscall_func)(uintptr_t)sys_pipe,
     [SYS_select]            = (syscall_func)(uintptr_t)sys_select,
     [SYS_dup]               = (syscall_func)(uintptr_t)sys_dup,
     [SYS_dup2]              = (syscall_func)(uintptr_t)sys_dup2,

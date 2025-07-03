@@ -17,6 +17,7 @@
 #define SYS_readv           19
 #define SYS_writev          20
 #define SYS_access          21
+#define SYS_pipe            22
 #define SYS_select          23
 #define SYS_dup             32
 #define SYS_dup2            33
