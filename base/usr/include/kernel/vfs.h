@@ -24,24 +24,30 @@ typedef enum vfs_driver {
     VFS_DRIVER_DEVFS
 } vfs_driver_t;
 
+typedef struct vfs_driver_ops {
+    struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
+    long(*remove)(struct vfs_node *node);
+} vfs_driver_ops_t;
+
+typedef struct tty_operations {
+    long(*ioctl)(int fd, int op, void *arg);
+} tty_ops_t;
+
 typedef struct vfs_node {
     char name[MAX_PATH];
-    bool busy;
-    bool isatty;
+    bool busy, isatty;
     enum vfs_node_type type;
     enum vfs_driver driver;
     size_t size;
     uint16_t perms;
     uint64_t inode;
     struct vfs_node *parent;
-    struct vfs_node *children;
+    struct vfs_node *children; /** TODO: use a list here */
     struct vfs_node *next;
+    struct tty_operations tty_ops;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
-    long(*ioctl)(int fd, int op, void *arg);
     long(*mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-    struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
-    long(*remove)(struct vfs_node *node);
     long(*poll)();
     char *symlink_target;
 } vfs_node_t;

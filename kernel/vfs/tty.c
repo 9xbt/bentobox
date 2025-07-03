@@ -122,9 +122,9 @@ long tty_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
-long tty_enqueue(int c) {
-    return !fifo_enqueue(&tty_fifo, c);
-}
+//long tty_enqueue(int c) {
+//    return !fifo_enqueue(&tty_fifo, c);
+//}
 
 void tty_initialize(void) {
     fifo_init(&tty_fifo, 1024);
@@ -133,6 +133,6 @@ void tty_initialize(void) {
     tty->read = tty_read;
     tty->write = tty_write;
     tty->isatty = true;
-    tty->ioctl = tty_ioctl;
+    tty->tty_ops.ioctl = tty_ioctl;
     vfs_add_device(tty);
 }

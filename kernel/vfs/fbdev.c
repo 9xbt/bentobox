@@ -17,7 +17,6 @@ long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t of
 
 long fbdev_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     memcpy((void *)(framebuffer.addr + (uintptr_t)offset), buffer, len);
-    dprintf("fbdev write! %lu bytes\n", len);
     return len;
 }
 
@@ -40,6 +39,6 @@ void fbdev_initialize(void) {
     fb0->write = fbdev_write;
     fb0->mmap = fbdev_mmap;
     fb0->isatty = true;
-    fb0->ioctl = fbdev_ioctl;
+    fb0->tty_ops.ioctl = fbdev_ioctl;
     vfs_add_device(fb0);
 }

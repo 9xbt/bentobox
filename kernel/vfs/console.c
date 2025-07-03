@@ -74,6 +74,6 @@ void console_initialize(void) {
     struct vfs_node *console = vfs_create_node("console", VFS_CHARDEVICE);
     console->write = console_write;
     console->isatty = true;
-    console->ioctl = console_ioctl;
+    console->tty_ops.ioctl = console_ioctl;
     vfs_add_device(console);
 }

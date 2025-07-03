@@ -313,7 +313,7 @@ void ps2_initialize(void) {
     struct vfs_node *keyboard = vfs_create_node("keyboard", VFS_CHARDEVICE);
     keyboard->read = ps2_keyboard_read;
     keyboard->isatty = true;
-    keyboard->ioctl = ps2_ioctl;
+    keyboard->tty_ops.ioctl = ps2_ioctl;
     vfs_add_device(keyboard);
 
     struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);

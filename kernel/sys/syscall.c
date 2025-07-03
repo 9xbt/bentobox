@@ -225,7 +225,7 @@ long sys_ioctl(int fd_num, int op, void *arg) {
         return -ENOTTY;
     if (!arg)
         return -EFAULT;
-    return fd->node->ioctl(fd_num, op, arg);
+    return fd->node->tty_ops.ioctl(fd_num, op, arg);
 }
 
 struct iovec {
@@ -372,8 +372,11 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
     switch (cmd) {
         case F_DUPFD:
             return sys_dup(fd_num);
-        case F_DUPFD_CLOEXEC:
-            fd_get(sys_dup(fd_num))->flags |= FD_CLOEXEC;
+        case F_DUPFD_CLOEXEC: {
+            int newfd = sys_dup(fd_num);
+            fd_get(newfd)->flags |= FD_CLOEXEC;
+            return newfd;
+        }
         case F_GETFD:
             return fd->flags & FD_CLOEXEC;
         case F_SETFD:

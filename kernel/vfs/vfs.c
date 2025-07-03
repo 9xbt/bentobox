@@ -32,6 +32,13 @@ const char *vfs_types[] = {
     "VFS_SYMLINK"
 };
 
+vfs_driver_ops_t vfs_drivers[32] = {
+    [VFS_DRIVER_TMPFS] = {
+        .create = tmpfs_create_file,
+        .remove = tmpfs_remove_file
+    }    
+};
+
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     struct vfs_node *node = (struct vfs_node *)kmalloc(sizeof(struct vfs_node));
     strcpy(node->name, name);
@@ -47,11 +54,9 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->write = NULL;
     node->symlink_target = NULL;
     node->isatty = false;
-    node->ioctl = NULL;
+    node->tty_ops.ioctl = NULL;
     node->mmap = NULL;
     node->driver = VFS_DRIVER_OTHER;
-    node->create = NULL;
-    node->remove = NULL;
     return node;
 }
 
@@ -176,7 +181,6 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
 }
 
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
-    // TODO: make this support returning actual error codes
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
 
@@ -239,8 +243,8 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                         vfs_add_node(node, dir);
                         return dir;
                     }
-                    if (node->create) {
-                        return node->create(node, filename);
+                    if (vfs_drivers[node->driver].create) {
+                        return vfs_drivers[node->driver].create(node, filename);
                     }
                 }
                 return NULL;

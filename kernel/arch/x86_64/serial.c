@@ -202,7 +202,7 @@ void serial_initialize(void) {
     serial0->write = serial_write;
     serial0->read = serial_read;
     serial0->isatty = true;
-    serial0->ioctl = serial_ioctl;
+    serial0->tty_ops.ioctl = serial_ioctl;
     vfs_add_device(serial0);
 
     struct vfs_node *kmsg = vfs_create_node("kmsg", VFS_CHARDEVICE);
