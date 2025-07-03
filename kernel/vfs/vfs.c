@@ -180,79 +180,61 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     return target;
 }
 
+static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name) {
+    for (struct vfs_node *child = parent->children; child; child = child->next) {
+        if (!strcmp(child->name, name)) {
+            return (child->type == VFS_SYMLINK) ? vfs_resolve_symlink(child, MAX_NESTED_SYMLINKS) : child;
+        }
+    }
+    return NULL;
+}
+
+static struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir) {
+    if (isdir) {
+        struct vfs_node *dir = vfs_create_node(name, VFS_DIRECTORY);
+        if (dir) {
+            dir->driver = parent->driver;
+            vfs_add_node(parent, dir);
+        }
+        return dir;
+    }
+    return vfs_drivers[parent->driver].create ? vfs_drivers[parent->driver].create(parent, name) : NULL;
+}
+
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
 
-    if (!strcmp(path, ".")) {
-        return current;
-    }
-    if (!strcmp(path, "..")) {
-        return current->parent;
-    }
-
-    const char *filename = path;
-    for (int i = strlen(path) - 1; i >= 0; i--) {
-        if (path[i] == '/') {
-            filename = &path[i + 1];
-            break;
-        }
-    }
+    if (!strcmp(path, ".")) return current;
+    if (!strcmp(path, "..")) return current->parent;
 
     char *copy = kmalloc(strlen(path) + 1);
     strcpy(copy, path);
-    char *token = strtok(copy, "/");
-
+    
     struct vfs_node *node = current;
-    while (token != NULL) {
+    char *token = strtok(copy, "/");
+    
+    while (token) {
         if (!strcmp(token, ".")) {
-            /* do nothing */
+            /* skip current directory */
         } else if (!strcmp(token, "..")) {
-            if (node->parent) {
-                node = node->parent;
-            }
+            node = node->parent ?: node;
         } else {
-            struct vfs_node *child = node->children;
-            bool found = false;
-
-            while (child != NULL) {
-                if (strcmp(child->name, token) == 0) {
-                    node = child;
-
-                    if (node->type == VFS_SYMLINK) {
-                        node = vfs_resolve_symlink(node, MAX_NESTED_SYMLINKS);
-                        if (!node) {
-                            kfree(copy);
-                            return NULL;
-                        }
-                    }
-
-                    found = true;
-                    break;
-                }
-                child = child->next;
-            }
-
-            if (!found) {
+            struct vfs_node *child = vfs_find_child(node, token);
+            if (!child) {
                 kfree(copy);
-
-                if (create) {
-                    if (isdir) {
-                        struct vfs_node *dir = vfs_create_node(filename, VFS_DIRECTORY);
-                        dir->driver = node->driver;
-                        vfs_add_node(node, dir);
-                        return dir;
-                    }
-                    if (vfs_drivers[node->driver].create) {
-                        return vfs_drivers[node->driver].create(node, filename);
-                    }
-                }
+                return create ? vfs_touch(node, token, isdir) : NULL;
+            }
+            if (!child) {
+                /* failed to resolve symlink */
+                kfree(copy);
                 return NULL;
             }
+            node = child;
         }
         token = strtok(NULL, "/");
     }
-
+    
     kfree(copy);
     return node;
 }
@@ -334,6 +316,9 @@ static unsigned int convert_mode(enum vfs_node_type type, uint16_t perms) {
         case VFS_BLOCKDEVICE:
             mode |= S_IFBLK;
             break;
+        case VFS_SYMLINK:
+            mode |= S_IFLNK;
+            break;
         default:
             mode |= S_IFREG;
             break;
@@ -343,20 +328,23 @@ static unsigned int convert_mode(enum vfs_node_type type, uint16_t perms) {
     return mode;
 }
 
-long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
+long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks) {
     if (!node)
         return -ENOENT;
     
+    if (node->type == VFS_SYMLINK && follow_symlinks) {
+        struct vfs_node *target = vfs_resolve_symlink(node, MAX_NESTED_SYMLINKS);
+        if (!target)
+            return -ENOENT;
+        node = target;
+    }
+    
     memset(statbuf, 0, sizeof(struct stat));
     statbuf->st_mode = convert_mode(node->type, node->perms);
-    statbuf->st_nlink = 0;
+    statbuf->st_nlink = 1;
     statbuf->st_uid = 0;
     statbuf->st_gid = 0;
-    if (symlink) {
-        // TODO do this properly
-        statbuf->st_nlink = 1;
-        statbuf->st_ino = node->inode;
-    }
+    statbuf->st_ino = node->inode;
     
     switch (node->type) {
         case VFS_FILE:
@@ -365,7 +353,11 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
         case VFS_DIRECTORY:
             statbuf->st_size = 4096;
             break;
+        case VFS_SYMLINK:
+            statbuf->st_size = node->symlink_target ? strlen(node->symlink_target) : 0;
+            break;
         default:
+            statbuf->st_size = 0;
             break;
     }
     return 0;

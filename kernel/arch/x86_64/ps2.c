@@ -8,6 +8,7 @@
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/video.h>
 #include <kernel/vfs.h>
+#include <kernel/tty.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
 #include <kernel/ioctl.h>
@@ -22,7 +23,7 @@ bool kb_shift = false;
 struct fifo kb_fifo;
 
 void irq1_handler(struct registers *r) {
-    int c;
+    int c = 0;
     uint8_t key = inb(0x60);
     if (!(key & 0x80)) {
         switch (key) {
@@ -85,6 +86,7 @@ void irq1_handler(struct registers *r) {
                 break;
         }
     }
+    tty_enqueue(c);
     lapic_eoi();
 }
 

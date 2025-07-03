@@ -31,6 +31,7 @@ typedef struct vfs_driver_ops {
 
 typedef struct tty_operations {
     long(*ioctl)(int fd, int op, void *arg);
+    long(*enqueue)(int c);
 } tty_ops_t;
 
 typedef struct vfs_node {

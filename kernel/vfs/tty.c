@@ -11,14 +11,40 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 
-/**
- * TODO: read from FD 0 instead of using getchar() when polling gets implemented
- */
-
 struct fifo tty_fifo;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
+
+void tty_flush(void) {
+    int c;
+    while (fifo_dequeue(&tty_fifo, &c)) {
+        putchar(c);
+    }
+}
+
+long tty_enqueue(int c) {
+    //if (!fifo_enqueue(&tty_fifo, c)) {
+    //    return -EAGAIN;
+    //}
+    switch (c) {
+        case 0x3:
+            printf("^C\n");
+            send_signal(sched_get_foreground(), SIGINT, 0);
+            break;
+    }
+    return 0;
+}
+
+long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    char *buf = (char *)buffer;
+    long i;
+    for (i = 0; (unsigned)i < len && !fifo_is_full(&tty_fifo); i++) {
+        fifo_enqueue(&tty_fifo, buf[i]);
+    }
+    tty_flush();
+    return i;
+}
 
 long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     char *str = buffer;
@@ -32,16 +58,8 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
         if (c > 0) str[i++] = c;
         else goto again;
 
-        switch (c) {
-            case 0x3:
-                printf("^C\n");
-                send_signal(sched_get_foreground(), SIGINT, 0);
-                break;
-            default:
-                if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "%c", c);
-                break;
-        }
+        if (tio->c_lflag & ECHO)
+            fprintf(stdout, "%c", c);
         return i;
     }
 
@@ -51,10 +69,6 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
         else continue;
         
         switch (c) {
-            case 0x3:
-                printf("^C\n");
-                send_signal(sched_get_foreground(), SIGINT, 0);
-                break;
             case '\033':
                 /* we do not support ANSI escape codes */
                 while (getchar(true) != '\0') {}
@@ -89,13 +103,6 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return i;
 }
 
-long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    struct fd *fd = fd_get(0);
-    if (fd->node == node)
-        return 0;
-    return vfs_write(fd->node, buffer, offset, len);
-}
-
 long tty_ioctl(int fd_num, int op, void *arg) {
     struct fd *fd = fd_get(fd_num);
     switch (op) {
@@ -122,17 +129,13 @@ long tty_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
-//long tty_enqueue(int c) {
-//    return !fifo_enqueue(&tty_fifo, c);
-//}
-
 void tty_initialize(void) {
     fifo_init(&tty_fifo, 1024);
 
-    vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
-    tty->read = tty_read;
-    tty->write = tty_write;
-    tty->isatty = true;
-    tty->tty_ops.ioctl = tty_ioctl;
-    vfs_add_device(tty);
+    vfs_node_t *tty1 = vfs_create_node("tty", VFS_CHARDEVICE);
+    tty1->read = tty_read;
+    tty1->write = tty_write;
+    tty1->isatty = true;
+    tty1->tty_ops.ioctl = tty_ioctl;
+    vfs_add_device(tty1);
 }

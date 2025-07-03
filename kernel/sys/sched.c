@@ -32,6 +32,7 @@ static void sigint(struct process *proc, int _) {
 }
 
 void send_signal(struct process *proc, int signal, int extra) {
+    dprintf("sending signal to '%s'\n", proc->name);
     if (!proc || signal < 1 || signal > 32) {
         return;
     }
@@ -181,9 +182,9 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     proc->fs = 0;
     proc->state = TASK_RUNNING;
     proc->user = true;
-    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/keyboard", false, false), 0);
-    proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
-    proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
+    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/tty", false, false), 0);
+    proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/tty", false, false), 0);
+    proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/tty", false, false), 0);
     proc->vma = vma_create();
     proc->signal_handlers[SIGCHLD] = sigchld;
     proc->signal_handlers[SIGINT] = sigint;
