@@ -20,7 +20,7 @@ extern long ps2_ioctl(int fd_num, int op, void *arg);
 void tty_flush(void) {
     int c;
     while (fifo_dequeue(&tty_fifo, &c)) {
-        putchar(c);
+        if (c > 0) putchar(c);
     }
 }
 
@@ -166,7 +166,14 @@ long tty_ioctl(int fd_num, int op, void *arg) {
 void tty_initialize(void) {
     fifo_init(&tty_fifo, 1024);
 
-    vfs_node_t *tty = vfs_create_node("console", VFS_CHARDEVICE);
+    vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
+    console->read = tty_read;
+    console->write = tty_write;
+    console->isatty = true;
+    console->tty_ops.ioctl = tty_ioctl;
+    vfs_add_device(console);
+
+    vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
     tty->read = tty_read;
     tty->write = tty_write;
     tty->isatty = true;

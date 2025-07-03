@@ -19,17 +19,7 @@ extern void tty_initialize(void);
 extern void fbdev_initialize(void);
 extern void procfs_initialize(void);
 
-struct vfs_node *vfs_root = NULL;
-struct vfs_node *vfs_dev = NULL;
-
-const char *vfs_types[] = {
-    "VFS_NONE",
-    "VFS_FILE",
-    "VFS_DIRECTORY",
-    "VFS_CHARDEVICE",
-    "VFS_BLOCKDEVICE",
-    "VFS_SYMLINK"
-};
+struct vfs_node *vfs_root = NULL, *vfs_devfs = NULL;
 
 vfs_driver_ops_t vfs_drivers[32] = {
     [VFS_DRIVER_TMPFS] = {
@@ -140,7 +130,7 @@ int vfs_remove_node(struct vfs_node *node) {
 }
 
 void vfs_add_device(struct vfs_node *node) {
-    vfs_add_node(vfs_dev, node);
+    vfs_add_node(vfs_devfs, node);
 }
 
 struct vfs_node *vfs_create_symlink(const char *name, const char *target) {
@@ -378,9 +368,9 @@ void vfs_install(void) {
     vfs_root->isatty = false;
     vfs_root->driver = VFS_DRIVER_OTHER;
 
-    vfs_dev = vfs_create_node("dev", VFS_DIRECTORY);
-    vfs_dev->driver = VFS_DRIVER_DEVFS;
-    vfs_add_node(vfs_root, vfs_dev);
+    vfs_devfs = vfs_create_node("dev", VFS_DIRECTORY);
+    vfs_devfs->driver = VFS_DRIVER_DEVFS;
+    vfs_add_node(vfs_root, vfs_devfs);
 
     zero_initialize();
     ps2_initialize();

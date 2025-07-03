@@ -147,7 +147,7 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] faccessat
 - [X] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
-- [ ] Proper VFS drivers
+- [X] Proper VFS drivers
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)
 - [X] Fix having a lot of children crashing the kernel
 - [X] Null out serial_redirect on panic
@@ -158,7 +158,11 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
     - [ ] Process stealing
     - [ ] Priorities
     - [ ] CPU usage calculation
-- [ ] TTY work
+- [X] Write a TTY driver
+- [ ] Make the VFS use generic lists
+- [ ] MBR partitions
+- [ ] GPT partitions
+- [ ] Block CTRL+C in init (implement sigprocmask)
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
