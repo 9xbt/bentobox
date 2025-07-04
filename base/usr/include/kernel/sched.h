@@ -62,10 +62,11 @@ struct process {
     uintptr_t brk;
 
     uint32_t pending_signals;
-    void (*signal_handlers[32])(struct process *, int);
+    int signal_data;
+    void (*signal_handlers[32])(struct process *);
+    
     struct process *parent;
     list_t *children;
-    int signal_data;
     list_t *poll_list;
 };
 

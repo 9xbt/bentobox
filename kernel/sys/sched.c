@@ -22,32 +22,6 @@
 
 static long next_pid = 1, next_cpu = 0;
 
-static void sigchld(struct process *proc, int exit) {
-    proc->signal_data = exit;
-    sched_unblock(proc);
-}
-
-static void sigint(struct process *proc, int _) {
-    sched_kill(proc, 128 + SIGINT);
-}
-
-void send_signal(struct process *proc, int signal, int extra) {
-    if (!proc || signal < 1 || signal > 32) {
-        return;
-    }
-    
-    sched_lock();
-    
-    proc->pending_signals |= (1 << (signal - 1));
-    
-    if (signal == SIGCHLD) {
-        proc->signal_data = extra;
-    }
-    proc->state = TASK_SIGNAL;
-    
-    sched_unlock();
-}
-
 void sched_lock(void) {
 #ifdef __x86_64__
     lapic_stop_timer();
@@ -185,8 +159,9 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = vma_create();
-    proc->signal_handlers[SIGCHLD] = sigchld;
-    proc->signal_handlers[SIGINT] = sigint;
+    proc->signal_handlers[SIGINT] = _sigint;
+    proc->signal_handlers[SIGPIPE] = _sigpipe;
+    proc->signal_handlers[SIGCHLD] = _sigchld;
     uint32_t *mxcsr = (uint32_t *)(proc->fxsave + 24);
     *mxcsr = 0x1920;
     *mxcsr |= 0x8040;
@@ -254,8 +229,7 @@ void sched_schedule(struct registers *r) {
                     uint32_t sig_mask = 1 << (sig - 1);
                     
                     if ((pending & sig_mask) && proc->signal_handlers[sig]) {
-                        int extra = (sig == SIGCHLD) ? proc->signal_data : 0;
-                        proc->signal_handlers[sig](proc, extra);
+                        proc->signal_handlers[sig](proc);
                     }
                 }
                 this_core()->current_proc = current;
@@ -328,7 +302,7 @@ void sched_kill(struct process *proc, int status) {
         panic("Attempted to kill idle task!");
 
     if (proc->parent && proc->parent->state != TASK_RUNNING) {
-        send_signal(proc->parent, SIGCHLD, status);
+        signal_send(proc->parent, SIGCHLD, status);
     }
     
     bool yield = proc == this;

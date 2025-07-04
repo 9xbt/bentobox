@@ -2,6 +2,11 @@
 #include <kernel/sched.h>
 
 #define SIGINT  2
-#define SIGCHLD 1
+#define SIGPIPE 13
+#define SIGCHLD 17
 
-void send_signal(struct process *proc, int signal, int data);
+void signal_send(struct process *proc, int signal, int data);
+
+void _sigint(struct process *proc);
+void _sigpipe(struct process *proc);
+void _sigchld(struct process *proc);

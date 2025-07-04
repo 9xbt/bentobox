@@ -3,6 +3,8 @@
 #include <kernel/fifo.h>
 #include <kernel/spinlock.h>
 
+#define UNIXPIPE_BUFFER_SIZE 4096
+
 /**
  * His ideas were implemented in 1973 when ("in one feverish night", wrote
  * McIlroy) Ken Thompson added the pipe() system call and pipes to the shell

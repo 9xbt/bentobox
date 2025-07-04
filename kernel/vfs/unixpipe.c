@@ -1,9 +1,9 @@
-#include <errno.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
+#include <kernel/signal.h>
 #include <kernel/unixpipe.h>
 
 long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -34,9 +34,8 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
     char *buf = (char *)buffer;
     int i = 0;
     
-    /** TODO: raise a SIGPIPE */
-    //if (pipe->read_refs <= 0)
-    //    return -EPIPE;
+    if (pipe->read_refs <= 0)
+        signal_send(this, SIGPIPE, 0);
     
     while (i < (int)len) {
         //while (fifo_is_full(&pipe->buffer)) {
@@ -44,7 +43,8 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
         //    sched_yield();
         //}
         
-        //if (pipe->read_refs <= 0) return -EPIPE;
+        if (pipe->read_refs <= 0)
+            signal_send(this, SIGPIPE, 0);
         fifo_enqueue(&pipe->buffer, buf[i++]);
     }
     return i;
