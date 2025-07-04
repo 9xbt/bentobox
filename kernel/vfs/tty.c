@@ -29,7 +29,7 @@ long tty_enqueue(int c) {
         case 0x3:
             printf("^C\n");
             send_signal(sched_get_foreground(), SIGINT, 0);
-            break;
+            return 0;
     }
     return !fifo_enqueue(&tty_fifo, c);
 }

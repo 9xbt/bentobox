@@ -1,6 +1,7 @@
 #pragma once
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
+#include <kernel/spinlock.h>
 
 /**
  * His ideas were implemented in 1973 when ("in one feverish night", wrote
@@ -15,10 +16,12 @@ struct unix_pipe {
     struct vfs_node *read_end;
     struct vfs_node *write_end;
 
-    volatile bool read_closed;
-    volatile bool write_closed;
+    volatile int read_refs;
+    volatile int write_refs;
 
     struct fifo buffer;
+
+    atomic_flag lock;
 };
 
 int unixpipe_new(int fds[2]);

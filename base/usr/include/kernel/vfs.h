@@ -14,7 +14,8 @@ typedef enum vfs_node_type {
     VFS_DIRECTORY,
     VFS_CHARDEVICE,
     VFS_BLOCKDEVICE,
-    VFS_SYMLINK
+    VFS_SYMLINK,
+    VFS_UNIXPIPE
 } vfs_node_type_t;
 
 typedef enum vfs_driver {

@@ -7,7 +7,7 @@
 #include <kernel/unixpipe.h>
 
 long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    dprintf("unixpipe read\n");
+    dprintf("unixpipe read: len=%lu\n", len);
 
     struct unix_pipe *pipe = node->device;
     char *buf = (char *)buffer;
@@ -15,8 +15,9 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
     while (i < (int)len) {
         while (fifo_is_empty(&pipe->buffer)) {
-            if (pipe->write_closed)
+            if (pipe->write_refs <= 0) {
                 return i == 0 ? 0 : i;
+            }
             sched_yield();
         }
         if (fifo_dequeue(&pipe->buffer, &c)) {
@@ -27,20 +28,23 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 }
 
 long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    dprintf("unixpipe write\n");
+    dprintf("unixpipe write: len=%lu, read_refs=%d\n", len, ((struct unix_pipe*)node->device)->read_refs);
 
     struct unix_pipe *pipe = node->device;
     char *buf = (char *)buffer;
     int i = 0;
-    if (pipe->read_closed) {
-        return -EPIPE;
-    }
+    
+    /** TODO: raise a SIGPIPE */
+    //if (pipe->read_refs <= 0)
+    //    return -EPIPE;
+    
     while (i < (int)len) {
-        while (fifo_is_full(&pipe->buffer)) {
-            if (pipe->read_closed)
-                return -EPIPE;
-            sched_yield();
-        }
+        //while (fifo_is_full(&pipe->buffer)) {
+        //    if (pipe->read_refs <= 0) return -EPIPE;
+        //    sched_yield();
+        //}
+        
+        //if (pipe->read_refs <= 0) return -EPIPE;
         fifo_enqueue(&pipe->buffer, buf[i++]);
     }
     return i;
@@ -48,20 +52,24 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
 long unixpipe_close_read(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
-    pipe->read_closed = true;
+    if (pipe->read_refs > 0) {
+        pipe->read_refs--;
+    }
     return 0;
 }
 
 long unixpipe_close_write(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
-    pipe->write_closed = true;
+    if (pipe->write_refs > 0) {
+        pipe->write_refs--;
+    }
     return 0;
 }
 
 int unixpipe_new(int fds[2]) {
     vfs_node_t *pipes[2] = {
-        vfs_create_node("[pipe::read]", VFS_NONE),
-        vfs_create_node("[pipe::write]", VFS_NONE)
+        vfs_create_node("[pipe::read]", VFS_UNIXPIPE),
+        vfs_create_node("[pipe::write]", VFS_UNIXPIPE)
     };
 
     fds[0] = fd_create(pipes[0], 0);
@@ -70,13 +78,16 @@ int unixpipe_new(int fds[2]) {
     struct unix_pipe *device = kmalloc(sizeof(struct unix_pipe));
     device->read_end = pipes[0];
     device->write_end = pipes[1];
+    device->read_refs = 1;
+    device->write_refs = 1;
     fifo_init(&device->buffer, 1024);
 
     pipes[0]->read = unixpipe_read;
-    pipes[0]->write = unixpipe_write;
+    pipes[0]->write = NULL;
     pipes[0]->close = unixpipe_close_read;
     pipes[0]->device = device;
-    pipes[1]->read = unixpipe_read;
+    
+    pipes[1]->read = NULL;
     pipes[1]->write = unixpipe_write;
     pipes[1]->close = unixpipe_close_write;
     pipes[1]->device = device;

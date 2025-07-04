@@ -359,6 +359,10 @@ void sched_cleaner(void) {
         struct process *proc = node->value;
         list_remove(terminated_process_list, node);
         list_remove_value(process_list, proc);
+
+        for (int i = 0; i < USER_MAX_FDS; i++) {
+            fd_close(i);
+        }
         
         if (proc->user) {
             if (proc->parent) {
