@@ -15,16 +15,24 @@
 #endif
 
 int main(int argc, char *argv[]) {
-    //printf("\n  \033[97mStarting up \033[94mbentobox ("ARCH")\033[0m\n\n");
+    sigset_t set;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+
+    if (sigprocmask(SIG_BLOCK, &set, NULL) == -1) {
+        perror("sigprocmask");
+        return 1;
+    }
+
+    //for (;;);
 
     FILE *fptr;
     char hostname[256];
     if (!(fptr = fopen(HOSTNAME, "r")) ||
         !fgets(hostname, sizeof hostname, fptr) ||
         sethostname(hostname, strlen(hostname)) != 0) {
-        //printf(" \033[91m*\033[97m Failed to set hostname\033[0m\n");
     } else {
-        //printf(" \033[92m*\033[97m Updated hostname from "HOSTNAME"\033[0m\n");
         fclose(fptr);
     }
 

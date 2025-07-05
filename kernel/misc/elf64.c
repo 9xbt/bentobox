@@ -36,6 +36,12 @@ Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_cou
 }
 
 int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_count, Elf64_Addr addr) {
+    extern void *end;
+    if (addr >= (uintptr_t)&end) {
+        strcpy(s, "(none)");
+        return 1;
+    }
+
     Elf64_Sym *sym = NULL;
     Elf64_Addr best = (Elf64_Addr)-1;
     

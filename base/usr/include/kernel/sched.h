@@ -62,6 +62,7 @@ struct process {
     uintptr_t brk;
 
     uint32_t pending_signals;
+    uint32_t signal_mask;
     int signal_data;
     void (*signal_handlers[32])(struct process *);
     

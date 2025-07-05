@@ -19,6 +19,7 @@
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/signal.h>
 #include <kernel/syscall.h>
 #include <kernel/version.h>
 #include <kernel/unixpipe.h>
@@ -78,7 +79,7 @@ long sys_lstat(const char *pathname, struct stat *statbuf) {
     return vfs_stat(vfs_open(this->cwd, pathname, false, false), statbuf, true);
 }
 
-long sys_newfstatat(int dirfd, const char *restrict pathname, struct stat *restrict statbuf, int flags) {
+long sys_newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
     (void)flags;
     if (!pathname || !statbuf)
         return -EFAULT;
@@ -214,7 +215,24 @@ long sys_rt_sigaction() {
     return 0;
 }
 
-long sys_rt_sigprocmask() {
+long sys_rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset, size_t sigsetsize) {
+#if 0
+    if (!set)
+        return -EFAULT;
+    switch (how) {
+        case SIG_BLOCK:
+            this->signal_mask |= set->__val[0];
+            break;
+        case SIG_UNBLOCK:
+            this->signal_mask &= set->__val[0];
+            break;
+        case SIG_SETMASK:
+            this->signal_mask = set->__val[0];
+            break;
+        default:
+            return -EINVAL;
+    }
+#endif
     return 0;
 }
 
@@ -447,7 +465,7 @@ long sys_unlink(const char *pathname) {
     return vfs_remove_node(node);
 }
 
-long sys_readlink(const char *restrict pathname, char *restrict buf, size_t bufsiz) {
+long sys_readlink(const char *pathname, char *buf, size_t bufsiz) {
     vfs_node_t *node = vfs_open(this->cwd, pathname, false, false);
     if (!node)
         return -ENOENT;
