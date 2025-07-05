@@ -43,10 +43,20 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     return i;
 }
 
+void unixpipe_destroy(struct unix_pipe *pipe) {
+    kfree(pipe->buffer.data);
+    kfree(pipe->read_end);
+    kfree(pipe->write_end);
+    kfree(pipe);
+}
+
 long unixpipe_close_read(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
     if (pipe->read_refs > 0) {
         pipe->read_refs--;
+    }
+    if (pipe->read_refs <= 0 && pipe->write_refs <= 0) {
+        unixpipe_destroy(pipe);
     }
     return 0;
 }
@@ -55,6 +65,9 @@ long unixpipe_close_write(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
     if (pipe->write_refs > 0) {
         pipe->write_refs--;
+    }
+    if (pipe->read_refs <= 0 && pipe->write_refs <= 0) {
+        unixpipe_destroy(pipe);
     }
     return 0;
 }
