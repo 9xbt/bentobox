@@ -9,7 +9,7 @@ long zero_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long null_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    return len;
+    return 0;
 }
 
 long null_write(struct vfs_node *node, void *buffer, long offset, size_t len) {

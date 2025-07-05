@@ -21,7 +21,7 @@ struct unix_pipe {
     volatile int read_refs;
     volatile int write_refs;
 
-    struct fifo buffer;
+    struct fifo buffer; /** TODO: use a ringbuffer instead */
 
     atomic_flag lock;
 };

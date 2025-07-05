@@ -1,13 +1,14 @@
-#include "kernel/list.h"
 #include <stdbool.h>
 #include <kernel/mmu.h>
 #include <kernel/vma.h>
+#include <kernel/list.h>
 #include <kernel/elf64.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/module.h>
+#include <kernel/unixpipe.h>
 #include <kernel/multiboot.h>
 
 Elf64_Sym *ksymtab = NULL;
@@ -390,6 +391,17 @@ long fork(struct registers *r) {
     proc->cwd = this->cwd;
     memcpy(proc->fxsave, this->fxsave, sizeof proc->fxsave);
     memcpy(proc->fd_table, this->fd_table, sizeof proc->fd_table);
+    for (int i = 0; i < USER_MAX_FDS; i++) {
+        /** TODO: make this a separate function? */
+        struct fd *fd = &proc->fd_table[i];
+        if (fd->node->type == VFS_UNIXPIPE) {
+            struct unix_pipe *pipe = fd->node->device;
+            if (!strcmp(fd->node->name, "[pipe::read]"))
+                pipe->read_refs++;
+            else if (!strcmp(fd->node->name, "[pipe::write]"))
+                pipe->write_refs++;
+        }
+    }
     memcpy(proc->sections, this->sections, sizeof proc->sections);
     memcpy(proc->signal_handlers, this->signal_handlers, sizeof proc->signal_handlers);
 

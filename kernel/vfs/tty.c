@@ -131,6 +131,11 @@ long tty_ioctl(int fd_num, int op, void *arg) {
             return 0;
         case TIOCSWINSZ:
             return 0;
+        case TIOCGPGRP:
+            *(int *)arg = this->pid;
+            return 0;
+        case TIOCSPGRP:
+            return 0;
         case KDFONTOP: {
             struct console_font_op *fop = (struct console_font_op *)arg;
             switch (fop->op) {

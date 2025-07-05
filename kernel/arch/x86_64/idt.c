@@ -101,11 +101,10 @@ void isr_handler(struct registers *r) {
     if (r->int_no == 2) {
         arch_fatal();
     }
-    if ((r->cs & 3) == 0x0) {
+    if (!this || !this->user) {
         arch_prepare_fatal();
     }
 
-    /* just lock up if a fault happens inside this handler */
     static volatile bool faulted = false;
     if (faulted) {
         goto kill;
@@ -156,7 +155,7 @@ void isr_handler(struct registers *r) {
     faulted = false;
 
 kill:
-    if ((r->cs & 3) == 0x3) {
+    if (this && this->user) {
         fprintf(1, "Segmentation fault (core dumped)\n", __FILE__, __LINE__, this->pid);
         asm volatile ("sti");
         sched_kill(this, 11);

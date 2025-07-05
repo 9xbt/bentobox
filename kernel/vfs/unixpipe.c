@@ -6,30 +6,7 @@
 #include <kernel/signal.h>
 #include <kernel/unixpipe.h>
 
-long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    dprintf("unixpipe read: len=%lu\n", len);
-
-    struct unix_pipe *pipe = node->device;
-    char *buf = (char *)buffer;
-    int i = 0, c;
-
-    while (i < (int)len) {
-        while (fifo_is_empty(&pipe->buffer)) {
-            if (pipe->write_refs <= 0) {
-                return i == 0 ? 0 : i;
-            }
-            sched_yield();
-        }
-        if (fifo_dequeue(&pipe->buffer, &c)) {
-            buf[i++] = c;
-        }
-    }
-    return i;
-}
-
 long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    dprintf("unixpipe write: len=%lu, read_refs=%d\n", len, ((struct unix_pipe*)node->device)->read_refs);
-
     struct unix_pipe *pipe = node->device;
     char *buf = (char *)buffer;
     int i = 0;
@@ -38,14 +15,30 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
         signal_send(this, SIGPIPE, 0);
     
     while (i < (int)len) {
-        //while (fifo_is_full(&pipe->buffer)) {
-        //    if (pipe->read_refs <= 0) return -EPIPE;
-        //    sched_yield();
-        //}
-        
         if (pipe->read_refs <= 0)
             signal_send(this, SIGPIPE, 0);
-        fifo_enqueue(&pipe->buffer, buf[i++]);
+        
+        if (!fifo_enqueue(&pipe->buffer, buf[i]))
+            break;
+        i++;
+    }
+    return i;
+}
+
+long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
+    struct unix_pipe *pipe = node->device;
+    char *buf = (char *)buffer;
+    int i = 0, c;
+    
+    while (i < (int)len) {
+        while (fifo_is_empty(&pipe->buffer)) {
+            if (pipe->write_refs <= 0)
+                return i == 0 ? 0 : i;
+            sched_yield();
+        }
+        if (fifo_dequeue(&pipe->buffer, &c)) {
+            buf[i++] = c;
+        }
     }
     return i;
 }

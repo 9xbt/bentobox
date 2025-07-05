@@ -335,7 +335,8 @@ void sched_cleaner(void) {
         list_remove_value(process_list, proc);
 
         for (int i = 0; i < USER_MAX_FDS; i++) {
-            fd_close(i);
+            struct fd *file = &proc->fd_table[i];
+            vfs_close(file->node);
         }
         
         if (proc->user) {
