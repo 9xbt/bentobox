@@ -212,8 +212,9 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
         } else {
             struct vfs_node *child = vfs_find_child(node, token);
             if (!child) {
+                struct vfs_node *file = create ? vfs_touch(node, token, isdir) : NULL;
                 kfree(copy);
-                return create ? vfs_touch(node, token, isdir) : NULL;
+                return file;
             }
             if (!child) {
                 /* failed to resolve symlink */

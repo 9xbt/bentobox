@@ -1,0 +1,38 @@
+diff -ruN figlet-2.2.5/Makefile figlet/Makefile
+--- figlet-2.2.5/Makefile	2012-06-01 14:51:09.000000000 +0200
++++ figlet/Makefile	2025-07-05 13:47:28.003588154 +0200
+@@ -19,9 +19,9 @@
+ SHELL = /bin/sh
+ 
+ # The C compiler and linker to use
+-CC	= gcc
+-CFLAGS	= -g -O2 -Wall
+-LD	= gcc
+-LDFLAGS =
++CC	= musl-gcc
++CFLAGS	= -g -O2 -Wall -std=gnu99
++LD	= musl-gcc
++LDFLAGS = -static
+ 
+ # Feature flags:
+diff -ruN figlet-2.2.5/utf8.h figlet/utf8.h
+--- figlet-2.2.5/utf8.h	2012-06-01 14:51:10.000000000 +0200
++++ figlet/utf8.h	2025-07-05 13:46:20.617923329 +0200
+@@ -22,6 +22,16 @@
+ 
+ #include <sys/types.h>
+ 
++#ifndef __BEGIN_DECLS
++#ifdef __cplusplus
++#define __BEGIN_DECLS extern "C" {
++#define __END_DECLS }
++#else
++#define __BEGIN_DECLS
++#define __END_DECLS
++#endif
++#endif
++
+ #include <wchar.h>
+ 
+ #define UTF8_IGNORE_ERROR		0x01
+
