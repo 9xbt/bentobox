@@ -46,7 +46,7 @@ static void tmpfs_remove_fd(struct vfs_node *node) {
         if ((*ptr)->node == node) {
             struct tmpfs_fd *fd = *ptr;
             *ptr = (*ptr)->next;
-            kfree(fd->data);
+            if (fd->data) kfree(fd->data);
             kfree(fd);
             return;
         }

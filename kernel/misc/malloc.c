@@ -100,7 +100,7 @@ void *kmalloc(size_t n) {
 
 void kfree(void *ptr) {
     if (ptr == NULL) {
-        dprintf("%s:%d: invalid deallocation @ 0x%p\n", ptr);
+        dprintf("%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
         return;
     }
     
@@ -112,5 +112,5 @@ void kfree(void *ptr) {
             return;
         }
     }
-    dprintf("%s:%d: double free @ 0x%p\n", ptr);
+    dprintf("%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
 }

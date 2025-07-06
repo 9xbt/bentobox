@@ -216,11 +216,6 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                 kfree(copy);
                 return file;
             }
-            if (!child) {
-                /* failed to resolve symlink */
-                kfree(copy);
-                return NULL;
-            }
             node = child;
         }
         token = strtok(NULL, "/");
