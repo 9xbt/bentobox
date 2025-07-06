@@ -1,4 +1,5 @@
 #include <kernel/arch/x86_64/vga.h>
+#include <kernel/arch/x86_64/serial.h>
 #include <kernel/mmu.h>
 #include <kernel/video.h>
 #include <kernel/psf.h>
@@ -125,8 +126,7 @@ void framebuffer_initialize(void) {
 
     if (!fb || fb->common.framebuffer_addr == 0xB8000) {
         dprintf("%s:%d: framebuffer not found\n", __FILE__, __LINE__);
-        vga_disable_cursor();
-        vga_copy_to_text();
+        vga_enable_cursor();
         return;
     }
     dprintf("%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
@@ -173,7 +173,7 @@ void framebuffer_initialize(void) {
         0
     );
 
-    vga_copy_to_framebuffer();
+    flanterm_write(ft_ctx, serial_ringbuffer, strlen(serial_ringbuffer));
 #else
     unimplemented;
 #endif

@@ -19,7 +19,6 @@ atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 struct fifo serial_fifo;
 vfs_node_t *serial_redirect = NULL;
 
-size_t serial_ringbuffer_i = 0;
 char serial_ringbuffer[1024];
 
 void serial_install(void) {
@@ -65,8 +64,12 @@ void serial_write_char(char c) {
 }
 
 void serial_puts(char *str) {
+    static size_t offset = 0;
+
     acquire(&serial_lock);
     while (*str) {
+        serial_ringbuffer[offset] = *str;
+        offset = (offset + 1) % sizeof(serial_ringbuffer);
         serial_write_char(*str++);
     }
     release(&serial_lock);
@@ -139,7 +142,7 @@ void irq4_handler(struct registers *r) {
         int c = inb(COM1);
         fifo_enqueue(&serial_fifo, c);
 
-        if (c == '`') {
+        if (c == 12) { /* CTRL+L */
             serial_puts("\033[H\033[J");
         }
     }
@@ -182,7 +185,6 @@ long kmsg_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     memcpy(buffer, &serial_ringbuffer[offset], len);
     return len;
 }
-
 
 long kmsg_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     char *src = (char *)buffer;
