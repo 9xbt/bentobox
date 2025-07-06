@@ -160,3 +160,9 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
+
+## Credits
+https://github.com/robxu9/bash-static for its bash builds
+https://busybox.net/ for the coreutils alternative
+https://github.com/ozkl/doomgeneric for DOOM
+http://www.figlet.org/ for the figlet utility
