@@ -82,6 +82,8 @@ int unixpipe_new(int fds[2], int flags) {
 
     int fdflags = 0;
     switch (flags) {
+        case 0:
+            break;
         case O_CLOEXEC:
             fdflags |= O_CLOEXEC;
             break;

@@ -7,6 +7,7 @@
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
+#include <linux/resource.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/user.h>
@@ -378,6 +379,14 @@ long sys_wait4(int pid, int *wstatus) {
     return 0;
 }
 
+long sys_kill(long pid, int sig) {
+    struct process *proc = sched_find_process(pid);
+    if (!proc)
+        return -ESRCH;
+    signal_send(proc, sig, 0);
+    return 0;
+}
+
 char hostname[256] = "localhost";
 
 long sys_uname(struct utsname *utsname) {
@@ -481,6 +490,26 @@ long sys_readlink(const char *pathname, char *buf, size_t bufsiz) {
     return 0;
 }
 
+long sys_getrlimit(int resource, struct rlimit *rlim) {
+    if (!rlim)
+        return -EFAULT;
+
+    switch (resource) {
+        case RLIMIT_NPROC:
+            rlim->rlim_cur = RLIM_INFINITY;
+            rlim->rlim_max = RLIM_INFINITY;
+            break;
+        case RLIMIT_NOFILE:
+            rlim->rlim_cur = USER_MAX_FDS;
+            rlim->rlim_max = USER_MAX_FDS;
+            break;
+        default:
+            dprintf("%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
+            return -EINVAL;
+    }
+    return 0;
+}
+
 long sys_getuid(void) {
     return 0;
 }
@@ -514,9 +543,11 @@ long sys_setpgid(void) {
     return 0;
 }
 
+#define ARCH_SET_FS 0x1002
+
 long sys_arch_prctl(int op, long extra) {
     switch (op) {
-        case 0x1002: /* ARCH_SET_FS */
+        case ARCH_SET_FS:
             write_fs(extra);
             this->fs = extra;
             break;
@@ -666,6 +697,7 @@ static syscall_func syscalls[] = {
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
     [SYS_exit]              = (syscall_func)(uintptr_t)sys_exit,
     [SYS_wait4]             = (syscall_func)(uintptr_t)sys_wait4,
+    [SYS_kill]              = (syscall_func)(uintptr_t)sys_kill,
     [SYS_uname]             = (syscall_func)(uintptr_t)sys_uname,
     [SYS_fcntl]             = (syscall_func)(uintptr_t)sys_fcntl,
     [SYS_getcwd]            = (syscall_func)(uintptr_t)sys_getcwd,
@@ -674,6 +706,7 @@ static syscall_func syscalls[] = {
     [SYS_rmdir]             = (syscall_func)(uintptr_t)sys_rmdir,
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
     [SYS_readlink]          = (syscall_func)(uintptr_t)sys_readlink,
+    [SYS_getrlimit]         = (syscall_func)(uintptr_t)sys_getrlimit,
     [SYS_getuid]            = (syscall_func)(uintptr_t)sys_getuid,
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,
     [SYS_geteuid]           = (syscall_func)(uintptr_t)sys_geteuid,

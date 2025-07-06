@@ -27,6 +27,7 @@
 #define SYS_execve          59
 #define SYS_exit            60
 #define SYS_wait4           61
+#define SYS_kill            62
 #define SYS_uname           63
 #define SYS_fcntl           72
 #define SYS_getcwd          79
@@ -35,6 +36,7 @@
 #define SYS_rmdir           84
 #define SYS_unlink          87
 #define SYS_readlink        89
+#define SYS_getrlimit       97
 #define SYS_getuid          102
 #define SYS_getgid          104
 #define SYS_geteuid         107

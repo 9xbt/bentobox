@@ -161,6 +161,7 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     proc->vma = vma_create();
     proc->signal_handlers[SIGINT] = _sigint;
     proc->signal_handlers[SIGPIPE] = _sigpipe;
+    proc->signal_handlers[SIGTERM] = _sigterm;
     proc->signal_handlers[SIGCHLD] = _sigchld;
     uint32_t *mxcsr = (uint32_t *)(proc->fxsave + 24);
     *mxcsr = 0x1920;
@@ -317,6 +318,18 @@ void sched_kill(struct process *proc, int status) {
         sched_yield();
         __builtin_unreachable();
     }
+}
+
+struct process *sched_find_process(long pid) {
+    for (uint32_t i = 0; i < madt_lapics; i++) {
+        struct cpu *core = get_core(i);
+
+        foreach(proc, core->processes) {
+            if (((struct process *)proc->value)->pid == pid)
+                return proc->value;
+        }
+    }
+    return NULL;
 }
 
 void sched_cleaner(void) {

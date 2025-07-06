@@ -89,3 +89,4 @@ node_t *sched_add_task(struct process *proc, struct cpu *core);
 struct process *sched_new_task(void *entry, const char *name);
 struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]);
 struct process *sched_get_foreground(void);
+struct process *sched_find_process(long pid);

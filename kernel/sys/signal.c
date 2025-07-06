@@ -9,6 +9,10 @@ void _sigpipe(struct process *proc) {
     sched_kill(proc, 128 + SIGPIPE);
 }
 
+void _sigterm(struct process *proc) {
+    sched_kill(proc, 128 + SIGTERM);
+}
+
 void _sigchld(struct process *proc) {
     sched_unblock(proc);
 }
