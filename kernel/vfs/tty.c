@@ -172,6 +172,7 @@ void tty_initialize(void) {
     fifo_init(&tty_fifo, 1024);
 
     vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
+    console->perms = 0600;
     console->read = tty_read;
     console->write = tty_write;
     console->isatty = true;
@@ -179,6 +180,7 @@ void tty_initialize(void) {
     vfs_add_device(console);
 
     vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
+    tty->perms = 0666;
     tty->read = tty_read;
     tty->write = tty_write;
     tty->isatty = true;

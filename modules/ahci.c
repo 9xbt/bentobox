@@ -450,6 +450,7 @@ int init() {
     }
 
     struct vfs_node *sda = vfs_create_node("sda", VFS_BLOCKDEVICE);
+    sda->perms = 0660;
     sda->read = sda_read;
     vfs_add_device(sda);
 

@@ -201,6 +201,7 @@ void serial_initialize(void) {
     outb(COM1 + 1, 0x01);
 
     struct vfs_node *serial0 = vfs_create_node("serial0", VFS_CHARDEVICE); /* FIXME rename this to ttyS0? */
+    serial0->perms = 0660;
     serial0->write = serial_write;
     serial0->read = serial_read;
     serial0->isatty = true;

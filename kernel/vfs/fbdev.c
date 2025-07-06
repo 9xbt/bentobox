@@ -36,6 +36,7 @@ void fbdev_initialize(void) {
     if (!framebuffer.addr) return;
 
     struct vfs_node *fb0 = vfs_create_node("fb0", VFS_CHARDEVICE);
+    fb0->perms = 0660;
     fb0->write = fbdev_write;
     fb0->mmap = fbdev_mmap;
     fb0->isatty = true;

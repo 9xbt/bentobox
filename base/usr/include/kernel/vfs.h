@@ -22,12 +22,16 @@ typedef enum vfs_driver {
     VFS_DRIVER_OTHER,
     VFS_DRIVER_EXT2,
     VFS_DRIVER_TMPFS,
-    VFS_DRIVER_DEVFS
+    VFS_DRIVER_DEVFS,
+    
+    VFS_MAX_DRIVERS
 } vfs_driver_t;
 
 typedef struct vfs_driver_ops {
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
     long(*remove)(struct vfs_node *node);
+    struct vfs_node *(*mkdir)(struct vfs_node *parent, const char *name);
+    long(*rmdir)(struct vfs_node *node);
 } vfs_driver_ops_t;
 
 typedef struct tty_operations {
