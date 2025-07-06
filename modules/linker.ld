@@ -8,15 +8,15 @@ PHDRS
 SECTIONS
 {
     . = text_ld;
-    . (NOLOAD) : { bin/ksym_rel.elf(.text) }
+    . (NOLOAD) : { bin/ksym.o(.text) }
     . = rodata_ld;
-    . (NOLOAD) : { bin/ksym_rel.elf(.rodata) }
+    . (NOLOAD) : { bin/ksym.o(.rodata) }
     . = data_ld;
-    . (NOLOAD) : { bin/ksym_rel.elf(.data) }
+    . (NOLOAD) : { bin/ksym.o(.data) }
     . = bss_ld;
     . (NOLOAD) : {
-        bin/ksym_rel.elf(COMMON)
-        bin/ksym_rel.elf(.bss)
+        bin/ksym.o(COMMON)
+        bin/ksym.o(.bss)
     }
 
     . = load_addr;

@@ -1,5 +1,5 @@
+# Target architecture
 ARCH ?= x86_64
-QEMU_CORES ?= 8
 
 # Output image name
 IMAGE_NAME = image
@@ -22,7 +22,7 @@ else ifeq ($(ARCH),riscv64)
     ASFLAGS :=
     CCFLAGS := -mcmodel=medany -ffreestanding -Wall -Wextra -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto
     LDFLAGS := -m elf64lriscv -Tkernel/arch/riscv/linker.ld -z noexecstack
-    QEMUFLAGS := -machine virt -bios none -kernel bin/$(IMAGE_NAME).elf -mon chardev=mon0,mode=readline,id=mon0 -chardev null,id=mon0 -display gtk
+    QEMUFLAGS := -machine virt -bios none -kernel bin/image.elf -mon chardev=mon0,mode=readline,id=mon0 -chardev null,id=mon0 -display gtk
 else
     $(error Unsupported architecture: $(ARCH))
 endif
@@ -42,10 +42,10 @@ MODULE_OBJS := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.o))
 MODULE_BINARIES := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.elf))
 
 # Module base load address
-LOAD_ADDR := 0xFFFF800010000000 # TODO: should be in 0xFFFFFFFF8-------
+LOAD_ADDR := 0xFFFFFFFF80000000
 
 .PHONY: all
-all: kernel ubsan modules apps iso hdd
+all: kernel modules apps iso hdd
 
 .PHONY: run
 run: all
@@ -53,15 +53,11 @@ run: all
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -accel kvm -smp $(QEMU_CORES)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -accel kvm -smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all
 	@qemu-system-$(ARCH) $(QEMUFLAGS) -S -s
-
-.PHONY: run-kvm-vnc
-run-kvm-vnc: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -vnc 0.0.0.0:0 -accel kvm -smp $(QEMU_CORES)
 
 .PHONY: apps
 apps:
@@ -89,39 +85,25 @@ bin/modules/%.o: modules/%.c $(KERNEL_OBJS)
 .PHONY: kernel
 kernel: $(KERNEL_OBJS)
 	@echo " LD kernel/*"
-	@$(LD) $(LDFLAGS) $^ -o bin/$(IMAGE_NAME).elf
-	@$(LD) $(LDFLAGS) -r $^ -o bin/ksym_rel.elf
-	@objcopy --only-keep-debug bin/$(IMAGE_NAME).elf bin/ksym.elf
-	@bash util/symbols.sh
-
-ubsan:
-ifdef UBSAN
-	@echo " CC util/mubsan.c"
-	@$(CC) $(CCFLAGS) -c util/mubsan.c -o $(UBSAN)
-endif
+	@$(LD) $(LDFLAGS) $^ -o bin/image.elf
+	@$(LD) $(LDFLAGS) -r $^ -o bin/ksym.o
 
 .PHONY: modules
 modules: kernel $(MODULE_OBJS)
-	@LOAD_ADDR=$(LOAD_ADDR); \
-	for obj in $(MODULE_OBJS); do \
-		echo " LD $$obj"; \
-		cp $$obj bin/module.elf; \
-		ld -Tbin/mod.ld --defsym=load_addr=$$LOAD_ADDR $(UBSAN) -o $${obj%.o}.elf; \
-		LOAD_ADDR=$$(printf '0x%X' $$(( $$LOAD_ADDR + 0x1000000 ))); \
-	done
+	@./util/modules.sh $(MODULE_OBJS)
 
 .PHONY: iso
 ifeq ($(ARCH),x86_64)
 iso: kernel modules
-	@grub-file --is-x86-multiboot2 ./bin/$(IMAGE_NAME).elf; \
+	@grub-file --is-x86-multiboot2 ./bin/image.elf; \
 	if [ $$? -eq 1 ]; then \
-		echo " error: $(IMAGE_NAME).elf is not a valid multiboot2 file"; \
+		echo " error: image.elf is not a valid multiboot2 file"; \
 		exit 1; \
 	fi
 	@mkdir -p iso_root/boot/grub/
 	@mkdir -p iso_root/modules/
 	@find bin/modules/ -type f -name '*.elf' -exec cp {} iso_root/modules/ \;
-	@cp bin/$(IMAGE_NAME).elf iso_root/boot/$(IMAGE_NAME).elf
+	@cp bin/image.elf iso_root/boot/image.elf
 	@cp bin/ksym.elf iso_root/boot/ksym.elf
 	@cp boot/grub.cfg iso_root/boot/grub/grub.cfg
 	@grub-mkrescue -o bin/$(IMAGE_NAME).iso iso_root/ -quiet 2>&1 >/dev/null | grep -v libburnia | cat

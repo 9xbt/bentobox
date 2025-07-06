@@ -1,6 +1,6 @@
-diff -ruN figlet-2.2.5/Makefile figlet/Makefile
---- figlet-2.2.5/Makefile	2012-06-01 14:51:09.000000000 +0200
-+++ figlet/Makefile	2025-07-05 13:47:28.003588154 +0200
+diff -ruN Makefile Makefile
+--- Makefile	2012-06-01 14:51:09.000000000 +0200
++++ Makefile	2025-07-05 13:47:28.003588154 +0200
 @@ -19,9 +19,9 @@
  SHELL = /bin/sh
  
@@ -15,9 +15,9 @@ diff -ruN figlet-2.2.5/Makefile figlet/Makefile
 +LDFLAGS = -static
  
  # Feature flags:
-diff -ruN figlet-2.2.5/utf8.h figlet/utf8.h
---- figlet-2.2.5/utf8.h	2012-06-01 14:51:10.000000000 +0200
-+++ figlet/utf8.h	2025-07-05 13:46:20.617923329 +0200
+diff -ruN utf8.h utf8.h
+--- utf8.h	2012-06-01 14:51:10.000000000 +0200
++++ utf8.h	2025-07-05 13:46:20.617923329 +0200
 @@ -22,6 +22,16 @@
  
  #include <sys/types.h>
@@ -35,4 +35,3 @@ diff -ruN figlet-2.2.5/utf8.h figlet/utf8.h
  #include <wchar.h>
  
  #define UTF8_IGNORE_ERROR		0x01
-

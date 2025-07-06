@@ -40,20 +40,12 @@ To build, you need to install the following packages:
 - mtools
 - qemu-system-x86
 - genext2fs
-- meson
 - curl
-- git
+- musl
 
-After that, you need to build mlibc. Run `make mlibc-setup`.
+Now you can build the ports. Run `./util/ports.sh` to build all of them, or look in `ports/README.md` to see how to build each one separately.
 
-Now you can build bash. Clone `https://github.com/9xbt/bash` to the same directory where `bentobox` is. Then, run `./util/bash-am.sh` and bash should build.
-
-If you want a more complete environment, you need to set up busybox. Run `./util/busybox-setup.sh` and after that `./util/busybox.sh`.
-
-Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. Change the amount of cores as you desire in the Makefile.
-
-> [!IMPORTANT]
-> If you're on a Debian-based system, you have to also pass `SHELL=/bin/bash` to make. Otherwise, modules will not be built properly and will crash the kernel.
+Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in QEMU. By default the VM will use half of your host's threads, however this can be changed in the Makefile.
 
 ## TODO
 - [X] `panic()` function
