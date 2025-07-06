@@ -153,7 +153,8 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [X] Null out serial_redirect on panic
 - [X] Change feature list to be less exhaustive
 - [ ] Don't print `warning: couldn't get next pml` when just checking a mapping
-- [ ] UNIX pipes
+- [X] UNIX pipes
+    - [ ] Use a ringbuffer instead of a FIFO
 - [ ] Scheduler improvements
     - [ ] Polling
     - [ ] Process stealing
@@ -164,7 +165,6 @@ Finally, you can simply run `make run-kvm -j` and the kernel will run in QEMU. C
 - [ ] MBR partitions
 - [ ] GPT partitions
 - [ ] Block CTRL+C in init (implement sigprocmask)
-- [ ] Make use of clang's code formatter
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

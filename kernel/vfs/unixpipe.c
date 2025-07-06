@@ -1,6 +1,8 @@
+#include <sys/fcntl.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
+#include <kernel/errno.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>
@@ -72,14 +74,26 @@ long unixpipe_close_write(vfs_node_t *node) {
     return 0;
 }
 
-int unixpipe_new(int fds[2]) {
+int unixpipe_new(int fds[2], int flags) {
     vfs_node_t *pipes[2] = {
         vfs_create_node("[pipe::read]", VFS_UNIXPIPE),
         vfs_create_node("[pipe::write]", VFS_UNIXPIPE)
     };
 
-    fds[0] = fd_create(pipes[0], 0);
-    fds[1] = fd_create(pipes[1], 0);
+    int fdflags = 0;
+    switch (flags) {
+        case O_CLOEXEC:
+            fdflags |= O_CLOEXEC;
+            break;
+        case O_NONBLOCK:
+            fdflags |= O_NONBLOCK;
+            break;
+        default:
+            return -EINVAL;
+    }
+
+    fds[0] = fd_create(pipes[0], fdflags);
+    fds[1] = fd_create(pipes[1], fdflags);
 
     struct unix_pipe *device = kmalloc(sizeof(struct unix_pipe));
     device->read_end = pipes[0];

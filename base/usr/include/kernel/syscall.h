@@ -55,3 +55,4 @@
 #define SYS_pselect6        270
 #define SYS_utimensat       280
 #define SYS_dup3            292
+#define SYS_pipe2           293

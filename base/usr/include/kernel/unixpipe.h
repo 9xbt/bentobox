@@ -26,4 +26,4 @@ struct unix_pipe {
     atomic_flag lock;
 };
 
-int unixpipe_new(int fds[2]);
+int unixpipe_new(int fds[2], int flags);

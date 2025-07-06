@@ -305,7 +305,11 @@ long sys_access(const char *pathname, int mode) {
 }
 
 long sys_pipe(int pipefd[2]) {
-    return unixpipe_new(pipefd);
+    return unixpipe_new(pipefd, 0);
+}
+
+long sys_pipe2(int pipefd[2], int flags) {
+    return unixpipe_new(pipefd, flags);
 }
 
 long sys_select() {
@@ -688,7 +692,8 @@ static syscall_func syscalls[] = {
     [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,
-    [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3
+    [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3,
+    [SYS_pipe2]             = (syscall_func)(uintptr_t)sys_pipe2
 };
 
 void syscall_handler(struct registers *r) {
