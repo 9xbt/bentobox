@@ -64,11 +64,12 @@ int main(int argc, char *argv[]) {
             char *arg[] = { shell, NULL };
             char *envp[] = { env_pwd, env_home, "TERM=linux", NULL };
             execve(arg[0], arg, envp);
-            perror("execvp");
+            perror(shell);
             exit(1);
         } else {
             int status;
             waitpid(pid, &status, 0);
+            if (status != 0) exit(status);
         }
     }
     return -1;
