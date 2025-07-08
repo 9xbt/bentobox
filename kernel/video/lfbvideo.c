@@ -36,6 +36,7 @@ static void ft_free(void *ptr, size_t count) {
 }
 
 void framebuffer_setfont(const char *fontdata, size_t fontlen) {
+    if (!ft_ctx) return;
     if (font) kfree(font);
     font = kmalloc(fontlen);
     memcpy(font, fontdata, fontlen);

@@ -152,6 +152,7 @@ long tty_ioctl(int fd_num, int op, void *arg) {
                         off += bpc;
                     }
                     framebuffer_setfont(fontdata, fontlen);
+                    kfree(fontdata);
                     return 0;
                 }
                 default:

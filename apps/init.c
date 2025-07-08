@@ -1,4 +1,5 @@
 #include <pwd.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,11 +66,11 @@ int main(int argc, char *argv[]) {
             char *envp[] = { env_pwd, env_home, "TERM=linux", NULL };
             execve(arg[0], arg, envp);
             perror(shell);
-            exit(1);
+            exit(-ENOEXEC);
         } else {
             int status;
             waitpid(pid, &status, 0);
-            if (status != 0) exit(status);
+            if (status == -ENOEXEC) exit(status);
         }
     }
     return -1;

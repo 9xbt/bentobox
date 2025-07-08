@@ -145,24 +145,24 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Null out serial_redirect on panic
 - [X] Change feature list to be less exhaustive
 - [ ] Don't print `warning: couldn't get next pml` when just checking a mapping
+- [X] Generic lists
+    - [X] Make the scheduler use them
+    - [ ] Make the VFS use them
+- [ ] Generic ringbuffers
+    - [ ] Make unixpipes use them
 - [X] UNIX pipes
     - [ ] Use a ringbuffer instead of a FIFO
 - [ ] Scheduler improvements
     - [ ] Polling
-    - [ ] Process stealing
-    - [ ] Priorities
     - [ ] CPU usage calculation
+    - [ ] Priorities
+    - [ ] Process stealing
 - [X] Write a TTY driver
-- [ ] Make the VFS use generic lists
 - [ ] MBR partitions
 - [ ] GPT partitions
-- [ ] Block CTRL+C in init (implement sigprocmask)
+- [ ] Userspace signal handlers
+    - [X] Block CTRL+C in init
+- [ ] Fix serial read()
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
-
-## Credits
-https://github.com/robxu9/bash-static for its bash builds
-https://busybox.net/ for the coreutils alternative
-https://github.com/ozkl/doomgeneric for DOOM
-http://www.figlet.org/ for the figlet utility

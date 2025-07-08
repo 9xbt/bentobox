@@ -16,6 +16,7 @@ void list_free(list_t *list) {
         kfree(node);
         node = next;
     }
+    kfree(list);
 }
 
 void list_append(list_t *list, node_t *node) {
