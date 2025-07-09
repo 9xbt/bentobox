@@ -1,5 +1,5 @@
-# Target architecture
 ARCH ?= x86_64
+QEMUDISPLAY ?=
 
 # Output image name
 IMAGE_NAME = image
@@ -49,15 +49,15 @@ all: kernel modules apps iso hdd
 
 .PHONY: run
 run: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) #-no-reboot -no-shutdown -d int -M smm=off
+	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) #-no-reboot -no-shutdown -d int -M smm=off
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -accel kvm -smp $(shell expr $$(nproc) / 2)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -S -s
+	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -S -s
 
 .PHONY: apps
 apps:
