@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/arch/x86_64/ps2.h>
+#include <kernel/arch/x86_64/serial.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
@@ -16,6 +17,7 @@ struct fifo *tty_fifo;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
+extern long serial_ioctl(int fd_num, int op, void *arg);
 
 void tty_flush(void) {
     int c;
@@ -49,10 +51,11 @@ long tty_dequeue(bool block) {
 long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     char *buf = (char *)buffer;
     long i;
-    for (i = 0; (unsigned)i < len && !fifo_is_full(tty_fifo); i++) {
-        fifo_enqueue(tty_fifo, buf[i]);
+    for (i = 0; (unsigned)i < len; i++) {
+        if (node->tty_ops.enqueue(buf[i]))
+            break;
     }
-    tty_flush();
+    node->tty_ops.flush();
     return i;
 }
 
@@ -64,7 +67,7 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if ((tio->c_lflag & ICANON) == 0) {
         int c;
     again:
-        c = tty_dequeue(tio->c_cc[VMIN] != 0);
+        c = node->tty_ops.dequeue(tio->c_cc[VMIN] != 0);
         if (c > 0) str[i++] = c;
         else goto again;
 
@@ -74,14 +77,14 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     }
 
     while (i < len) {
-        int c = tty_dequeue(true);
+        int c = node->tty_ops.dequeue(true);
         if (c > 0) str[i] = c;
         else continue;
         
         switch (c) {
             case '\033':
                 /* we do not support ANSI escape codes */
-                while (tty_dequeue(true) != '\0') {}
+                while (node->tty_ops.dequeue(true) != '\0') {}
                 break;
             case '\0':
             case '\t':
@@ -89,7 +92,7 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
             case '\n':
             case '\r':
                 if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "\n");
+                    vfs_write(node, "\n", 0, 1);
                 str[i++] = '\n';
                 str[i] = '\0';
                 return i;
@@ -97,14 +100,14 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
             case 127:
                 if (i > 0) {
                     if (tio->c_lflag & ECHO)
-                        fprintf(stdout, "\b \b");
+                        vfs_write(node, "\b \b", 0, 3);
                     str[i] = '\0';
                     i--;
                 }
                 break;
             default:
                 if (tio->c_lflag & ECHO)
-                    fprintf(stdout, "%c", c);
+                    vfs_write(node, &c, 0, 1);
                 i++;
                 break;
         }
@@ -122,9 +125,6 @@ long tty_ioctl(int fd_num, int op, void *arg) {
         case TCSETS:
         case TCSETSW:
             memcpy(&fd->tio, arg, sizeof(struct termios));
-            return 0;
-        case TIOCGNAME:
-            strcpy(arg, "/dev/console");
             return 0;
         case TIOCGWINSZ:
             framebuffer_get_winsize((struct winsize *)arg);
@@ -178,6 +178,9 @@ void tty_initialize(void) {
     console->write = tty_write;
     console->isatty = true;
     console->tty_ops.ioctl = tty_ioctl;
+    console->tty_ops.flush = tty_flush;
+    console->tty_ops.enqueue = tty_enqueue;
+    console->tty_ops.dequeue = tty_dequeue;
     vfs_add_device(console);
 
     vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
@@ -186,5 +189,19 @@ void tty_initialize(void) {
     tty->write = tty_write;
     tty->isatty = true;
     tty->tty_ops.ioctl = tty_ioctl;
+    tty->tty_ops.flush = tty_flush;
+    tty->tty_ops.enqueue = tty_enqueue;
+    tty->tty_ops.dequeue = tty_dequeue;
     vfs_add_device(tty);
+
+    vfs_node_t *serial_tty = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    serial_tty->perms = 0666;
+    serial_tty->read = tty_read;
+    serial_tty->write = tty_write;
+    serial_tty->isatty = true;
+    serial_tty->tty_ops.ioctl = serial_ioctl;
+    serial_tty->tty_ops.flush = serial_tty_flush;
+    serial_tty->tty_ops.enqueue = serial_tty_enqueue;
+    serial_tty->tty_ops.dequeue = serial_tty_dequeue;
+    vfs_add_device(serial_tty);
 }

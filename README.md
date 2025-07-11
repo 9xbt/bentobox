@@ -161,7 +161,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [ ] GPT partitions
 - [ ] Userspace signal handlers
     - [X] Block CTRL+C in init
-- [ ] Fix serial read()
+- [X] Fix serial read()
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

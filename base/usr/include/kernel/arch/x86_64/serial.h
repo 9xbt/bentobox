@@ -1,9 +1,10 @@
 #pragma once
 #include <kernel/vfs.h>
 
-extern struct vfs_node *serial_redirect;
-extern char serial_ringbuffer[];
+extern char serial_ringbuffer[1024];
+extern bool kmsg_silence;
 
 void serial_install(void);
-void serial_puts(char *str);
-void serial_redirect_debug();
+void serial_tty_flush(void);
+long serial_tty_enqueue(int c);
+long serial_tty_dequeue(bool block);

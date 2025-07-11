@@ -75,7 +75,7 @@ struct process *sched_new_task(void *entry, const char *name) {
     proc->fs = 0;
     proc->state = TASK_RUNNING;
     proc->user = false;
-    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/keyboard", false, false), 0);
+    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = NULL;
@@ -395,7 +395,7 @@ void sched_idle(void) {
 }
 
 void sched_jumpstart(void) {
-    serial_redirect_debug();
+    kmsg_silence = true;
 
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);

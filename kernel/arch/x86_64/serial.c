@@ -17,7 +17,7 @@
 uint16_t serial_base = COM1;
 atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 struct fifo *serial_fifo;
-vfs_node_t *serial_redirect = NULL;
+bool kmsg_silence = false;
 
 char serial_ringbuffer[1024];
 
@@ -83,71 +83,11 @@ int dprintf(const char *fmt, ...) {
     if (serial_base == COM1) {
         serial_puts(buf);
     }
-    if (!serial_redirect) {
+    if (!kmsg_silence) {
         puts(buf);
-    } else {
-        static long offset = 0;
-        vfs_write(serial_redirect, buf, offset, strlen(buf));
-        offset += strlen(buf);
     }
     va_end(args);
     return ret;
-}
-
-long serial_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    char *buf = (char *)buffer;
-    for (uint32_t i = 0; i < len; i++) {
-        serial_write_char(buf[i]);
-    }
-    return (int32_t)len;
-}
-
-long serial_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    size_t i = 0;
-    char *str = buffer;
-    while (i < len) {
-        str[i] = serial_read_char();
-
-        switch (str[i]) {
-            case '\0':
-                break;
-            case '\n':
-            case '\r':
-                fprintf(stdout, "\n");
-                str[i++] = '\n';
-                str[i] = '\0';
-                return i;
-            case '\b':
-            case 127:
-                if (i > 0) {
-                    fprintf(stdout, "\b \b");
-                    str[i] = '\0';
-                    i--;
-                }
-                break;
-            default:
-                fprintf(stdout, "%c", str[i]);
-                i++;
-                break;
-        }
-    }
-
-    return i;
-}
-
-void irq4_handler(struct registers *r) {
-    uint8_t iir = inb(COM1 + 2);
-    
-    if ((iir & 0x06) == 0x04) {
-        int c = inb(COM1);
-        fifo_enqueue(serial_fifo, c);
-
-        if (c == 12) { /* CTRL+L */
-            serial_puts("\033[H\033[J");
-        }
-    }
-    
-    lapic_eoi();
 }
 
 long serial_ioctl(int fd_num, int op, void *arg) {
@@ -168,8 +108,12 @@ long serial_ioctl(int fd_num, int op, void *arg) {
             ws->ws_ypixel = 0;
             return 0;
         }
-        case TIOCGNAME:
-            strcpy(arg, "/dev/serial0");
+        case TIOCSWINSZ:
+            return 0;
+        case TIOCGPGRP:
+            *(int *)arg = this->pid;
+            return 0;
+        case TIOCSPGRP:
             return 0;
         default:
             dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
@@ -177,43 +121,44 @@ long serial_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
-long kmsg_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    if ((size_t)offset >= sizeof(serial_ringbuffer))
-        return 0;
-    if (offset + len > sizeof(serial_ringbuffer))
-        len = sizeof(serial_ringbuffer) - offset;
-    memcpy(buffer, &serial_ringbuffer[offset], len);
-    return len;
+void serial_tty_flush(void) {
+    int c;
+    while (fifo_dequeue(serial_fifo, &c)) {
+        if (c > 0) serial_write_char(c);
+    }
 }
 
-long kmsg_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    char *src = (char *)buffer;
-    for (size_t i = 0; i < len; i++) {
-        size_t ri = (offset + i) % sizeof(serial_ringbuffer);
-        serial_ringbuffer[ri] = src[i];
+long serial_tty_enqueue(int c) {
+    switch (c) {
+        case 12:
+            serial_puts("\033[H\033[J");
+            return 0;
     }
-    return len;
+    return !fifo_enqueue(serial_fifo, c);
+}
+
+long serial_tty_dequeue(bool block) {
+    int c = 0;
+    while (!fifo_dequeue(serial_fifo, &c)) {
+        if (!block) {
+            return -EAGAIN;
+        }
+        /* since we don't have proper I/O blocking, just halt until an interrupt arrives */
+        asm ("hlt");
+    }
+    return c;
+}
+
+void irq4_handler(struct registers *r) {
+    uint8_t iir = inb(COM1 + 2);
+    if ((iir & 0x06) == 0x04) {
+        serial_tty_enqueue(inb(COM1));
+    }
+    lapic_eoi();
 }
 
 void serial_initialize(void) {
     serial_fifo = fifo_create(64);
     irq_register(4, irq4_handler);
     outb(COM1 + 1, 0x01);
-
-    struct vfs_node *serial0 = vfs_create_node("serial0", VFS_CHARDEVICE); /* FIXME rename this to ttyS0? */
-    serial0->perms = 0660;
-    serial0->write = serial_write;
-    serial0->read = serial_read;
-    serial0->isatty = true;
-    serial0->tty_ops.ioctl = serial_ioctl;
-    vfs_add_device(serial0);
-
-    struct vfs_node *kmsg = vfs_create_node("kmsg", VFS_CHARDEVICE);
-    kmsg->read = kmsg_read;
-    kmsg->write = kmsg_write;
-    vfs_add_device(kmsg);
-}
-
-void serial_redirect_debug(void) {
-    serial_redirect = vfs_open(NULL, "/dev/kmsg", false, false);
 }
