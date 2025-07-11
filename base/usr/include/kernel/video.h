@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdatomic.h>
-#include <ioctl.h>
+#include <ioctls.h>
 #include <kernel/multiboot.h>
 #include <kernel/3rdparty/flanterm.h>
 
