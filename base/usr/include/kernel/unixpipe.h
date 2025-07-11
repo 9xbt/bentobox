@@ -1,6 +1,6 @@
 #pragma once
 #include <kernel/vfs.h>
-#include <kernel/fifo.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 
 #define UNIXPIPE_BUFFER_SIZE 4096
@@ -21,7 +21,8 @@ struct unix_pipe {
     volatile int read_refs;
     volatile int write_refs;
 
-    struct fifo buffer; /** TODO: use a ringbuffer instead */
+    //struct fifo *buffer; /** TODO: use a ringbuffer instead */
+    struct ringbuffer *buffer;
 
     atomic_flag lock;
 };

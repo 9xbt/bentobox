@@ -1,7 +1,7 @@
 #include <sys/fcntl.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
-#include <kernel/fifo.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/errno.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
@@ -10,18 +10,23 @@
 
 long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct unix_pipe *pipe = node->device;
-    char *buf = (char *)buffer;
+    unsigned char *buf = (unsigned char *)buffer;
     int i = 0;
     
     if (pipe->read_refs <= 0)
         signal_send(this, SIGPIPE, 0);
     
     while (i < (int)len) {
-        if (pipe->read_refs <= 0)
+        if (pipe->read_refs <= 0) {
             signal_send(this, SIGPIPE, 0);
-        
-        if (!fifo_enqueue(&pipe->buffer, buf[i]))
-            break;
+            return i > 0 ? i : -EPIPE;
+        }
+        if (ringbuffer_full(pipe->buffer)) {
+            sched_yield();
+            continue;
+        }
+        if (!ringbuffer_write(pipe->buffer, &buf[i], 1))
+            return -EIO;
         i++;
     }
     return i;
@@ -29,16 +34,17 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
 long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct unix_pipe *pipe = node->device;
-    char *buf = (char *)buffer;
-    int i = 0, c;
+    unsigned char *buf = (unsigned char *)buffer;
+    int i = 0;
+    unsigned char c;
     
     while (i < (int)len) {
-        while (fifo_is_empty(&pipe->buffer)) {
+        while (ringbuffer_empty(pipe->buffer)) {
             if (pipe->write_refs <= 0)
-                return i == 0 ? 0 : i;
+                return i;
             sched_yield();
         }
-        if (fifo_dequeue(&pipe->buffer, &c)) {
+        if (ringbuffer_read(pipe->buffer, &c, 1)) {
             buf[i++] = c;
         }
     }
@@ -46,7 +52,8 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
-    kfree(pipe->buffer.data);
+    kfree(pipe->buffer->buffer);
+    kfree(pipe->buffer);
     kfree(pipe->read_end);
     kfree(pipe->write_end);
     kfree(pipe);
@@ -102,7 +109,7 @@ int unixpipe_new(int fds[2], int flags) {
     device->write_end = pipes[1];
     device->read_refs = 1;
     device->write_refs = 1;
-    fifo_init(&device->buffer, 1024);
+    device->buffer = ringbuffer_create(1024);
 
     pipes[0]->read = unixpipe_read;
     pipes[0]->write = NULL;

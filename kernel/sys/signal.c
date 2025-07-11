@@ -32,4 +32,6 @@ void signal_send(struct process *proc, int signal, int signal_data) {
     proc->signal_data = signal_data;
     proc->state = TASK_SIGNAL;
     sched_unlock();
+
+    if (proc == this) sched_yield();
 }

@@ -1,0 +1,45 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <kernel/malloc.h>
+#include <kernel/ringbuffer.h>
+
+struct ringbuffer *ringbuffer_create(size_t size) {
+    struct ringbuffer *rb = kmalloc(sizeof(struct ringbuffer));
+    rb->buffer = kmalloc(size);
+    rb->write_ptr = 0;
+    rb->read_ptr = 0;
+    rb->size = size;
+    return rb;
+};
+
+bool ringbuffer_empty(struct ringbuffer *rb) {
+    return rb->read_ptr == rb->write_ptr;
+}
+
+bool ringbuffer_full(struct ringbuffer *rb) {
+    return (rb->write_ptr + 1) % rb->size == rb->read_ptr;
+}
+
+size_t ringbuffer_read(struct ringbuffer *rb, unsigned char *buffer, size_t size) {
+    unsigned char *buf = (unsigned char *)buffer;
+    size_t i = 0;
+    
+    while (i < size && rb->read_ptr != rb->write_ptr) {
+        buf[i] = rb->buffer[rb->read_ptr];
+        rb->read_ptr = (rb->read_ptr + 1) % rb->size;
+        i++;
+    }
+    return i;
+}
+
+size_t ringbuffer_write(struct ringbuffer *rb, unsigned char *buffer, size_t size) {
+    unsigned char *buf = (unsigned char *)buffer;
+    size_t i = 0;
+    
+    while (i < size && (rb->write_ptr + 1) % rb->size != rb->read_ptr) {
+        rb->buffer[rb->write_ptr] = buf[i];
+        rb->write_ptr = (rb->write_ptr + 1) % rb->size;
+        i++;
+    }
+    return i;
+}

@@ -11,7 +11,7 @@ struct fifo {
     atomic_flag lock;
 };
 
-void fifo_init(struct fifo *fifo, int size);
+struct fifo *fifo_create(int size);
 int fifo_is_full(struct fifo *fifo);
 int fifo_is_empty(struct fifo *fifo);
 int fifo_enqueue(struct fifo *fifo, int value);

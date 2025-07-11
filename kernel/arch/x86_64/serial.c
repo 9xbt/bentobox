@@ -16,7 +16,7 @@
 
 uint16_t serial_base = COM1;
 atomic_flag serial_lock = ATOMIC_FLAG_INIT;
-struct fifo serial_fifo;
+struct fifo *serial_fifo;
 vfs_node_t *serial_redirect = NULL;
 
 char serial_ringbuffer[1024];
@@ -50,7 +50,7 @@ int serial_is_data_ready(void) {
 
 char serial_read_char(void) {
     int c = 0;
-    while (!fifo_dequeue(&serial_fifo, &c)) {
+    while (!fifo_dequeue(serial_fifo, &c)) {
         sched_yield();
     }
     return c;
@@ -140,7 +140,7 @@ void irq4_handler(struct registers *r) {
     
     if ((iir & 0x06) == 0x04) {
         int c = inb(COM1);
-        fifo_enqueue(&serial_fifo, c);
+        fifo_enqueue(serial_fifo, c);
 
         if (c == 12) { /* CTRL+L */
             serial_puts("\033[H\033[J");
@@ -196,7 +196,7 @@ long kmsg_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 void serial_initialize(void) {
-    fifo_init(&serial_fifo, 64);
+    serial_fifo = fifo_create(64);
     irq_register(4, irq4_handler);
     outb(COM1 + 1, 0x01);
 

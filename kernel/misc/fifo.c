@@ -3,13 +3,15 @@
 #include <kernel/malloc.h>
 #include <kernel/spinlock.h>
 
-void fifo_init(struct fifo *fifo, int size) {
+struct fifo *fifo_create(int size) {
+    struct fifo *fifo = kmalloc(sizeof(struct fifo));
     fifo->data = kmalloc(sizeof(int) * size);
     fifo->size = size;
     fifo->head = 0;
     fifo->tail = 0;
     fifo->count = 0;
     release(&(fifo->lock));
+    return fifo;
 }
 
 int fifo_is_full(struct fifo *fifo) {

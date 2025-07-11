@@ -12,14 +12,14 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 
-struct fifo tty_fifo;
+struct fifo *tty_fifo;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
 
 void tty_flush(void) {
     int c;
-    while (fifo_dequeue(&tty_fifo, &c)) {
+    while (fifo_dequeue(tty_fifo, &c)) {
         if (c > 0) putchar(c);
     }
 }
@@ -31,12 +31,12 @@ long tty_enqueue(int c) {
             signal_send(sched_get_foreground(), SIGINT, 0);
             return 0;
     }
-    return !fifo_enqueue(&tty_fifo, c);
+    return !fifo_enqueue(tty_fifo, c);
 }
 
 long tty_dequeue(bool block) {
     int c = 0;
-    while (!fifo_dequeue(&tty_fifo, &c)) {
+    while (!fifo_dequeue(tty_fifo, &c)) {
         if (!block) {
             return -EAGAIN;
         }
@@ -49,8 +49,8 @@ long tty_dequeue(bool block) {
 long tty_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     char *buf = (char *)buffer;
     long i;
-    for (i = 0; (unsigned)i < len && !fifo_is_full(&tty_fifo); i++) {
-        fifo_enqueue(&tty_fifo, buf[i]);
+    for (i = 0; (unsigned)i < len && !fifo_is_full(tty_fifo); i++) {
+        fifo_enqueue(tty_fifo, buf[i]);
     }
     tty_flush();
     return i;
@@ -170,7 +170,7 @@ long tty_ioctl(int fd_num, int op, void *arg) {
 }
 
 void tty_initialize(void) {
-    fifo_init(&tty_fifo, 1024);
+    tty_fifo = fifo_create(1024);
 
     vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;

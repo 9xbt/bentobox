@@ -148,10 +148,9 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Generic lists
     - [X] Make the scheduler use them
     - [ ] Make the VFS use them
-- [ ] Generic ringbuffers
-    - [ ] Make unixpipes use them
 - [X] UNIX pipes
-    - [ ] Use a ringbuffer instead of a FIFO
+- [X] Generic ringbuffers
+    - [X] Make unixpipes use them
 - [ ] Scheduler improvements
     - [ ] Polling
     - [ ] CPU usage calculation
