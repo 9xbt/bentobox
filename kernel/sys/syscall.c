@@ -486,7 +486,9 @@ long sys_readlink(const char *pathname, char *buf, size_t bufsiz) {
         return -EINVAL;
     if (!buf)
         return -EFAULT;
-    strncpy(buf, node->symlink_target, bufsiz);
+    char name[MAX_PATH];
+    vfs_resolve_path(name, node->symlink);
+    strncpy(buf, name, bufsiz);
     return 0;
 }
 

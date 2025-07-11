@@ -60,7 +60,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->next = NULL;
     node->read = NULL;
     node->write = NULL;
-    node->symlink_target = NULL;
+    node->symlink = NULL;
     node->isatty = false;
     node->tty_ops.ioctl = NULL;
     node->mmap = NULL;
@@ -122,11 +122,6 @@ int vfs_remove_node(struct vfs_node *node) {
         }
     }
     
-    if (node->type == VFS_SYMLINK && node->symlink_target) {
-        kfree(node->symlink_target);
-        node->symlink_target = NULL;
-    }
-    
     kfree(node);
     return 0;
 }
@@ -138,37 +133,20 @@ void vfs_add_device(struct vfs_node *node) {
 struct vfs_node *vfs_create_symlink(const char *name, const char *target) {
     struct vfs_node *node = vfs_create_node(name, VFS_SYMLINK);
     if (node && target) {
-        node->symlink_target = kmalloc(strlen(target) + 1);
-        strcpy(node->symlink_target, target);
+        node->symlink = vfs_open(NULL, target, false, false);
+        if (!node->symlink)
+            return NULL;
         node->size = strlen(target);
     }
     return node;
 }
 
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
-    if (!symlink || symlink->type != VFS_SYMLINK || max_depth <= 0) {
-        return symlink;
-    }
-    if (!symlink->symlink_target) {
+    if (!symlink || symlink->type != VFS_SYMLINK || max_depth <= 0 || !symlink->symlink)
         return NULL;
-    }
-    
-    struct vfs_node *target;
-    if (symlink->symlink_target[0] == '/') {
-        target = vfs_open(vfs_root, symlink->symlink_target, false, false);
-    } else {
-        target = vfs_open(symlink->parent, symlink->symlink_target, false, false);
-    }
-    
-    if (!target) {
-        dprintf("%s:%d: target %s not found\n", __FILE__, __LINE__, symlink->symlink_target);
-        return NULL;
-    }
-    
-    if (target->type == VFS_SYMLINK) {
-        return vfs_resolve_symlink(target, max_depth - 1);
-    }
-    return target;
+    if (symlink->symlink->type == VFS_SYMLINK)
+        return vfs_resolve_symlink(symlink, max_depth - 1);
+    return symlink->symlink;
 }
 
 static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name) {
@@ -340,7 +318,7 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
             statbuf->st_size = 4096;
             break;
         case VFS_SYMLINK:
-            statbuf->st_size = node->symlink_target ? strlen(node->symlink_target) : 0;
+            statbuf->st_size = node->symlink ? strlen(node->symlink->name /**/) : 0; /** TODO: check this */
             break;
         default:
             statbuf->st_size = 0;

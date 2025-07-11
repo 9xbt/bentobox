@@ -42,7 +42,7 @@ typedef struct tty_operations {
 } tty_ops_t;
 
 typedef struct vfs_node {
-    char name[MAX_PATH]; /** TODO: make this dynamic */
+    char name[MAX_PATH];
     bool busy, isatty;
     enum vfs_node_type type;
     enum vfs_driver driver;
@@ -58,8 +58,8 @@ typedef struct vfs_node {
     long(*mmap)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
     long(*poll)(struct vfs_node *node);
     long(*close)(struct vfs_node *node);
-    char *symlink_target; /** TODO: rename to symlink_name? */
     void *device;
+    struct vfs_node *symlink;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root;
