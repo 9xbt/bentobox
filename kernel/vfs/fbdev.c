@@ -1,7 +1,7 @@
-#include <kernel/errno.h>
+#include <errno.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
-#include <kernel/ioctl.h>
+#include <ioctls.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/video.h>

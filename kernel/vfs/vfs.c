@@ -1,11 +1,11 @@
-#include <kernel/errno.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
-#include <kernel/tmpfs.h>
+#include <kernel/vfs/tmpfs.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>

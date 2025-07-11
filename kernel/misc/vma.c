@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <kernel/mmu.h>
-#include <kernel/vma.h>
+#include <kernel/mmu/vma.h>
 #include <kernel/panic.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>

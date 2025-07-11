@@ -1,4 +1,4 @@
-#include <kernel/errno.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>

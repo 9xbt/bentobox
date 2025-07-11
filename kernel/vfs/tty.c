@@ -5,8 +5,8 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/fifo.h>
-#include <kernel/ioctl.h>
-#include <kernel/errno.h>
+#include <ioctls.h>
+#include <errno.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/string.h>

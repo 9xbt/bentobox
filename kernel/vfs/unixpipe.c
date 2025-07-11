@@ -2,7 +2,7 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/ringbuffer.h>
-#include <kernel/errno.h>
+#include <errno.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>

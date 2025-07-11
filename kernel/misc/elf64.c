@@ -1,9 +1,9 @@
 #include <stdbool.h>
 #include <kernel/mmu.h>
-#include <kernel/vma.h>
+#include <kernel/mmu/vma.h>
 #include <kernel/list.h>
 #include <kernel/elf64.h>
-#include <kernel/errno.h>
+#include <errno.h>
 #include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>

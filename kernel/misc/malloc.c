@@ -1,6 +1,6 @@
 #include <kernel/mmu.h>
 #include <kernel/panic.h>
-#include <kernel/errno.h>
+#include <errno.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 
