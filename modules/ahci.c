@@ -7,55 +7,57 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
 
-#define AHCI_CAP        0x00    // Host Capabilities
-#define AHCI_GHC        0x04    // Global Host Control
-#define AHCI_IS         0x08    // Interrupt Status
-#define AHCI_PI         0x0C    // Ports Implemented
-#define AHCI_VS         0x10    // Version
+#define AHCI_CAP        0x00    /* Host Capabilities */
+#define AHCI_GHC        0x04    /* Global Host Control */
+#define AHCI_IS         0x08    /* Interrupt Status */
+#define AHCI_PI         0x0C    /* Ports Implemented */
+#define AHCI_VS         0x10    /* Version */
 
-#define AHCI_DEV_NULL   0
-#define AHCI_DEV_SATA   1
-#define AHCI_DEV_SATAPI 2
-#define AHCI_DEV_SEMB   3
-#define AHCI_DEV_PM     4
+#define	SATA_SIG_ATA	0x00000101	/* SATA drive */
+#define	SATA_SIG_ATAPI	0xEB140101	/* SATAPI drive */
+#define	SATA_SIG_SEMB	0xC33C0101	/* Enclosure management bridge */
+#define	SATA_SIG_PM	    0x96690101	/* Port multiplier */
 
-#define	SATA_SIG_ATA	0x00000101	// SATA drive
-#define	SATA_SIG_ATAPI	0xEB140101	// SATAPI drive
-#define	SATA_SIG_SEMB	0xC33C0101	// Enclosure management bridge
-#define	SATA_SIG_PM	    0x96690101	// Port multiplier
-
-#define GHC_AHCI_ENABLE (1 << 31)   // AHCI Enable
-#define GHC_MRSM        (1 << 2)    // MSI Revert to Single Message
-#define GHC_IE          (1 << 1)    // Interrupt Enable
-#define GHC_HR          (1 << 0)    // HBA Reset
+#define GHC_AHCI_ENABLE (1 << 31)   /* AHCI Enable */
+#define GHC_MRSM        (1 << 2)    /* MSI Revert to Single Message */
+#define GHC_IE          (1 << 1)    /* Interrupt Enable */
+#define GHC_HR          (1 << 0)    /* HBA Reset */
 
 #define HBA_PORT_DET_PRESENT    3
 #define HBA_PORT_IPM_ACTIVE     1
-#define HBA_CMD_ST      (1 << 0)    // Start
-#define HBA_CMD_FRE     (1 << 4)    // FIS Receive Enable
-#define HBA_CMD_CR      (1 << 15)   // Command List Running
-#define HBA_CMD_FR      (1 << 14)   // FIS Receive Running
+#define HBA_CMD_ST      (1 << 0)    /* Start */
+#define HBA_CMD_FRE     (1 << 4)    /* FIS Receive Enable */
+#define HBA_CMD_CR      (1 << 15)   /* Command List Running */
+#define HBA_CMD_FR      (1 << 14)   /* FIS Receive Running */
 
-#define PORT_CLB        0x00    // Command List Base Address
-#define PORT_CLBU       0x04    // Command List Base Address Upper
-#define PORT_FB         0x08    // FIS Base Address
-#define PORT_FBU        0x0C    // FIS Base Address Upper
-#define PORT_IS         0x10    // Interrupt Status
-#define PORT_IE         0x14    // Interrupt Enable
-#define PORT_CMD        0x18    // Command and Status
-#define PORT_TFD        0x20    // Task File Data
-#define PORT_SIG        0x24    // Signature
-#define PORT_SSTS       0x28    // SATA Status
-#define PORT_SCTL       0x2C    // SATA Control
-#define PORT_SERR       0x30    // SATA Error
-#define PORT_SACT       0x34    // SATA Active
-#define PORT_CI         0x38    // Command Issue
+#define PORT_CLB        0x00    /* Command List Base Address */
+#define PORT_CLBU       0x04    /* Command List Base Address Upper */
+#define PORT_FB         0x08    /* FIS Base Address */
+#define PORT_FBU        0x0C    /* FIS Base Address Upper */
+#define PORT_IS         0x10    /* Interrupt Status */
+#define PORT_IE         0x14    /* Interrupt Enable */
+#define PORT_CMD        0x18    /* Command and Status */
+#define PORT_TFD        0x20    /* Task File Data */
+#define PORT_SIG        0x24    /* Signature */
+#define PORT_SSTS       0x28    /* SATA Status */
+#define PORT_SCTL       0x2C    /* SATA Control */
+#define PORT_SERR       0x30    /* SATA Error */
+#define PORT_SACT       0x34    /* SATA Active */
+#define PORT_CI         0x38    /* Command Issue */
 
 #define FIS_TYPE_REG_H2D 0x27
 
 #define LOW(x)  ((uint32_t)(x))
 #define HIGH(x) ((uint32_t)((x) >> 32))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+typedef enum {
+    AHCI_DEV_NULL,
+    AHCI_DEV_SATA,
+    AHCI_DEV_SATAPI,
+    AHCI_DEV_SEMB,
+    AHCI_DEV_PM
+} ahci_type_t;
 
 typedef struct {
     int port_num;
@@ -232,7 +234,7 @@ ahci_port_t *ahci_init_disk(int port_num) {
     return ahci_port;
 }
 
-uint32_t ahci_check_type(int port) {
+ahci_type_t ahci_check_type(int port) {
     uint32_t ssts = port_read_reg(port, PORT_SSTS);
     uint8_t ipm = (ssts >> 8) & 0x0F;
     uint8_t det = ssts & 0x0F;
@@ -361,7 +363,7 @@ long sda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     size_t pages = ALIGN_UP(len, PAGE_SIZE) / PAGE_SIZE;
     void *buf = VIRTUAL_IDENT(mmu_alloc(pages));
 
-    if (ahci_read(ahci_ports[0], lba, num_sectors, buf) == 0) {
+    if (ahci_read(node->device, lba, num_sectors, buf) == 0) {
         memcpy(buffer, buf, len);
         mmu_free(PHYSICAL_IDENT(buf), pages);
         return len;
@@ -432,27 +434,32 @@ int init() {
 
     uint32_t cap = ahci_read_reg(AHCI_CAP);
     command_slots = ((cap >> 8) & 0x1F) + 1;
-    //dprintf("%s:%d: %d command slots available\n", __FILE__, __LINE__, command_slots);
+    dprintf("%s:%d: %d command slots available\n", __FILE__, __LINE__, command_slots);
 
     hpet_sleep(5000);
     ahci_write_reg(AHCI_IS, 0xFFFFFFFF);
 
+    char mountpoint[] = "sda";
     uint32_t pi = ahci_read_reg(AHCI_PI);
     for (i = 0; i < 32; i++) {
         if (pi & 1) {
-            uint32_t type = ahci_check_type(i);
-            if (type == AHCI_DEV_SATA) {
-                ahci_ports[connected_ports++] = ahci_init_disk(i);
-                //dprintf("%s:%d: port %d is a SATA device\n", __FILE__, __LINE__, i);
+            switch (ahci_check_type(i)) {
+                case AHCI_DEV_SATA: {
+                    ahci_ports[connected_ports] = ahci_init_disk(i);
+                    mountpoint[2] = 'a'+connected_ports;
+                    struct vfs_node *drive = vfs_create_node(mountpoint, VFS_BLOCKDEVICE);
+                    drive->perms = 0660;
+                    drive->read = sda_read;
+                    drive->device = ahci_ports[connected_ports++];
+                    vfs_add_device(drive);
+                    break;
+                }
+                default:
+                    break;
             }
         }
         pi >>= 1;
     }
-
-    struct vfs_node *sda = vfs_create_node("sda", VFS_BLOCKDEVICE);
-    sda->perms = 0660;
-    sda->read = sda_read;
-    vfs_add_device(sda);
 
     //printf("\033[92m * \033[97mInitialized AHCI driver\033[0m\n");
     return 0;

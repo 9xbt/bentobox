@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
+#include <kernel/args.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
@@ -486,8 +487,12 @@ int init() {
 
     ext2_cache_init();
 
-    //hda = vfs_open(NULL, "/dev/hda");
-    hda = vfs_open(NULL, "/dev/sda", false, false);
+    if (!args_contains("root")) {
+        dprintf("%s:%d: root partition not specified in command line\n");
+        return 1;
+    }
+
+    hda = vfs_open(NULL, args_value("root"), false, false);
 
     ext2_sb *sb = (ext2_sb *)kmalloc(512);
     vfs_read(hda, (void *)sb, 1024, sizeof(ext2_sb));

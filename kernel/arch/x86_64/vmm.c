@@ -305,13 +305,8 @@ void mmu_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_
 }
 
 void vmm_install(void) {
-    if (mmu_page_count < 262144) { /* 1GB */
-        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_2M)
-            vmm_direct_map_2mb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
-    } else {
-        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_1G)
-            mmu_direct_map_1gb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
-    }
+    for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_1G)
+        mmu_direct_map_1gb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
 	
     kernel_pd = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));
     this_core()->pml4 = kernel_pd;
