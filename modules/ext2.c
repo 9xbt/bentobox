@@ -488,17 +488,21 @@ int init() {
     ext2_cache_init();
 
     if (!args_contains("root")) {
-        dprintf("%s:%d: root partition not specified in command line\n");
+        dprintf("%s:%d: root partition not specified in command line\n", __FILE__, __LINE__);
         return 1;
     }
 
     hda = vfs_open(NULL, args_value("root"), false, false);
+    if (!hda) {
+        dprintf("%s:%d: cannot open %s\n", __FILE__, __LINE__, args_value("root"));
+        return 1;
+    }
 
     ext2_sb *sb = (ext2_sb *)kmalloc(512);
     vfs_read(hda, (void *)sb, 1024, sizeof(ext2_sb));
 
     if (sb->signature != 0xef53) {
-        dprintf("%s:%d: not an ext2 partition\n", __FILE__, __LINE__);
+        dprintf("%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, args_value("root"));
         ext2_cache_free();
         return -EINVAL;
     }

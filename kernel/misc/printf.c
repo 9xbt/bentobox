@@ -36,14 +36,24 @@ void parse_hex(char *s, int *ptr, uint64_t val, int i) {
     }
 }
 
-void parse_string(char *s, int *ptr, char *str) {
+void parse_string(char *s, int *ptr, char *str, bool unicode) {
     if (!str) {
         memcpy(s + *ptr, "(null)", 6);
         *ptr += 6;
         return;
     }
-    strcpy(s + *ptr, str);
-    *ptr += strlen(str);
+    if (unicode) {
+        short *wstr = (short *)str;
+        int len = wcslen(wstr);
+        
+        for (int i = 0; i < len; i++) {
+            s[*ptr + i] = wstr[i];
+        }
+        *ptr += len;
+    } else {
+        strcpy(s + *ptr, str);
+        *ptr += strlen(str);
+    }
 }
 
 int vsprintf(char *s, const char *fmt, va_list args) {
@@ -69,7 +79,7 @@ int vsprintf(char *s, const char *fmt, va_list args) {
                     parse_hex(s, &ptr, va_arg(args, uint64_t), 16);
                     break;
                 case 's':
-                    parse_string(s, &ptr, va_arg(args, char *));
+                    parse_string(s, &ptr, va_arg(args, char *), is_long);
                     break;
                 case 'c':
                     s[ptr++] = (char)va_arg(args, int);

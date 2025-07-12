@@ -60,7 +60,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
     return 0;
 }
 
-int strlen(const char* s) {
+size_t strlen(const char* s) {
     int i = 0;
     while (*s != '\0') {
         i++;
@@ -69,9 +69,18 @@ int strlen(const char* s) {
     return i;
 }
 
+size_t wcslen(const short* s) {
+    int i = 0;
+    while (*s != L'\0') {
+        i++;
+        s++;
+    }
+    return i;
+}
+
 bool strcmp(const char* a, const char* b) {
     if (strlen(a) != strlen(b)) return 1;
-    for (int i = 0; i < strlen(a); i++) {
+    for (size_t i = 0; i < strlen(a); i++) {
         if (a[i] != b[i]) return 1;
     }
     return 0;

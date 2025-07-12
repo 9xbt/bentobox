@@ -75,12 +75,12 @@ int elf_module(struct multiboot_tag_module *mod) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->mod_start;
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        printf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
+        dprintf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
         return -1;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        printf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
+        dprintf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
         return -1;
     }
 
@@ -107,7 +107,7 @@ int elf_module(struct multiboot_tag_module *mod) {
 
     struct Module *metadata = (struct Module *)elf_symbol_addr(symtab, strtab, symbol_count, "metadata", false);
     if (!metadata) {
-        printf("%s:%d: Module metadata not found for \"%s\"\n", __FILE__, __LINE__, mod->string);
+        dprintf("%s:%d: Module metadata not found for \"%s\"\n", __FILE__, __LINE__, mod->string);
         return -1;
     }
 
@@ -185,7 +185,7 @@ static void elf_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr
 int spawn(const char *file, int argc, char *argv[], char *env[]) {
     struct vfs_node *fptr = vfs_open(NULL, file, false, false);
     if (!fptr || fptr->type != VFS_FILE) {
-        printf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
+        dprintf("%s:%d: cannot open file \"%s\"\n", __FILE__, __LINE__, file);
         return -ENOENT;
     }
 
@@ -195,19 +195,19 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        printf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
+        dprintf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
         kfree(buffer);
         return -ENOEXEC;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        printf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
+        dprintf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
         kfree(buffer);
         return -ENOEXEC;
     }
 
     if (ehdr->e_type != ET_EXEC) {
-        printf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
+        dprintf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
         kfree(buffer);
         return -ENOEXEC;
     }
