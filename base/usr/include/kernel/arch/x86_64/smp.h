@@ -18,6 +18,8 @@ struct cpu {
     atomic_flag vmm_lock;
 };
 
+extern volatile uint8_t smp_running_cpus;
+
 void smp_initialize(void);
 struct cpu *get_core(int core);
 struct cpu *this_core(void);

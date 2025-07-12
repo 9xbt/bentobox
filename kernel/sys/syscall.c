@@ -10,6 +10,7 @@
 #include <linux/resource.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/fd.h>
@@ -660,7 +661,8 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
     if (!tp)
         return -EFAULT;
 
-    hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
+    if (hpet) hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
+    else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
     return 0;
 }
 

@@ -187,12 +187,10 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 }
 
 void ps2_initialize(void) {
+    irq_register(1, irq1_handler);
     struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
     event0->read = ps2_keyboard_read_event;
     vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
-}
 
-void ps2_install(void) {
-    irq_register(1, irq1_handler);
     dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
 }

@@ -2,6 +2,7 @@
 #include <stdatomic.h>
 #include <kernel/arch/x86_64/tss.h>
 #include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/lapic.h>
@@ -188,7 +189,7 @@ void sched_schedule(struct registers *r) {
         this_core()->current_proc = this_core()->processes->head;
     }
 
-    size_t hpet_ticks = hpet_get_ticks();
+    size_t hpet_ticks = hpet ? hpet_get_ticks() : tsc_get_ticks();
     if (this->state == TASK_RUNNING)
         this->time.last = hpet_ticks - this->time.start;
 
@@ -281,7 +282,8 @@ void sched_unblock(struct process *proc) {
 
 void sched_sleep(int us) {
     if (us == 0) return;
-    this->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
+    if (hpet) this->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
+    else this->time.end = tsc_get_ticks() + us * tsc_period;
     sched_block(TASK_SLEEPING);
 }
 

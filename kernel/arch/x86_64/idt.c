@@ -7,6 +7,7 @@
 #include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/ksym.h>
 #include <kernel/elf64.h>
+#include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/assert.h>
 

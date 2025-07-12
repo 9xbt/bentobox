@@ -1,7 +1,6 @@
 #pragma once
 #include <stdarg.h>
 #include <kernel/arch/x86_64/smp.h>
-#include <kernel/sched.h>
 
 void putchar(char c);
 void puts(char *s);

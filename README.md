@@ -11,7 +11,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
     - Bitmap allocator
     - 4-level paging
     - dlmalloc heap
-- (partial) ACPI mode
+- ACPI table parsing
     - MADT/FADT tables
 - Processes and scheduler
     - SMP-aware scheduler with signal support
@@ -114,7 +114,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [ ] Support NX bit
 - [X] Fix VMA
 - [X] Fix read()
-- [ ] TSC timing
+- [X] TSC timing
 - [X] exec()
 - [X] fork()
 - [ ] ~~Fix ATA driver not reading/writing more than 256 sectors at a time~~

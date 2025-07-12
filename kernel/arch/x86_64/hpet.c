@@ -1,4 +1,5 @@
 #include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/ioapic.h>
@@ -29,6 +30,11 @@ size_t hpet_get_ticks(void) {
 }
 
 void hpet_sleep(size_t us) {
+    if (!hpet) {
+        tsc_sleep(us);
+        return;
+    }
+
     size_t end_ticks = hpet_read(HPET_REG_MAIN_COUNTER) + us * 1000000000 / hpet_period;
 
     while (hpet_read(HPET_REG_MAIN_COUNTER) < end_ticks) {
@@ -47,18 +53,12 @@ void hpet_read_time(long *sec, long *nsec) {
 void hpet_install(void) {
     hpet = acpi_find_table("HPET");
 
-    if (args_contains("hpet_mhz")) {
-        hpet_address = (uint64_t)VIRTUAL(0xFED00000);
-        mmu_map((void *)hpet_address, (void *)0xFED00000, PTE_PRESENT | PTE_WRITABLE);
-        hpet_period = atoi(args_value("hpet_mhz")) * 1000000;
-    } else if (hpet) {
+    if (hpet) {
         hpet_address = (uint64_t)VIRTUAL(hpet->address);
         mmu_map((void *)hpet_address, (void *)hpet->address, PTE_PRESENT | PTE_WRITABLE);
         uint64_t cap = hpet_read(HPET_REG_CAP);
         hpet_period = (cap >> 32);
-    } else {
-        panic("No HPET found!");
-    }
+    } else return;
 
     dprintf("%s:%d: 1us is %lu ticks\n", __FILE__, __LINE__, hpet_period * 1 / 1000000);
 

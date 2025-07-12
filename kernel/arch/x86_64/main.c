@@ -84,6 +84,7 @@ void puts(char *s) {
 
 void arch_prepare_fatal(void) {
 	kmsg_silence = false;
+	if (smp_running_cpus == 1) return;
 	for (uint32_t i = 0; i < madt_lapics; i++) {
 		if (i == this_core()->lapic_id) continue;
 		lapic_ipi(i, 0x447D);
@@ -142,8 +143,8 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	acpi_install();
 	lapic_install();
 	ioapic_install();
-	ps2_install();
 	hpet_install();
+	tsc_install();
 	lapic_calibrate_timer();
 	smp_initialize();
 	user_initialize();

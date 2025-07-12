@@ -27,6 +27,3 @@ static const int kb_map_keys_caps[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '-', 0, 0, 0, '+', 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-
-void ps2_install(void);
-int getchar(bool block);

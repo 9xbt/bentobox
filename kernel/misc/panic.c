@@ -21,7 +21,7 @@ void __panic(char *file, int line, char *fmt, ...) {
 
     struct stackframe *frame_ptr = __builtin_frame_address(0);
 
-    dprintf("%s:%d: traceback:\n", __FILE__, __LINE__);
+    dprintf("%s:%d: traceback:\n", file, line);
 
     char symbol[256];
     for (int i = 0; i < 8 && frame_ptr->rbp; i++) {
