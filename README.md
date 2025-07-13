@@ -93,7 +93,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] %p in printf
 - [X] Implement file descriptors
 - [X] Elf execution from the filesystem
-- [ ] Write an RTC driver
+- [X] Write an RTC driver
 - [X] Fix ring 3 processes in SMP
 - [X] Fix memory leaks
 - [X] Refactor VMM to take pml4's and `void *` instead of `uintptr_t`
@@ -144,7 +144,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Fix having a lot of children crashing the kernel
 - [X] Null out serial_redirect on panic
 - [X] Change feature list to be less exhaustive
-- [ ] Don't print `warning: couldn't get next pml` when just checking a mapping
+- [X] Don't print `warning: couldn't get next pml` when just checking a mapping
 - [X] Generic lists
     - [X] Make the scheduler use them
     - [ ] Make the VFS use them
@@ -158,10 +158,11 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [ ] Process stealing
 - [X] Write a TTY driver
 - [ ] MBR partitions
-- [ ] GPT partitions
+- [X] GPT partitions
 - [ ] Userspace signal handlers
     - [X] Block CTRL+C in init
 - [X] Fix serial read()
+- [ ] sysinfo()
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)

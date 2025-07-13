@@ -1,3 +1,4 @@
+#include <time.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -16,6 +17,7 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
+#include <kernel/clock.h>
 #include <kernel/video.h>
 #include <kernel/sched.h>
 #include <kernel/assert.h>
@@ -661,8 +663,18 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
     if (!tp)
         return -EFAULT;
 
-    if (hpet) hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
-    else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
+    switch (clockid) {
+        case CLOCK_REALTIME:
+            gettimeofday(&tp->tv_sec, &tp->tv_nsec);
+            break;
+        case CLOCK_MONOTONIC:
+            if (hpet) hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
+            else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
+            break;
+        default:    
+            dprintf("%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
+            return -EINVAL;
+    }
     return 0;
 }
 
