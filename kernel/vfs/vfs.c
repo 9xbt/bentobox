@@ -1,3 +1,4 @@
+#include "kernel/sched.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
@@ -5,6 +6,7 @@
 #include <sys/types.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
+#include <kernel/list.h>
 #include <kernel/vfs/tmpfs.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
@@ -66,6 +68,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->mmap = NULL;
     node->driver = VFS_DRIVER_OTHER;
     node->close = NULL;
+    node->poll_list = list_create();
     return node;
 }
 
@@ -123,6 +126,7 @@ int vfs_remove_node(struct vfs_node *node) {
     }
 
     if (node->type == VFS_SYMLINK && node->device) kfree(node->device);
+    list_free(node->poll_list);
     kfree(node);
     return 0;
 }
@@ -250,11 +254,22 @@ long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return -EINVAL;
 }
 
-bool vfs_poll(struct vfs_node *node) {
-    while (node->busy) {
-        asm ("pause");
+long vfs_poll(struct vfs_node *node) {
+    if (!node || !node->poll || !node->poll_list)
+        return -1UL;
+    long poll = node->poll(node);
+    if (poll)
+        return -1UL;
+    list_insert(node->poll_list, this);
+    sched_block(TASK_POLLING);
+    return -1UL;
+}
+
+void vfs_wake_up_sleeping(struct vfs_node *node) {
+    foreach(proc, node->poll_list) {
+        sched_unblock(proc->value);
     }
-    return true;
+    list_empty(node->poll_list);
 }
 
 long vfs_check_perms(struct vfs_node *node, int mode) {

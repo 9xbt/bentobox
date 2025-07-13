@@ -23,7 +23,8 @@ enum process_state {
     TASK_KILLED,
     TASK_FRESH,
     TASK_SIGNAL,
-    TASK_BLOCKING_IO
+    TASK_BLOCKING_IO,
+    TASK_POLLING
 };
 
 struct process_time {
@@ -68,7 +69,6 @@ struct process {
     
     struct process *parent;
     list_t *children;
-    list_t *poll_list;
 };
 
 #define this ((struct process *)(this_core()->current_proc ? this_core()->current_proc->value : NULL))

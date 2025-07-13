@@ -24,5 +24,6 @@ void    list_remove(list_t *list, node_t *node);
 node_t *list_find(list_t *list, void *value);
 void    list_remove_value(list_t *list, void *value);
 void   *list_pop(list_t *list);
+void    list_empty(list_t *list);
 
 #define foreach(i, list) for (node_t *i = (list)->head; i; i = i->next)

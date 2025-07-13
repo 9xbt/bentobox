@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <sys/stat.h>
+#include <kernel/list.h>
 
 #define MAX_PATH            256
 #define MAX_NESTED_SYMLINKS 10
@@ -60,6 +61,7 @@ typedef struct vfs_node {
     long(*close)(struct vfs_node *node);
     void *device;
     struct vfs_node *symlink;
+    list_t *poll_list;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root;
@@ -75,7 +77,8 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
 int vfs_close(struct vfs_node *node);
 struct vfs_node *vfs_create_symlink(const char *name, const char *target);
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);
-bool vfs_poll(struct vfs_node *node);
+long vfs_poll(struct vfs_node *node);
+void vfs_wake_up_sleeping(struct vfs_node *node);
 int vfs_remove_node(struct vfs_node *node);
 long vfs_check_perms(struct vfs_node *node, int mode);
 long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink);

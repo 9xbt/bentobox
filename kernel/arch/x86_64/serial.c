@@ -128,6 +128,12 @@ void serial_tty_flush(void) {
     }
 }
 
+long serial_tty_poll(struct vfs_node *node) {
+    if (!fifo_is_empty(serial_fifo))
+        return -1UL;
+    return 0;
+}
+
 long serial_tty_enqueue(int c) {
     switch (c) {
         case 12:
@@ -143,8 +149,7 @@ long serial_tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        /* since we don't have proper I/O blocking, just halt until an interrupt arrives */
-        asm ("hlt");
+        vfs_poll(vfs_open(NULL, "/dev/ttyS0", false, false));
     }
     return c;
 }

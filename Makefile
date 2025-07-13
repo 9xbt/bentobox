@@ -73,24 +73,24 @@ bin/kernel/%.S.o: kernel/%.S
 	@mkdir -p "$$(dirname $@)"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-bin/.target:
-	mkdir -p "$$(dirname $@)"
-	@touch $@
-
 bin/modules/%.o: modules/%.c $(KERNEL_OBJS)
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
 	@$(CC) $(CCFLAGS) -mcmodel=large -c $< -o $@
 
-.PHONY: kernel
+#.PHONY: kernel
 kernel: $(KERNEL_OBJS)
 	@echo " LD kernel/*"
 	@$(LD) $(LDFLAGS) $^ -o bin/image.elf
 	@$(LD) $(LDFLAGS) -r $^ -o bin/ksym.o
 
-.PHONY: modules
-modules: kernel $(MODULE_OBJS)
+bin/modules.d: $(MODULE_OBJS) kernel
 	@./util/modules.sh $(MODULE_OBJS)
+	@touch bin/modules.d
+
+$(MODULE_BINARIES): bin/modules.d
+
+modules: bin/modules.d
 
 .PHONY: iso
 ifeq ($(ARCH),x86_64)
@@ -114,21 +114,21 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-.PHONY: hdd
-hdd: apps modules
-	@printf " HD bin/$(IMAGE_NAME).hdd [                              ]\r HD bin/$(IMAGE_NAME).hdd ["
-	@cp -r base bin/ && printf "###"
-	@[ ! -e bin/base/bin/bash ] && ln -s /usr/bin/bash bin/base/bin/bash || true && printf "###"
-	@bash util/busybox.sh && printf "###"
+bin/$(IMAGE_NAME).hdd: $(shell find base -type f)
+	@echo " HD bin/$(IMAGE_NAME).hdd"
+	@cp -r base bin/
+	@[ ! -e bin/base/bin/bash ] && ln -s /usr/bin/bash bin/base/bin/bash || true
+	@bash util/busybox.sh
 #	@cp -r /opt/mlibc/include bin/base/usr/
-	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat && printf "###"
-	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none && printf "###"
-	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt && printf "###"
-	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB && printf "###"
-	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox && printf "###"
-	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=512 seek=2048 conv=notrunc status=none && printf "###"
-	@rm bin/root.hdd && printf "###"
-	@echo
+	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
+	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
+	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
+	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB
+	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox
+	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=512 seek=2048 conv=notrunc status=none
+	@rm bin/root.hdd
+
+hdd: apps bin/$(IMAGE_NAME).hdd
 
 .PHONY: clean
 clean:

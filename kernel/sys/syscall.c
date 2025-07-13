@@ -320,8 +320,35 @@ long sys_select() {
     return 0;
 }
 
-long sys_pselect6() {
-    return 0;
+long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask) {
+    int ready_fds = 0;
+    
+    fd_set ready_readfds, ready_writefds, ready_exceptfds;
+    FD_ZERO(&ready_readfds);
+    FD_ZERO(&ready_writefds);
+    FD_ZERO(&ready_exceptfds);
+    
+    for (int fd = 0; fd < nfds; fd++) {
+        if (readfds && FD_ISSET(fd, readfds)) {
+            if (vfs_poll(fd_get(fd)->node) & POLLIN) {
+                FD_SET(fd, &ready_readfds);
+                ready_fds++;
+            }
+        }
+        
+        if (writefds && FD_ISSET(fd, writefds)) {
+            if (vfs_poll(fd_get(fd)->node) & POLLOUT) {
+                FD_SET(fd, &ready_readfds);
+                ready_fds++;
+            }
+        }
+    }
+    
+    if (readfds) *readfds = ready_readfds;
+    if (writefds) *writefds = ready_writefds;
+    if (exceptfds) *exceptfds = ready_exceptfds;
+    
+    return ready_fds;
 }
 
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {

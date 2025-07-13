@@ -168,7 +168,6 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     *mxcsr = 0x1920;
     *mxcsr |= 0x8040;
     proc->children = list_create();
-    proc->poll_list = list_create();
     proc->parent = NULL;
     proc->cwd = vfs_root;
 

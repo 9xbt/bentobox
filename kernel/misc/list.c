@@ -99,3 +99,9 @@ void *list_pop(list_t *list) {
     kfree(node);
     return value;
 }
+
+void list_empty(list_t *list) {
+    foreach(node, list) {
+        list_remove(list, node);
+    }
+}

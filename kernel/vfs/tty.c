@@ -13,7 +13,8 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 
-struct fifo *tty_fifo;
+static struct fifo *tty_fifo;
+static vfs_node_t *console, *tty;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
@@ -26,6 +27,12 @@ void tty_flush(void) {
     }
 }
 
+long tty_poll(struct vfs_node *node) {
+    if (!fifo_is_empty(tty_fifo))
+        return -1UL;
+    return 0;
+}
+
 long tty_enqueue(int c) {
     switch (c) {
         case 0x3:
@@ -33,6 +40,8 @@ long tty_enqueue(int c) {
             signal_send(sched_get_foreground(), SIGINT, 0);
             return 0;
     }
+    vfs_wake_up_sleeping(console);
+    vfs_wake_up_sleeping(tty);
     return !fifo_enqueue(tty_fifo, c);
 }
 
@@ -42,8 +51,7 @@ long tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        /* since we don't have proper I/O blocking, just halt until an interrupt arrives */
-        asm ("hlt");
+        vfs_poll(console);
     }
     return c;
 }
@@ -172,22 +180,24 @@ long tty_ioctl(int fd_num, int op, void *arg) {
 void tty_initialize(void) {
     tty_fifo = fifo_create(1024);
 
-    vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
+    console = vfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;
     console->read = tty_read;
     console->write = tty_write;
     console->isatty = true;
+    console->poll = tty_poll;
     console->tty_ops.ioctl = tty_ioctl;
     console->tty_ops.flush = tty_flush;
     console->tty_ops.enqueue = tty_enqueue;
     console->tty_ops.dequeue = tty_dequeue;
     vfs_add_device(console);
 
-    vfs_node_t *tty = vfs_create_node("tty", VFS_CHARDEVICE);
+    tty = vfs_create_node("tty", VFS_CHARDEVICE);
     tty->perms = 0666;
     tty->read = tty_read;
     tty->write = tty_write;
     tty->isatty = true;
+    tty->poll = tty_poll;
     tty->tty_ops.ioctl = tty_ioctl;
     tty->tty_ops.flush = tty_flush;
     tty->tty_ops.enqueue = tty_enqueue;
