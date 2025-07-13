@@ -121,7 +121,8 @@ int vfs_remove_node(struct vfs_node *node) {
             }
         }
     }
-    
+
+    if (node->type == VFS_SYMLINK && node->device) kfree(node->device);
     kfree(node);
     return 0;
 }
@@ -134,16 +135,23 @@ struct vfs_node *vfs_create_symlink(const char *name, const char *target) {
     struct vfs_node *node = vfs_create_node(name, VFS_SYMLINK);
     if (node && target) {
         node->symlink = vfs_open(NULL, target, false, false);
-        if (!node->symlink)
-            return NULL;
+        if (!node->symlink) {
+            node->device = kmalloc(strlen(target) + 1);
+            strcpy(node->device, target);
+        }
         node->size = strlen(target);
     }
     return node;
 }
 
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
-    if (!symlink || symlink->type != VFS_SYMLINK || max_depth <= 0 || !symlink->symlink)
+    if (!symlink || symlink->type != VFS_SYMLINK || max_depth <= 0)
         return NULL;
+    if (!symlink->symlink) {
+        if (!(symlink->symlink = vfs_open(NULL, symlink->device, false, false))) {
+            return NULL;
+        }
+    }
     if (symlink->symlink->type == VFS_SYMLINK)
         return vfs_resolve_symlink(symlink, max_depth - 1);
     return symlink->symlink;
