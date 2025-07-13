@@ -106,7 +106,7 @@ iso: kernel modules
 	@cp bin/image.elf iso_root/boot/image.elf
 	@cp bin/ksym.elf iso_root/boot/ksym.elf
 	@cp boot/grub.cfg iso_root/boot/grub/grub.cfg
-	@grub-mkrescue -o bin/$(IMAGE_NAME).iso iso_root/ -quiet 2>&1 >/dev/null | grep -v libburnia | cat
+	@grub-mkrescue -o bin/$(IMAGE_NAME).iso iso_root/ -quiet 2>&1 | grep -v libburnia >/dev/null 2>&1
 	@rm -rf iso_root/
 else ifeq ($(ARCH),riscv64)
 iso:
@@ -115,19 +115,20 @@ else
 endif
 
 .PHONY: hdd
-hdd: apps
-	@echo "HD bin/$(IMAGE_NAME).hdd"
-	@cp -r base bin/
-	@[ ! -e bin/base/bin/bash ] && ln -s /usr/bin/bash bin/base/bin/bash || true
-	@bash util/busybox.sh
+hdd: apps modules
+	@printf " HD bin/$(IMAGE_NAME).hdd [                    ]\r HD bin/$(IMAGE_NAME).hdd ["
+	@cp -r base bin/ && printf "##"
+	@[ ! -e bin/base/bin/bash ] && ln -s /usr/bin/bash bin/base/bin/bash || true && printf "##"
+	@bash util/busybox.sh && printf "##"
 #	@cp -r /opt/mlibc/include bin/base/usr/
-	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
-	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
-	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
-	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB
-	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox
-	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=512 seek=2048 conv=notrunc status=none
-	@rm bin/root.hdd
+	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat && printf "##"
+	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none && printf "##"
+	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt && printf "##"
+	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB && printf "##"
+	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox && printf "##"
+	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=512 seek=2048 conv=notrunc status=none && printf "##"
+	@rm bin/root.hdd && printf "##"
+	@echo
 
 .PHONY: clean
 clean:
