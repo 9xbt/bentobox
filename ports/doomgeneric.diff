@@ -184,12 +184,12 @@ index 0000000..9746257
 +}
 +
 +uint32_t DG_GetTicksMs() {
-+    struct timeval  tp;
-+    struct timezone tzp;
++    struct timespec ts;
 +
-+    gettimeofday(&tp, &tzp);
++    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
++        return 0;
 +
-+    return (tp.tv_sec * 1000) + (tp.tv_usec / 1000);
++    return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 +}
 +
 +void DG_SetWindowTitle(const char *title) {
