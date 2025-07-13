@@ -276,21 +276,9 @@ void ahci_send_cmd(int port_num, uint32_t slot) {
         __asm__ volatile ("pause");
     }
     
-    uint32_t cmd = port_read_reg(port_num, PORT_CMD);
-    port_write_reg(port_num, PORT_CMD, cmd & ~HBA_CMD_ST);
-    while (port_read_reg(port_num, PORT_CMD) & HBA_CMD_CR) {
-        __asm__ volatile ("pause");
-    }
-    
-    port_write_reg(port_num, PORT_CMD, (cmd & ~HBA_CMD_ST) | HBA_CMD_FR | HBA_CMD_ST);
-    
     port_write_reg(port_num, PORT_CI, 1 << slot);
-    while (port_read_reg(port_num, PORT_CI) & (1 << slot)) {
-        __asm__ volatile ("pause");
-    }
     
-    port_write_reg(port_num, PORT_CMD, cmd & ~(HBA_CMD_ST | HBA_CMD_FRE));
-    while (port_read_reg(port_num, PORT_CMD) & HBA_CMD_ST) {
+    while (port_read_reg(port_num, PORT_CI) & (1 << slot)) {
         __asm__ volatile ("pause");
     }
 }
@@ -303,6 +291,7 @@ int ahci_op(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer, 
     
     int slot = ahci_find_slot(port_num);
     if (slot == -1) {
+        mutex_unlock(&ahci_mutex);
         return 1;
     }
     
@@ -345,6 +334,7 @@ int ahci_op(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer, 
     
     uint32_t is = port_read_reg(port_num, PORT_IS);
     if (is & (1 << 30)) {
+        mutex_unlock(&ahci_mutex);
         return 1;
     }
     mutex_unlock(&ahci_mutex);

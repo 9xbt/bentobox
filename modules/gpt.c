@@ -70,18 +70,21 @@ int init() {
         }
 
         dprintf("%s:%d: GPT signature: %s\n", __FILE__, __LINE__, pt->signature);
+        dprintf("%s:%d: %d paritition slots\n", __FILE__, __LINE__, pt->pe_num);
 
         partition_entry_t *pe = kmalloc(pt->pe_size * pt->pe_num);
-        vfs_read(drive, pe, 1024, pt->pe_size * pt->pe_num);
+        vfs_read(drive, pe, pt->pe_lba * 512, pt->pe_size * pt->pe_num);
 
         struct vfs_node *part;
         partition_device_t *device;
-        char mountpoint[6] = {0};
-        for (uint32_t i = 0; i < pt->pe_num * pt->pe_size; i++) {
-            if (pe[i].type_guid.data1 == 0) break;
+        char mountpoint[16] = {0};
+        for (uint32_t i = 0; i < pt->pe_num; i++) {
+            if (pe[i].type_guid.data1 == 0) {
+                continue;
+            }
             sprintf(mountpoint, "sda%d", i + 1);
 
-            dprintf("%s:%d: creating mountpoint for '%ls'\n", __FILE__, __LINE__, pe[i].name);
+            dprintf("%s:%d: creating mountpoint for '%ls' at /dev/%s\n", __FILE__, __LINE__, pe[i].name, mountpoint);
             device = kmalloc(sizeof(partition_device_t));
             device->drive = drive;
             device->offset = pe[i].start_lba * 512;
