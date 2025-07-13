@@ -160,7 +160,7 @@ static void elf_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr
                 void *paddr = mmu_alloc(1);
                 void *vaddr = (void *)(page_start + page * PAGE_SIZE);
 
-                mmu_map(vaddr, paddr, flags);
+                mmu_map(vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
             }
 
             proc->sections[section].ptr = page_start;
@@ -177,6 +177,13 @@ static void elf_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr
 
             if (phdr[i].p_memsz > phdr[i].p_filesz) {
                 memset((void *)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
+            }
+
+            for (size_t page = 0; page < pages; page++) {
+                void *vaddr = (void *)(page_start + page * PAGE_SIZE);
+                void *paddr = (void *)mmu_get_physical(this_core()->pml4, (uintptr_t)vaddr);
+
+                mmu_map(vaddr, paddr, flags);
             }
         }
     }
