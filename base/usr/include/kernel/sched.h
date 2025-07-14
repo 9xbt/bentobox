@@ -7,7 +7,7 @@
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
-#include <kernel/mmu/vma.h>
+#include <kernel/mmu.h>
 #include <kernel/elf64.h>
 #include <kernel/malloc.h>
 

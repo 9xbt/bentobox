@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/sched.h>
+#include <stdbool.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/vmm.h>
@@ -43,4 +43,26 @@ void  mmu_map_pages(size_t count, void *virt, void *phys, uint64_t flags);
 void  mmu_unmap_pages(size_t count, void *virt);
 void  mmu_destroy_user_pm(uintptr_t *pml4);
 uintptr_t mmu_get_physical(uintptr_t *pml4, uintptr_t virt);
+struct process;
 uintptr_t *mmu_create_user_pm(struct process *proc);
+
+struct vma_head {
+    struct vma_block *head;
+};
+
+struct vma_block {
+    struct vma_block *next;
+    struct vma_block *prev;
+    size_t size;
+    size_t checksum;
+    uintptr_t phys;
+    uintptr_t virt;
+    uint64_t flags;
+};
+
+struct vma_head *vma_create(void);
+void vma_destroy(struct vma_head *h);
+void *vma_map(struct vma_head *h, uint64_t pages, uint64_t phys, uint64_t virt, uint64_t flags);
+void vma_unmap(struct vma_block *block);
+void vma_copy_mappings(struct vma_head *dest, struct vma_head *src);
+bool vma_unmap_addr(struct vma_head *h, void *virt);

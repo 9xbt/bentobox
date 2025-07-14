@@ -26,7 +26,7 @@
 #define LACKS_STDIO_H 1
 #define MALLOC_FAILURE_ACTION
 
-#include <kernel/3rdparty/dlmalloc.c>
+#include "../../lib/dlmalloc.c"
 
 #define INITIAL_HEAP_SIZE (16 * 1024 * 1024)
 #define MAX_HEAP_REGIONS 64

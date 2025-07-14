@@ -1436,7 +1436,7 @@ DLMALLOC_EXPORT int mspace_mallopt(int, int);
 #include <stdio.h>       /* for printing in malloc_stats */
 #endif /* NO_MALLOC_STATS */
 #ifndef LACKS_ERRNO_H
-#include <kernel/errno.h>       /* for MALLOC_FAILURE_ACTION */
+#include <errno.h>       /* for MALLOC_FAILURE_ACTION */
 #endif /* LACKS_ERRNO_H */
 #ifdef DEBUG
 #if ABORT_ON_ASSERT_FAILURE

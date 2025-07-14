@@ -1,8 +1,10 @@
 #include <errno.h>
 #include <kernel/vfs.h>
-#include <kernel/vfs/tmpfs.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+
+#define TMPFS_ROOT 999999
+#define TMPFS_HASH_SIZE 256
 
 /**
  * TODO: make use of lists

@@ -7,7 +7,6 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 #include <kernel/list.h>
-#include <kernel/vfs/tmpfs.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -20,6 +19,9 @@ extern void tmpfs_initialize(void);
 extern void tty_initialize(void);
 extern void fbdev_initialize(void);
 extern void procfs_initialize(void);
+
+extern struct vfs_node *tmpfs_create_file(struct vfs_node *parent, const char *name);
+extern long tmpfs_remove_file(struct vfs_node *node);
 
 struct vfs_node *vfs_root = NULL, *vfs_devfs = NULL;
 

@@ -10,7 +10,6 @@
 #include <kernel/fd.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
-#include <kernel/mmu/vma.h>
 #include <kernel/list.h>
 #include <kernel/acpi.h>
 #include <kernel/sched.h>

@@ -17,5 +17,9 @@ char *args_value(const char *s) {
         return NULL;
     }
     arg++;
+    char *end = strchr(arg, ' ');
+    if (end) {
+        *end = '\0';
+    }
     return arg;
 }

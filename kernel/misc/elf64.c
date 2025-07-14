@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <kernel/mmu.h>
-#include <kernel/mmu/vma.h>
 #include <kernel/list.h>
 #include <kernel/elf64.h>
 #include <errno.h>
