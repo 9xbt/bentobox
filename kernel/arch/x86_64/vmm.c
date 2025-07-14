@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <cpuid.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/spinlock.h>
@@ -287,9 +288,11 @@ void vmm_direct_map_2mb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_
     uintptr_t *pd = (uintptr_t *)PTE_GET_ADDR(pdpt[pdpt_index]);
     
     pd[pd_index] = phys | flags | (1 << 7);
+    
+    vmm_flush_tlb((uintptr_t)virt);
 }
 
-void mmu_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
+void vmm_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
     uintptr_t pml4_index = (virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = (virt >> 30) & 0x1ff;
     
@@ -302,11 +305,20 @@ void mmu_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_
     uintptr_t *pdpt = (uintptr_t *)PTE_GET_ADDR(pml4[pml4_index]);
     
     pdpt[pdpt_index] = phys | flags | (1 << 7);
+    
+    vmm_flush_tlb((uintptr_t)virt);
 }
 
 void vmm_install(void) {
-    for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_1G)
-        mmu_direct_map_1gb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    unsigned int eax, ebx, ecx, edx;
+    __cpuid(0x80000001, eax, ebx, ecx, edx);
+    if ((edx & (1 << 26)) != 0) {
+        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_1G)
+            vmm_direct_map_1gb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    } else {
+        for (uintptr_t addr = 0x0; addr < mmu_page_count * PAGE_SIZE; addr += PAGE_SIZE_2M)
+            vmm_direct_map_2mb(kernel_pd, (uintptr_t)VIRTUAL_IDENT(addr), addr, PTE_PRESENT | PTE_WRITABLE);
+    }
 	
     kernel_pd = (uintptr_t *)VIRTUAL_IDENT(mmu_alloc(1));
     this_core()->pml4 = kernel_pd;
