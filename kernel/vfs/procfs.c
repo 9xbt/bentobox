@@ -1,8 +1,8 @@
 #include <stdbool.h>
-#include <kernel/vfs.h>
-#include <kernel/mmu.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/mmu.h>
+#include <kernel/vfs.h>
 
 long procfs_meminfo_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (offset != 0) return 0;

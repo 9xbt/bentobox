@@ -1,15 +1,15 @@
+#include <stddef.h>
+#include <kernel/arch/x86_64/ioapic.h>
+#include <kernel/arch/x86_64/lapic.h>
+#include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/tsc.h>
-#include <kernel/arch/x86_64/hpet.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/arch/x86_64/ioapic.h>
-#include <stddef.h>
-#include <kernel/mmu.h>
-#include <kernel/args.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
+#include <kernel/args.h>
+#include <kernel/mmu.h>
 
 uint64_t hpet_address = 0;
 uint32_t hpet_period = 0;

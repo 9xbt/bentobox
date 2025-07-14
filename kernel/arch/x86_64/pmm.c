@@ -1,14 +1,14 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <stdatomic.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/vmm.h>
-#include <kernel/mmu.h>
-#include <kernel/panic.h>
-#include <kernel/bitmap.h>
-#include <kernel/string.h>
-#include <kernel/printf.h>
-#include <kernel/spinlock.h>
 #include <kernel/multiboot.h>
+#include <kernel/spinlock.h>
+#include <kernel/bitmap.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/mmu.h>
 
 uint8_t *mmu_bitmap = NULL;
 uint64_t mmu_bitmap_size = 0;

@@ -1,9 +1,9 @@
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/io.h>
-#include <kernel/pci.h>
-#include <kernel/printf.h>
 #include <kernel/assert.h>
+#include <kernel/printf.h>
+#include <kernel/pci.h>
 
 struct pci_device primary_bus[32];
 

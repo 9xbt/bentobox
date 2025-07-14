@@ -1,17 +1,17 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <kernel/arch/x86_64/ps2.h>
-#include <kernel/arch/x86_64/serial.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
-#include <kernel/fifo.h>
 #include <ioctls.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <errno.h>
-#include <kernel/sched.h>
-#include <kernel/video.h>
-#include <kernel/string.h>
+#include <kernel/arch/x86_64/serial.h>
+#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
+#include <kernel/string.h>
+#include <kernel/sched.h>
+#include <kernel/video.h>
+#include <kernel/fifo.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 static struct fifo *tty_fifo;
 static vfs_node_t *console, *tty;

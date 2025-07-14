@@ -1,10 +1,10 @@
-#include <errno.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
 #include <ioctls.h>
+#include <errno.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/video.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 struct fb_var_screeninfo vinfo = {};
 

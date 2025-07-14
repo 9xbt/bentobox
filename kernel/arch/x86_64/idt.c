@@ -1,15 +1,15 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
-#include <kernel/arch/x86_64/idt.h>
-#include <kernel/arch/x86_64/vmm.h>
-#include <kernel/arch/x86_64/smp.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/ioapic.h>
-#include <kernel/ksym.h>
+#include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/vmm.h>
+#include <kernel/assert.h>
+#include <kernel/printf.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
-#include <kernel/printf.h>
-#include <kernel/assert.h>
+#include <kernel/ksym.h>
 
 extern void arch_fatal(void);
 extern void arch_prepare_fatal(void);

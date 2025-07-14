@@ -1,21 +1,21 @@
 #include <stdatomic.h>
-#include <kernel/arch/x86_64/gdt.h>
-#include <kernel/arch/x86_64/tss.h>
-#include <kernel/arch/x86_64/idt.h>
-#include <kernel/arch/x86_64/smp.h>
-#include <kernel/arch/x86_64/vmm.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/mmu.h>
-#include <kernel/args.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
-#include <kernel/malloc.h>
-#include <kernel/string.h>
-#include <kernel/printf.h>
-#include <kernel/assert.h>
+#include <kernel/arch/x86_64/gdt.h>
+#include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/tss.h>
+#include <kernel/arch/x86_64/vmm.h>
 #include <kernel/spinlock.h>
+#include <kernel/assert.h>
+#include <kernel/malloc.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
+#include <kernel/args.h>
+#include <kernel/mmu.h>
 
 extern void _L8000_ap_trampoline();
 

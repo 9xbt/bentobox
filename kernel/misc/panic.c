@@ -1,9 +1,9 @@
 #include <stdarg.h>
-#include <kernel/mmu.h>
-#include <kernel/ksym.h>
+#include <kernel/printf.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
-#include <kernel/printf.h>
+#include <kernel/ksym.h>
+#include <kernel/mmu.h>
 
 extern void arch_prepare_fatal(void);
 extern void arch_fatal(void);

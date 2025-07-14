@@ -1,7 +1,7 @@
-#include <stdint.h>
 #include <stdbool.h>
-#include <kernel/malloc.h>
+#include <stdint.h>
 #include <kernel/ringbuffer.h>
+#include <kernel/malloc.h>
 
 struct ringbuffer *ringbuffer_create(size_t size) {
     struct ringbuffer *rb = kmalloc(sizeof(struct ringbuffer));

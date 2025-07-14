@@ -1,24 +1,24 @@
-#include <stddef.h>
 #include <stdatomic.h>
-#include <kernel/arch/x86_64/tss.h>
-#include <kernel/arch/x86_64/smp.h>
-#include <kernel/arch/x86_64/tsc.h>
+#include <stddef.h>
+#include <kernel/arch/x86_64/serial.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/arch/x86_64/serial.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
-#include <kernel/mmu.h>
-#include <kernel/list.h>
-#include <kernel/acpi.h>
-#include <kernel/sched.h>
-#include <kernel/panic.h>
-#include <kernel/malloc.h>
-#include <kernel/signal.h>
-#include <kernel/printf.h>
-#include <kernel/string.h>
+#include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/tsc.h>
+#include <kernel/arch/x86_64/tss.h>
 #include <kernel/spinlock.h>
+#include <kernel/malloc.h>
+#include <kernel/printf.h>
+#include <kernel/signal.h>
+#include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/sched.h>
+#include <kernel/acpi.h>
+#include <kernel/list.h>
+#include <kernel/mmu.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 static long next_pid = 1, next_cpu = 0;
 

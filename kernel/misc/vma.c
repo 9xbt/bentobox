@@ -1,8 +1,8 @@
 #include <stdbool.h>
-#include <kernel/mmu.h>
-#include <kernel/panic.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/mmu.h>
 
 #define VMA_BASE 0x555555554000
 #define VMA_VIRTUAL(ptr) ((void *)((uintptr_t)(ptr) + (uintptr_t)VMA_BASE))

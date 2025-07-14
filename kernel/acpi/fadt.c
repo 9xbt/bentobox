@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <kernel/arch/x86_64/io.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
-#include <kernel/printf.h>
 #include <kernel/assert.h>
+#include <kernel/printf.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
 
 struct acpi_fadt *fadt = NULL;
 

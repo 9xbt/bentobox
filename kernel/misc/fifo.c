@@ -1,7 +1,7 @@
 #include <stdbool.h>
-#include <kernel/fifo.h>
-#include <kernel/malloc.h>
 #include <kernel/spinlock.h>
+#include <kernel/malloc.h>
+#include <kernel/fifo.h>
 
 struct fifo *fifo_create(int size) {
     struct fifo *fifo = kmalloc(sizeof(struct fifo));

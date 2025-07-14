@@ -1,5 +1,5 @@
-#include <kernel/sched.h>
 #include <kernel/signal.h>
+#include <kernel/sched.h>
 
 void _sigint(struct process *proc) {
     sched_kill(proc, 128 + SIGINT);

@@ -1,11 +1,11 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
-#include <kernel/sched.h>
+#include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
-#include <kernel/unixpipe.h>
+#include <kernel/sched.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 struct fd fd_new(struct vfs_node *node, int flags) {
     struct fd fd;

@@ -1,14 +1,14 @@
 #include <stdbool.h>
-#include <kernel/mmu.h>
-#include <kernel/list.h>
-#include <kernel/elf64.h>
 #include <errno.h>
-#include <kernel/sched.h>
+#include <kernel/multiboot.h>
+#include <kernel/unixpipe.h>
+#include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
-#include <kernel/module.h>
-#include <kernel/unixpipe.h>
-#include <kernel/multiboot.h>
+#include <kernel/elf64.h>
+#include <kernel/sched.h>
+#include <kernel/list.h>
+#include <kernel/mmu.h>
 
 Elf64_Sym *ksymtab = NULL;
 char *kstrtab = NULL;

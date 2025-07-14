@@ -1,10 +1,10 @@
-#include <cpuid.h>
-#include <stdint.h>
 #include <stddef.h>
-#include <kernel/arch/x86_64/pit.h>
+#include <stdint.h>
+#include <cpuid.h>
 #include <kernel/arch/x86_64/hpet.h>
-#include <kernel/panic.h>
+#include <kernel/arch/x86_64/pit.h>
 #include <kernel/printf.h>
+#include <kernel/panic.h>
 
 uint64_t tsc_period = 0;
 static uint64_t delta = 0;

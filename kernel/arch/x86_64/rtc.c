@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <kernel/arch/x86_64/io.h>
-#include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/hpet.h>
+#include <kernel/arch/x86_64/tsc.h>
+#include <kernel/arch/x86_64/io.h>
 
 #define from_bcd(value) ((value >> 4) * 10 + (value & 0xf))
 #define is_leap_year(year) (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))

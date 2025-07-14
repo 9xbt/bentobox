@@ -1,10 +1,10 @@
 #include <stdarg.h>
 #include <stdint.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
-#include <kernel/sched.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/sched.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 int hex_length(uint64_t val) {
     int len = 0;

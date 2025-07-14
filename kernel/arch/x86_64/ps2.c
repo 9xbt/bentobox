@@ -1,21 +1,21 @@
 #include <bits/types/struct_timeval.h>
 #include <linux/input.h>
-#include <errno.h>
 #include <stdbool.h>
-#include <kernel/arch/x86_64/io.h>
+#include <ioctls.h>
+#include <errno.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/ps2.h>
-#include <kernel/arch/x86_64/lapic.h>
+#include <kernel/arch/x86_64/io.h>
+#include <kernel/printf.h>
+#include <kernel/signal.h>
+#include <kernel/string.h>
+#include <kernel/sched.h>
 #include <kernel/video.h>
-#include <kernel/vfs.h>
-#include <kernel/tty.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
-#include <ioctls.h>
-#include <kernel/sched.h>
-#include <kernel/printf.h>
-#include <kernel/string.h>
-#include <kernel/signal.h>
+#include <kernel/tty.h>
+#include <kernel/vfs.h>
 
 bool kb_caps = false;
 bool kb_ctrl = false;

@@ -1,6 +1,6 @@
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __x86_64__
 void *memcpy(void *restrict dest, const void *restrict src, size_t n) {

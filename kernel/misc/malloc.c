@@ -1,8 +1,8 @@
-#include <kernel/mmu.h>
-#include <kernel/panic.h>
 #include <errno.h>
-#include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/panic.h>
+#include <kernel/mmu.h>
 
 #define MSPACES 1
 #define ONLY_MSPACES 1

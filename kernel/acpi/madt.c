@@ -1,8 +1,8 @@
-#include <stdint.h>
 #include <stddef.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
+#include <stdint.h>
 #include <kernel/printf.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
 
 struct acpi_madt *madt = NULL;
 struct madt_lapic *madt_lapic_list[SMP_MAX_CORES];

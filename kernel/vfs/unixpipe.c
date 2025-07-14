@@ -1,12 +1,12 @@
 #include <sys/fcntl.h>
-#include <kernel/fd.h>
-#include <kernel/vfs.h>
-#include <kernel/ringbuffer.h>
 #include <errno.h>
-#include <kernel/printf.h>
-#include <kernel/malloc.h>
-#include <kernel/signal.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/unixpipe.h>
+#include <kernel/malloc.h>
+#include <kernel/printf.h>
+#include <kernel/signal.h>
+#include <kernel/vfs.h>
+#include <kernel/fd.h>
 
 long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct unix_pipe *pipe = node->device;

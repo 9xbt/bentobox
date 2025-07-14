@@ -1,17 +1,17 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include <stdatomic.h>
-#include <kernel/arch/x86_64/hpet.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/lapic.h>
-#include <kernel/mmu.h>
-#include <kernel/acpi.h>
+#include <kernel/arch/x86_64/hpet.h>
+#include <kernel/spinlock.h>
+#include <kernel/assert.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
 #include <kernel/panic.h>
 #include <kernel/sched.h>
-#include <kernel/printf.h>
-#include <kernel/assert.h>
-#include <kernel/string.h>
-#include <kernel/spinlock.h>
+#include <kernel/acpi.h>
+#include <kernel/mmu.h>
 
 uintptr_t initial_pml[3][512] __attribute__((aligned(PAGE_SIZE)));
 uintptr_t *kernel_pd = initial_pml[0];

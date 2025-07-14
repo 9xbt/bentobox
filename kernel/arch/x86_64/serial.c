@@ -1,16 +1,16 @@
-#include <errno.h>
-#include <stddef.h>
 #include <stdatomic.h>
-#include <kernel/arch/x86_64/io.h>
-#include <kernel/arch/x86_64/idt.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/vfs.h>
-#include <kernel/fifo.h>
 #include <ioctls.h>
-#include <kernel/sched.h>
-#include <kernel/string.h>
-#include <kernel/printf.h>
+#include <stddef.h>
+#include <errno.h>
+#include <kernel/arch/x86_64/lapic.h>
+#include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/spinlock.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/sched.h>
+#include <kernel/fifo.h>
+#include <kernel/vfs.h>
 
 #define COM1 0x3f8
 

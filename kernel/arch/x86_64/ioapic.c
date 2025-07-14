@@ -1,9 +1,9 @@
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
-#include <kernel/mmu.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
 #include <kernel/printf.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
+#include <kernel/mmu.h>
 
 bool ioapic_enabled = false;
 

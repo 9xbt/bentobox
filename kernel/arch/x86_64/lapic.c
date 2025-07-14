@@ -1,14 +1,14 @@
 #include <cpuid.h>
-#include <kernel/acpi.h>
-#include <kernel/arch/x86_64/io.h>
+#include <kernel/arch/x86_64/lapic.h>
+#include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/tsc.h>
-#include <kernel/arch/x86_64/hpet.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/mmu.h>
-#include <kernel/panic.h>
-#include <kernel/printf.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/assert.h>
+#include <kernel/printf.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
+#include <kernel/mmu.h>
 
 static uint32_t lapic_ticks = 0;
 

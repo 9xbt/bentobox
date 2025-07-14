@@ -1,13 +1,13 @@
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/io.h>
-#include <kernel/mmu.h>
-#include <kernel/acpi.h>
-#include <kernel/panic.h>
+#include <kernel/multiboot.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
-#include <kernel/assert.h>
-#include <kernel/multiboot.h>
+#include <kernel/panic.h>
+#include <kernel/acpi.h>
+#include <kernel/mmu.h>
 
 bool acpi_use_xsdt = false;
 void *acpi_root_sdt;

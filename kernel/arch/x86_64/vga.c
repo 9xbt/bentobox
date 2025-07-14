@@ -1,10 +1,10 @@
-#include <stdint.h>
 #include <stdatomic.h>
-#include <kernel/arch/x86_64/io.h>
+#include <stdint.h>
 #include <kernel/arch/x86_64/vga.h>
-#include <kernel/string.h>
-#include <kernel/printf.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/spinlock.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
 
 #define CURSOR_HEIGHT 2
 
