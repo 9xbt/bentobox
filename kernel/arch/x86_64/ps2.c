@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
-#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
@@ -17,6 +16,73 @@
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
 
+static const int kb_map_keys[256] = {
+    [0x15] = 'q', [0x1D] = 'w', [0x24] = 'e', [0x2D] = 'r', [0x2C] = 't',
+    [0x35] = 'y', [0x3C] = 'u', [0x43] = 'i', [0x44] = 'o', [0x4D] = 'p',
+    [0x54] = '[', [0x5B] = ']', [0x5A] = '\n',
+    
+    [0x1C] = 'a', [0x1B] = 's', [0x23] = 'd', [0x2B] = 'f', [0x34] = 'g',
+    [0x33] = 'h', [0x3B] = 'j', [0x42] = 'k', [0x4B] = 'l', [0x4C] = ';',
+    [0x52] = '\'', [0x0E] = '`',
+    
+    [0x1A] = 'z', [0x22] = 'x', [0x21] = 'c', [0x2A] = 'v', [0x32] = 'b',
+    [0x31] = 'n', [0x3A] = 'm', [0x41] = ',', [0x49] = '.', [0x4A] = '/',
+    
+    [0x16] = '1', [0x1E] = '2', [0x26] = '3', [0x25] = '4', [0x2E] = '5',
+    [0x36] = '6', [0x3D] = '7', [0x3E] = '8', [0x46] = '9', [0x45] = '0',
+    [0x4E] = '-', [0x55] = '=', [0x66] = '\b',
+    
+    [0x0D] = '\t', [0x29] = ' ', [0x76] = 27,
+    [0x5D] = '\\', [0x6B] = 'D'+65535, [0x72] = 'B'+65535, [0x74] = 'C'+65535,
+    [0x75] = 'A'+65535, [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
+};
+
+static const int kb_map_keys_shift[256] = {
+    [0x15] = 'Q', [0x1D] = 'W', [0x24] = 'E', [0x2D] = 'R', [0x2C] = 'T',
+    [0x35] = 'Y', [0x3C] = 'U', [0x43] = 'I', [0x44] = 'O', [0x4D] = 'P',
+    [0x54] = '{', [0x5B] = '}', [0x5A] = '\n',
+    
+    [0x1C] = 'A', [0x1B] = 'S', [0x23] = 'D', [0x2B] = 'F', [0x34] = 'G',
+    [0x33] = 'H', [0x3B] = 'J', [0x42] = 'K', [0x4B] = 'L', [0x4C] = ':',
+    [0x52] = '"', [0x0E] = '~',
+    
+    [0x1A] = 'Z', [0x22] = 'X', [0x21] = 'C', [0x2A] = 'V', [0x32] = 'B',
+    [0x31] = 'N', [0x3A] = 'M', [0x41] = '<', [0x49] = '>', [0x4A] = '?',
+    
+    [0x16] = '!', [0x1E] = '@', [0x26] = '#', [0x25] = '$', [0x2E] = '%',
+    [0x36] = '^', [0x3D] = '&', [0x3E] = '*', [0x46] = '(', [0x45] = ')',
+    [0x4E] = '_', [0x55] = '+', [0x66] = '\b',
+    
+    [0x0D] = '\t', [0x29] = ' ', [0x76] = 27,
+    [0x5D] = '|', [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
+};
+
+static const int kb_map_keys_caps[256] = {
+    [0x15] = 'Q', [0x1D] = 'W', [0x24] = 'E', [0x2D] = 'R', [0x2C] = 'T',
+    [0x35] = 'Y', [0x3C] = 'U', [0x43] = 'I', [0x44] = 'O', [0x4D] = 'P',
+    [0x54] = '[', [0x5B] = ']', [0x5A] = '\n',
+    
+    [0x1C] = 'A', [0x1B] = 'S', [0x23] = 'D', [0x2B] = 'F', [0x34] = 'G',
+    [0x33] = 'H', [0x3B] = 'J', [0x42] = 'K', [0x4B] = 'L', [0x4C] = ';',
+    [0x52] = '\'', [0x0E] = '`',
+    
+    [0x1A] = 'Z', [0x22] = 'X', [0x21] = 'C', [0x2A] = 'V', [0x32] = 'B',
+    [0x31] = 'N', [0x3A] = 'M', [0x41] = ',', [0x49] = '.', [0x4A] = '/',
+    
+    [0x16] = '1', [0x1E] = '2', [0x26] = '3', [0x25] = '4', [0x2E] = '5',
+    [0x36] = '6', [0x3D] = '7', [0x3E] = '8', [0x46] = '9', [0x45] = '0',
+    [0x4E] = '-', [0x55] = '=', [0x66] = '\b',
+    
+    [0x0D] = '\t', [0x29] = ' ', [0x76] = 27,
+    [0x5D] = '\\', [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
+};
+
+enum {
+    PS2_DATA = 0x60,
+    PS2_STATUS = 0x64,
+    PS2_COMMAND = 0x64
+};
+
 bool kb_caps = false;
 bool kb_ctrl = false;
 bool kb_shift = false;
@@ -24,16 +90,42 @@ bool kb_shift = false;
 void irq1_handler(struct registers *r) {
     int c = 0;
     uint8_t key = inb(0x60);
-    if (!(key & 0x80)) {
+    static uint8_t last_key = 0;
+    if (last_key == 0xf0) {
         switch (key) {
-            case 0x2a:
-            case 0x36:
+            case 0x12:
+            case 0x59:
+                kb_shift = false;
+                break;
+            case 0x14:
+                kb_ctrl = false;
+                break;
+            case 0xe0:
+                break;
+            default:
+                if (kb_shift) {
+                    c = kb_map_keys_shift[key];
+                } else if (kb_caps) {
+                    c = kb_map_keys_caps[key];
+                } else {
+                    c = kb_map_keys[key];
+                }
+                
+                if (c < 65535) {
+                    tty_enqueue(-c);
+                }
+                break;
+        }
+    } else {
+        switch (key) {
+            case 0x12:
+            case 0x59:
                 kb_shift = true;
                 break;
-            case 0x1d:
+            case 0x14:
                 kb_ctrl = true;
                 break;
-            case 0x3a:
+            case 0x58:
                 kb_caps = !kb_caps;
                 break;
             case 0xe0:
@@ -59,32 +151,9 @@ void irq1_handler(struct registers *r) {
                 }
                 break;
         }
-    } else {
-        switch (key) {
-            case 0xaa:
-            case 0xb6:
-                kb_shift = false;
-                break;
-            case 0x9d:
-                kb_ctrl = false;
-                break;
-            case 0xe0:
-                break;
-            default:
-                if (kb_shift) {
-                    c = kb_map_keys_shift[key & 0x7F];
-                } else if (kb_caps) {
-                    c = kb_map_keys_caps[key & 0x7F];
-                } else {
-                    c = kb_map_keys[key & 0x7F];
-                }
-                
-                if (c < 65535) {
-                    tty_enqueue(-c);
-                }
-                break;
-        }
     }
+
+    last_key = key;
     lapic_eoi();
 }
 
@@ -187,6 +256,82 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 }
 
 void ps2_initialize(void) {
+    if (!(fadt->iapc_boot_arch & (1 << 1))) {
+        dprintf("%s:%d: warning: no PS/2 controller found\n", __FILE__, __LINE__);
+        return;
+    }
+
+    uint8_t config;
+
+    outb(PS2_COMMAND, 0xAD);
+    outb(PS2_COMMAND, 0xA7);
+
+    while (inb(PS2_STATUS) & (1 << 0)) {
+        inb(PS2_DATA);
+    }
+
+    outb(PS2_COMMAND, 0x20);
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    config = inb(PS2_DATA);
+    config &= ~((1 << 0) | (1 << 4) | (1 << 6));
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_COMMAND, 0x60);
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_DATA, config);
+
+    outb(PS2_COMMAND, 0xAA);
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    uint8_t self_test = inb(PS2_DATA);
+    if (self_test != 0x55) {
+        dprintf("%s:%d: self test failed\n", __FILE__, __LINE__);
+        return;
+    }
+
+    bool dual_channel = false;
+    outb(PS2_COMMAND, 0xA8);
+    outb(PS2_COMMAND, 0x20);
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    config = inb(PS2_DATA);
+    if (!(config & (1 << 5))) {
+        dual_channel = true;
+        outb(PS2_COMMAND, 0xA7);
+        config &= ~((1 << 1) | (1 << 5));
+        while (inb(PS2_STATUS) & (1 << 1));
+        outb(PS2_COMMAND, 0x60);
+        while (inb(PS2_STATUS) & (1 << 1));
+        outb(PS2_DATA, config);
+    }
+
+    bool port1_works = false, port2_works = false;
+
+    outb(PS2_COMMAND, 0xAB);
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    uint8_t port1_test = inb(PS2_DATA);
+    if (port1_test == 0x00) port1_works = true;
+
+    if (dual_channel) {
+        outb(PS2_COMMAND, 0xA9);
+        while (!(inb(PS2_STATUS) & (1 << 0)));
+        uint8_t port2_test = inb(PS2_DATA);
+        if (port2_test == 0x00) port2_works = true;
+    }
+
+    if (port1_works) {
+        outb(PS2_COMMAND, 0xAE);
+        config |= (1 << 0);
+    }
+    if (port2_works) {
+        outb(PS2_COMMAND, 0xA8);
+        config |= (1 << 1);
+    }
+
+    if (port1_works || port2_works) {
+        while (inb(PS2_STATUS) & (1 << 1));
+        outb(PS2_COMMAND, 0x60);
+        while (inb(PS2_STATUS) & (1 << 1));
+        outb(PS2_DATA, config);
+    }
+
     irq_register(1, irq1_handler);
     struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
     event0->read = ps2_keyboard_read_event;

@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/arch/x86_64/serial.h>
-#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>

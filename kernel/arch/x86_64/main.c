@@ -5,7 +5,6 @@
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
-#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/tss.h>
