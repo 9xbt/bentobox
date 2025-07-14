@@ -266,6 +266,7 @@ long vfs_poll(struct vfs_node *node) {
 }
 
 void vfs_wake_up_sleeping(struct vfs_node *node) {
+    if (!node) return;
     foreach(proc, node->poll_list) {
         sched_unblock(proc->value);
     }

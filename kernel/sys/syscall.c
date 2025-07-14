@@ -338,7 +338,7 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
         
         if (writefds && FD_ISSET(fd, writefds)) {
             if (vfs_poll(fd_get(fd)->node) & POLLOUT) {
-                FD_SET(fd, &ready_readfds);
+                FD_SET(fd, &ready_writefds);
                 ready_fds++;
             }
         }

@@ -11,7 +11,7 @@ ifeq ($(ARCH),x86_64)
 	LD = ld
     ARCH_DIR := kernel/arch/x86_64
     ASFLAGS := -f elf64 -g -F dwarf
-    CCFLAGS := -O2 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone -mno-80387 -mno-sse -mno-sse2
+    CCFLAGS := -O3 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone -mno-80387 -mno-sse -mno-sse2 -fno-strict-aliasing
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
     QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -rtc base=localtime
 else ifeq ($(ARCH),riscv64)
@@ -53,7 +53,7 @@ run: all
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm #-smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all

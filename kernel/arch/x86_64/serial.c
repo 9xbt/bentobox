@@ -14,9 +14,9 @@
 
 #define COM1 0x3f8
 
-uint16_t serial_base = COM1;
-atomic_flag serial_lock = ATOMIC_FLAG_INIT;
-struct fifo *serial_fifo;
+static uint16_t serial_base = COM1;
+static atomic_flag serial_lock = ATOMIC_FLAG_INIT;
+static struct fifo *serial_fifo;
 bool kmsg_silence = false;
 
 char serial_ringbuffer[1024];
@@ -140,6 +140,7 @@ long serial_tty_enqueue(int c) {
             serial_puts("\033[H\033[J");
             return 0;
     }
+    vfs_wake_up_sleeping(vfs_open(NULL, "/dev/ttyS0", false, false));
     return !fifo_enqueue(serial_fifo, c);
 }
 

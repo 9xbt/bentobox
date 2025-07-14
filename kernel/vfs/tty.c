@@ -177,6 +177,8 @@ long tty_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
+extern long serial_tty_poll(struct vfs_node *node);
+
 void tty_initialize(void) {
     tty_fifo = fifo_create(1024);
 
@@ -209,6 +211,7 @@ void tty_initialize(void) {
     serial_tty->read = tty_read;
     serial_tty->write = tty_write;
     serial_tty->isatty = true;
+    serial_tty->poll = serial_tty_poll;
     serial_tty->tty_ops.ioctl = serial_ioctl;
     serial_tty->tty_ops.flush = serial_tty_flush;
     serial_tty->tty_ops.enqueue = serial_tty_enqueue;
