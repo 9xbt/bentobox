@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/acpi.h>
+#include <kernel/panic.h>
 #include <kernel/printf.h>
 
 struct acpi_madt *madt = NULL;
@@ -16,6 +17,9 @@ struct madt_lapic_addr *lapic_addr;
 __attribute__((no_sanitize("alignment")))
 void madt_init() {
     madt = (struct acpi_madt*)acpi_find_table("APIC");
+
+    if (!madt) panic("couldn't find MADT");
+
     dprintf("%s:%d: MADT address: 0x%p\n", __FILE__, __LINE__, (uintptr_t)madt);
 
     uint32_t i = 0;

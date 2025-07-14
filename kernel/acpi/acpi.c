@@ -93,7 +93,7 @@ void acpi_install() {
     dprintf("%s:%d: ACPI version %s\n", __FILE__, __LINE__, acpi_use_xsdt ? "2.0" : "1.0");
 
     mmu_map((void *)ALIGN_DOWN((uintptr_t)acpi_root_sdt, PAGE_SIZE), PHYSICAL(ALIGN_DOWN((uintptr_t)acpi_root_sdt, PAGE_SIZE)), PTE_PRESENT);
-    //fadt_init();
+    fadt_init();
     madt_init();
 
     //printf("\033[92m * \033[97mInitialized ACPI tables\033[0m\n");
