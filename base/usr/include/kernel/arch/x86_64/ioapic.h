@@ -10,7 +10,5 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-extern bool ioapic_enabled;
-
 void ioapic_install(void);
 void ioapic_redirect_irq(uint32_t lapic_id, uint8_t vector, uint8_t irq, bool mask);

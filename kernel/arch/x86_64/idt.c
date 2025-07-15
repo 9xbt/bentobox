@@ -86,7 +86,7 @@ void idt_set_entry(uint8_t index, uint64_t base, uint16_t selector, uint8_t type
 }
 
 void irq_register(uint8_t vector, void *handler) {
-    if (ioapic_enabled && vector <= 15)
+    if (vector <= 15)
         ioapic_redirect_irq(0, vector + 32, vector, false);
     irq_handlers[vector] = handler;
 }
@@ -101,6 +101,10 @@ void isr_handler(struct registers *r) {
     }
     if (r->int_no == 2) {
         arch_fatal();
+    }
+    if (r->int_no == 15) {
+        dprintf("%s:%d: ignoring AMD K8/K10 hardware bug\n", __FILE__, __LINE__);
+        return;
     }
     if (!this || !this->user) {
         arch_prepare_fatal();

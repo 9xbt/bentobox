@@ -157,6 +157,14 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
+void irq12_handler(struct registers *r) {
+    uint8_t status = inb(PS2_STATUS);
+    if (!(status & (1 << 5))) {
+        lapic_eoi();
+        return;
+    }
+}
+
 static int ascii_to_linux_keycode(char c) {
     switch (c) {
         case 'a': case 'A': return KEY_A;
@@ -255,6 +263,23 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
     return sizeof iev;
 }
 
+long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    return 0;
+}
+
+void ps2_send_mouse_command(uint8_t command) {
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_COMMAND, 0xD4);
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_DATA, command);
+}
+
+void ps2_wait_ack() {
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    uint8_t ack = inb(PS2_DATA);
+    (void)ack;
+}
+
 void ps2_initialize(void) {
     if (!(fadt->iapc_boot_arch & (1 << 1))) {
         dprintf("%s:%d: warning: no PS/2 controller found\n", __FILE__, __LINE__);
@@ -332,10 +357,26 @@ void ps2_initialize(void) {
         outb(PS2_DATA, config);
     }
 
-    irq_register(1, irq1_handler);
-    struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
-    event0->read = ps2_keyboard_read_event;
-    vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
+    if (port1_works) {
+        irq_register(1, irq1_handler);
+        struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
+        event0->read = ps2_keyboard_read_event;
+        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
+        dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
+    }
 
-    dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
+    if (port2_works) {
+        ps2_send_mouse_command(0xF4);
+        ps2_wait_ack();
+        
+        while (inb(PS2_STATUS) & (1 << 0)) {
+            inb(PS2_DATA);
+        }
+        
+        irq_register(12, irq12_handler);
+        struct vfs_node *mouse = vfs_create_node("event1", VFS_CHARDEVICE);
+        mouse->read = ps2_mouse_read_event;
+        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
+        dprintf("%s:%d: initialized mouse\n", __FILE__, __LINE__);
+    }
 }

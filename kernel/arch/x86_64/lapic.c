@@ -3,7 +3,6 @@
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/tsc.h>
-#include <kernel/arch/x86_64/io.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/panic.h>
@@ -17,13 +16,6 @@ static bool cpu_check_apic(void) {
     if (__get_cpuid(1, &eax, &ebx, &ecx, &edx))
         return edx & CPUID_FEAT_EDX_APIC;
     return false;
-}
-
-static void pic_mask_all_irqs(void) {
-    outb(0x21, 0xFF);
-    outb(0x21, 0xFF);
-    outb(0x20, 0x20);
-    outb(0x20, 0x20);
 }
 
 __attribute__((no_sanitize("undefined")))
@@ -87,7 +79,6 @@ void lapic_install(void) {
     if (!cpu_check_apic())
         panic("APIC not supported");
 
-    pic_mask_all_irqs();
     mmu_map(VIRTUAL(LAPIC_REGS), (void *)LAPIC_REGS, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-    lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x100);
+    lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x1ff);
 }

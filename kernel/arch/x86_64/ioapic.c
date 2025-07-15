@@ -1,11 +1,10 @@
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
 #include <kernel/panic.h>
 #include <kernel/acpi.h>
 #include <kernel/mmu.h>
-
-bool ioapic_enabled = false;
 
 __attribute__((no_sanitize("undefined")))
 uint32_t ioapic_read(struct madt_ioapic* ioapic, uint8_t reg) {
@@ -85,9 +84,10 @@ void ioapic_install(void) {
         ioapic_write(ioapic, IOAPIC_REDTBL + (2 * i) + 1, 0); /* redirect to cpu 0 */
     }
 
-    ioapic_enabled = true;
+    outb(0x21, 0xFF);
+    outb(0xA1, 0xFF);
     asm volatile ("sti");
 
-    dprintf("%s:%d: initialized I/O APIC with %d interrupts\n", __FILE__, __LINE__, count + 1);\
+    dprintf("%s:%d: initialized I/O APIC with %d interrupts\n", __FILE__, __LINE__, count + 1);
     //printf("\033[92m * \033[97mInitialized I/O APIC\033[0m\n");
 }

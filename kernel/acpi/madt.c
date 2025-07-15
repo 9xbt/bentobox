@@ -28,6 +28,7 @@ void madt_init() {
 
         switch (entry->type) {
             case 0:
+                if (!(((struct madt_lapic*)entry)->flags & 1)) break;
                 madt_lapic_list[madt_lapics++] = (struct madt_lapic*)entry;
                 break;
             case 1:
@@ -39,9 +40,9 @@ void madt_init() {
             case 5:
                 lapic_addr = (struct madt_lapic_addr*)entry;
                 break;
-            case 9:
-                madt_lapics++;
-                break;
+            //case 9:
+            //    madt_lapics++;
+            //    break;
         }
 
         i += entry->length;
