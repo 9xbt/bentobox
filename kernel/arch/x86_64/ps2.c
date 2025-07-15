@@ -163,6 +163,8 @@ void irq12_handler(struct registers *r) {
         lapic_eoi();
         return;
     }
+    inb(PS2_DATA);
+    lapic_eoi();
 }
 
 static int ascii_to_linux_keycode(char c) {
@@ -267,6 +269,21 @@ long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size
     return 0;
 }
 
+void ps2_send_command(uint8_t command) {
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_COMMAND, command);
+}
+
+void ps2_write_data(uint8_t data) {
+    while (inb(PS2_STATUS) & (1 << 1));
+    outb(PS2_DATA, data);
+}
+
+uint8_t ps2_read_data(void) {
+    while (!(inb(PS2_STATUS) & (1 << 0)));
+    return inb(PS2_DATA);
+}
+
 void ps2_send_mouse_command(uint8_t command) {
     while (inb(PS2_STATUS) & (1 << 1));
     outb(PS2_COMMAND, 0xD4);
@@ -274,9 +291,8 @@ void ps2_send_mouse_command(uint8_t command) {
     outb(PS2_DATA, command);
 }
 
-void ps2_wait_ack() {
-    while (!(inb(PS2_STATUS) & (1 << 0)));
-    uint8_t ack = inb(PS2_DATA);
+void ps2_wait_ack(void) {
+    uint8_t ack = ps2_read_data();
     (void)ack;
 }
 
@@ -288,73 +304,63 @@ void ps2_initialize(void) {
 
     uint8_t config;
 
-    outb(PS2_COMMAND, 0xAD);
-    outb(PS2_COMMAND, 0xA7);
+    ps2_send_command(0xAD);
+    ps2_send_command(0xA7);
 
+    // Flush output buffer
     while (inb(PS2_STATUS) & (1 << 0)) {
         inb(PS2_DATA);
     }
 
-    outb(PS2_COMMAND, 0x20);
-    while (!(inb(PS2_STATUS) & (1 << 0)));
-    config = inb(PS2_DATA);
+    ps2_send_command(0x20);
+    config = ps2_read_data();
     config &= ~((1 << 0) | (1 << 4) | (1 << 6));
-    while (inb(PS2_STATUS) & (1 << 1));
-    outb(PS2_COMMAND, 0x60);
-    while (inb(PS2_STATUS) & (1 << 1));
-    outb(PS2_DATA, config);
+    ps2_send_command(0x60);
+    ps2_write_data(config);
 
-    outb(PS2_COMMAND, 0xAA);
-    while (!(inb(PS2_STATUS) & (1 << 0)));
-    uint8_t self_test = inb(PS2_DATA);
+    ps2_send_command(0xAA);
+    uint8_t self_test = ps2_read_data();
     if (self_test != 0x55) {
         dprintf("%s:%d: self test failed\n", __FILE__, __LINE__);
         return;
     }
 
     bool dual_channel = false;
-    outb(PS2_COMMAND, 0xA8);
-    outb(PS2_COMMAND, 0x20);
-    while (!(inb(PS2_STATUS) & (1 << 0)));
-    config = inb(PS2_DATA);
+    ps2_send_command(0xA8);
+    ps2_send_command(0x20);
+    config = ps2_read_data();
     if (!(config & (1 << 5))) {
         dual_channel = true;
-        outb(PS2_COMMAND, 0xA7);
+        ps2_send_command(0xA7);
         config &= ~((1 << 1) | (1 << 5));
-        while (inb(PS2_STATUS) & (1 << 1));
-        outb(PS2_COMMAND, 0x60);
-        while (inb(PS2_STATUS) & (1 << 1));
-        outb(PS2_DATA, config);
+        ps2_send_command(0x60);
+        ps2_write_data(config);
     }
 
     bool port1_works = false, port2_works = false;
 
-    outb(PS2_COMMAND, 0xAB);
-    while (!(inb(PS2_STATUS) & (1 << 0)));
-    uint8_t port1_test = inb(PS2_DATA);
+    ps2_send_command(0xAB);
+    uint8_t port1_test = ps2_read_data();
     if (port1_test == 0x00) port1_works = true;
 
     if (dual_channel) {
-        outb(PS2_COMMAND, 0xA9);
-        while (!(inb(PS2_STATUS) & (1 << 0)));
-        uint8_t port2_test = inb(PS2_DATA);
+        ps2_send_command(0xA9);
+        uint8_t port2_test = ps2_read_data();
         if (port2_test == 0x00) port2_works = true;
     }
 
     if (port1_works) {
-        outb(PS2_COMMAND, 0xAE);
+        ps2_send_command(0xAE);
         config |= (1 << 0);
     }
     if (port2_works) {
-        outb(PS2_COMMAND, 0xA8);
+        ps2_send_command(0xA8);
         config |= (1 << 1);
     }
 
     if (port1_works || port2_works) {
-        while (inb(PS2_STATUS) & (1 << 1));
-        outb(PS2_COMMAND, 0x60);
-        while (inb(PS2_STATUS) & (1 << 1));
-        outb(PS2_DATA, config);
+        ps2_send_command(0x60);
+        ps2_write_data(config);
     }
 
     if (port1_works) {
