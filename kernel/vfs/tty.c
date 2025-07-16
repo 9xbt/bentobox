@@ -44,6 +44,12 @@ long tty_enqueue(int c) {
     return !fifo_enqueue(tty_fifo, c);
 }
 
+void tty_enqueue_string(char *str) {
+    do {
+        tty_enqueue(*str);
+    } while (*str++);
+}
+
 long tty_dequeue(bool block) {
     int c = 0;
     while (!fifo_dequeue(tty_fifo, &c)) {

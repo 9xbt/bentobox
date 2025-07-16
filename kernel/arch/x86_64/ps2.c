@@ -11,6 +11,7 @@
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
+#include <kernel/fifo.h>
 #include <kernel/acpi.h>
 #include <kernel/fifo.h>
 #include <kernel/tty.h>
@@ -33,8 +34,7 @@ static const int kb_map_keys[256] = {
     [0x4E] = '-', [0x55] = '=', [0x66] = '\b',
     
     [0x0D] = '\t', [0x29] = ' ', [0x76] = 27,
-    [0x5D] = '\\', [0x6B] = 'D'+65535, [0x72] = 'B'+65535, [0x74] = 'C'+65535,
-    [0x75] = 'A'+65535, [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
+    [0x5D] = '\\', [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
 };
 
 static const int kb_map_keys_shift[256] = {
@@ -83,9 +83,7 @@ enum {
     PS2_COMMAND = 0x64
 };
 
-bool kb_caps = false;
-bool kb_ctrl = false;
-bool kb_shift = false;
+bool kb_caps = false, kb_ctrl = false, kb_shift = false;
 
 void irq1_handler(struct registers *r) {
     int c = 0;
@@ -93,14 +91,14 @@ void irq1_handler(struct registers *r) {
     static uint8_t last_key = 0;
     if (last_key == 0xf0) {
         switch (key) {
+            case 0xe0:
+                break;
             case 0x12:
             case 0x59:
                 kb_shift = false;
                 break;
             case 0x14:
                 kb_ctrl = false;
-                break;
-            case 0xe0:
                 break;
             default:
                 if (kb_shift) {
@@ -116,8 +114,25 @@ void irq1_handler(struct registers *r) {
                 }
                 break;
         }
+    } else if (last_key == 0xe0) {
+        switch (key) {
+            case 0x75: // up
+                tty_enqueue_string("\033[A");
+                break;
+            case 0x72: // down
+                tty_enqueue_string("\033[B");
+                break;
+            case 0x74: // left
+                tty_enqueue_string("\033[C");
+                break;
+            case 0x6b: // right
+                tty_enqueue_string("\033[D");
+                break;
+        }
     } else {
         switch (key) {
+            case 0xe0:
+                break;
             case 0x12:
             case 0x59:
                 kb_shift = true;
@@ -127,8 +142,6 @@ void irq1_handler(struct registers *r) {
                 break;
             case 0x58:
                 kb_caps = !kb_caps;
-                break;
-            case 0xe0:
                 break;
             default:
                 if (kb_ctrl && kb_map_keys_caps[key] >= 'A' && kb_map_keys_caps[key] <= 'Z') {
@@ -141,14 +154,7 @@ void irq1_handler(struct registers *r) {
                     c = kb_map_keys[key];
                 }
 
-                if (c > 65535) {
-                    tty_enqueue('\033');
-                    tty_enqueue('[');
-                    tty_enqueue(c-65535);
-                    tty_enqueue('\0');
-                } else {
-                    tty_enqueue(c);
-                }
+                tty_enqueue(c);
                 break;
         }
     }
@@ -157,13 +163,30 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
+static struct fifo *mouse_fifo;
+
 void irq12_handler(struct registers *r) {
     uint8_t status = inb(PS2_STATUS);
     if (!(status & (1 << 5))) {
         lapic_eoi();
         return;
     }
-    inb(PS2_DATA);
+    uint8_t data = inb(PS2_DATA);
+    static uint8_t last_data = 0;
+    static int pi = 0;
+
+    if (pi == 0 && !(data & (1 << 3))) {
+        lapic_eoi();
+        return;
+    }
+
+    
+
+    fifo_enqueue(mouse_fifo, inb(PS2_DATA));
+
+    if (data & (1 << 3)) {
+        last_data = data;
+    }
     lapic_eoi();
 }
 
@@ -266,6 +289,17 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 }
 
 long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    int packet[3];
+    static int last_packet[3];
+    fifo_dequeue(mouse_fifo, &packet[0]);
+    fifo_dequeue(mouse_fifo, &packet[1]);
+    fifo_dequeue(mouse_fifo, &packet[2]);
+    struct input_event iev;
+    iev.type = packet[0];
+    iev.code = packet[1];
+    iev.value = packet[2];
+    memcpy(buffer, &iev, sizeof iev);
+    memcpy(last_packet, packet, sizeof packet);
     return 0;
 }
 
@@ -291,11 +325,6 @@ void ps2_send_mouse_command(uint8_t command) {
     outb(PS2_DATA, command);
 }
 
-void ps2_wait_ack(void) {
-    uint8_t ack = ps2_read_data();
-    (void)ack;
-}
-
 void ps2_initialize(void) {
     if (!(fadt->iapc_boot_arch & (1 << 1))) {
         dprintf("%s:%d: warning: no PS/2 controller found\n", __FILE__, __LINE__);
@@ -307,7 +336,6 @@ void ps2_initialize(void) {
     ps2_send_command(0xAD);
     ps2_send_command(0xA7);
 
-    // Flush output buffer
     while (inb(PS2_STATUS) & (1 << 0)) {
         inb(PS2_DATA);
     }
@@ -319,8 +347,7 @@ void ps2_initialize(void) {
     ps2_write_data(config);
 
     ps2_send_command(0xAA);
-    uint8_t self_test = ps2_read_data();
-    if (self_test != 0x55) {
+    if (ps2_read_data() != 0x55) {
         dprintf("%s:%d: self test failed\n", __FILE__, __LINE__);
         return;
     }
@@ -340,13 +367,11 @@ void ps2_initialize(void) {
     bool port1_works = false, port2_works = false;
 
     ps2_send_command(0xAB);
-    uint8_t port1_test = ps2_read_data();
-    if (port1_test == 0x00) port1_works = true;
+    if (ps2_read_data() == 0x00) port1_works = true;
 
     if (dual_channel) {
         ps2_send_command(0xA9);
-        uint8_t port2_test = ps2_read_data();
-        if (port2_test == 0x00) port2_works = true;
+        if (ps2_read_data() == 0x00) port2_works = true;
     }
 
     if (port1_works) {
@@ -368,21 +393,21 @@ void ps2_initialize(void) {
         struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
         event0->read = ps2_keyboard_read_event;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
-        dprintf("%s:%d: initialized keyboard\n", __FILE__, __LINE__);
     }
 
     if (port2_works) {
         ps2_send_mouse_command(0xF4);
-        ps2_wait_ack();
+        ps2_read_data();
         
         while (inb(PS2_STATUS) & (1 << 0)) {
             inb(PS2_DATA);
         }
         
+        mouse_fifo = fifo_create(64);
         irq_register(12, irq12_handler);
         struct vfs_node *mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->read = ps2_mouse_read_event;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
-        dprintf("%s:%d: initialized mouse\n", __FILE__, __LINE__);
     }
+    dprintf("%s:%d: initialized PS/2 controller\n", __FILE__, __LINE__);
 }

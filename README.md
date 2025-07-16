@@ -67,7 +67,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Mounting
     - [X] Caching
 - [X] Framebuffer support
-- [ ] PS/2 drivers
+- [X] PS/2 driver
     - [X] Keyboard
         - [X] Arrow key support
     - [ ] Mouse
@@ -82,7 +82,6 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] `unimplemented` macro
 - [X] Simplify the PCI driver
 - [X] FIFO queues
-- [ ] ~~Write a more efficient heap~~
 - [X] Port dlmalloc
 - [X] Move to dlmalloc
 - [ ] Make an OS specific toolchain
@@ -117,7 +116,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] TSC timing
 - [X] exec()
 - [X] fork()
-- [ ] ~~Fix ATA driver not reading/writing more than 256 sectors at a time~~
+- [X] Fix ATA driver not reading/writing more than 256 sectors at a time
 - [X] waitpid()
     - [X] Signals
 - [X] Fix signals on SMP
@@ -135,7 +134,6 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] TTY operations
 - [X] Move vfs_node->open to fd->open
 - [ ] Lazy ELF loading
-- [ ] ~~Move FD termios to VFS nodes~~
 - [X] faccessat
 - [X] Check FD bounds in syscalls that don't
 - [ ] Module symbol parsing
@@ -152,7 +150,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Generic ringbuffers
     - [X] Make unixpipes use them
 - [ ] Scheduler improvements
-    - [ ] Polling
+    - [X] Polling
     - [ ] CPU usage calculation
     - [ ] Priorities
     - [ ] Process stealing
