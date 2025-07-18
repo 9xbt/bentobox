@@ -174,7 +174,7 @@ void irq12_handler(struct registers *r) {
         bool ys;
         short delta_x;
         short delta_y;
-    } state, last_state;
+    } state, last_state = {0};
     static int pi = 0;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
@@ -207,15 +207,31 @@ void irq12_handler(struct registers *r) {
     }
 
     if (++pi >= 3) {
+        #define PUSH(x) fifo_enqueue(mouse_fifo, x);
         if (state.delta_x) {
-            fifo_enqueue(mouse_fifo, EV_REL);
-            fifo_enqueue(mouse_fifo, REL_X);
-            fifo_enqueue(mouse_fifo, state.delta_x);
+            PUSH(EV_REL);
+            PUSH(REL_X);
+            PUSH(state.delta_x);
         }
         if (state.delta_y) {
-            fifo_enqueue(mouse_fifo, EV_REL);
-            fifo_enqueue(mouse_fifo, REL_Y);
-            fifo_enqueue(mouse_fifo, state.delta_y);
+            PUSH(EV_REL);
+            PUSH(REL_Y);
+            PUSH(state.delta_y);
+        }
+        if (state.left != last_state.left) {
+            PUSH(EV_KEY);
+            PUSH(BTN_LEFT);
+            PUSH(state.left);
+        }
+        if (state.right != last_state.right) {
+            PUSH(EV_KEY);
+            PUSH(BTN_RIGHT);
+            PUSH(state.right);
+        }
+        if (state.middle != last_state.middle) {
+            PUSH(EV_KEY);
+            PUSH(BTN_MIDDLE);
+            PUSH(state.middle);
         }
 
         memcpy(&last_state, &state, sizeof state);
