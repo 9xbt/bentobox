@@ -386,10 +386,6 @@ long sys_dup3(int oldfd, int newfd, int flags) {
 long sys_nanosleep(const struct timespec *duration) {
     if (!duration)
         return -EFAULT;
-    if (duration->tv_nsec < 5000000) {
-        /* we have a lot of overhead, don't bother sleeping */
-        return 0;
-    }
     sched_sleep((uint64_t)duration->tv_sec * 1000000UL + (uint64_t)duration->tv_nsec / 1000UL);
     return 0;
 }
