@@ -17,8 +17,10 @@ LDFLAGS =
 # Output directory
 OUT = ../bin/base/bin
 
+.PHONY: all
 all: dirs $(addprefix $(OUT)/, $(S_EXES)) $(addprefix $(OUT)/, $(C_EXES))
 
+.PHONY: dirs
 dirs:
 	@mkdir -p $(OUT)
 
@@ -31,5 +33,3 @@ $(OUT)/%: %.S
 	@$(AS) $(ASFLAGS) -o $@.o $<
 	@$(LD) $(LDFLAGS) $@.o -o $@
 	@rm $@.o
-
-.PHONY: all clean

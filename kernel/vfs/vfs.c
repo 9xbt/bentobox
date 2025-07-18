@@ -1,16 +1,16 @@
-#include "kernel/sched.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stddef.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <kernel/vfs.h>
-#include <kernel/mmu.h>
-#include <kernel/list.h>
-#include <kernel/malloc.h>
-#include <kernel/string.h>
-#include <kernel/printf.h>
 #include <kernel/spinlock.h>
+#include <kernel/malloc.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/sched.h>
+#include <kernel/list.h>
+#include <kernel/mmu.h>
+#include <kernel/vfs.h>
 
 extern void zero_initialize(void);
 extern void ps2_initialize(void);
@@ -268,7 +268,7 @@ long vfs_poll(struct vfs_node *node) {
     return -1UL;
 }
 
-void vfs_wake_up_sleeping(struct vfs_node *node) {
+void vfs_unblock_polling(struct vfs_node *node) {
     if (!node) return;
     foreach(proc, node->poll_list) {
         sched_unblock(proc->value);

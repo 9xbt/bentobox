@@ -84,8 +84,8 @@ enum {
 };
 
 static bool kb_caps = false, kb_ctrl = false, kb_shift = false;
-static struct fifo *mouse_fifo;
-static struct vfs_node *keyboard, *mouse;
+static struct fifo *kb_fifo, *mouse_fifo;
+static struct vfs_node *kb, *mouse;
 
 void irq1_handler(struct registers *r) {
     int c = 0;
@@ -111,9 +111,7 @@ void irq1_handler(struct registers *r) {
                     c = kb_map_keys[key];
                 }
                 
-                if (c < 65535) {
-                    tty_enqueue(-c);
-                }
+                fifo_enqueue(kb_fifo, -c);
                 break;
         }
     } else if (last_key == 0xe0) {
@@ -146,8 +144,8 @@ void irq1_handler(struct registers *r) {
                 kb_caps = !kb_caps;
                 break;
             default:
-                if (kb_ctrl && kb_map_keys_caps[key] >= 'A' && kb_map_keys_caps[key] <= 'Z') {
-                    c = kb_map_keys_caps[key] - 'A' + 1;
+                if (kb_ctrl) {
+                    c = kb_map_keys_caps[key] - '@';
                 } else if (kb_shift) {
                     c = kb_map_keys_shift[key];
                 } else if (kb_caps) {
@@ -157,6 +155,7 @@ void irq1_handler(struct registers *r) {
                 }
 
                 tty_enqueue(c);
+                fifo_enqueue(kb_fifo, c);
                 break;
         }
     }
@@ -238,7 +237,7 @@ void irq12_handler(struct registers *r) {
         memset(&state, 0, sizeof state);
         pi = 0;
 
-        vfs_wake_up_sleeping(mouse);
+        vfs_unblock_polling(mouse);
     }
 
     lapic_eoi();
@@ -331,8 +330,8 @@ static int ascii_to_linux_keycode(char c) {
 }
 
 long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    int c = tty_dequeue(false);
-    if (c == -EAGAIN) return -EAGAIN;
+    int c;
+    if (!fifo_dequeue(kb_fifo, &c)) return -EAGAIN;
 
     struct input_event iev;
     iev.type = EV_KEY;
@@ -444,10 +443,12 @@ void ps2_initialize(void) {
     }
 
     if (port1_works) {
+        kb_fifo = fifo_create(64);
         irq_register(1, irq1_handler);
-        keyboard = vfs_create_node("event0", VFS_CHARDEVICE);
-        keyboard->read = ps2_keyboard_read_event;
-        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), keyboard);
+        
+        kb = vfs_create_node("event0", VFS_CHARDEVICE);
+        kb->read = ps2_keyboard_read_event;
+        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), kb);
     }
 
     if (port2_works) {

@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <ioctls.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -13,7 +14,7 @@
 #include <kernel/fd.h>
 
 static struct fifo *tty_fifo;
-static vfs_node_t *console, *tty;
+static vfs_node_t *console;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
@@ -36,11 +37,12 @@ long tty_enqueue(int c) {
     switch (c) {
         case 0x3:
             printf("^C\n");
-            signal_send(sched_get_foreground(), SIGINT, 0);
+            if (console->poll_list->head) {
+                signal_send(console->poll_list->head->value, SIGINT, 0);
+            }
             return 0;
     }
-    vfs_wake_up_sleeping(console);
-    vfs_wake_up_sleeping(tty);
+    vfs_unblock_polling(console);
     return !fifo_enqueue(tty_fifo, c);
 }
 
@@ -198,18 +200,6 @@ void tty_initialize(void) {
     console->tty_ops.enqueue = tty_enqueue;
     console->tty_ops.dequeue = tty_dequeue;
     vfs_add_device(console);
-
-    tty = vfs_create_node("tty", VFS_CHARDEVICE);
-    tty->perms = 0666;
-    tty->read = tty_read;
-    tty->write = tty_write;
-    tty->isatty = true;
-    tty->poll = tty_poll;
-    tty->tty_ops.ioctl = tty_ioctl;
-    tty->tty_ops.flush = tty_flush;
-    tty->tty_ops.enqueue = tty_enqueue;
-    tty->tty_ops.dequeue = tty_dequeue;
-    vfs_add_device(tty);
 
     vfs_node_t *serial_tty = vfs_create_node("ttyS0", VFS_CHARDEVICE);
     serial_tty->perms = 0666;

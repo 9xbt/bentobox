@@ -232,8 +232,8 @@ void sched_schedule(struct registers *r) {
                         proc->signal_handlers[sig](proc);
                     }
                 }
-                this_core()->current_proc = current;
-                goto actually_switch;
+                //this_core()->current_proc = current;
+                //goto actually_switch;
             }
 
             if (proc->state == TASK_RUNNING) {
@@ -295,8 +295,6 @@ struct process *sched_get_foreground(void) {
 }
 
 void sched_kill(struct process *proc, int status) {
-    sched_lock();
-
     if (proc->pid == 1)
         panic("Attempted to kill init!");
     if (proc->pid == 0)
@@ -305,6 +303,8 @@ void sched_kill(struct process *proc, int status) {
     if (proc->parent && proc->parent->state != TASK_RUNNING) {
         signal_send(proc->parent, SIGCHLD, status);
     }
+
+    sched_lock();
     
     bool yield = proc == this;
     

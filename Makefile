@@ -111,7 +111,7 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f)
+bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f) | apps
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 	@cp -r base bin/
 	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat

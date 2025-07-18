@@ -140,7 +140,7 @@ long serial_tty_enqueue(int c) {
             serial_puts("\033[H\033[J");
             return 0;
     }
-    vfs_wake_up_sleeping(vfs_open(NULL, "/dev/ttyS0", false, false));
+    vfs_unblock_polling(vfs_open(NULL, "/dev/ttyS0", false, false));
     return !fifo_enqueue(serial_fifo, c);
 }
 
