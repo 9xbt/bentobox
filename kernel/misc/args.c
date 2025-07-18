@@ -13,13 +13,15 @@ char *args_value(const char *s) {
     char *arg = strstr(cmdline, s);
     if (!arg) return NULL;
     arg += strlen(s);
-    if (*arg != '=') {
-        return NULL;
-    }
+    if (*arg != '=') return NULL;
     arg++;
+    
     char *end = strchr(arg, ' ');
-    if (end) {
-        *end = '\0';
-    }
-    return arg;
+    int len = end ? (end - arg) : strlen(arg);
+    
+    static char result[256];
+    strncpy(result, arg, len);
+    result[len] = '\0';
+    
+    return result;
 }
