@@ -70,6 +70,7 @@ void malloc_initialize() {
     if (add_heap_region(INITIAL_HEAP_SIZE) < 0) {
         panic("Failed to initialize heap");
     }
+    dprintf("%s:%d: initialized kernel heap\n", __FILE__, __LINE__);
 }
 
 void *kmalloc(size_t n) {

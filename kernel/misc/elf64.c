@@ -101,6 +101,7 @@ int elf_module(struct multiboot_tag_module *mod) {
         ksymtab = symtab;
         kstrtab = strtab;
         ksym_count = symbol_count;
+        dprintf("%s:%d: read %d symbols from module '%s'\n", __FILE__, __LINE__, symbol_count, mod->string);
         return 0;
     }
 

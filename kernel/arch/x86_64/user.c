@@ -1,4 +1,5 @@
 #include <kernel/arch/x86_64/user.h>
+#include <kernel/printf.h>
 
 extern void syscall_entry(void);
 
@@ -38,4 +39,6 @@ void user_initialize(void) {
     wrmsr(IA32_LSTAR, (uint64_t)syscall_entry);
     wrmsr(IA32_CSTAR, 0);
     wrmsr(IA32_CSTAR + 1, 0x200);
+    
+    dprintf("%s:%d: enabled SYSCALL instruction\n", __FILE__, __LINE__);
 }
