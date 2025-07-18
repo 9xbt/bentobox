@@ -37,6 +37,10 @@ long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
     if ((!fd->node->write && write) || (!fd->node->read && !write))
         return 0;
 
+    if (!(fd->flags & O_NONBLOCK)) {
+        vfs_poll(fd->node);
+    }
+
     long ret = write ?
         vfs_write(fd->node, buffer, fd->offset, len) :
         vfs_read(fd->node, buffer, fd->offset, len);

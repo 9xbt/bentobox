@@ -86,13 +86,8 @@ kernel: $(KERNEL_OBJS)
 	@$(LD) $(LDFLAGS) $^ -o bin/image.elf
 	@$(LD) $(LDFLAGS) -r $^ -o bin/ksym.o
 
-bin/modules.d: $(MODULE_OBJS) kernel
+modules: kernel $(MODULE_OBJS)
 	@./util/modules.sh $(MODULE_OBJS)
-	@touch bin/modules.d
-
-$(MODULE_BINARIES): bin/modules.d
-
-modules: bin/modules.d
 
 .PHONY: iso
 ifeq ($(ARCH),x86_64)
@@ -116,12 +111,9 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-bin/$(IMAGE_NAME).hdd: $(shell find base -type f)
+bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f)
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 	@cp -r base bin/
-	@[ ! -e bin/base/bin/bash ] && ln -s /usr/bin/bash bin/base/bin/bash || true
-	@bash util/busybox.sh
-#	@cp -r /opt/mlibc/include bin/base/usr/
 	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
 	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt

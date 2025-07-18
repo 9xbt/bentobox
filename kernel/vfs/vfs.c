@@ -71,6 +71,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->driver = VFS_DRIVER_OTHER;
     node->close = NULL;
     node->poll_list = list_create();
+    node->poll = NULL;
     return node;
 }
 

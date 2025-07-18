@@ -11,8 +11,8 @@
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
-#include <kernel/fifo.h>
 #include <kernel/acpi.h>
+#include <kernel/fifo.h>
 #include <kernel/fifo.h>
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
@@ -83,7 +83,9 @@ enum {
     PS2_COMMAND = 0x64
 };
 
-bool kb_caps = false, kb_ctrl = false, kb_shift = false;
+static bool kb_caps = false, kb_ctrl = false, kb_shift = false;
+static struct fifo *mouse_fifo;
+static struct vfs_node *keyboard, *mouse;
 
 void irq1_handler(struct registers *r) {
     int c = 0;
@@ -163,30 +165,66 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static struct fifo *mouse_fifo;
-
 void irq12_handler(struct registers *r) {
-    uint8_t status = inb(PS2_STATUS);
-    if (!(status & (1 << 5))) {
-        lapic_eoi();
-        return;
-    }
-    uint8_t data = inb(PS2_DATA);
-    static uint8_t last_data = 0;
+    static struct {
+        bool left;
+        bool right;
+        bool middle;
+        bool xs;
+        bool ys;
+        short delta_x;
+        short delta_y;
+    } state, last_state;
     static int pi = 0;
 
-    if (pi == 0 && !(data & (1 << 3))) {
+    if (!(inb(PS2_STATUS) & (1 << 5))) {
+        dprintf("%s:%d: not a mouse packet\n", __FILE__, __LINE__);
         lapic_eoi();
         return;
     }
 
-    
-
-    fifo_enqueue(mouse_fifo, inb(PS2_DATA));
-
-    if (data & (1 << 3)) {
-        last_data = data;
+    uint8_t data = inb(PS2_DATA);
+    if (pi == 0 && !(data & (1 << 3))) {
+        dprintf("%s:%d: corrupted mouse packet\n", __FILE__, __LINE__);
+        lapic_eoi();
+        return;
     }
+
+    switch (pi) {
+        case 0:
+            state.left = data & (1 << 0);
+            state.right = data & (1 << 1);
+            state.middle = data & (1 << 2);
+            state.xs = data & (1 << 4);
+            state.ys = data & (1 << 5);
+            break;
+        case 1:
+            state.delta_x = state.xs ? (data | 0xFF00) : data;
+            break;
+        case 2:
+            state.delta_y = state.ys ? (data | 0xFF00) : data;
+            break;
+    }
+
+    if (++pi >= 3) {
+        if (state.delta_x) {
+            fifo_enqueue(mouse_fifo, EV_REL);
+            fifo_enqueue(mouse_fifo, REL_X);
+            fifo_enqueue(mouse_fifo, state.delta_x);
+        }
+        if (state.delta_y) {
+            fifo_enqueue(mouse_fifo, EV_REL);
+            fifo_enqueue(mouse_fifo, REL_Y);
+            fifo_enqueue(mouse_fifo, state.delta_y);
+        }
+
+        memcpy(&last_state, &state, sizeof state);
+        memset(&state, 0, sizeof state);
+        pi = 0;
+
+        vfs_wake_up_sleeping(mouse);
+    }
+
     lapic_eoi();
 }
 
@@ -278,7 +316,7 @@ static int ascii_to_linux_keycode(char c) {
 
 long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
     int c = tty_dequeue(false);
-    if (c == -EAGAIN) return 0;
+    if (c == -EAGAIN) return -EAGAIN;
 
     struct input_event iev;
     iev.type = EV_KEY;
@@ -289,18 +327,19 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 }
 
 long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    int packet[3];
-    static int last_packet[3];
+    if (fifo_is_empty(mouse_fifo)) return -EAGAIN;
+
+    int packet[3] = {0};
     fifo_dequeue(mouse_fifo, &packet[0]);
     fifo_dequeue(mouse_fifo, &packet[1]);
     fifo_dequeue(mouse_fifo, &packet[2]);
+
     struct input_event iev;
     iev.type = packet[0];
     iev.code = packet[1];
     iev.value = packet[2];
     memcpy(buffer, &iev, sizeof iev);
-    memcpy(last_packet, packet, sizeof packet);
-    return 0;
+    return sizeof iev;
 }
 
 void ps2_send_command(uint8_t command) {
@@ -364,14 +403,14 @@ void ps2_initialize(void) {
         ps2_write_data(config);
     }
 
-    bool port1_works = false, port2_works = false;
-
     ps2_send_command(0xAB);
-    if (ps2_read_data() == 0x00) port1_works = true;
+
+    bool port1_works = (ps2_read_data() == 0x00);
+    bool port2_works = false;
 
     if (dual_channel) {
         ps2_send_command(0xA9);
-        if (ps2_read_data() == 0x00) port2_works = true;
+        port2_works = (ps2_read_data() == 0x00);
     }
 
     if (port1_works) {
@@ -390,9 +429,9 @@ void ps2_initialize(void) {
 
     if (port1_works) {
         irq_register(1, irq1_handler);
-        struct vfs_node *event0 = vfs_create_node("event0", VFS_CHARDEVICE);
-        event0->read = ps2_keyboard_read_event;
-        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), event0);
+        keyboard = vfs_create_node("event0", VFS_CHARDEVICE);
+        keyboard->read = ps2_keyboard_read_event;
+        vfs_add_node(vfs_open(NULL, "/dev/input", true, true), keyboard);
     }
 
     if (port2_works) {
@@ -402,12 +441,19 @@ void ps2_initialize(void) {
         while (inb(PS2_STATUS) & (1 << 0)) {
             inb(PS2_DATA);
         }
+
+        ps2_send_mouse_command(0xF3);
+        ps2_read_data();
+        ps2_send_mouse_command(100);
+        ps2_read_data();
         
         mouse_fifo = fifo_create(64);
         irq_register(12, irq12_handler);
-        struct vfs_node *mouse = vfs_create_node("event1", VFS_CHARDEVICE);
+
+        mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->read = ps2_mouse_read_event;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
     }
+
     dprintf("%s:%d: initialized PS/2 controller\n", __FILE__, __LINE__);
 }
