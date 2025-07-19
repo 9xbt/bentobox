@@ -6,7 +6,7 @@
 #define PIT_SPEAKER_PORT 0x61
 #define PIT_FREQ        1193182
 
-void pit_oneshot(uint16_t microseconds) {
+void pit_oneshot(uint64_t microseconds) {
     uint16_t count = (PIT_FREQ * (uint64_t)microseconds + 500000) / 1000000;
     
     uint8_t speaker_state = inb(PIT_SPEAKER_PORT);

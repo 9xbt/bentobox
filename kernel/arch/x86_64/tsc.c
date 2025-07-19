@@ -6,6 +6,8 @@
 #include <kernel/printf.h>
 #include <kernel/panic.h>
 
+#define TSC_CALIBRATION_PERIOD 100000
+
 uint64_t tsc_period = 0;
 static uint64_t delta = 0;
 
@@ -36,16 +38,16 @@ void tsc_install(void) {
     if (hpet) {
         asm volatile ("cli");
         uint64_t start = rdtsc();
-        hpet_sleep(1000);
+        hpet_sleep(TSC_CALIBRATION_PERIOD);
         delta = rdtsc() - start;
         asm volatile ("sti");
     } else {
         uint64_t start = rdtsc();
-        pit_oneshot(1000);
+        pit_oneshot(TSC_CALIBRATION_PERIOD);
         delta = rdtsc() - start;
     }
-    tsc_period = delta / 1000;
-    dprintf("%s:%d: detected %lu.%luMHz TSC\n", __FILE__, __LINE__, delta / 1000, delta % 1000);
+    tsc_period = delta / TSC_CALIBRATION_PERIOD;
+    dprintf("%s:%d: detected %lu.%luMHz TSC\n", __FILE__, __LINE__, delta / TSC_CALIBRATION_PERIOD, delta % TSC_CALIBRATION_PERIOD);
 }
 
 void tsc_sleep(size_t us) {
