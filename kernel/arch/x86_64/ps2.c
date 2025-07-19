@@ -357,6 +357,12 @@ long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size
     return sizeof iev;
 }
 
+long ps2_mouse_poll(struct vfs_node *node) {
+    if (!fifo_is_empty(mouse_fifo))
+        return -1UL;
+    return 0;
+}
+
 void ps2_send_command(uint8_t command) {
     while (inb(PS2_STATUS) & (1 << 1));
     outb(PS2_COMMAND, command);
@@ -469,6 +475,7 @@ void ps2_initialize(void) {
 
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->read = ps2_mouse_read_event;
+        mouse->poll = ps2_mouse_poll;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
     }
 
