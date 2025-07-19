@@ -1,0 +1,133 @@
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <linux/fb.h>
+#include <linux/input.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+
+int mouse_x = 640, mouse_y = 400;
+
+size_t fb_size;
+uint32_t *back_fb, *front_fb;
+struct fb_var_screeninfo vinfo = {};
+
+uint8_t *font;
+uint32_t *background;
+
+#define swap(src, dest) memcpy(dest, src, fb_size);
+#define plot(fb, x, y, c) fb[y * vinfo.xres + x] = c;
+#define rectangle(fb, x, y, w, h, c) _rectangle(fb, x, y, w, h, c);
+#define string(fb, x, y, c, s) _string(fb, x + 1, y + 1, ~c & 0xFFFFFF, s); _string(fb, x, y, c, s);
+
+void _rectangle(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, uint32_t color) {
+    for (int yy = y; yy < y + height; yy++) {
+        for (int xx = x; xx < x + width; xx++) {
+            plot(fb, xx, yy, color);
+        }
+    }
+}
+
+void _char(uint32_t *fb, uint32_t x, uint32_t y, uint32_t color, char c) {
+    for (int yy = y; yy < y + 16; yy++) {
+        for (int xx = x; xx < x + 8; xx++) {
+            if (font[c * 16 + (yy - y)] & (1 << (7 - (xx - x)))) {
+                plot(fb, xx, yy, color);
+            }
+        }
+    }
+}
+
+void _string(uint32_t *fb, uint32_t x, uint32_t y, uint32_t color, char *str) {
+    for (int i = 0; i < strlen(str); i++) {
+        _char(fb, x + i * 8, y, color, str[i]);
+    }
+}
+
+void update(void) {
+    swap(background, back_fb);
+    rectangle(back_fb, mouse_x, mouse_y, 8, 8, 0x000000);
+    swap(back_fb, front_fb);
+}
+
+int main(int argc, char *argv[]) {
+    int fb = open("/dev/fb0", O_RDWR);
+    if (fb == -1) {
+        perror("failed to open framebuffer");
+        exit(EXIT_FAILURE);
+    }
+    if (ioctl(fb, FBIOGET_VSCREENINFO, &vinfo) < 0) {
+        perror("ioctl");
+    }
+    fb_size = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
+    if (!(front_fb = mmap(NULL, fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb, 0))) {
+        perror("failed to map framebuffer");
+        exit(EXIT_FAILURE);
+    }
+    back_fb = malloc(fb_size);
+
+    int mouse;
+    if ((mouse = open("/dev/input/event1", O_RDONLY)) == -1) {
+        perror("failed to open mouse");
+        exit(EXIT_FAILURE);
+    }
+
+    FILE *fptr;
+    if (!(fptr = fopen("/usr/share/fonts/VGA9.F16", "rb"))) {
+        perror("failed to open font");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(fptr, 0, SEEK_END);
+    long size = ftell(fptr);
+    rewind(fptr);
+
+    font = malloc(size);
+    fread(font, 1, size, fptr);
+    fclose(fptr);
+
+    background = malloc(fb_size);
+    for (int y = 0; y < vinfo.yres; y++) {
+        for (int x = 0; x < vinfo.xres; x++) {
+            plot(background, x, y, (x + y) % 2 ? 0x000000 : 0xBBBBBB);
+        }
+    }
+
+    string(background, 10, 10, 0xFFFFFF, "Hello, world!");
+
+    update();
+
+    struct input_event ev;
+    for (;;) {
+        ssize_t bytes = read(mouse, &ev, sizeof(struct input_event));
+        if (bytes < (ssize_t) sizeof(struct input_event)) {
+            continue;
+        }
+
+        if (ev.type == EV_REL) {
+            if (ev.code == REL_X) {
+                mouse_x += ev.value;
+            } else if (ev.code == REL_Y) {
+                mouse_y -= ev.value;
+            }
+
+            if (mouse_x < 0)
+                mouse_x = 0;
+            if (mouse_y < 0)
+                mouse_y = 0;
+            if (mouse_x >= vinfo.xres)
+                mouse_x = vinfo.xres - 1;
+            if (mouse_y >= vinfo.yres)
+                mouse_y = vinfo.yres - 1;
+        }
+
+        update();
+    }
+
+    return EXIT_FAILURE;
+}
