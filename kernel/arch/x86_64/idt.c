@@ -96,25 +96,15 @@ void irq_unregister(uint8_t vector) {
 }
 
 void isr_handler(struct registers *r) {
-    if (r->int_no == 0xff) {
+    if (r->int_no == 15 || r->int_no == 255) {
         return;
     }
     if (r->int_no == 2) {
         arch_fatal();
     }
-    if (r->int_no == 15) {
-        dprintf("%s:%d: ignoring AMD K8/K10 hardware bug\n", __FILE__, __LINE__);
-        return;
-    }
     if (!this || !this->user) {
         arch_prepare_fatal();
     }
-
-    static volatile bool faulted = false;
-    if (faulted) {
-        goto kill;
-    }
-    faulted = true;
 
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
@@ -146,20 +136,13 @@ void isr_handler(struct registers *r) {
     dprintf("%s:%d: traceback:\n", __FILE__, __LINE__);
 
     char symbol[256];
-    for (int i = 0; i < 10 && frame_ptr->rbp; i++) {
-        if (i == 0) {
-            elf_symbol_name(symbol, ksymtab, kstrtab, ksym_count, r->rip);
-            dprintf("#%d  0x%p in %s\n", i, r->rip, symbol);
-            frame_ptr = frame_ptr->rbp;
-            continue;
-        }
+    for (int i = 0; i < 8 && frame_ptr->rbp; i++) {
         elf_symbol_name(symbol, ksymtab, kstrtab, ksym_count, frame_ptr->rip);
         dprintf("#%d  0x%p in %s\n", i, frame_ptr->rip, symbol);
+        if (!mmu_get_physical(this_core()->pml4, (uintptr_t)frame_ptr->rbp)) break;
         frame_ptr = frame_ptr->rbp;
     }
-    faulted = false;
 
-kill:
     if (this && this->user) {
         fprintf(1, "Segmentation fault (core dumped)\n", __FILE__, __LINE__, this->pid);
         asm volatile ("sti");
