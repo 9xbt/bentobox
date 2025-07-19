@@ -35,6 +35,10 @@ Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_cou
 }
 
 int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_count, Elf64_Addr addr) {
+    if (addr >= 0x400000) {
+        strcpy(s, "(userspace)");
+        return 1;
+    }
     extern void *end;
     if (addr >= (uintptr_t)&end) {
         strcpy(s, "(none)");
@@ -61,7 +65,7 @@ int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_c
         }
     }
 
-    if (!sym || (symtab == ksymtab && !strcmp(&strtab[sym->st_name], "end"))) {
+    if (!sym) {
         strcpy(s, "(none)");
         return 1;
     }
