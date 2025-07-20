@@ -23,7 +23,6 @@ enum process_state {
     TASK_KILLED,
     TASK_FRESH,
     TASK_SIGNAL,
-    TASK_BLOCKING_IO,
     TASK_POLLING
 };
 
@@ -82,7 +81,7 @@ void sched_lock(void);
 void sched_unlock(void);
 void sched_block(enum process_state reason);
 void sched_unblock(struct process *proc);
-void sched_sleep(int us);
+void sched_sleep(long us);
 void sched_kill(struct process *proc, int status);
 void sched_idle(void);
 node_t *sched_add_task(struct process *proc, struct cpu *core);

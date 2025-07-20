@@ -278,7 +278,7 @@ void sched_unblock(struct process *proc) {
     proc->state = TASK_RUNNING;
 }
 
-void sched_sleep(int us) {
+void sched_sleep(long us) {
     if (us == 0) return;
     if (hpet) this->time.end = hpet_get_ticks() + (us * 1000000000ULL) / hpet_period;
     else this->time.end = tsc_get_ticks() + us * tsc_period;

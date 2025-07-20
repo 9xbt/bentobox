@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     back_fb = malloc(fb_size);
 
     int mouse;
-    if ((mouse = open("/dev/input/event1", O_RDONLY | O_NONBLOCK)) == -1) {
+    if ((mouse = open("/dev/input/event1", O_RDONLY)) == -1) {
         perror("failed to open mouse");
         exit(EXIT_FAILURE);
     }

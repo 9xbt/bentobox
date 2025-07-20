@@ -257,14 +257,17 @@ long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return -EINVAL;
 }
 
-long vfs_poll(struct vfs_node *node) {
+long vfs_poll(struct vfs_node *node, long events, long timeout) {
     if (!node || !node->poll || !node->poll_list)
         return -1UL;
-    long poll = node->poll(node);
+    long poll = node->poll(node, events);
     if (poll)
-        return -1UL;
+        return poll;
+    if (timeout == 0)
+        return 0;
     list_insert(node->poll_list, this);
-    sched_block(TASK_POLLING);
+    if (timeout == -1) sched_block(TASK_POLLING);
+    else sched_sleep(timeout);
     return -1UL;
 }
 

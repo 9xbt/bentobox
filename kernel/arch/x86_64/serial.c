@@ -1,4 +1,5 @@
 #include <stdatomic.h>
+#include <sys/poll.h>
 #include <ioctls.h>
 #include <stddef.h>
 #include <errno.h>
@@ -128,9 +129,14 @@ void serial_tty_flush(void) {
     }
 }
 
-long serial_tty_poll(struct vfs_node *node) {
-    if (!fifo_is_empty(serial_fifo))
-        return -1UL;
+long serial_tty_poll(struct vfs_node *node, long events) {
+    if (events & POLLIN) {
+        if (!fifo_is_empty(serial_fifo))
+            return POLLIN;
+    }
+    if (events & POLLOUT) {
+        return POLLOUT;
+    }
     return 0;
 }
 
@@ -150,7 +156,7 @@ long serial_tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        vfs_poll(vfs_open(NULL, "/dev/ttyS0", false, false));
+        vfs_poll(vfs_open(NULL, "/dev/ttyS0", false, false), -1UL, -1);
     }
     return c;
 }

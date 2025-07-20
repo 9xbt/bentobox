@@ -1,5 +1,6 @@
 #include <bits/types/struct_timeval.h>
 #include <linux/input.h>
+#include <sys/poll.h>
 #include <stdbool.h>
 #include <ioctls.h>
 #include <errno.h>
@@ -357,9 +358,11 @@ long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size
     return sizeof iev;
 }
 
-long ps2_mouse_poll(struct vfs_node *node) {
-    if (!fifo_is_empty(mouse_fifo))
-        return -1UL;
+long ps2_mouse_poll(struct vfs_node *node, long events) {
+    if (events & POLLIN) {
+        if (!fifo_is_empty(mouse_fifo))
+            return POLLIN;
+    }
     return 0;
 }
 

@@ -28,7 +28,7 @@
 #include <kernel/vfs.h>
 #include <kernel/fd.h>
 
-long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
+static long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
     struct fd *fd = fd_get(fd_num);
     if (!fd || !fd->open)
         return -EBADFD;
@@ -37,9 +37,8 @@ long sys_read_write(int fd_num, void *buffer, size_t len, bool write) {
     if ((!fd->node->write && write) || (!fd->node->read && !write))
         return 0;
 
-    // TODO: fix this by adding proper (separate POLLIN/POLLOUT)
     if (!(fd->flags & O_NONBLOCK)) {
-        vfs_poll(fd->node);
+        vfs_poll(fd->node, write ? POLLOUT : POLLIN, -1);
     }
 
     long ret = write ?
@@ -172,7 +171,7 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
     struct fd *fd = fd_get(fd_num);
     if (!fd || !fd->node->mmap)
         return -ENODEV;
-    return fd->node->mmap(addr, length, prot, flags, fd_num, offset);
+    return fd->node->mmap(fd->node, addr, length, prot, flags, offset);
 }
 
 long sys_munmap(void *addr, size_t length) {
@@ -263,7 +262,7 @@ struct iovec {
 
 #define IOV_MAX 1024
 
-long sys_read_writev(int fd_num, const struct iovec *iov, int iovcnt, bool write) {
+static long sys_read_writev(int fd_num, const struct iovec *iov, int iovcnt, bool write) {
     if (iovcnt < 0 || iovcnt > IOV_MAX)
         return -EINVAL;
     if (!iov && iovcnt > 0)
@@ -282,6 +281,10 @@ long sys_read_writev(int fd_num, const struct iovec *iov, int iovcnt, bool write
             return -EFAULT;
         if (iov[i].iov_len == 0)
             continue;
+
+        if (!(fd->flags & O_NONBLOCK)) {
+            vfs_poll(fd->node, write ? POLLOUT : POLLIN, -1);
+        }
         
         long ret = write ?
             fd->node->write(fd->node, iov[i].iov_base, fd->offset, iov[i].iov_len) :
@@ -335,14 +338,14 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
     
     for (int fd = 0; fd < nfds; fd++) {
         if (readfds && FD_ISSET(fd, readfds)) {
-            if (vfs_poll(fd_get(fd)->node) & POLLIN) {
+            if (vfs_poll(fd_get(fd)->node, POLLIN, -1) & POLLIN) {
                 FD_SET(fd, &ready_readfds);
                 ready_fds++;
             }
         }
         
         if (writefds && FD_ISSET(fd, writefds)) {
-            if (vfs_poll(fd_get(fd)->node) & POLLOUT) {
+            if (vfs_poll(fd_get(fd)->node, POLLOUT, -1) & POLLOUT) {
                 FD_SET(fd, &ready_writefds);
                 ready_fds++;
             }

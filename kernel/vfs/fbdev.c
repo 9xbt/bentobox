@@ -8,7 +8,7 @@
 
 struct fb_var_screeninfo vinfo = {};
 
-long fbdev_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+long fbdev_mmap(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset) {
     if (addr == NULL) {
         return framebuffer.addr + offset;
     }

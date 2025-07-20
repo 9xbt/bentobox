@@ -12,6 +12,7 @@
 #include <kernel/fifo.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>
+#include <sys/poll.h>
 
 static struct fifo *tty_fifo;
 static vfs_node_t *console;
@@ -27,9 +28,14 @@ void tty_flush(void) {
     }
 }
 
-long tty_poll(struct vfs_node *node) {
-    if (!fifo_is_empty(tty_fifo))
-        return -1UL;
+long tty_poll(struct vfs_node *node, long events) {
+    if (events & POLLIN) {
+        if (!fifo_is_empty(tty_fifo))
+            return POLLIN;
+    }
+    if (events & POLLOUT) {
+        return POLLOUT;
+    }
     return 0;
 }
 
@@ -58,7 +64,7 @@ long tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        vfs_poll(console);
+        vfs_poll(console, -1UL, -1);
     }
     return c;
 }
@@ -184,7 +190,7 @@ long tty_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
-extern long serial_tty_poll(struct vfs_node *node);
+extern long serial_tty_poll(struct vfs_node *node, long events);
 
 void tty_initialize(void) {
     tty_fifo = fifo_create(1024);
