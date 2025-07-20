@@ -11,7 +11,9 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 
-int mouse_x = 640, mouse_y = 400;
+#include "ui/root_weave"
+
+int mouse_x, mouse_y;
 
 size_t fb_size;
 uint32_t *back_fb, *front_fb;
@@ -22,10 +24,11 @@ uint32_t *cursor, *background;
 
 #define invert(c) ((~c & 0x00FFFFFF) | (c & 0xFF000000))
 #define swap(src, dest) memcpy(dest, src, fb_size);
-#define plot(fb, x, y, c) if (c >> 24 && x < vinfo.xres && y < vinfo.yres) fb[y * vinfo.xres + x] = c;
+#define plot(fb, x, y, c) if ((c) >> 24 && x < vinfo.xres && y < vinfo.yres) fb[y * vinfo.xres + x] = c;
 #define rectangle(fb, x, y, w, h, c) _rectangle(fb, x, y, w, h, c);
 #define string(fb, x, y, c, s) _string(fb, x + 1, y + 1, invert(c), s); _string(fb, x, y, c, s);
 #define image(fb, x, y, w, h, i) _image(fb, x, y, w, h, i);
+#define stipple(fb, w, h, fg, bg, s) _stipple(fb, w, h, fg, bg, (uint8_t *)s);
 
 void _rectangle(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, uint32_t color) {
     for (int yy = y; yy < y + height; yy++) {
@@ -61,6 +64,14 @@ void _image(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, uint3
     }
 }
 
+void _stipple(uint32_t *fb, size_t width, size_t height, uint32_t fg, uint32_t bg, uint8_t *stipple) {
+    for (int y = 0; y < vinfo.yres; y++) {
+        for (int x = 0; x < vinfo.xres; x++) {
+            plot(fb, x, y, ((stipple[(y % height)] >> (x % width)) & 1) ? fg : bg);
+        }
+    }
+}
+
 void update(void) {
     swap(background, back_fb);
     image(back_fb, mouse_x, mouse_y, 16, 16, cursor);
@@ -76,6 +87,8 @@ int main(int argc, char *argv[]) {
     if (ioctl(fb, FBIOGET_VSCREENINFO, &vinfo) < 0) {
         perror("ioctl");
     }
+    mouse_x = vinfo.xres / 2;
+    mouse_y = vinfo.yres / 2;
     fb_size = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
     if (!(front_fb = mmap(NULL, fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb, 0))) {
         perror("failed to map framebuffer");
@@ -116,11 +129,7 @@ int main(int argc, char *argv[]) {
     fclose(fptr);
 
     background = malloc(fb_size);
-    for (int y = 0; y < vinfo.yres; y++) {
-        for (int x = 0; x < vinfo.xres; x++) {
-            plot(background, x, y, (x + y) % 2 ? 0x00000000 : 0xFFBBBBBB);
-        }
-    }
+    stipple(background, root_weave_width, root_weave_height, 0xFFBFBFBF, 0xFF7F7F7F, root_weave_bits);
 
     string(background, 10, 10, 0xFFFFFFFF, "Hello, world!");
 

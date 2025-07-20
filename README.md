@@ -70,7 +70,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] PS/2 driver
     - [X] Keyboard
         - [X] Arrow key support
-    - [ ] Mouse
+    - [X] Mouse
 - [ ] Userspace support
     - [X] TSS
     - [X] Ring 3 in the scheduler
