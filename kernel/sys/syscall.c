@@ -328,7 +328,7 @@ long sys_select() {
     return 0;
 }
 
-long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t *sigmask) {
+long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *ts, const sigset_t *sigmask) {
     int ready_fds = 0;
     
     fd_set ready_readfds, ready_writefds, ready_exceptfds;
@@ -336,16 +336,17 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
     FD_ZERO(&ready_writefds);
     FD_ZERO(&ready_exceptfds);
     
+    long timeout = ts ? (ts->tv_sec * 1000000L + ts->tv_nsec / 1000) : -1;
     for (int fd = 0; fd < nfds; fd++) {
         if (readfds && FD_ISSET(fd, readfds)) {
-            if (vfs_poll(fd_get(fd)->node, POLLIN, -1) & POLLIN) {
+            if (vfs_poll(fd_get(fd)->node, POLLIN, timeout) & POLLIN) {
                 FD_SET(fd, &ready_readfds);
                 ready_fds++;
             }
         }
         
         if (writefds && FD_ISSET(fd, writefds)) {
-            if (vfs_poll(fd_get(fd)->node, POLLOUT, -1) & POLLOUT) {
+            if (vfs_poll(fd_get(fd)->node, POLLOUT, timeout) & POLLOUT) {
                 FD_SET(fd, &ready_writefds);
                 ready_fds++;
             }
