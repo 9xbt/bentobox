@@ -18,12 +18,14 @@ uint32_t *back_fb, *front_fb;
 struct fb_var_screeninfo vinfo = {};
 
 uint8_t *font;
-uint32_t *background;
+uint32_t *cursor, *background;
 
+#define invert(c) ((~c & 0x00FFFFFF) | (c & 0xFF000000))
 #define swap(src, dest) memcpy(dest, src, fb_size);
-#define plot(fb, x, y, c) fb[y * vinfo.xres + x] = c;
+#define plot(fb, x, y, c) if (c >> 24 && x < vinfo.xres && y < vinfo.yres) fb[y * vinfo.xres + x] = c;
 #define rectangle(fb, x, y, w, h, c) _rectangle(fb, x, y, w, h, c);
-#define string(fb, x, y, c, s) _string(fb, x + 1, y + 1, ~c & 0xFFFFFF, s); _string(fb, x, y, c, s);
+#define string(fb, x, y, c, s) _string(fb, x + 1, y + 1, invert(c), s); _string(fb, x, y, c, s);
+#define image(fb, x, y, w, h, i) _image(fb, x, y, w, h, i);
 
 void _rectangle(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, uint32_t color) {
     for (int yy = y; yy < y + height; yy++) {
@@ -33,7 +35,7 @@ void _rectangle(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, u
     }
 }
 
-void _char(uint32_t *fb, uint32_t x, uint32_t y, uint32_t color, char c) {
+void _char(uint32_t *fb, size_t x, size_t y, uint32_t color, char c) {
     for (int yy = y; yy < y + 16; yy++) {
         for (int xx = x; xx < x + 8; xx++) {
             if (font[c * 16 + (yy - y)] & (1 << (7 - (xx - x)))) {
@@ -43,15 +45,25 @@ void _char(uint32_t *fb, uint32_t x, uint32_t y, uint32_t color, char c) {
     }
 }
 
-void _string(uint32_t *fb, uint32_t x, uint32_t y, uint32_t color, char *str) {
+void _string(uint32_t *fb, size_t x, size_t y, uint32_t color, char *str) {
     for (int i = 0; i < strlen(str); i++) {
         _char(fb, x + i * 8, y, color, str[i]);
     }
 }
 
+void _image(uint32_t *fb, size_t x, size_t y, size_t width, size_t height, uint32_t *image) {
+    for (size_t yy = y; yy < y + height; yy++) {
+        for (size_t xx = x; xx < x + width; xx++) {
+            size_t img_x = xx - x;
+            size_t img_y = yy - y;
+            plot(fb, xx, yy, image[img_y * width + img_x]);
+        }
+    }
+}
+
 void update(void) {
     swap(background, back_fb);
-    rectangle(back_fb, mouse_x, mouse_y, 8, 8, 0x000000);
+    image(back_fb, mouse_x, mouse_y, 16, 16, cursor);
     swap(back_fb, front_fb);
 }
 
@@ -72,33 +84,45 @@ int main(int argc, char *argv[]) {
     back_fb = malloc(fb_size);
 
     int mouse;
-    if ((mouse = open("/dev/input/event1", O_RDONLY)) == -1) {
+    if ((mouse = open("/dev/input/event1", O_RDONLY | O_NONBLOCK)) == -1) {
         perror("failed to open mouse");
         exit(EXIT_FAILURE);
     }
 
     FILE *fptr;
+    long size;
     if (!(fptr = fopen("/usr/share/fonts/VGA9.F16", "rb"))) {
         perror("failed to open font");
         exit(EXIT_FAILURE);
     }
 
     fseek(fptr, 0, SEEK_END);
-    long size = ftell(fptr);
-    rewind(fptr);
-
+    size = ftell(fptr);
     font = malloc(size);
+    rewind(fptr);
     fread(font, 1, size, fptr);
+    fclose(fptr);
+
+    if (!(fptr = fopen("/usr/share/icons/cursor.raw", "rb"))) {
+        perror("failed to open cursor");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(fptr, 0, SEEK_END);
+    size = ftell(fptr);
+    cursor = malloc(size);
+    rewind(fptr);
+    fread(cursor, 1, size, fptr);
     fclose(fptr);
 
     background = malloc(fb_size);
     for (int y = 0; y < vinfo.yres; y++) {
         for (int x = 0; x < vinfo.xres; x++) {
-            plot(background, x, y, (x + y) % 2 ? 0x000000 : 0xBBBBBB);
+            plot(background, x, y, (x + y) % 2 ? 0x00000000 : 0xFFBBBBBB);
         }
     }
 
-    string(background, 10, 10, 0xFFFFFF, "Hello, world!");
+    string(background, 10, 10, 0xFFFFFFFF, "Hello, world!");
 
     update();
 
@@ -124,6 +148,8 @@ int main(int argc, char *argv[]) {
                 mouse_x = vinfo.xres - 1;
             if (mouse_y >= vinfo.yres)
                 mouse_y = vinfo.yres - 1;
+        } else if (ev.type == EV_KEY) {
+            exit(EXIT_SUCCESS);
         }
 
         update();
