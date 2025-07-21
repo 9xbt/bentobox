@@ -80,6 +80,7 @@ struct process *sched_new_task(void *entry, const char *name) {
     proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = NULL;
     proc->children = list_create();
+    proc->time.total = 0;
 
     return proc;
 }
@@ -169,6 +170,7 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     proc->children = list_create();
     proc->parent = NULL;
     proc->cwd = vfs_root;
+    proc->time.total = 0;
 
     return proc;
 }
@@ -188,8 +190,11 @@ void sched_schedule(struct registers *r) {
     }
 
     size_t hpet_ticks = hpet ? hpet_get_ticks() : tsc_get_ticks();
-    if (this->state == TASK_RUNNING)
+    if (this->state == TASK_RUNNING ||
+        this_core()->current_proc == this_core()->idle_proc) {
         this->time.last = hpet_ticks - this->time.start;
+        this->time.total += this->time.last;
+    }
 
     if (!this_core()->current_proc->next) {
         this_core()->current_proc = this_core()->processes->head;
@@ -394,6 +399,23 @@ void sched_idle(void) {
     }
 }
 
+void sched_timetrack(void) {
+    uint64_t last_idle = 0;
+
+    for (;;) {
+        sched_sleep(1000000);
+        struct process *idle = this_core()->idle_proc->value;
+
+        uint64_t delta_idle = idle->time.total - last_idle;
+        last_idle = idle->time.total;
+        uint64_t idle_us = (delta_idle * (uint64_t)hpet_period) / 1000000000ULL;
+        uint64_t busy_us = (1000000 > idle_us) ? (1000000 - idle_us) : 0;
+        this_core()->usage = (busy_us * 100) / 1000000;
+
+        //dprintf("CPU usage: %lu%%\r", this_core()->usage);
+    }
+}
+
 void sched_jumpstart(void) {
     kmsg_silence = true;
 
@@ -424,6 +446,10 @@ void sched_install(void) {
         idle->state = TASK_PAUSED;
         core->idle_proc = sched_add_task(idle, core);
         idle->pid = 0;
+
+        struct process *timetracker = sched_new_task(sched_timetrack, "System Load Calculator");
+        timetracker->pid = 2;
+        sched_add_task(timetracker, core);
     }
     next_pid = 1;
     dprintf("%s:%d: initialized process lists\n", __FILE__, __LINE__);

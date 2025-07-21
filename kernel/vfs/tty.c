@@ -64,7 +64,7 @@ long tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        vfs_poll(console, -1UL, -1);
+        vfs_poll(console, POLLIN, -1);
     }
     return c;
 }

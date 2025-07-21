@@ -84,6 +84,9 @@ int vsprintf(char *s, const char *fmt, va_list args) {
                 case 'c':
                     s[ptr++] = (char)va_arg(args, int);
                     break;
+                case '%':
+                    s[ptr++] = '%';
+                    break;
             }
         } else {
             s[ptr++] = *fmt;

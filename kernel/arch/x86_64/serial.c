@@ -156,7 +156,7 @@ long serial_tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        vfs_poll(vfs_open(NULL, "/dev/ttyS0", false, false), -1UL, -1);
+        vfs_poll(vfs_open(NULL, "/dev/ttyS0", false, false), POLLIN, -1);
     }
     return c;
 }

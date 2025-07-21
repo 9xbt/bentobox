@@ -61,8 +61,7 @@ void smp_initialize(void) {
         core->processes = NULL;
         core->current_proc = NULL;
         core->terminated_processes = NULL;
-        release(&core->sched_lock);
-        release(&core->vmm_lock);
+        core->usage = 0;
         smp_cpu_list[i] = core;
 
         /* send INIT IPI */

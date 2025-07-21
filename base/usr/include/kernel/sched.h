@@ -30,6 +30,7 @@ struct process_time {
     uint64_t start;
     uint64_t end;
     uint64_t last;
+    uint64_t total;
 };
 
 struct process_section {

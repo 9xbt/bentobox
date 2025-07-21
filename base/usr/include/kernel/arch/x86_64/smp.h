@@ -14,8 +14,8 @@ struct cpu {
     node_t *cleaner_proc;
     node_t *idle_proc;
     list_t *terminated_processes;
-    atomic_flag sched_lock;
-    atomic_flag vmm_lock;
+
+    uint64_t usage;
 };
 
 extern volatile uint8_t smp_running_cpus;
