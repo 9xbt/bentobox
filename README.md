@@ -1,5 +1,5 @@
 # bentobox
-bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
+bentobox is a 64-bit SMP-enabled operating system targeting x86_64 with plans to support RISC-V
 
 ## Features on x86_64
 - Full architecture support
@@ -10,7 +10,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
 - Memory management
     - Bitmap allocator
     - 4-level paging
-    - dlmalloc heap
+    - dlmalloc-based heap
 - ACPI table parsing
     - MADT/FADT tables
 - Processes and scheduler
@@ -22,14 +22,14 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and RISC-V
     - Filesystem (ext2)
 - Userspace
     - Elf64 loader
-    - Linux syscalls (about 12% are currently implemented)
-    - Can run bash, busybox and doomgeneric
+    - Linux syscalls (about 15% are currently implemented)
+    - Can run bash, busybox, doomgeneric and figlet
 
 ## Features on RISC-V
 - Virtio UART driver
 
 > [!NOTE]
-> bentobox on RISC-V is a stub
+> bentobox on RISC-V is a stub and does not build currently
 
 ## Building (x86_64)
 To build, you need to install the following packages:
@@ -151,7 +151,8 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Make unixpipes use them
 - [ ] Scheduler improvements
     - [X] Polling
-    - [ ] CPU usage calculation
+    - [X] CPU usage calculation
+        - [ ] Exposed to userspace
     - [ ] Priorities
     - [ ] Process stealing
 - [X] Write a TTY driver
@@ -161,7 +162,17 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Block CTRL+C in init
 - [X] Fix serial read()
 - [ ] sysinfo()
-- [ ] Buddy allocator for large reallocations
+- [ ] Buddy allocator for large reallocations (I'm looking at you tmpfs)
 
 ## Screenshots
-![image](https://github.com/user-attachments/assets/c9d56315-3818-4518-9a06-092b0b919a76)
+![image](https://github.com/user-attachments/assets/847c395a-446b-4aea-8dad-370437ebe4fc)
+
+*bentobox running in VGA text mode*
+
+![image](https://github.com/user-attachments/assets/112d5412-86e5-4537-a5a9-d45f0736a95a)
+
+*bentobox running doomgeneric*
+
+![image](https://github.com/user-attachments/assets/a9494621-7f2e-4783-9019-e764f10a6e77)
+
+*bentobox running an Xorg-esque GUI demo*
