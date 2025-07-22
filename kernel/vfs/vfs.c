@@ -371,7 +371,7 @@ void vfs_install(void) {
     tmpfs_initialize();
     tty_initialize();
     fbdev_initialize();
-    procfs_initialize();
+    //procfs_initialize();
 
     dprintf("%s:%d: initialized VFS\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");

@@ -1,4 +1,5 @@
 #include <linux/resource.h>
+#include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
@@ -553,6 +554,23 @@ long sys_getrlimit(int resource, struct rlimit *rlim) {
     return 0;
 }
 
+long sys_sysinfo(struct sysinfo *info) {
+    if (!info)
+        return -EFAULT;
+    info->uptime = uptime();
+    info->totalram = mmu_usable_mem;
+    info->freeram = mmu_usable_mem / 1024 - mmu_used_pages * 4;
+    info->sharedram = 0;
+    info->bufferram = 0;
+    info->totalswap = 0;
+    info->freeswap = 0;
+    info->procs = 0;
+    info->totalhigh = 0;
+    info->freehigh = 0;
+    info->mem_unit = 1;
+    return 0;
+}
+
 long sys_getuid(void) {
     return 0;
 }
@@ -761,6 +779,7 @@ static syscall_func syscalls[] = {
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
     [SYS_readlink]          = (syscall_func)(uintptr_t)sys_readlink,
     [SYS_getrlimit]         = (syscall_func)(uintptr_t)sys_getrlimit,
+    [SYS_sysinfo]           = (syscall_func)(uintptr_t)sys_sysinfo,
     [SYS_getuid]            = (syscall_func)(uintptr_t)sys_getuid,
     [SYS_getgid]            = (syscall_func)(uintptr_t)sys_getgid,
     [SYS_geteuid]           = (syscall_func)(uintptr_t)sys_geteuid,

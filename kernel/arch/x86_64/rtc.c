@@ -57,3 +57,10 @@ void gettimeofday(long *sec, long *nsec) {
         else tsc_read_time(NULL, nsec);
     }
 }
+
+uint64_t uptime(void) {
+    long seconds;
+    if (hpet) hpet_read_time(&seconds, NULL);
+    else tsc_read_time(&seconds, NULL);
+    return seconds;
+}

@@ -37,6 +37,7 @@
 #define SYS_unlink          87
 #define SYS_readlink        89
 #define SYS_getrlimit       97
+#define SYS_sysinfo         99
 #define SYS_getuid          102
 #define SYS_getgid          104
 #define SYS_geteuid         107
