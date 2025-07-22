@@ -1,12 +1,12 @@
-#include <errno.h>
 #include <stdint.h>
-#include <kernel/mmu.h>
-#include <kernel/vfs.h>
-#include <kernel/args.h>
+#include <errno.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/args.h>
+#include <kernel/mmu.h>
+#include <kernel/vfs.h>
 
 #define EXT_FIFO        0x1000
 #define EXT_CHAR_DEV    0x2000

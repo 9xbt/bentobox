@@ -1,10 +1,10 @@
 #include <errno.h>
-#include <kernel/vfs.h>
-#include <kernel/args.h>
-#include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
+#include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/args.h>
+#include <kernel/vfs.h>
 
 typedef struct {
     uint32_t data1;

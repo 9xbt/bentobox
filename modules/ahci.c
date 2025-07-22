@@ -1,11 +1,11 @@
 #include <kernel/arch/x86_64/hpet.h>
-#include <kernel/pci.h>
-#include <kernel/mmu.h>
-#include <kernel/mutex.h>
 #include <kernel/malloc.h>
-#include <kernel/printf.h>
 #include <kernel/module.h>
+#include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/mutex.h>
+#include <kernel/mmu.h>
+#include <kernel/pci.h>
 
 #define AHCI_CAP        0x00    /* Host Capabilities */
 #define AHCI_GHC        0x04    /* Global Host Control */

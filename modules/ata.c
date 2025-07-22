@@ -1,10 +1,10 @@
 #include <kernel/arch/x86_64/io.h>
-#include <kernel/pci.h>
-#include <kernel/mmu.h>
-#include <kernel/mutex.h>
+#include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
-#include <kernel/module.h>
+#include <kernel/mutex.h>
+#include <kernel/mmu.h>
+#include <kernel/pci.h>
 
 #define ATA_PRIMARY         0x1F0
 #define ATA_SECONDARY       0x170
