@@ -69,7 +69,6 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Framebuffer support
 - [X] PS/2 driver
     - [X] Keyboard
-        - [X] Arrow key support
     - [X] Mouse
 - [ ] Userspace support
     - [X] TSS
@@ -106,7 +105,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Restore `fs` on context switches
 - [X] SSE support
 - [X] Recursively unmap pagemaps in VMM
-- [ ] Fix keyboard driver bugs on startup
+- [X] Fix keyboard driver bugs on startup
 - [X] Higher half modules (map kernel to higher half)
 - [ ] Implement task threading
 - [X] Implement a VMA
@@ -145,14 +144,13 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Don't print `warning: couldn't get next pml` when just checking a mapping
 - [X] Generic lists
     - [X] Make the scheduler use them
-    - [ ] Make the VFS use them
+    - [X] Make the VFS use them
 - [X] UNIX pipes
 - [X] Generic ringbuffers
     - [X] Make unixpipes use them
 - [ ] Scheduler improvements
     - [X] Polling
     - [X] CPU usage calculation
-        - [ ] Exposed to userspace
     - [ ] Priorities
     - [ ] Process stealing
 - [X] Write a TTY driver
@@ -163,6 +161,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Fix serial read()
 - [ ] sysinfo()
 - [ ] Buddy allocator for large reallocations (I'm looking at you tmpfs)
+- [ ] VFS mounting
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/847c395a-446b-4aea-8dad-370437ebe4fc)

@@ -60,8 +60,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
     node->parent = NULL;
-    node->children = NULL;
-    node->next = NULL;
+    node->children = list_create();
     node->read = NULL;
     node->write = NULL;
     node->symlink = NULL;
@@ -76,19 +75,10 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
 }
 
 void vfs_add_node(struct vfs_node *root, struct vfs_node *node) {
-    // TODO: make node inherit the driver of root?
-    if (!root) root = vfs_root;
-
+    if (!root)
+        root = vfs_root;
     node->parent = root;
-    if (root->children == NULL) {
-        root->children = node;
-    } else {
-        struct vfs_node *child = root->children;
-        while (child->next != NULL) {
-            child = child->next;
-        }
-        child->next = node;
-    }
+    list_insert(root->children, node);
 }
 
 int vfs_remove_node(struct vfs_node *node) {
@@ -113,22 +103,11 @@ int vfs_remove_node(struct vfs_node *node) {
         : (vfs_drivers[node->driver].remove ? vfs_drivers[node->driver].remove(node) : 0);
     if (ret < 0) return ret;
     
-    // remove the item - TODO: use generic lists
-    if (node->parent) {
-        if (node->parent->children == node) {
-            node->parent->children = node->next;
-        } else {
-            struct vfs_node *prev = node->parent->children;
-            while (prev && prev->next != node) {
-                prev = prev->next;
-            }
-            if (prev) {
-                prev->next = node->next;
-            }
-        }
-    }
-
-    if (node->type == VFS_SYMLINK && node->device) kfree(node->device);
+    if (node->parent)
+        list_remove_value(node->parent->children, node);
+    if (node->type == VFS_SYMLINK && node->device)
+        kfree(node->device);
+    list_free(node->children);
     list_free(node->poll_list);
     kfree(node);
     return 0;
@@ -165,7 +144,8 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
 }
 
 static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name) {
-    for (struct vfs_node *child = parent->children; child; child = child->next) {
+    foreach(item, parent->children) {
+        struct vfs_node *child = item->value;
         if (!strcmp(child->name, name)) {
             return (child->type == VFS_SYMLINK) ? vfs_resolve_symlink(child, MAX_NESTED_SYMLINKS) : child;
         }

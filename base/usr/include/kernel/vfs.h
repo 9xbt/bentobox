@@ -51,8 +51,9 @@ typedef struct vfs_node {
     uint16_t perms;
     uint64_t inode;
     struct vfs_node *parent;
-    struct vfs_node *children; /** TODO: use a list here */
-    struct vfs_node *next;
+    struct vfs_node *symlink;
+    list_t *children;
+    list_t *poll_list;
     struct tty_operations tty_ops;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
@@ -60,8 +61,6 @@ typedef struct vfs_node {
     long(*poll)(struct vfs_node *node, long events);
     long(*close)(struct vfs_node *node);
     void *device;
-    struct vfs_node *symlink;
-    list_t *poll_list;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root;

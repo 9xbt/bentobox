@@ -109,13 +109,12 @@ long sys_newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int f
         if (dir_fd->node->type != VFS_DIRECTORY)
             return -ENOTDIR;
 
-        struct vfs_node *child = dir_fd->node->children;
-        while (child) {
+        foreach(item, dir_fd->node->children) {
+            struct vfs_node *child = item->value;
             if (!strcmp(child->name, pathname)) {
                 node = child;
                 break;
             }
-            child = child->next;
         }
     }
     return vfs_stat(node, statbuf, true);
@@ -651,37 +650,36 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
     struct fd *fd = fd_get(fd_num);
     if (!fd)
         return -EBADF;
+
     struct vfs_node *dir = fd->node;
-
-    if (dir->type != VFS_DIRECTORY) {
+    if (dir->type != VFS_DIRECTORY)
         return -ENOTDIR;
-    }
-    if (!dirp || count == 0) {
-        return -EINVAL;
-    }
 
-    struct vfs_node *child = dir->children;
-    int entries_to_skip = fd->offset;
-    
-    while (child && entries_to_skip > 0) {
-        child = child->next;
-        entries_to_skip--;
-    }
-    
+    if (!dirp || count == 0)
+        return -EINVAL;
+
     int offset = 0;
+    int skip = fd->offset;
     struct linux_dirent64 *current_entry = dirp;
-    
-    while (child) {
+
+    foreach(item, dir->children) {
+        if (skip > 0) {
+            skip--;
+            continue;
+        }
+
+        struct vfs_node *child = item->value;
         const char *name = child->name;
         int name_len = strlen(name);
         int reclen = ALIGN_UP(sizeof(struct linux_dirent64) + name_len + 1, 8);
-        
+
         if ((unsigned)(offset + reclen) > count)
             break;
-        
+
         current_entry->d_ino = child->inode;
         current_entry->d_off = fd->offset + 1;
         current_entry->d_reclen = reclen;
+
         switch (child->type) {
             case VFS_DIRECTORY:
                 current_entry->d_type = DT_DIR;
@@ -699,14 +697,13 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
                 current_entry->d_type = DT_UNKNOWN;
                 break;
         }
+
         strcpy(current_entry->d_name, name);
-        
-        current_entry = (void*)current_entry + reclen;
+        current_entry = (void *)current_entry + reclen;
         offset += reclen;
-        child = child->next;
         fd->offset++;
     }
-    
+
     return offset;
 }
 
