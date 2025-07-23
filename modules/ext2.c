@@ -262,6 +262,20 @@ enum vfs_node_type ext2_get_type(uint16_t type_perms) {
     }
 }
 
+struct vfs_node *ext2_create_symlink_node(ext2_fs *fs, const char *name, ext2_inode *inode) {
+    char *target = NULL;
+    if (inode->size <= 60) {
+        target = kmalloc(inode->size + 1);
+        memcpy(target, (char *)inode->direct_block_ptr, inode->size);
+        target[inode->size] = '\0';
+    }
+    if (!target)
+        return NULL;
+    struct vfs_node *node = vfs_create_symlink(name, target);
+    kfree(target);
+    return node;
+}
+
 void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, struct vfs_node *parent) {
     uint32_t offset = 0;
 
@@ -277,13 +291,17 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
         ext2_inode child;
         ext2_read_inode(fs, entry->inode, &child);
 
-        struct vfs_node *node = vfs_create_node(name, ext2_get_type(child.type_perms));
+        enum vfs_node_type type = ext2_get_type(child.type_perms);
+        struct vfs_node *node = type == VFS_SYMLINK ? ext2_create_symlink_node(fs, name, &child) : vfs_create_node(name, type);
         if (node) {
             node->size = child.size;
             node->inode = entry->inode;
             node->driver = VFS_DRIVER_EXT2;
-            node->read = ext2_read;
-            node->device = fs;
+
+            if (type != VFS_SYMLINK) {
+                node->read = ext2_read;
+                node->device = fs;
+            }
 
             vfs_add_node(parent, node);
             if (node->type == VFS_DIRECTORY &&
