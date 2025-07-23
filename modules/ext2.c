@@ -110,7 +110,6 @@ typedef struct {
     vfs_node_t *sda;
     ext2_sb    *sb;
     ext2_bgd   *bgd_table;
-    ext2_inode *root_inode;
     uint32_t block_size;
     uint32_t bgd_count;
     uint32_t bgd_block;
@@ -164,23 +163,22 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
         return -EIO;
     }
     
-    ext2_inode *inode = kmalloc(sizeof(ext2_inode));
-    ext2_read_inode(fs, node->inode, inode);
+    ext2_inode inode;
+    ext2_read_inode(fs, node->inode, &inode);
 
-    if (offset >= inode->size)
+    if (offset >= inode.size)
         return 0;
-    if (offset + len > inode->size)
-        len = inode->size - offset;
+    if (offset + len > inode.size)
+        len = inode.size - offset;
 
     uint32_t block = offset / fs->block_size;
     uint32_t count = ((offset + len - 1) / fs->block_size) - block + 1;
 
     uint8_t *buf = kmalloc(count * fs->block_size);
-    ext2_read_inode_blocks(fs, inode, buf, block, count);
+    ext2_read_inode_blocks(fs, &inode, buf, block, count);
     memcpy(buffer, buf + (offset % fs->block_size), len);
 
     kfree(buf);
-    kfree(inode);
     return len;
 }
 
@@ -212,12 +210,12 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
         memcpy(name, entry->name, entry->name_len);
         name[entry->name_len] = '\0';
 
-        ext2_inode *child = kmalloc(fs->inode_size);
-        ext2_read_inode(fs, entry->inode, child);
+        ext2_inode child;
+        ext2_read_inode(fs, entry->inode, &child);
 
-        struct vfs_node *node = vfs_create_node(name, ext2_get_type(child->type_perms));
+        struct vfs_node *node = vfs_create_node(name, ext2_get_type(child.type_perms));
         if (node) {
-            node->size = child->size;
+            node->size = child.size;
             node->inode = entry->inode;
             node->driver = VFS_DRIVER_EXT2;
             node->read = ext2_read;
@@ -231,28 +229,25 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             }
         }
 
-        kfree(child);
         offset += entry->total_size;
     }
 }
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
-    ext2_inode *inode = kmalloc(fs->inode_size);
-    ext2_read_inode(fs, in, inode);
+    ext2_inode inode;
+    ext2_read_inode(fs, in, &inode);
 
-    uint32_t total_blocks = (inode->size + fs->block_size - 1) / fs->block_size;
+    uint32_t total_blocks = (inode.size + fs->block_size - 1) / fs->block_size;
 
     for (uint32_t i = 0; i < total_blocks && i < 12; i++) {
-        if (inode->direct_block_ptr[i] == 0) continue;
+        if (inode.direct_block_ptr[i] == 0) continue;
 
         uint8_t *block = kmalloc(fs->block_size);
-        ext2_read_block(fs, inode->direct_block_ptr[i], block, fs->block_size);
+        ext2_read_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
 
         ext2_mount_directory(fs, block, fs->block_size, parent);
         kfree(block);
     }
-
-    kfree(inode);
 }
 
 int init() {
