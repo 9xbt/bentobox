@@ -339,7 +339,6 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
 
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
-    vfs_root->inode = 2;
 
     vfs_devfs = vfs_create_node("dev", VFS_DIRECTORY);
     vfs_devfs->driver = VFS_DRIVER_DEVFS;
