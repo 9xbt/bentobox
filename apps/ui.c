@@ -15,6 +15,8 @@
 
 #include "ui/root_weave"
 
+#define FPS_CAP 180
+
 int mouse_x, mouse_y;
 
 size_t fb_size;
@@ -75,10 +77,20 @@ void _stipple(uint32_t *fb, size_t width, size_t height, uint32_t fg, uint32_t b
 }
 
 void update(void) {
+    static struct timespec last = {0};
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    const long FRAME_TIME_US = 1000000L / FPS_CAP;
+    long elapsed = (now.tv_sec - last.tv_sec) * 1000000L + (now.tv_nsec - last.tv_nsec) / 1000L;
+
+    if (elapsed < FRAME_TIME_US) return;
+    clock_gettime(CLOCK_MONOTONIC, &last);
+
     swap(background, back_fb);
 
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
+    time_t now_time = time(NULL);
+    struct tm *tm_info = localtime(&now_time);
 
     char date[64];
     strftime(date, sizeof date, "%-I:%M:%S %p", tm_info);
@@ -145,9 +157,9 @@ int main(int argc, char *argv[]) {
     background = malloc(fb_size);
     stipple(background, root_weave_width, root_weave_height, 0xFFBFBFBF, 0xFF7F7F7F, root_weave_bits);
 
-    //string(background, 10, 10, 0xFFFFFFFF, "Hello, world!");
-
     update();
+
+    #define FRAME_TIME_US (1000000 / 60)
 
     struct input_event ev;
     struct pollfd pfd[] = {
@@ -160,50 +172,40 @@ int main(int argc, char *argv[]) {
             .events = POLLIN,
         }
     };
-
     for (;;) {
-        int ret = poll(pfd, sizeof pfd / sizeof(struct pollfd), 100);
-
-        if (ret == -1) {
+        if (poll(pfd, sizeof pfd / sizeof(struct pollfd), 16) == -1) {
             perror("poll");
             exit(EXIT_FAILURE);
         }
 
-        if (pfd[0].revents & POLLIN) {
+        while (pfd[0].revents & POLLIN) {
             ssize_t bytes = read(mouse, &ev, sizeof(struct input_event));
-            if (bytes >= (ssize_t) sizeof(struct input_event)) {
-                if (ev.type == EV_REL) {
-                    if (ev.code == REL_X) {
-                        mouse_x += ev.value;
-                    } else if (ev.code == REL_Y) {
-                        mouse_y -= ev.value;
-                    }
+            if (bytes < (ssize_t) sizeof(struct input_event)) break;
 
-                    if (mouse_x < 0)
-                        mouse_x = 0;
-                    if (mouse_y < 0)
-                        mouse_y = 0;
-                    if (mouse_x >= vinfo.xres)
-                        mouse_x = vinfo.xres - 1;
-                    if (mouse_y >= vinfo.yres)
-                        mouse_y = vinfo.yres - 1;
-                }
-            }
-        }
-        if (pfd[1].events & POLLIN) {
-            ssize_t bytes = read(keyboard, &ev, sizeof(struct input_event));
-            if (bytes >= (ssize_t) sizeof(struct input_event)) {
-                if (ev.value == 1) {
-                    switch (ev.code) {
-                        case KEY_ESC:
-                            memset(front_fb, 0, fb_size);
-                            exit(EXIT_SUCCESS);
-                            break;
-                    }
-                }
+            if (ev.type == EV_REL) {
+                if (ev.code == REL_X) mouse_x += ev.value;
+                else if (ev.code == REL_Y) mouse_y -= ev.value;
+
+                if (mouse_x < 0) mouse_x = 0;
+                if (mouse_y < 0) mouse_y = 0;
+                if (mouse_x >= vinfo.xres) mouse_x = vinfo.xres - 1;
+                if (mouse_y >= vinfo.yres) mouse_y = vinfo.yres - 1;
             }
         }
         update();
+
+        while (pfd[1].revents & POLLIN) {
+            ssize_t bytes = read(keyboard, &ev, sizeof(struct input_event));
+            if (bytes < (ssize_t) sizeof(struct input_event)) break;
+            
+            if (ev.value == 1) {
+                switch (ev.code) {
+                    case KEY_ESC:
+                        memset(front_fb, 0, fb_size);
+                        exit(EXIT_SUCCESS);
+                }
+            }
+        }
     }
 
     return EXIT_FAILURE;
