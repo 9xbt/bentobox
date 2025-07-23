@@ -248,7 +248,7 @@ long vfs_poll(struct vfs_node *node, long events, long timeout) {
     list_insert(node->poll_list, this);
     if (timeout == -1) sched_block(TASK_POLLING);
     else sched_sleep(timeout);
-    return -1UL;
+    return node->poll(node, events);
 }
 
 void vfs_unblock_polling(struct vfs_node *node) {

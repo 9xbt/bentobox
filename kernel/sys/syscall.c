@@ -324,12 +324,30 @@ long sys_pipe2(int pipefd[2], int flags) {
     return unixpipe_new(pipefd, flags);
 }
 
+long sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+    int ready = 0;
+    for (nfds_t fd_num = 0; fd_num < nfds; fd_num++) {
+        struct pollfd *pfd = &fds[fd_num];
+        pfd->revents = 0;
+
+        struct fd *fd = fd_get(pfd->fd);
+        if (!fd) {
+            pfd->revents = POLLNVAL;
+            continue;
+        }
+
+        if ((pfd->revents = vfs_poll(fd->node, pfd->events, timeout)))
+            ready++;
+    }
+    return ready;
+}
+
 long sys_select() {
     return 0;
 }
 
 long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *ts, const sigset_t *sigmask) {
-    int ready_fds = 0;
+    int ready = 0;
     
     fd_set ready_readfds, ready_writefds, ready_exceptfds;
     FD_ZERO(&ready_readfds);
@@ -341,14 +359,14 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
         if (readfds && FD_ISSET(fd, readfds)) {
             if (vfs_poll(fd_get(fd)->node, POLLIN, timeout) & POLLIN) {
                 FD_SET(fd, &ready_readfds);
-                ready_fds++;
+                ready++;
             }
         }
         
         if (writefds && FD_ISSET(fd, writefds)) {
             if (vfs_poll(fd_get(fd)->node, POLLOUT, timeout) & POLLOUT) {
                 FD_SET(fd, &ready_writefds);
-                ready_fds++;
+                ready++;
             }
         }
     }
@@ -357,7 +375,7 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
     if (writefds) *writefds = ready_writefds;
     if (exceptfds) *exceptfds = ready_exceptfds;
     
-    return ready_fds;
+    return ready;
 }
 
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
@@ -746,6 +764,7 @@ static syscall_func syscalls[] = {
     [SYS_stat]              = (syscall_func)(uintptr_t)sys_stat,
     [SYS_fstat]             = (syscall_func)(uintptr_t)sys_fstat,
     [SYS_lstat]             = (syscall_func)(uintptr_t)sys_lstat,
+    [SYS_poll]              = (syscall_func)(uintptr_t)sys_poll,
     [SYS_lseek]             = (syscall_func)(uintptr_t)sys_lseek,
     [SYS_mmap]              = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_munmap]            = (syscall_func)(uintptr_t)sys_munmap,
