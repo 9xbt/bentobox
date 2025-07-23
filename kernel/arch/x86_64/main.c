@@ -131,6 +131,7 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	mboot = mboot_info;
 	cmdline = arch_get_cmdline();
 
+	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
     gdt_install();
     idt_install();
 	pmm_install();
@@ -138,7 +139,6 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	vmm_install();
 	malloc_initialize();
 	framebuffer_initialize();
-	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
 	acpi_install();
 	lapic_install();
 	ioapic_install();

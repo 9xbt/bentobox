@@ -59,9 +59,8 @@ static int malloc_add_region(size_t size) {
     return heap_region_count - 1;
 }
 
-void malloc_initialize() {
+void malloc_initialize(void) {
     assert(malloc_add_region(INITIAL_HEAP_SIZE) >= 0);
-    dprintf("%s:%d: initialized kernel heap\n", __FILE__, __LINE__);
 }
 
 void *kmalloc(size_t n) {
