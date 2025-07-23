@@ -9,12 +9,7 @@ long procfs_meminfo_read(struct vfs_node *node, void *buffer, long offset, size_
     char buf[1024];
     int i = sprintf(buf, ""
         "MemTotal: %lu kB\n"
-        "MemFree: %lu kB\n"
-        "Buffers: 0 kB\n"
-        "Cached: 0 kB\n"
-        "SwapCached: 0 kB\n"
-        "SwapTotal: 0 kB\n"
-        "SwapFree: 0 kB\n",
+        "MemFree:  %lu kB\n",
         mmu_usable_mem / 1024,
         mmu_usable_mem / 1024 - mmu_used_pages * 4
     );

@@ -575,7 +575,7 @@ long sys_sysinfo(struct sysinfo *info) {
     if (!info)
         return -EFAULT;
     info->uptime = uptime();
-    info->totalram = mmu_usable_mem;
+    info->totalram = mmu_usable_mem / 1024;
     info->freeram = mmu_usable_mem / 1024 - mmu_used_pages * 4;
     info->sharedram = 0;
     info->bufferram = 0;
@@ -584,7 +584,7 @@ long sys_sysinfo(struct sysinfo *info) {
     info->procs = 0;
     info->totalhigh = 0;
     info->freehigh = 0;
-    info->mem_unit = 1;
+    info->mem_unit = 1024;
     return 0;
 }
 
