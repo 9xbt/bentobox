@@ -1,0 +1,16 @@
+/**
+ * This is hacky as fuck, but I don't feel like writing a separate list impl.
+ */
+
+#include <stddef.h>
+#include <stdlib.h>
+
+void *kmalloc(size_t n) {
+    return malloc(n);
+}
+
+void kfree(void *ptr) {
+    free(ptr);
+}
+
+#include "list_internal"
