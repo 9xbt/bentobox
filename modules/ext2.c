@@ -1,3 +1,4 @@
+#include "kernel/bitmap.h"
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/assert.h>
@@ -96,9 +97,9 @@ typedef struct {
 } ext2_dirent;
 
 typedef struct {
-    uint32_t bitmap_block;
-    uint32_t bitmap_inode;
-    uint32_t inode_table_block;
+    uint32_t block_bitmap;
+    uint32_t inode_bitmap;
+    uint32_t inode_table;
     uint16_t free_blocks;
     uint16_t free_inodes;
     uint16_t directories_count;
@@ -122,6 +123,23 @@ void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) 
     vfs_read(fs->sda, buffer, block * fs->block_size, count);
 }
 
+void ext2_write_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
+    if (!block) {
+        dprintf("%s:%d: tried to write to block #0\n", __FILE__, __LINE__);
+        return;
+    }
+    vfs_write(fs->sda, buffer, block * fs->block_size, count);
+}
+
+void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
+    fs->bgd_table[group] = bgd;
+    ext2_write_block(fs, fs->bgd_block, fs->bgd_table, fs->block_size);
+}
+
+void ext2_write_sb(ext2_fs *fs) {
+    vfs_write(fs->sda, fs->sb, 1024, sizeof(ext2_sb));
+}
+
 void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     inode--;
     uint32_t block_group = inode / fs->sb->inodes_per_group;
@@ -129,15 +147,54 @@ void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     uint32_t inode_block = (inode_index * fs->inode_size) / fs->block_size;
 
     uint8_t buffer[fs->block_size];
-    ext2_read_block(fs, fs->bgd_table[block_group].inode_table_block + inode_block, buffer, fs->block_size);
+    ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
     memcpy(in, buffer + (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size, fs->inode_size);
+}
+
+void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
+    inode--;
+    uint32_t block_group = inode / fs->sb->inodes_per_group;
+    uint32_t inode_index = inode % fs->sb->inodes_per_group;
+    uint32_t inode_block = (inode_index * fs->inode_size) / fs->block_size;
+    uint32_t inode_offset = (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size;
+
+    uint8_t buffer[fs->block_size];
+    ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
+    memcpy(buffer + inode_offset, in, fs->inode_size);
+    ext2_write_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
+}
+
+uint32_t ext2_allocate_block(ext2_fs *fs) {
+    for (uint32_t group = 0; group < fs->bgd_count; group++) {
+        uint8_t *bitmap = kmalloc(fs->block_size);
+        ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+        for (uint32_t i = 0; i < fs->sb->blocks_per_group; i++) {
+            if (!bitmap_get(bitmap, i)) {
+                bitmap_set(bitmap, i);
+                ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+                fs->sb->free_blocks_count--;
+                ext2_write_sb(fs);
+                return group * fs->sb->blocks_per_group + i;
+            }
+        }
+        kfree(bitmap);
+    }
+    return 0;
 }
 
 void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32_t count) {
     for (uint32_t i = 0; i < count; i++) {
         if (blocks[i]) {
-            ext2_read_block(fs, blocks[i], (uint8_t*)buffer + (i * fs->block_size), fs->block_size);
+            ext2_read_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
         }
+    }
+}
+
+void ext2_write_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        if (!blocks[i] && !(blocks[i] = ext2_allocate_block(fs)))
+            return;
+        ext2_write_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
     }
 }
 
@@ -219,6 +276,21 @@ void ext2_read_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint32
     }
 }
 
+void ext2_write_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint32_t block, uint32_t block_count) {
+    uint32_t current = block;
+    uint32_t remaining = block_count;
+    uint32_t offset = 0;
+    
+    if (current < 12 && remaining > 0) {
+        uint32_t count = remaining < 12 - current ? remaining : 12 - current;
+        ext2_write_direct_blocks(fs, &in->direct_block_ptr[current], buffer + offset, count);
+
+        offset += count * fs->block_size;
+        current += count;
+        remaining -= count;
+    }
+}
+
 long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
     if (!fs)
@@ -246,8 +318,29 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    unimplemented;
-    return -1;
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return -ENOENT;
+    if (fs->sb->signature != 0xef53)
+        return -EIO;
+    
+    ext2_inode inode;
+    ext2_read_inode(fs, node->inode, &inode);
+
+    if (offset + len > inode.size)
+        inode.size = offset + len;
+
+    uint32_t block = offset / fs->block_size;
+    uint32_t count = ((offset + len - 1) / fs->block_size) - block + 1;
+
+    uint8_t *buf = kmalloc(count * fs->block_size);
+    ext2_read_inode_blocks(fs, &inode, buf, block, count);
+    memcpy(buf + (offset % fs->block_size), buffer, len);
+    ext2_write_inode_blocks(fs, &inode, buf, block, count);
+    ext2_write_inode(fs, node->inode, &inode);
+
+    kfree(buf);
+    return len;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {

@@ -51,6 +51,13 @@ long gpt_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return vfs_read(device->drive, buffer, device->offset + offset, len);
 }
 
+long gpt_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    if (!node->device)
+        return -EIO;
+    partition_device_t *device = node->device;
+    return vfs_write(device->drive, buffer, device->offset + offset, len);
+}
+
 int init() {
     int drive_num = 0;
     char drive_name[] = "/dev/sda";
@@ -91,6 +98,7 @@ int init() {
             part = vfs_create_node(mountpoint, VFS_BLOCKDEVICE);
             part->perms = 0660;
             part->read = gpt_read;
+            part->write = gpt_write;
             part->device = device;
             vfs_add_device(part);
         }
