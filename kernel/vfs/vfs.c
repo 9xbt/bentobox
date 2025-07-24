@@ -25,32 +25,6 @@ extern long tmpfs_remove_file(struct vfs_node *node);
 
 struct vfs_node *vfs_root = NULL, *vfs_devfs = NULL;
 
-struct vfs_node *vfs_mkdir(struct vfs_node *parent, const char *name) {
-    struct vfs_node *dir = vfs_create_node(name, VFS_DIRECTORY);
-    if (dir) {
-        dir->driver = parent->driver;
-        vfs_add_node(parent, dir);
-    }
-    return dir;
-}
-
-long vfs_rmdir(struct vfs_node *node) {
-    return 0;
-}
-
-vfs_driver_ops_t vfs_drivers[VFS_MAX_DRIVERS] = {
-    [VFS_DRIVER_TMPFS] = {
-        .create = tmpfs_create_file,
-        .remove = tmpfs_remove_file,
-        .mkdir = vfs_mkdir,
-        .rmdir = vfs_rmdir
-    },
-    [VFS_DRIVER_DEVFS] = {
-        .mkdir = vfs_mkdir,
-        .rmdir = vfs_rmdir
-    }
-};
-
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     struct vfs_node *node = (struct vfs_node *)kmalloc(sizeof(struct vfs_node));
     strcpy(node->name, name);
@@ -67,7 +41,6 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->isatty = false;
     node->tty_ops.ioctl = NULL;
     node->mmap = NULL;
-    node->driver = VFS_DRIVER_OTHER;
     node->close = NULL;
     node->poll_list = list_create();
     node->poll = NULL;
@@ -88,7 +61,7 @@ int vfs_remove_node(struct vfs_node *node) {
         return -EBUSY;
     if (node->busy)
         return -EBUSY;
-    if (node->type == VFS_DIRECTORY && node->children != NULL)
+    if (node->type == VFS_DIRECTORY && node->children->head)
         return -ENOTEMPTY;
     
     if (node->parent) {
@@ -99,8 +72,8 @@ int vfs_remove_node(struct vfs_node *node) {
     }
 
     long ret = node->type == VFS_DIRECTORY
-        ? (vfs_drivers[node->driver].rmdir ? vfs_drivers[node->driver].rmdir(node) : 0)
-        : (vfs_drivers[node->driver].remove ? vfs_drivers[node->driver].remove(node) : 0);
+        ? (node->driver.rmdir ? node->driver.rmdir(node) : 0)
+        : (node->driver.remove ? node->driver.remove(node) : 0);
     if (ret < 0) return ret;
     
     if (node->parent)
@@ -155,8 +128,8 @@ static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name
 
 static struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir) {
     return isdir
-        ? vfs_drivers[parent->driver].mkdir ? vfs_drivers[parent->driver].mkdir(parent, name) : NULL
-        : (vfs_drivers[parent->driver].create ? vfs_drivers[parent->driver].create(parent, name) : NULL);
+        ? parent->driver.mkdir ? parent->driver.mkdir(parent, name) : NULL
+        : (parent->driver.create ? parent->driver.create(parent, name) : NULL);
 }
 
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
@@ -341,7 +314,6 @@ void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
 
     vfs_devfs = vfs_create_node("dev", VFS_DIRECTORY);
-    vfs_devfs->driver = VFS_DRIVER_DEVFS;
     vfs_add_node(vfs_root, vfs_devfs);
 
     zero_initialize();

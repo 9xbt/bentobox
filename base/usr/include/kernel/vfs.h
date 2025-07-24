@@ -19,15 +19,6 @@ typedef enum vfs_node_type {
     VFS_UNIXPIPE
 } vfs_node_type_t;
 
-typedef enum vfs_driver {
-    VFS_DRIVER_OTHER,
-    VFS_DRIVER_EXT2,
-    VFS_DRIVER_TMPFS,
-    VFS_DRIVER_DEVFS,
-    
-    VFS_MAX_DRIVERS
-} vfs_driver_t;
-
 typedef struct vfs_driver_ops {
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
     long(*remove)(struct vfs_node *node);
@@ -46,7 +37,6 @@ typedef struct vfs_node {
     char name[MAX_PATH];
     bool busy, isatty;
     enum vfs_node_type type;
-    enum vfs_driver driver;
     size_t size;
     uint16_t perms;
     uint64_t inode;
@@ -55,6 +45,7 @@ typedef struct vfs_node {
     list_t *children;
     list_t *poll_list;
     struct tty_operations tty_ops;
+    struct vfs_driver_ops driver;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset);

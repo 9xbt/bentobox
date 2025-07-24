@@ -394,7 +394,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
         if (node) {
             node->size = child.size;
             node->inode = entry->inode;
-            node->driver = VFS_DRIVER_EXT2;
+            //node->driver = VFS_DRIVER_EXT2;
 
             if (type != VFS_SYMLINK) {
                 node->read = ext2_read;
