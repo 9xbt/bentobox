@@ -12,6 +12,7 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
+extern void devfs_initialize(void);
 extern void zero_initialize(void);
 extern void ps2_initialize(void);
 extern void serial_initialize(void);
@@ -312,10 +313,8 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
 
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
-
-    vfs_devfs = vfs_create_node("dev", VFS_DIRECTORY);
-    vfs_add_node(vfs_root, vfs_devfs);
-
+    
+    devfs_initialize();
     zero_initialize();
     ps2_initialize();
     serial_initialize();

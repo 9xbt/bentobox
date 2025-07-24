@@ -54,7 +54,7 @@ typedef struct vfs_node {
     void *device;
 } vfs_node_t;
 
-extern struct vfs_node *vfs_root;
+extern struct vfs_node *vfs_root, *vfs_devfs;
 
 void vfs_install(void);
 void vfs_add_node(struct vfs_node *parent, struct vfs_node *node);
