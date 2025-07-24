@@ -327,7 +327,7 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
 
-    if (offset + len > inode.size)
+    if (offset + len < inode.size || offset + len > inode.size)
         inode.size = offset + len;
 
     uint32_t block = offset / fs->block_size;

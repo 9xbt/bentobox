@@ -21,9 +21,16 @@ int main(int argc, char *argv[]) {
     FILE *fptr;
     char hostname[256];
     if (!(fptr = fopen("/etc/hostname", "r")) ||
-        !fgets(hostname, sizeof hostname, fptr) ||
-        sethostname(hostname, strlen(hostname)) != 0) {
+        !fgets(hostname, sizeof hostname, fptr)) {
     } else {
+        char *newline;
+        if ((newline = strchr(hostname, '\n')))
+            *newline = '\0';
+
+        if (sethostname(hostname, strlen(hostname))) {
+            perror("sethostname");
+        }
+
         fclose(fptr);
     }
 
