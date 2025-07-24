@@ -141,7 +141,6 @@ void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32
     }
 }
 
-
 uint32_t ext2_read_singly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, uint32_t offset, uint32_t count) {
     if (!block)
         return 0;
@@ -220,7 +219,6 @@ void ext2_read_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint32
     }
 }
 
-
 long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
     if (!fs)
@@ -245,6 +243,11 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 
     kfree(buf);
     return len;
+}
+
+long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    unimplemented;
+    return -1;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {
@@ -302,6 +305,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
 
             if (type != VFS_SYMLINK) {
                 node->read = ext2_read;
+                node->write = ext2_write;
                 node->device = fs;
             }
 

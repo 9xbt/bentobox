@@ -345,6 +345,10 @@ int ahci_read(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer
     return ahci_op(ahci_port, lba, count, buffer, false);
 }
 
+int ahci_write(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer) {
+    return ahci_op(ahci_port, lba, count, buffer, true);
+}
+
 long sda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (len == 0) return 0;
 
@@ -355,6 +359,32 @@ long sda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 
     if (ahci_read(node->device, lba, num_sectors, buf) == 0) {
         memcpy(buffer, buf, len);
+        mmu_free(PHYSICAL_IDENT(buf), pages);
+        return len;
+    } else {
+        mmu_free(PHYSICAL_IDENT(buf), pages);
+        return 0;
+    }
+}
+
+long sda_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    if (len == 0) return 0;
+    
+    size_t lba = offset / 512;
+    size_t num_sectors = ALIGN_UP(len, 512) / 512;
+    size_t pages = ALIGN_UP(len, PAGE_SIZE) / PAGE_SIZE;
+    void *buf = VIRTUAL_IDENT(mmu_alloc(pages));
+    
+    if (offset % 512 != 0 || len % 512 != 0) {
+        if (ahci_read(node->device, lba, num_sectors, buf) != 0) {
+            mmu_free(PHYSICAL_IDENT(buf), pages);
+            return 0;
+        }
+    }
+    
+    memcpy(buf + (offset % 512), buffer, len);
+    
+    if (ahci_write(node->device, lba, num_sectors, buf) == 0) {
         mmu_free(PHYSICAL_IDENT(buf), pages);
         return len;
     } else {
@@ -440,6 +470,7 @@ int init() {
                     struct vfs_node *drive = vfs_create_node(mountpoint, VFS_BLOCKDEVICE);
                     drive->perms = 0660;
                     drive->read = sda_read;
+                    drive->write = sda_write;
                     drive->device = ahci_ports[connected_ports++];
                     vfs_add_device(drive);
                     break;
