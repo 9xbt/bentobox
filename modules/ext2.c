@@ -1,12 +1,13 @@
-#include "kernel/bitmap.h"
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/assert.h>
+#include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/args.h>
+#include <kernel/time.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
@@ -116,6 +117,15 @@ typedef struct {
     uint32_t bgd_block;
     uint32_t inode_size;
 } ext2_fs;
+
+struct vfs_node *ext2_create(struct vfs_node *parent, const char *name);
+struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name);
+long ext2_remove(struct vfs_node *node);
+long ext2_rmdir(struct vfs_node *node);
+
+struct vfs_driver_ops ext2_driver = {
+    .create = ext2_create
+};
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in);
 
@@ -300,6 +310,7 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
+    inode.last_access_time = now();
 
     if (offset >= inode.size)
         return 0;
@@ -312,6 +323,7 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     uint8_t *buf = kmalloc(count * fs->block_size);
     ext2_read_inode_blocks(fs, &inode, buf, block, count);
     memcpy(buffer, buf + (offset % fs->block_size), len);
+    ext2_write_inode(fs, node->inode, &inode);
 
     kfree(buf);
     return len;
@@ -326,6 +338,8 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
+    inode.last_access_time = now();
+    inode.mod_time = now();
 
     if (offset + len < inode.size || offset + len > inode.size)
         inode.size = offset + len;
@@ -340,7 +354,12 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_write_inode(fs, node->inode, &inode);
 
     kfree(buf);
+    node->size = inode.size;
     return len;
+}
+
+struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
+    return NULL;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {
@@ -394,7 +413,10 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
         if (node) {
             node->size = child.size;
             node->inode = entry->inode;
-            //node->driver = VFS_DRIVER_EXT2;
+            node->driver = ext2_driver;
+            node->time.a_time = child.last_access_time;
+            node->time.c_time = child.creation_time;
+            node->time.m_time = child.mod_time;
 
             if (type != VFS_SYMLINK) {
                 node->read = ext2_read;

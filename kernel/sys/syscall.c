@@ -23,8 +23,8 @@
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/sched.h>
-#include <kernel/timer.h>
 #include <kernel/video.h>
+#include <kernel/time.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>

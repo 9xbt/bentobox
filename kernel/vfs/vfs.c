@@ -9,6 +9,7 @@
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
+#include <kernel/time.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
@@ -30,21 +31,32 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     struct vfs_node *node = (struct vfs_node *)kmalloc(sizeof(struct vfs_node));
     strcpy(node->name, name);
     node->busy = false;
+    node->isatty = false;
     node->type = type;
     node->size = 0;
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
     node->parent = NULL;
+    node->symlink = NULL;
     node->children = list_create();
+    node->poll_list = list_create();
+    node->tty_ops.ioctl = NULL;
+    node->tty_ops.enqueue = NULL;
+    node->tty_ops.dequeue = NULL;
+    node->tty_ops.flush = NULL;
+    node->driver.create = NULL;
+    node->driver.remove = NULL;
+    node->driver.mkdir = NULL;
+    node->driver.rmdir = NULL;
     node->read = NULL;
     node->write = NULL;
-    node->symlink = NULL;
-    node->isatty = false;
-    node->tty_ops.ioctl = NULL;
     node->mmap = NULL;
-    node->close = NULL;
-    node->poll_list = list_create();
     node->poll = NULL;
+    node->close = NULL;
+    node->device = NULL;
+    node->time.a_time = now();
+    node->time.c_time = now();
+    node->time.m_time = now();
     return node;
 }
 
@@ -193,6 +205,7 @@ long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
+    node->time.a_time = now();
     if (node->read) {
         long ret = node->read(node, buffer, offset, len);
         return ret;
@@ -204,6 +217,8 @@ long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
+    node->time.a_time = now();
+    node->time.m_time = now();
     if (node->write) {
         long ret = node->write(node, buffer, offset, len);
         return ret;
@@ -292,6 +307,9 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
     statbuf->st_uid = 0;
     statbuf->st_gid = 0;
     statbuf->st_ino = node->inode;
+    statbuf->st_atim.tv_sec = node->time.a_time;
+    statbuf->st_ctim.tv_sec = node->time.c_time;
+    statbuf->st_mtim.tv_sec = node->time.m_time;
     /** TODO: report block usage (st_blocks) */
     
     switch (node->type) {
