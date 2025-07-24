@@ -85,8 +85,8 @@ int vfs_remove_node(struct vfs_node *node) {
     }
 
     long ret = node->type == VFS_DIRECTORY
-        ? (node->driver.rmdir ? node->driver.rmdir(node) : 0)
-        : (node->driver.remove ? node->driver.remove(node) : 0);
+        ? (node->driver.rmdir ? node->driver.rmdir(node) : -EPERM)
+        : (node->driver.remove ? node->driver.remove(node) : -EPERM);
     if (ret < 0) return ret;
     
     if (node->parent)
