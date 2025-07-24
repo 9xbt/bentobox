@@ -636,6 +636,39 @@ long sys_arch_prctl(int op, long extra) {
     return 0;
 }
 
+#define LINUX_REBOOT_MAGIC1     0xfee1dead
+#define LINUX_REBOOT_MAGIC2     0x28121969
+#define LINUX_REBOOT_MAGIC2A    0x05121996
+#define LINUX_REBOOT_MAGIC2B    0x16041998
+#define LINUX_REBOOT_MAGIC2C    0x20112000
+
+#define LINUX_REBOOT_CMD_RESTART    0x1234567
+#define LINUX_REBOOT_CMD_HALT       0xCDEF0123
+#define LINUX_REBOOT_CMD_POWER_OFF  0x4321FEDC
+
+extern void arch_prepare_fatal(void);
+extern void arch_fatal(void);
+
+long sys_reboot(unsigned int magic, unsigned int magic2, int op, void *arg) {
+    if (magic != LINUX_REBOOT_MAGIC1)
+        return -EINVAL;
+
+    if (magic2 != LINUX_REBOOT_MAGIC2 &&
+        magic2 != LINUX_REBOOT_MAGIC2A &&
+        magic2 != LINUX_REBOOT_MAGIC2B &&
+        magic2 != LINUX_REBOOT_MAGIC2C)
+        return -EINVAL;
+
+    switch (op) {
+        case LINUX_REBOOT_CMD_RESTART:
+            acpi_reboot();
+            __builtin_unreachable();
+        default:
+            return -EINVAL;
+    }
+    return 0;
+}
+
 long sys_sethostname(const char *name, size_t len) {
     if (!name)
         return -EFAULT;
@@ -804,6 +837,7 @@ static syscall_func syscalls[] = {
     [SYS_getppid]           = (syscall_func)(uintptr_t)sys_getppid,
     [SYS_getpgid]           = (syscall_func)(uintptr_t)sys_getpgid,
     [SYS_arch_prctl]        = (syscall_func)(uintptr_t)sys_arch_prctl,
+    [SYS_reboot]            = (syscall_func)(uintptr_t)sys_reboot,
     [SYS_sethostname]       = (syscall_func)(uintptr_t)sys_sethostname,
     [SYS_gettid]            = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_getdents64]        = (syscall_func)(uintptr_t)sys_getdents64,
