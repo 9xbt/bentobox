@@ -141,49 +141,52 @@ void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32
     }
 }
 
-void ext2_read_singly_blocks(ext2_fs *fs, uint32_t indirect_block, uint8_t *buffer, uint32_t offset, uint32_t count) {
-    if (!indirect_block)
-        return;
+
+uint32_t ext2_read_singly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, uint32_t offset, uint32_t count) {
+    if (!block)
+        return 0;
 
     uint32_t singly_ptr = fs->block_size / sizeof(uint32_t);
     if (offset >= singly_ptr)
-        return;
+        return 0;
     if (offset + count > singly_ptr)
         count = singly_ptr - offset;
 
     uint32_t *block_ptrs = kmalloc(fs->block_size);
-    ext2_read_block(fs, indirect_block, block_ptrs, fs->block_size);
+    ext2_read_block(fs, block, block_ptrs, fs->block_size);
 
-    for (uint32_t i = 0; i < count; i++) {
+    uint32_t i;
+    for (i = 0; i < count; i++) {
         if (block_ptrs[offset + i]) {
             ext2_read_block(fs, block_ptrs[offset + i], buffer + (i * fs->block_size), fs->block_size);
         }
     }
 
     kfree(block_ptrs);
+    return i;
 }
 
-void ext2_read_doubly_blocks(ext2_fs *fs, uint32_t doubly_block, uint8_t *buffer, uint32_t offset, uint32_t count) {
-    if (!doubly_block)
-        return;
+uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, uint32_t offset, uint32_t count) {
+    if (!block)
+        return 0;
 
     uint32_t ptrs_per_block = fs->block_size / sizeof(uint32_t);
-    if (offset >= ptrs_per_block)
-        return;
-    if (offset + count > ptrs_per_block)
-        count = ptrs_per_block - offset;
-
     uint32_t *doubly_ptrs = kmalloc(fs->block_size);
-    ext2_read_block(fs, doubly_block, doubly_ptrs, fs->block_size);
+    ext2_read_block(fs, block, doubly_ptrs, fs->block_size);
 
-    for (uint32_t i = 0, read = 0; i < count; i++) {
-        if (doubly_ptrs[offset + i]) {
-            ext2_read_singly_blocks(fs, doubly_ptrs[offset + i], buffer + read * fs->block_size, 0, ptrs_per_block);
-            read += ptrs_per_block;
-        }
+    uint32_t read = 0;
+    for (uint32_t i = offset / ptrs_per_block; i < ptrs_per_block && read < count; i++) {
+        uint32_t singly_offset = (i == offset / ptrs_per_block) ? offset % ptrs_per_block : 0;
+        uint32_t singly_count = (count - read > ptrs_per_block - singly_offset) ? ptrs_per_block - singly_offset : count - read;
+        
+        if (doubly_ptrs[i])
+            read += ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count);
+        else
+            read += singly_count;
     }
 
     kfree(doubly_ptrs);
+    return read;
 }
 
 void ext2_read_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint32_t block, uint32_t block_count) {
@@ -204,20 +207,19 @@ void ext2_read_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint32
 
     if (current < 12 + blocks_per_singly && remaining > 0 && in->singly_block_ptr != 0) {
         uint32_t count = current + remaining > 12 + blocks_per_singly ? 12 + blocks_per_singly - current : remaining;
-        ext2_read_singly_blocks(fs, in->singly_block_ptr, buffer + offset,
-            current >= 12 ? current - 12 : 0 * fs->block_size, count * fs->block_size);
+        uint32_t read = ext2_read_singly_blocks(fs, in->singly_block_ptr, buffer + offset, current >= 12 ? current - 12 : 0, count);
 
-        offset += count * fs->block_size;
-        current += count;
-        remaining -= count;
+        offset += read * fs->block_size;
+        current += read;
+        remaining -= read;
     }
 
     if (current < 12 + blocks_per_singly + blocks_per_doubly && remaining > 0 && in->doubly_block_ptr != 0) {
         ext2_read_doubly_blocks(fs, in->doubly_block_ptr, buffer + offset,
-            ((current >= 12 + blocks_per_singly) ? current - (12 +
-            blocks_per_singly) : 0) * fs->block_size, remaining * fs->block_size);
+            current >= 12 + blocks_per_singly ? current - (12 + blocks_per_singly) : 0, remaining);
     }
 }
+
 
 long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
