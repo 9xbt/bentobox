@@ -486,6 +486,7 @@ int init() {
     
     vfs_root->inode = 2;
     vfs_root->device = fs;
+    dprintf("%s:%d: mounting %s to /\n", __FILE__, __LINE__, args_value("root"));
     ext2_mount(fs, vfs_root, 2);
 
     return 0;
