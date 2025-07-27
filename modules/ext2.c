@@ -178,13 +178,41 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
     for (uint32_t group = 0; group < fs->bgd_count; group++) {
         uint8_t *bitmap = kmalloc(fs->block_size);
         ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+
         for (uint32_t i = 0; i < fs->sb->blocks_per_group; i++) {
             if (!bitmap_get(bitmap, i)) {
                 bitmap_set(bitmap, i);
                 ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+                kfree(bitmap);
+
                 fs->sb->free_blocks_count--;
+                fs->bgd_table[group].free_blocks--;
                 ext2_write_sb(fs);
+                ext2_write_bgd(fs, group, fs->bgd_table[group]);
                 return group * fs->sb->blocks_per_group + i;
+            }
+        }
+        kfree(bitmap);
+    }
+    return 0;
+}
+
+uint32_t ext2_allocate_inode(ext2_fs *fs) {
+    for (uint32_t group = 0; group < fs->bgd_count; group++) {
+        uint8_t *bitmap = kmalloc(fs->block_size);
+        ext2_read_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
+
+        for (uint32_t i = 0; i < fs->sb->inodes_per_group; i++) {
+            if (!bitmap_get(bitmap, i)) {
+                bitmap_set(bitmap, i);
+                ext2_write_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
+                kfree(bitmap);
+                
+                fs->sb->free_inodes_count--;
+                fs->bgd_table[group].free_inodes--;
+                ext2_write_sb(fs);
+                ext2_write_bgd(fs, group, fs->bgd_table[group]);
+                return group * fs->sb->inodes_per_group + i + 1;
             }
         }
         kfree(bitmap);
@@ -305,8 +333,7 @@ long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
     if (!fs)
         return -ENOENT;
-    if (fs->sb->signature != 0xef53)
-        return -EIO;
+    assert(fs->sb->signature == 0xef53);
     
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
@@ -333,8 +360,7 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
     if (!fs)
         return -ENOENT;
-    if (fs->sb->signature != 0xef53)
-        return -EIO;
+    assert(fs->sb->signature == 0xef53);
     
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
@@ -359,7 +385,28 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
-    return NULL;
+    ext2_fs *fs = parent->device;
+    if (!fs)
+        return NULL;
+    assert(fs->sb->signature == 0xef53);
+
+    ext2_inode inode;
+    memset(&inode, 0, sizeof inode);
+    inode.type_perms = EXT_FILE | 0644;
+    inode.size = 0;
+    inode.last_access_time = inode.creation_time = inode.mod_time = now();
+    inode.hard_link_count = 1;
+
+    struct vfs_node *node = vfs_create_node(name, VFS_FILE);
+    node->size = 0;
+    node->inode = ext2_allocate_inode(fs);
+    ext2_write_inode(fs, node->inode, &inode);
+    node->driver = ext2_driver;
+    node->device = fs;
+    node->read = ext2_read;
+    node->write = ext2_write;
+    vfs_add_node(parent, node);
+    return node;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {

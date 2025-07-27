@@ -162,6 +162,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [ ] sysinfo()
 - [ ] Buddy allocator for large reallocations (I'm looking at you tmpfs)
 - [ ] VFS mounting
+- [ ] Fix fork() process adding
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/847c395a-446b-4aea-8dad-370437ebe4fc)
