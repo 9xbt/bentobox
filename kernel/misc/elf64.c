@@ -35,7 +35,7 @@ Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_cou
 }
 
 int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_count, Elf64_Addr addr) {
-    if (addr >= 0x400000) {
+    if (addr >= 0x400000 && addr <= PHYS_MAP_BASE) {
         strcpy(s, "(userspace)");
         return 1;
     }
@@ -441,7 +441,7 @@ long fork(struct registers *r) {
     vma_copy_mappings(proc->vma, this->vma);
     vmm_switch_pm(this->pml4);
 
-    sched_add_task(proc, this_core());
+    sched_add_task(proc, NULL);
     sched_unlock();
     return proc->pid;
 }

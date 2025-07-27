@@ -124,20 +124,21 @@ long ext2_remove(struct vfs_node *node);
 long ext2_rmdir(struct vfs_node *node);
 
 struct vfs_driver_ops ext2_driver = {
-    .create = ext2_create
+    .create = ext2_create,
+    .remove = ext2_remove,
+    .mkdir = ext2_mkdir,
+    .rmdir = ext2_rmdir
 };
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in);
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
+    assert(block);
     vfs_read(fs->sda, buffer, block * fs->block_size, count);
 }
 
 void ext2_write_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
-    if (!block) {
-        dprintf("%s:%d: tried to write to block #0\n", __FILE__, __LINE__);
-        return;
-    }
+    assert(block);
     vfs_write(fs->sda, buffer, block * fs->block_size, count);
 }
 
@@ -218,6 +219,10 @@ uint32_t ext2_allocate_inode(ext2_fs *fs) {
         kfree(bitmap);
     }
     return 0;
+}
+
+int ext2_add_dirent(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t inode) {
+    return -EPERM;
 }
 
 void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32_t count) {
@@ -367,6 +372,8 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     inode.last_access_time = now();
     inode.mod_time = now();
 
+    if (offset == -1)
+        offset = inode.size;
     if (offset + len < inode.size || offset + len > inode.size)
         inode.size = offset + len;
 
@@ -407,6 +414,18 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
     node->write = ext2_write;
     vfs_add_node(parent, node);
     return node;
+}
+
+long ext2_remove(struct vfs_node *node) {
+    return -EPERM;
+}
+
+struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name) {
+    return NULL;
+}
+
+long ext2_rmdir(struct vfs_node *node) {
+    return -EPERM;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {
