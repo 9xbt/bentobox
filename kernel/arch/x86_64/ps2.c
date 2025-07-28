@@ -1,4 +1,5 @@
 #include <bits/types/struct_timeval.h>
+#include <linux/input-event-codes.h>
 #include <linux/input.h>
 #include <sys/poll.h>
 #include <stdbool.h>
@@ -342,6 +343,24 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
     return sizeof iev;
 }
 
+long ps2_keyboard_ioctl(int fd_num, int op, void *arg) {
+    struct fd *fd = fd_get(fd_num);
+    (void)fd;
+    switch (op) {
+        case EVIOCGBIT(0, sizeof(unsigned long)):
+            *(unsigned long *)arg = (1 << EV_KEY);
+            return 0;
+        case EVIOCGBIT(EV_KEY, KEY_MAX/8 + 1): {
+            unsigned char *keybits = (unsigned char *)arg;
+            memset(keybits, 0xFF, KEY_MAX/8 + 1);
+            return 0;
+        }
+        default:
+            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            return -EINVAL;
+    }
+}
+
 long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (fifo_is_empty(mouse_fifo)) return -EAGAIN;
 
@@ -356,6 +375,16 @@ long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size
     iev.value = packet[2];
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
+}
+
+long ps2_mouse_ioctl(int fd_num, int op, void *arg) {
+    struct fd *fd = fd_get(fd_num);
+    (void)fd;
+    switch (op) {
+        default:
+            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            return -EINVAL;
+    }
 }
 
 long ps2_mouse_poll(struct vfs_node *node, long events) {
@@ -456,7 +485,9 @@ void ps2_initialize(void) {
         irq_register(1, irq1_handler);
         
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
+        kb->isatty = true;
         kb->read = ps2_keyboard_read_event;
+        kb->tty_ops.ioctl = ps2_keyboard_ioctl;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), kb);
     }
 
@@ -477,8 +508,10 @@ void ps2_initialize(void) {
         irq_register(12, irq12_handler);
 
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
+        mouse->isatty = true;
         mouse->read = ps2_mouse_read_event;
         mouse->poll = ps2_mouse_poll;
+        mouse->tty_ops.ioctl = ps2_mouse_ioctl;
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
     }
 
