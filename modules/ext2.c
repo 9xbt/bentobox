@@ -221,11 +221,74 @@ uint32_t ext2_allocate_inode(ext2_fs *fs) {
     return 0;
 }
 
-int ext2_add_dirent(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t inode) {
-    return -EPERM;
+int ext2_add_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, const char *name, uint32_t in) {
+    uint32_t offset = 0;
+
+    while (offset < block_size) {
+        ext2_dirent *entry = (ext2_dirent *)(block_data + offset);
+        if (!entry->total_size)
+            break;
+
+        uint32_t used = ALIGN_UP(sizeof(ext2_dirent) + entry->name_len, 4);
+        uint32_t required = ALIGN_UP(sizeof(ext2_dirent) + strlen(name), 4);
+        uint32_t remaining = entry->total_size - used;
+
+        if (entry->inode != 0 && entry->total_size >= used + required) {
+            dprintf("Found empty directory entry\n");
+
+            entry->total_size = used;
+
+            ext2_dirent *dirent = (ext2_dirent *)((uint8_t *)entry + used);
+            dirent->inode = in;
+            dirent->name_len = strlen(name);
+            dirent->type = 1; // ?
+            dirent->total_size = remaining;
+            memcpy(dirent->name, name, dirent->name_len);
+
+            return 0;
+        }
+
+        offset += entry->total_size;
+    }
+    dprintf("No space.\n");
+    return -ENOSPC;
 }
 
-void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32_t count) {
+int ext2_add_inode(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t in) {
+    ext2_inode inode;
+    ext2_read_inode(fs, dir_inode, &inode);
+
+    uint32_t total_blocks = (inode.size + fs->block_size - 1) / fs->block_size;
+
+    for (uint32_t i = 0; i < total_blocks && i < 12; i++) {
+        if (inode.direct_block_ptr[i] == 0) {
+            if (!(inode.direct_block_ptr[i] = ext2_allocate_block(fs)))
+                return -ENOSPC;
+
+            uint8_t *zero = kmalloc(fs->block_size);
+            memset(zero, 0, fs->block_size);
+            ext2_write_block(fs, inode.direct_block_ptr[i], zero, fs->block_size);
+            kfree(zero);
+
+            inode.size += fs->block_size;
+            total_blocks = (inode.size + fs->block_size - 1) / fs->block_size;
+            ext2_write_inode(fs, dir_inode, &inode);
+        }
+
+        uint8_t *block = kmalloc(fs->block_size);
+        ext2_read_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
+
+        if (!ext2_add_dirent(fs, block, fs->block_size, name, in)) {
+            ext2_write_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
+            kfree(block);
+            return 0;
+        }
+        kfree(block);
+    }
+    return -ENOSPC;
+}
+
+void ext2_read_direct_blocks(ext2_fs *fs, uint32_t blocks[], void *buffer, uint32_t count) {
     for (uint32_t i = 0; i < count; i++) {
         if (blocks[i]) {
             ext2_read_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
@@ -233,7 +296,7 @@ void ext2_read_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32
     }
 }
 
-void ext2_write_direct_blocks(ext2_fs *fs, uint32_t *blocks, void *buffer, uint32_t count) {
+void ext2_write_direct_blocks(ext2_fs *fs, uint32_t blocks[], void *buffer, uint32_t count) {
     for (uint32_t i = 0; i < count; i++) {
         if (!blocks[i] && !(blocks[i] = ext2_allocate_block(fs)))
             return;
@@ -413,6 +476,8 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
     node->read = ext2_read;
     node->write = ext2_write;
     vfs_add_node(parent, node);
+
+    ext2_add_inode(fs, parent->inode, name, node->inode);
     return node;
 }
 
