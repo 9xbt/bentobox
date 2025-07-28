@@ -23,7 +23,7 @@ index 0000000..7f5a2ac
 +################################################################
 +
 +CC=musl-gcc
-+CFLAGS=-static -std=c99 -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE
++CFLAGS=-static -std=c99 -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE -DDOOMGENERIC_RESX=1280 -DDOOMGENERIC_RESY=800
 +LDFLAGS=-Wl,--gc-sections
 +LIBS=-lc -lm
 +
