@@ -1,15 +1,16 @@
-#include "kernel/list.h"
 #include <ioctls.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/arch/x86_64/serial.h>
+#include <kernel/spinlock.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/fifo.h>
+#include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>
 #include <sys/poll.h>
@@ -40,8 +41,10 @@ long tty_poll(struct vfs_node *node, long events) {
 }
 
 long tty_enqueue(int c) {
+    extern atomic_flag flanterm_lock;
     switch (c) {
         case 0x3:
+            release(&flanterm_lock);
             printf("^C\n");
             if (console->poll_list->head) {
                 signal_send(console->poll_list->head->value, SIGINT, 0);
