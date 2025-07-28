@@ -66,8 +66,6 @@ apps:
 bin/kernel/%.c.o: kernel/%.c
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@python3 util/format.py $< > bin/$<.tmp
-	@cp bin/$<.tmp $<
 	@$(CC) $(CCFLAGS) -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\" -c $< -o $@
 
 bin/kernel/%.S.o: kernel/%.S
@@ -78,8 +76,6 @@ bin/kernel/%.S.o: kernel/%.S
 bin/modules/%.o: modules/%.c $(KERNEL_OBJS)
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@python3 util/format.py $< > bin/$<.tmp
-	@cp bin/$<.tmp $<
 	@$(CC) $(CCFLAGS) -mcmodel=large -c $< -o $@
 
 #.PHONY: kernel
