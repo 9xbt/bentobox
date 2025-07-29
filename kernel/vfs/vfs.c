@@ -34,6 +34,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->isatty = false;
     node->type = type;
     node->size = 0;
+    node->blocks = 0;
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
     node->parent = NULL;
@@ -310,17 +311,15 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
     statbuf->st_atim.tv_sec = node->time.a_time;
     statbuf->st_ctim.tv_sec = node->time.c_time;
     statbuf->st_mtim.tv_sec = node->time.m_time;
-    /** TODO: report block usage (st_blocks) */
+    statbuf->st_blocks = node->blocks;
     
     switch (node->type) {
         case VFS_FILE:
+        case VFS_DIRECTORY:
             statbuf->st_size = node->size;
             break;
-        case VFS_DIRECTORY:
-            statbuf->st_size = 4096;
-            break;
         case VFS_SYMLINK:
-            statbuf->st_size = node->symlink ? strlen(node->symlink->name /**/) : 0; /** TODO: check this */
+            statbuf->st_size = node->symlink ? (follow_symlinks ? strlen(node->symlink->name) : node->symlink->size) : 0;
             break;
         default:
             statbuf->st_size = 0;

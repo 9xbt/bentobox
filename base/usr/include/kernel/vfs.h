@@ -33,17 +33,12 @@ typedef struct tty_operations {
     void(*flush)();
 } tty_ops_t;
 
-typedef struct vfs_time {
-    uint64_t a_time;
-    uint64_t c_time;
-    uint64_t m_time;
-} vfs_time_t;
-
 typedef struct vfs_node {
     char name[MAX_PATH];
     bool busy, isatty;
     enum vfs_node_type type;
     size_t size;
+    size_t blocks;
     uint16_t perms;
     uint64_t inode;
     struct vfs_node *parent;
@@ -58,7 +53,11 @@ typedef struct vfs_node {
     long(*poll)(struct vfs_node *node, long events);
     long(*close)(struct vfs_node *node);
     void *device;
-    struct vfs_time time;
+    struct {
+        uint64_t a_time;
+        uint64_t c_time;
+        uint64_t m_time;
+    } time;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root, *vfs_devfs;

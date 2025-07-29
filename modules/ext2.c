@@ -611,6 +611,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             node->time.a_time = child.last_access_time;
             node->time.c_time = child.creation_time;
             node->time.m_time = child.mod_time;
+            node->blocks = child.sector_count;
 
             if (type != VFS_SYMLINK) {
                 node->read = ext2_read;

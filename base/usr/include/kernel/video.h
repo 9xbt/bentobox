@@ -3,7 +3,6 @@
 #include <stdatomic.h>
 #include <ioctls.h>
 #include <kernel/multiboot.h>
-#include <kernel/3rdparty/flanterm.h>
 
 struct framebuffer {
     uint64_t addr;
@@ -12,6 +11,8 @@ struct framebuffer {
     uint32_t pitch;
     struct multiboot_tag_framebuffer *fb;
 };
+
+struct flanterm_context;
 
 extern struct framebuffer framebuffer;
 extern struct flanterm_context *ft_ctx;
