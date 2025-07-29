@@ -500,7 +500,7 @@ long sys_getcwd(char *buf, size_t size) {
     if (size < (size_t)strlen(path) + 1)
         return -ENAMETOOLONG;
     strcpy(buf, path);
-    return 0;
+    return strlen(path);
 }
 
 long sys_chdir(const char *path) {
