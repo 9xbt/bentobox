@@ -157,6 +157,8 @@ void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     uint32_t inode_index = inode % fs->sb->inodes_per_group;
     uint32_t inode_block = (inode_index * fs->inode_size) / fs->block_size;
 
+    assert(block_group < fs->bgd_count);
+
     uint8_t buffer[fs->block_size];
     ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
     memcpy(in, buffer + (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size, fs->inode_size);
@@ -168,6 +170,8 @@ void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     uint32_t inode_index = inode % fs->sb->inodes_per_group;
     uint32_t inode_block = (inode_index * fs->inode_size) / fs->block_size;
     uint32_t inode_offset = (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size;
+
+    assert(block_group < fs->bgd_count);
 
     uint8_t buffer[fs->block_size];
     ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);

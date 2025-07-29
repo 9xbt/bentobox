@@ -122,6 +122,11 @@ bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f) | a
 
 hdd: apps bin/$(IMAGE_NAME).hdd
 
+.PHONY: chroot
+chroot:
+	@sudo mkdir -p base/dev base/proc
+	@sudo chroot base /usr/bin/bash -c "export PATH=\$PATH:/bin; exec /usr/bin/bash -i"
+
 .PHONY: clean
 clean:
 	@rm -f $(BOOT_OBJS) $(KERNEL_OBJS)
