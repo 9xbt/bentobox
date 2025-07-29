@@ -45,19 +45,18 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->tty_ops.enqueue = NULL;
     node->tty_ops.dequeue = NULL;
     node->tty_ops.flush = NULL;
-    node->driver.create = NULL;
-    node->driver.remove = NULL;
-    node->driver.mkdir = NULL;
-    node->driver.rmdir = NULL;
+    node->create = NULL;
+    node->remove = NULL;
+    node->mkdir = NULL;
     node->read = NULL;
     node->write = NULL;
     node->mmap = NULL;
     node->poll = NULL;
     node->close = NULL;
     node->device = NULL;
-    node->time.a_time = now();
-    node->time.c_time = now();
-    node->time.m_time = now();
+    node->a_time = now();
+    node->c_time = now();
+    node->m_time = now();
     return node;
 }
 
@@ -85,9 +84,7 @@ int vfs_remove_node(struct vfs_node *node) {
         }
     }
 
-    long ret = node->type == VFS_DIRECTORY
-        ? (node->driver.rmdir ? node->driver.rmdir(node) : -EPERM)
-        : (node->driver.remove ? node->driver.remove(node) : -EPERM);
+    long ret = node->remove ? node->remove(node) : -EPERM;
     if (ret < 0) return ret;
     
     if (node->parent)
@@ -142,8 +139,8 @@ static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name
 
 static struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir) {
     return isdir
-        ? parent->driver.mkdir ? parent->driver.mkdir(parent, name) : NULL
-        : (parent->driver.create ? parent->driver.create(parent, name) : NULL);
+        ? parent->mkdir ? parent->mkdir(parent, name) : NULL
+        : (parent->create ? parent->create(parent, name) : NULL);
 }
 
 struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir_follow) {
@@ -206,7 +203,7 @@ long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
-    node->time.a_time = now();
+    node->a_time = now();
     if (node->read) {
         long ret = node->read(node, buffer, offset, len);
         return ret;
@@ -218,8 +215,8 @@ long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (!buffer) return -EFAULT;
     if (!node) return -ENOENT;
     if (node->busy) return -EBUSY;
-    node->time.a_time = now();
-    node->time.m_time = now();
+    node->a_time = now();
+    node->m_time = now();
     if (node->write) {
         long ret = node->write(node, buffer, offset, len);
         return ret;
@@ -301,9 +298,9 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
     statbuf->st_uid = 0;
     statbuf->st_gid = 0;
     statbuf->st_ino = node->inode;
-    statbuf->st_atim.tv_sec = node->time.a_time;
-    statbuf->st_ctim.tv_sec = node->time.c_time;
-    statbuf->st_mtim.tv_sec = node->time.m_time;
+    statbuf->st_atim.tv_sec = node->a_time;
+    statbuf->st_ctim.tv_sec = node->c_time;
+    statbuf->st_mtim.tv_sec = node->m_time;
     
     switch (node->type) {
         case VFS_FILE:

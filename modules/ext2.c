@@ -121,14 +121,6 @@ typedef struct {
 struct vfs_node *ext2_create(struct vfs_node *parent, const char *name);
 struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name);
 long ext2_remove(struct vfs_node *node);
-long ext2_rmdir(struct vfs_node *node);
-
-struct vfs_driver_ops ext2_driver = {
-    .create = ext2_create,
-    .remove = ext2_remove,
-    .mkdir = ext2_mkdir,
-    .rmdir = ext2_rmdir
-};
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in);
 
@@ -534,7 +526,9 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
     node->size = 0;
     node->inode = ext2_allocate_inode(fs);
     ext2_write_inode(fs, node->inode, &inode);
-    node->driver = ext2_driver;
+    node->create = ext2_create;
+    node->remove = ext2_remove;
+    node->mkdir = ext2_mkdir;
     node->device = fs;
     node->read = ext2_read;
     node->write = ext2_write;
@@ -550,10 +544,6 @@ long ext2_remove(struct vfs_node *node) {
 
 struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name) {
     return NULL;
-}
-
-long ext2_rmdir(struct vfs_node *node) {
-    return -EPERM;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {
@@ -611,10 +601,12 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
         if (node) {
             node->size = child.size;
             node->inode = entry->inode;
-            node->driver = ext2_driver;
-            node->time.a_time = child.last_access_time;
-            node->time.c_time = child.creation_time;
-            node->time.m_time = child.mod_time;
+            node->create = ext2_create;
+            node->remove = ext2_remove;
+            node->mkdir = ext2_mkdir;
+            node->a_time = child.last_access_time;
+            node->c_time = child.creation_time;
+            node->m_time = child.mod_time;
             node->blocks = child.sector_count;
             node->perms = ext2_get_perms(child.type_perms);
 

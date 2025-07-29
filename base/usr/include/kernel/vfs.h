@@ -19,13 +19,6 @@ typedef enum vfs_node_type {
     VFS_UNIXPIPE
 } vfs_node_type_t;
 
-typedef struct vfs_driver_ops {
-    struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
-    long(*remove)(struct vfs_node *node);
-    struct vfs_node *(*mkdir)(struct vfs_node *parent, const char *name);
-    long(*rmdir)(struct vfs_node *node);
-} vfs_driver_ops_t;
-
 typedef struct tty_operations {
     long(*ioctl)(int fd, int op, void *arg);
     long(*enqueue)(int c);
@@ -46,18 +39,18 @@ typedef struct vfs_node {
     list_t *children;
     list_t *poll_list;
     struct tty_operations tty_ops;
-    struct vfs_driver_ops driver;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset);
     long(*poll)(struct vfs_node *node, long events);
     long(*close)(struct vfs_node *node);
+    long(*remove)(struct vfs_node *node);
+    struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
+    struct vfs_node *(*mkdir)(struct vfs_node *parent, const char *name);
     void *device;
-    struct {
-        uint64_t a_time;
-        uint64_t c_time;
-        uint64_t m_time;
-    } time;
+    uint64_t a_time;
+    uint64_t c_time;
+    uint64_t m_time;
 } vfs_node_t;
 
 extern struct vfs_node *vfs_root, *vfs_devfs;

@@ -11,14 +11,6 @@ typedef struct tmpfs_file {
 struct vfs_node *tmpfs_create(struct vfs_node *parent, const char *name);
 struct vfs_node *tmpfs_mkdir(struct vfs_node *parent, const char *name);
 long tmpfs_remove(struct vfs_node *node);
-long tmpfs_rmdir(struct vfs_node *node);
-
-struct vfs_driver_ops tmpfs_driver = {
-    .create = tmpfs_create,
-    .remove = tmpfs_remove,
-    .mkdir = tmpfs_mkdir,
-    .rmdir = tmpfs_rmdir
-};
 
 long tmpfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     tmpfs_file_t *file = node->device;
@@ -52,7 +44,9 @@ struct vfs_node *tmpfs_create(struct vfs_node *parent, const char *name) {
     tmpfs_file_t *file = kmalloc(sizeof(tmpfs_file_t));
     file->data = NULL;
     node->size = 0;
-    node->driver = tmpfs_driver;
+    node->create = tmpfs_create;
+    node->remove = tmpfs_remove;
+    node->mkdir = tmpfs_mkdir;
     node->device = file;
     node->read = tmpfs_read;
     node->write = tmpfs_write;
@@ -73,18 +67,18 @@ long tmpfs_remove(struct vfs_node *node) {
 struct vfs_node *tmpfs_mkdir(struct vfs_node *parent, const char *name) {
     struct vfs_node *dir = vfs_create_node(name, VFS_DIRECTORY);
     if (dir) {
-        dir->driver = parent->driver;
+        dir->create = tmpfs_create;
+        dir->remove = tmpfs_remove;
+        dir->mkdir = tmpfs_mkdir;
         vfs_add_node(parent, dir);
     }
     return dir;
 }
 
-long tmpfs_rmdir(struct vfs_node *node) {
-    return 0;
-}
-
 void tmpfs_initialize(void) {
     struct vfs_node *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
-    tmp->driver = tmpfs_driver;
+    tmp->create = tmpfs_create;
+    tmp->remove = tmpfs_remove;
+    tmp->mkdir = tmpfs_mkdir;
     vfs_add_node(NULL, tmp);
 }
