@@ -69,7 +69,7 @@ void vfs_resolve_path(char *s, struct vfs_node *node);
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len);
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type);
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir);
+struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir_follow);
 int vfs_close(struct vfs_node *node);
 struct vfs_node *vfs_create_symlink(const char *name, const char *target);
 struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);

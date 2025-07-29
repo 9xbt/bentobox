@@ -85,7 +85,7 @@ long sys_fstat(int fd_num, struct stat *statbuf) {
 long sys_lstat(const char *pathname, struct stat *statbuf) {
     if (!pathname || !statbuf)
         return -EFAULT;
-    return vfs_stat(vfs_open(this->cwd, pathname, false, false), statbuf, true);
+    return vfs_stat(vfs_open(this->cwd, pathname, false, true), statbuf, true);
 }
 
 long sys_newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
@@ -538,17 +538,22 @@ long sys_unlink(const char *pathname) {
 }
 
 long sys_readlink(const char *pathname, char *buf, size_t bufsiz) {
-    vfs_node_t *node = vfs_open(this->cwd, pathname, false, false);
+    vfs_node_t *node = vfs_open(this->cwd, pathname, false, true);
     if (!node)
         return -ENOENT;
     if (node->type != VFS_SYMLINK)
         return -EINVAL;
     if (!buf)
         return -EFAULT;
+
+    vfs_node_t *target = vfs_resolve_symlink(node, MAX_NESTED_SYMLINKS);
+    if (!target)
+        return -ENOENT;
+
     char name[MAX_PATH];
-    vfs_resolve_path(name, node->symlink);
+    vfs_resolve_path(name, target);
     strncpy(buf, name, bufsiz);
-    return 0;
+    return strlen(name);
 }
 
 long sys_getrlimit(int resource, struct rlimit *rlim) {
@@ -691,6 +696,7 @@ struct linux_dirent64 {
     char           d_name[];
 };
 
+#define DT_LNK 10
 #define DT_REG  8
 #define DT_BLK  6
 #define DT_DIR  4
@@ -711,7 +717,7 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
 
     int offset = 0;
     int skip = fd->offset;
-    struct linux_dirent64 *current_entry = dirp;
+    struct linux_dirent64 *entry = dirp;
 
     foreach(item, dir->children) {
         if (skip > 0) {
@@ -727,30 +733,33 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
         if ((unsigned)(offset + reclen) > count)
             break;
 
-        current_entry->d_ino = child->inode;
-        current_entry->d_off = fd->offset + 1;
-        current_entry->d_reclen = reclen;
+        entry->d_ino = child->inode;
+        entry->d_off = fd->offset + 1;
+        entry->d_reclen = reclen;
 
         switch (child->type) {
             case VFS_DIRECTORY:
-                current_entry->d_type = DT_DIR;
+                entry->d_type = DT_DIR;
                 break;
             case VFS_FILE:
-                current_entry->d_type = DT_REG;
+                entry->d_type = DT_REG;
                 break;
             case VFS_CHARDEVICE:
-                current_entry->d_type = DT_CHR;
+                entry->d_type = DT_CHR;
                 break;
             case VFS_BLOCKDEVICE:
-                current_entry->d_type = DT_BLK;
+                entry->d_type = DT_BLK;
+                break;
+            case VFS_SYMLINK:
+                entry->d_type = DT_LNK;
                 break;
             default:
-                current_entry->d_type = DT_UNKNOWN;
+                entry->d_type = DT_UNKNOWN;
                 break;
         }
 
-        strcpy(current_entry->d_name, name);
-        current_entry = (void *)current_entry + reclen;
+        strcpy(entry->d_name, name);
+        entry = (void *)entry + reclen;
         offset += reclen;
         fd->offset++;
     }

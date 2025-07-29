@@ -130,11 +130,11 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     return symlink->symlink;
 }
 
-static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name) {
+static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow) {
     foreach(item, parent->children) {
         struct vfs_node *child = item->value;
         if (!strcmp(child->name, name)) {
-            return (child->type == VFS_SYMLINK) ? vfs_resolve_symlink(child, MAX_NESTED_SYMLINKS) : child;
+            return (child->type == VFS_SYMLINK && follow) ? vfs_resolve_symlink(child, MAX_NESTED_SYMLINKS) : child;
         }
     }
     return NULL;
@@ -146,7 +146,7 @@ static struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, boo
         : (parent->driver.create ? parent->driver.create(parent, name) : NULL);
 }
 
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir) {
+struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir_follow) {
     if (!path) return NULL;
     if (path[0] == '/' || !current) current = vfs_root;
 
@@ -165,9 +165,9 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
         } else if (!strcmp(token, "..")) {
             node = node->parent ?: node;
         } else {
-            struct vfs_node *child = vfs_find_child(node, token);
+            struct vfs_node *child = vfs_find_child(node, token, !isdir_follow);
             if (!child) {
-                struct vfs_node *file = create ? vfs_touch(node, token, isdir) : NULL;
+                struct vfs_node *file = create ? vfs_touch(node, token, isdir_follow) : NULL;
                 kfree(copy);
                 return file;
             }
@@ -291,17 +291,10 @@ static unsigned int convert_mode(enum vfs_node_type type, uint16_t perms) {
     return mode;
 }
 
-long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks) {
+long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
     if (!node)
         return -ENOENT;
-    
-    if (node->type == VFS_SYMLINK && follow_symlinks) {
-        struct vfs_node *target = vfs_resolve_symlink(node, MAX_NESTED_SYMLINKS);
-        if (!target)
-            return -ENOENT;
-        node = target;
-    }
-    
+
     memset(statbuf, 0, sizeof(struct stat));
     statbuf->st_mode = convert_mode(node->type, node->perms);
     statbuf->st_nlink = 1;
@@ -311,15 +304,15 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool follow_symlinks)
     statbuf->st_atim.tv_sec = node->time.a_time;
     statbuf->st_ctim.tv_sec = node->time.c_time;
     statbuf->st_mtim.tv_sec = node->time.m_time;
-    statbuf->st_blocks = node->blocks;
     
     switch (node->type) {
         case VFS_FILE:
         case VFS_DIRECTORY:
             statbuf->st_size = node->size;
+            statbuf->st_blocks = node->blocks;
             break;
         case VFS_SYMLINK:
-            statbuf->st_size = node->symlink ? (follow_symlinks ? strlen(node->symlink->name) : node->symlink->size) : 0;
+            statbuf->st_size = node->symlink ? (symlink ? strlen(node->symlink->name) : node->symlink->size) : 0;
             break;
         default:
             statbuf->st_size = 0;
