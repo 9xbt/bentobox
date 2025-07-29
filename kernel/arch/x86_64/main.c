@@ -9,7 +9,6 @@
 #include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/tss.h>
 #include <kernel/arch/x86_64/vga.h>
-#include <kernel/3rdparty/flanterm.h>
 #include <kernel/multiboot.h>
 #include <kernel/spinlock.h>
 #include <kernel/version.h>
@@ -25,6 +24,8 @@
 #include <kernel/args.h>
 #include <kernel/mmu.h>
 #include <kernel/pci.h>
+
+#include "../../misc/flanterm/flanterm.h"
 
 extern void generic_startup(void);
 extern void generic_main(void);

@@ -1,6 +1,5 @@
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/arch/x86_64/vga.h>
-#include <kernel/3rdparty/flanterm.h>
 #include <kernel/multiboot.h>
 #include <kernel/assert.h>
 #include <kernel/malloc.h>
@@ -9,6 +8,10 @@
 #include <kernel/video.h>
 #include <kernel/mmu.h>
 #include <kernel/psf.h>
+
+#define FLANTERM_IN_FLANTERM
+#include "../misc/flanterm/flanterm.h"
+#include "../misc/flanterm/backends/fb.h"
 
 struct framebuffer framebuffer;
 struct flanterm_context *ft_ctx = NULL;
