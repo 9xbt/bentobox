@@ -21,13 +21,13 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
             signal_send(this, SIGPIPE, 0);
             return i > 0 ? i : -EPIPE;
         }
-        if (ringbuffer_full(pipe->buffer)) {
+
+        size_t written = ringbuffer_write(pipe->buffer, &buf[i], len - i);
+        if (written == 0) {
             sched_yield();
             continue;
         }
-        if (!ringbuffer_write(pipe->buffer, &buf[i], 1))
-            return -EIO;
-        i++;
+        i += written;
     }
     return i;
 }
@@ -36,17 +36,17 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct unix_pipe *pipe = node->device;
     unsigned char *buf = (unsigned char *)buffer;
     int i = 0;
-    unsigned char c;
     
     while (i < (int)len) {
-        while (ringbuffer_empty(pipe->buffer)) {
+        if (ringbuffer_empty(pipe->buffer)) {
             if (pipe->write_refs <= 0)
                 return i;
             sched_yield();
+            continue;
         }
-        if (ringbuffer_read(pipe->buffer, &c, 1)) {
-            buf[i++] = c;
-        }
+
+        size_t read = ringbuffer_read(pipe->buffer, &buf[i], len - i);
+        i += read;
     }
     return i;
 }
@@ -87,29 +87,15 @@ int unixpipe_new(int fds[2], int flags) {
         vfs_create_node("[pipe::write]", VFS_UNIXPIPE)
     };
 
-    int fdflags = 0;
-    switch (flags) {
-        case 0:
-            break;
-        case O_CLOEXEC:
-            fdflags |= O_CLOEXEC;
-            break;
-        case O_NONBLOCK:
-            fdflags |= O_NONBLOCK;
-            break;
-        default:
-            return -EINVAL;
-    }
-
-    fds[0] = fd_create(pipes[0], fdflags);
-    fds[1] = fd_create(pipes[1], fdflags);
+    fds[0] = fd_create(pipes[0], flags);
+    fds[1] = fd_create(pipes[1], flags);
 
     struct unix_pipe *device = kmalloc(sizeof(struct unix_pipe));
     device->read_end = pipes[0];
     device->write_end = pipes[1];
     device->read_refs = 1;
     device->write_refs = 1;
-    device->buffer = ringbuffer_create(1024);
+    device->buffer = ringbuffer_create(UNIXPIPE_BUFFER_SIZE);
 
     pipes[0]->read = unixpipe_read;
     pipes[0]->write = NULL;
