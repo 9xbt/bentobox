@@ -573,6 +573,10 @@ enum vfs_node_type ext2_get_type(uint16_t type_perms) {
     }
 }
 
+uint16_t ext2_get_perms(uint16_t type_perms) {
+    return type_perms & 0x0FFF;
+}
+
 struct vfs_node *ext2_create_symlink_node(ext2_fs *fs, const char *name, ext2_inode *inode) {
     char *target = NULL;
     if (inode->size <= 60) {
@@ -612,6 +616,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             node->time.c_time = child.creation_time;
             node->time.m_time = child.mod_time;
             node->blocks = child.sector_count;
+            node->perms = ext2_get_perms(child.type_perms);
 
             if (type != VFS_SYMLINK) {
                 node->read = ext2_read;

@@ -21,7 +21,7 @@ void procfs_initialize(void) {
     struct vfs_node *proc = vfs_create_node("proc", VFS_DIRECTORY);
     vfs_add_node(NULL, proc);
 
-    struct vfs_node *meminfo = vfs_create_node("meminfo", VFS_CHARDEVICE);
+    struct vfs_node *meminfo = vfs_create_node("meminfo", VFS_FILE);
     meminfo->perms = 0444;
     meminfo->read = procfs_meminfo_read;
     vfs_add_node(proc, meminfo);
