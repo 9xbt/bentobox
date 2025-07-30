@@ -89,15 +89,11 @@ long tty_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     struct termios *tio = &fd_get(0)->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        int c;
-    again:
-        c = node->tty_ops.dequeue(tio->c_cc[VMIN] != 0);
-        if (c > 0) str[i++] = c;
-        else goto again;
+        str[i] = node->tty_ops.dequeue(tio->c_cc[VMIN] != 0);
 
         if (tio->c_lflag & ECHO)
-            fprintf(stdout, "%c", c);
-        return i;
+            vfs_write(node, &str[i], 0, 1);
+        return 1;
     }
 
     while (i < len) {
