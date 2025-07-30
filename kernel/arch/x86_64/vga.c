@@ -111,7 +111,7 @@ void vga_putchar(const char c) {
                 vga_x = 79;
                 vga_y--;
             } else vga_x--;
-            vga_buffer[vga_y * 80 + vga_x] = vga_color << 8;
+            //vga_buffer[vga_y * 80 + vga_x] = vga_color << 8;
             break;
         case '\r':
             vga_x = 0;
