@@ -63,7 +63,7 @@ new file mode 100644
 index 0000000..9746257
 --- /dev/null
 +++ b/doomgeneric/doomgeneric_fblinux.c
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,157 @@
 +#include <errno.h>
 +#include <ctype.h>
 +#include <fcntl.h>
@@ -153,14 +153,18 @@ index 0000000..9746257
 +static unsigned char convertToDoomKey(unsigned int key) {
 +	switch (key) {
 +        case KEY_W:
++        case KEY_UP:
 +            return KEY_UPARROW;
 +        case KEY_A:
++        case KEY_LEFT:
 +            return KEY_LEFTARROW;
 +        case KEY_S:
++        case KEY_DOWN:
 +            return KEY_DOWNARROW;
 +        case KEY_D:
++        case KEY_RIGHT:
 +            return KEY_RIGHTARROW;
-+        case KEY_Q:
++        case KEY_LEFTCTRL:
 +            return KEY_FIRE;
 +        case 28:
 +            return KEY_ENTER;
@@ -168,6 +172,9 @@ index 0000000..9746257
 +            return KEY_USE;
 +        case KEY_ESC:
 +            return KEY_ESCAPE;
++       case KEY_LEFTSHIFT:
++		case KEY_RIGHTSHIFT:
++			 return KEY_RSHIFT;
 +        default:
 +            return key + 100;
 +	}

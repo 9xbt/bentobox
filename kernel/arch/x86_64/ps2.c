@@ -104,18 +104,8 @@ void irq1_handler(struct registers *r) {
             case 0x14:
                 kb_ctrl = false;
                 break;
-            default:
-                if (kb_shift) {
-                    c = kb_map_keys_shift[key];
-                } else if (kb_caps) {
-                    c = kb_map_keys_caps[key];
-                } else {
-                    c = kb_map_keys[key];
-                }
-                
-                fifo_enqueue(kb_fifo, -c);
-                break;
         }
+        fifo_enqueue(kb_fifo, -key);
     } else if (last_key == 0xe0) {
         switch (key) {
             case 0x75: // up
@@ -124,13 +114,14 @@ void irq1_handler(struct registers *r) {
             case 0x72: // down
                 tty_enqueue_string("\033[B");
                 break;
-            case 0x74: // left
+            case 0x74: // right
                 tty_enqueue_string("\033[C");
                 break;
-            case 0x6b: // right
+            case 0x6b: // left
                 tty_enqueue_string("\033[D");
                 break;
         }
+        fifo_enqueue(kb_fifo, key);
     } else {
         switch (key) {
             case 0xe0:
@@ -157,9 +148,9 @@ void irq1_handler(struct registers *r) {
                 }
 
                 tty_enqueue(c);
-                fifo_enqueue(kb_fifo, c);
                 break;
         }
+        fifo_enqueue(kb_fifo, key);
     }
 
     last_key = key;
@@ -245,88 +236,73 @@ void irq12_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static int ascii_to_linux_keycode(char c) {
-    switch (c) {
-        case 'a': case 'A': return KEY_A;
-        case 'b': case 'B': return KEY_B;
-        case 'c': case 'C': return KEY_C;
-        case 'd': case 'D': return KEY_D;
-        case 'e': case 'E': return KEY_E;
-        case 'f': case 'F': return KEY_F;
-        case 'g': case 'G': return KEY_G;
-        case 'h': case 'H': return KEY_H;
-        case 'i': case 'I': return KEY_I;
-        case 'j': case 'J': return KEY_J;
-        case 'k': case 'K': return KEY_K;
-        case 'l': case 'L': return KEY_L;
-        case 'm': case 'M': return KEY_M;
-        case 'n': case 'N': return KEY_N;
-        case 'o': case 'O': return KEY_O;
-        case 'p': case 'P': return KEY_P;
-        case 'q': case 'Q': return KEY_Q;
-        case 'r': case 'R': return KEY_R;
-        case 's': case 'S': return KEY_S;
-        case 't': case 'T': return KEY_T;
-        case 'u': case 'U': return KEY_U;
-        case 'v': case 'V': return KEY_V;
-        case 'w': case 'W': return KEY_W;
-        case 'x': case 'X': return KEY_X;
-        case 'y': case 'Y': return KEY_Y;
-        case 'z': case 'Z': return KEY_Z;
-        
-        case '0': return KEY_0;
-        case '1': return KEY_1;
-        case '2': return KEY_2;
-        case '3': return KEY_3;
-        case '4': return KEY_4;
-        case '5': return KEY_5;
-        case '6': return KEY_6;
-        case '7': return KEY_7;
-        case '8': return KEY_8;
-        case '9': return KEY_9;
-        
-        case ' ':  return KEY_SPACE;
-        case '\t': return KEY_TAB;
-        case '\n': return KEY_ENTER;
-        case '\r': return KEY_ENTER;
-        case '\b': return KEY_BACKSPACE;
-        case 127:  return KEY_DELETE;
-        case 27:   return KEY_ESC;
-        
-        case '-':  return KEY_MINUS;
-        case '=':  return KEY_EQUAL;
-        case '[':  return KEY_LEFTBRACE;
-        case ']':  return KEY_RIGHTBRACE;
-        case '\\': return KEY_BACKSLASH;
-        case ';':  return KEY_SEMICOLON;
-        case '\'': return KEY_APOSTROPHE;
-        case '`':  return KEY_GRAVE;
-        case ',':  return KEY_COMMA;
-        case '.':  return KEY_DOT;
-        case '/':  return KEY_SLASH;
-        
-        case '_': return KEY_MINUS;
-        case '+': return KEY_EQUAL;
-        case '{': return KEY_LEFTBRACE;
-        case '}': return KEY_RIGHTBRACE;
-        case '|': return KEY_BACKSLASH;
-        case ':': return KEY_SEMICOLON;
-        case '"': return KEY_APOSTROPHE;
-        case '~': return KEY_GRAVE;
-        case '<': return KEY_COMMA;
-        case '>': return KEY_DOT;
-        case '?': return KEY_SLASH;
-        case '!': return KEY_1;
-        case '@': return KEY_2;
-        case '#': return KEY_3;
-        case '$': return KEY_4;
-        case '%': return KEY_5;
-        case '^': return KEY_6;
-        case '&': return KEY_7;
-        case '*': return KEY_8;
-        case '(': return KEY_9;
-        case ')': return KEY_0;
-        
+static int scancode_linux_keycode(uint8_t scancode) {
+    switch (scancode) {
+        case 0x1C: return KEY_A;
+        case 0x32: return KEY_B;
+        case 0x21: return KEY_C;
+        case 0x23: return KEY_D;
+        case 0x24: return KEY_E;
+        case 0x2B: return KEY_F;
+        case 0x34: return KEY_G;
+        case 0x33: return KEY_H;
+        case 0x43: return KEY_I;
+        case 0x3B: return KEY_J;
+        case 0x42: return KEY_K;
+        case 0x4B: return KEY_L;
+        case 0x3A: return KEY_M;
+        case 0x31: return KEY_N;
+        case 0x44: return KEY_O;
+        case 0x4D: return KEY_P;
+        case 0x15: return KEY_Q;
+        case 0x2D: return KEY_R;
+        case 0x1B: return KEY_S;
+        case 0x2C: return KEY_T;
+        case 0x3C: return KEY_U;
+        case 0x2A: return KEY_V;
+        case 0x1D: return KEY_W;
+        case 0x22: return KEY_X;
+        case 0x35: return KEY_Y;
+        case 0x1A: return KEY_Z;
+
+        case 0x16: return KEY_1;
+        case 0x1E: return KEY_2;
+        case 0x26: return KEY_3;
+        case 0x25: return KEY_4;
+        case 0x2E: return KEY_5;
+        case 0x36: return KEY_6;
+        case 0x3D: return KEY_7;
+        case 0x3E: return KEY_8;
+        case 0x46: return KEY_9;
+        case 0x45: return KEY_0;
+
+        case 0x29: return KEY_SPACE;
+        case 0x0D: return KEY_TAB;
+        case 0x5A: return KEY_ENTER;
+        case 0x66: return KEY_BACKSPACE;
+        case 0x76: return KEY_ESC;
+
+        case 0x4E: return KEY_MINUS;
+        case 0x55: return KEY_EQUAL;
+        case 0x54: return KEY_LEFTBRACE;
+        case 0x5B: return KEY_RIGHTBRACE;
+        case 0x5D: return KEY_BACKSLASH;
+        case 0x4C: return KEY_SEMICOLON;
+        case 0x52: return KEY_APOSTROPHE;
+        case 0x0E: return KEY_GRAVE;
+        case 0x41: return KEY_COMMA;
+        case 0x49: return KEY_DOT;
+        case 0x4A: return KEY_SLASH;
+
+        case 0x14: return KEY_LEFTCTRL;
+        case 0x12: return KEY_LEFTSHIFT;
+        case 0x59: return KEY_RIGHTSHIFT;
+
+        case 0x75: return KEY_UP;
+        case 0x72: return KEY_DOWN;
+        case 0x6b: return KEY_LEFT;
+        case 0x74: return KEY_RIGHT;
+
         default: return -1;
     }
 }
@@ -337,7 +313,7 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 
     struct input_event iev;
     iev.type = EV_KEY;
-    iev.code = ascii_to_linux_keycode(c > 0 ? c : -c);
+    iev.code = scancode_linux_keycode(c > 0 ? c : -c);
     iev.value = c > 0;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
