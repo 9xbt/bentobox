@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-objcopy --only-keep-debug bin/image.elf bin/ksym.elf
+objcopy --strip-debug --strip-unneeded bin/image.elf bin/ksym.elf
 readelf -S bin/ksym.elf | grep -w .text | head -n 1 | awk '{print "text_ld = 0x" $5 ";"}' > bin/sections.ld
 readelf -S bin/ksym.elf | grep -w .rodata | head -n 1 | awk '{print "rodata_ld = 0x" $5 ";"}' >> bin/sections.ld
 readelf -S bin/ksym.elf | grep -w .data | head -n 1 | awk '{print "data_ld = 0x" $5 ";"}' >> bin/sections.ld

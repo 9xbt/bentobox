@@ -77,7 +77,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Port a libc
 - [X] ELF loading
 - [X] Symbol table
-- [ ] Initial filesystem
+- [ ] Initial filesystem (tarfs)
 - [X] `unimplemented` macro
 - [X] Simplify the PCI driver
 - [X] FIFO queues
@@ -159,10 +159,11 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [ ] Userspace signal handlers
     - [X] Block CTRL+C in init
 - [X] Fix serial read()
-- [ ] sysinfo()
+- [X] sysinfo()
 - [ ] Buddy allocator for large reallocations (I'm looking at you tmpfs)
 - [ ] VFS mounting
 - [X] Fix fork() process adding
+- [ ] MSI/MSI-X
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/847c395a-446b-4aea-8dad-370437ebe4fc)
