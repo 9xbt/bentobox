@@ -267,6 +267,18 @@ void mmu_destroy_user_pm(uintptr_t *pml4) {
     mmu_free(PHYSICAL_IDENT(pml4), 1);
 }
 
+void *mmu_map_module(uintptr_t base, size_t length) {
+    static uintptr_t virt = 0xFFFFFFFF80000000;
+
+    length = ALIGN_UP(length, PAGE_SIZE);
+    for (uint32_t i = 0; i < length; i += PAGE_SIZE) {
+        mmu_map((void *)((uintptr_t)virt + i), (void *)((uintptr_t)base + i), PTE_PRESENT | PTE_WRITABLE);
+    }
+
+    virt += length;
+    return (void *)(virt - length);
+}
+
 void vmm_direct_map_2mb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
     uintptr_t pml4_index = (virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = (virt >> 30) & 0x1ff;

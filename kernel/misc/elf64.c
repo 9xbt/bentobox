@@ -14,8 +14,6 @@ Elf64_Sym *ksymtab = NULL;
 char *kstrtab = NULL;
 int ksym_count = 0;
 
-extern void generic_map_kernel(uintptr_t *pml4);
-
 Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_count, char *str, bool cast) {
     Elf64_Addr offset = 0;
 
@@ -79,69 +77,108 @@ int elf_module(struct multiboot_tag_module *mod) {
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
         dprintf("%s:%d: invalid elf file\n", __FILE__, __LINE__);
-        return -1;
+        return -ENOEXEC;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
         dprintf("%s:%d: unsupported elf class\n", __FILE__, __LINE__);
-        return -1;
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_type != ET_EXEC && ehdr->e_type != ET_REL) {
+        dprintf("%s:%d: unsupported elf type\n", __FILE__, __LINE__);
+        return -ENOEXEC;
     }
 
     Elf64_Shdr *shdr = (Elf64_Shdr *)(mod->mod_start + ehdr->e_shoff);
     Elf64_Sym *symtab = NULL;
     char *strtab = NULL;
-
-    int i, symbol_count = 0;
-    for (i = 0; i < ehdr->e_shnum; i++) {
-        if (shdr[i].sh_type == SHT_STRTAB && ehdr->e_shstrndx != i) {
-            strtab = (char *)(mod->mod_start + shdr[i].sh_offset);
-        } else if (shdr[i].sh_type == SHT_SYMTAB) {
-            symtab = (Elf64_Sym *)(mod->mod_start + shdr[i].sh_offset);
-            symbol_count = shdr[i].sh_size / shdr[i].sh_entsize;
-        }
-    }
+    uint64_t symbol_count = 0;
 
     if (!strcmp(mod->string, "ksym")) {
-        ksymtab = symtab;
-        kstrtab = strtab;
-        ksym_count = symbol_count;
-        dprintf("%s:%d: read %d symbols from module '%s'\n", __FILE__, __LINE__, symbol_count, mod->string);
+        for (int i = 0; i < ehdr->e_shnum; i++) {
+            if (shdr[i].sh_type == SHT_SYMTAB) {
+                ksymtab = (Elf64_Sym *)(mod->mod_start + shdr[i].sh_offset);
+                ksym_count = shdr[i].sh_size / shdr[i].sh_entsize;
+                kstrtab = (char *)(mod->mod_start + shdr[shdr[i].sh_link].sh_offset);
+                dprintf("%s:%d: read %ld symbols from module '%s'\n", __FILE__, __LINE__, ksym_count, mod->string);
+                break;
+            }
+        }
         return 0;
     }
 
-    struct Module *metadata = (struct Module *)elf_symbol_addr(symtab, strtab, symbol_count, "metadata", false);
+    if (ehdr->e_type != ET_REL) {
+        return -ENOEXEC;
+    }
+
+    uintptr_t base = (uintptr_t)mmu_map_module((uintptr_t)mod->mod_start, mod->mod_end - mod->mod_start);
+
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+        if (shdr[i].sh_type == SHT_NOBITS && shdr[i].sh_size > 0) {
+            size_t pages = ALIGN_UP(shdr[i].sh_size, PAGE_SIZE) / PAGE_SIZE;
+            
+            shdr[i].sh_addr = (uintptr_t)mmu_alloc(pages);
+            mmu_map_pages(pages, VIRTUAL(shdr[i].sh_addr), (void *)shdr[i].sh_addr, PTE_PRESENT | PTE_WRITABLE);
+            memset((void *)shdr[i].sh_addr, 0, shdr[i].sh_size);
+        } else if (shdr[i].sh_size > 0) {
+            shdr[i].sh_addr = (uintptr_t)(base + shdr[i].sh_offset);
+        }
+        
+        if (shdr[i].sh_type == SHT_SYMTAB) {
+            symtab = (Elf64_Sym *)shdr[i].sh_addr;
+            symbol_count = shdr[i].sh_size / sizeof(Elf64_Sym);
+            strtab = (char *)shdr[shdr[i].sh_link].sh_addr;
+        }
+    }
+
+    for (uint64_t sym = 0; sym < symbol_count; sym++) {
+        if (symtab[sym].st_shndx > 0 && symtab[sym].st_shndx < SHN_LOPROC) {
+            symtab[sym].st_value += shdr[symtab[sym].st_shndx].sh_addr;
+        } else if (symtab[sym].st_shndx == SHN_UNDEF && symtab[sym].st_name) {
+            if (!(symtab[sym].st_value = elf_symbol_addr(ksymtab, kstrtab, ksym_count, &strtab[symtab[sym].st_name], false))) {
+                dprintf("%s:%d: failed to resolve symbol: %s\n", __FILE__, __LINE__, &strtab[symtab[sym].st_name]);
+            }
+        }
+    }
+
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+        if (shdr[i].sh_type != SHT_RELA) continue;
+        if (shdr[i].sh_info >= ehdr->e_shnum) continue;
+
+        Elf64_Rela *rela = (Elf64_Rela *)shdr[i].sh_addr;
+        int rela_count = shdr[i].sh_size / sizeof(Elf64_Rela);
+
+        for (int j = 0; j < rela_count; j++) {
+            uintptr_t target = rela[j].r_offset + shdr[shdr[i].sh_info].sh_addr;
+            
+            #define S (symtab[ELF64_R_SYM(rela[j].r_info)].st_value)
+            #define A (rela[j].r_addend)
+            #define P (target)
+            #define T32 (*(uint32_t*)target)
+            #define T64 (*(uint64_t*)target)
+            
+            switch (ELF64_R_TYPE(rela[j].r_info)) {
+                case R_X86_64_64:
+                    T64 = S + A;
+                    break;
+                case R_X86_64_32:
+                    T32 = (uint32_t)(S + A);
+                    break;
+                case R_X86_64_PC32:
+                    T32 = (uint32_t)(S + A - P);
+                    break;
+                default:
+                    dprintf("%s:%d: unsupported relocation %ld\n", __FILE__, __LINE__, ELF64_R_SYM(rela[j].r_info));
+                    break;
+            }
+        }
+    }
+
+    struct Module *metadata = (struct Module *)(elf_symbol_addr(symtab, strtab, symbol_count, "metadata", false));
     if (!metadata) {
         dprintf("%s:%d: Module metadata not found for \"%s\"\n", __FILE__, __LINE__, mod->string);
         return -1;
-    }
-
-    Elf64_Phdr *phdr = (Elf64_Phdr *)(mod->mod_start + ehdr->e_phoff);
-
-    for (i = 0; i < ehdr->e_phnum; i++) {
-        if (phdr[i].p_type == PT_LOAD) {
-            if (phdr[i].p_filesz == 0 && phdr[i].p_memsz > 0)
-                continue;
-
-            size_t pages = ALIGN_UP(phdr[i].p_memsz, PAGE_SIZE) / PAGE_SIZE;
-
-            for (size_t page = 0; page < pages; page++) {
-                void *paddr = mmu_alloc(1);
-                void *vaddr = (void *)(phdr[i].p_vaddr + page * PAGE_SIZE);
-
-                mmu_map(vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
-            }
-
-            if (phdr[i].p_filesz > 0) {
-                uintptr_t src = (uintptr_t)mod->mod_start + phdr[i].p_offset;
-                uintptr_t dest = phdr[i].p_vaddr;
-
-                memcpy((void *)dest, (void *)src, phdr[i].p_filesz);
-            }
-
-            if (phdr[i].p_memsz > phdr[i].p_filesz) {
-                memset((void *)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
-            }
-        }
     }
 
     return metadata->init();

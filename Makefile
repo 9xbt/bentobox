@@ -1,23 +1,20 @@
 ARCH ?= x86_64
-QEMUDISPLAY ?=
-
-# Output image name
 IMAGE_NAME = image
 
-# Architecture specific
 ifeq ($(ARCH),x86_64)
-	AS = nasm
-	CC = clang
-	LD = ld
+    AS := nasm
+    CC := clang
+    LD := ld
     ARCH_DIR := kernel/arch/x86_64
     ASFLAGS := -f elf64 -g -F dwarf
     CCFLAGS := -O2 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone -mno-80387 -mno-sse -mno-sse2 -fno-strict-aliasing
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
     QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -rtc base=localtime
+    QEMUDISPLAY ?=
 else ifeq ($(ARCH),riscv64)
-	AS = riscv64-elf-as
-	CC = riscv64-elf-gcc
-	LD = riscv64-elf-ld
+    AS := riscv64-elf-as
+    CC := riscv64-elf-gcc
+    LD := riscv64-elf-ld
     ARCH_DIR := kernel/arch/riscv
     ASFLAGS :=
     CCFLAGS := -mcmodel=medany -ffreestanding -Wall -Wextra -nostdlib -Ibase/usr/include/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto
@@ -27,22 +24,14 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-# Automatically find sources
 KERNEL_S_SOURCES := $(shell find kernel -type f -name '*.S' ! -path "kernel/arch/*")
 KERNEL_C_SOURCES := $(shell find kernel -type f -name '*.c' ! -path "kernel/arch/*")
 MODULE_C_SOURCES := $(shell find modules -type f -name '*.c')
 ARCH_S_SOURCES   := $(shell find $(ARCH_DIR) -type f -name '*.S' | sed 's|^\./||')
 ARCH_C_SOURCES   := $(shell find $(ARCH_DIR) -type f -name '*.c' | sed 's|^\./||')
 
-# Get object files
 KERNEL_OBJS := $(addprefix bin/, $(KERNEL_S_SOURCES:.S=.S.o) $(ARCH_S_SOURCES:.S=.S.o) $(KERNEL_C_SOURCES:.c=.c.o) $(ARCH_C_SOURCES:.c=.c.o))
-MODULE_OBJS := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.o))
-
-# Get module binaries
-MODULE_BINARIES := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.elf))
-
-# Module base load address
-LOAD_ADDR := 0xFFFFFFFF80000000
+MODULE_OBJS := $(addprefix bin/, $(MODULE_C_SOURCES:.c=.ko))
 
 .PHONY: all
 all: kernel modules apps iso hdd
@@ -73,19 +62,17 @@ bin/kernel/%.S.o: kernel/%.S
 	@mkdir -p "$$(dirname $@)"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-bin/modules/%.o: modules/%.c $(KERNEL_OBJS)
+bin/modules/%.ko: modules/%.c
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(CCFLAGS) -mcmodel=large -c $< -o $@
+	@$(CC) $(CCFLAGS) -mcmodel=large -fno-pic -c $< -o $@
 
-#.PHONY: kernel
 kernel: $(KERNEL_OBJS)
-	@echo " LD kernel/*"
+	@echo " LD bin/image.elf"
 	@$(LD) $(LDFLAGS) $^ -o bin/image.elf
-	@$(LD) $(LDFLAGS) -r $^ -o bin/ksym.o
+	@objcopy --strip-debug bin/image.elf bin/ksym.elf
 
-modules: kernel $(MODULE_OBJS)
-	@./util/modules.sh $(MODULE_OBJS)
+modules: $(MODULE_OBJS)
 
 .PHONY: iso
 ifeq ($(ARCH),x86_64)
@@ -97,7 +84,7 @@ iso: kernel modules
 	fi
 	@mkdir -p iso_root/boot/grub/
 	@mkdir -p iso_root/modules/
-	@find bin/modules/ -type f -name '*.elf' -exec cp {} iso_root/modules/ \;
+	@find bin/modules/ -type f -name '*.ko' -exec cp {} iso_root/modules/ \;
 	@cp bin/image.elf iso_root/boot/image.elf
 	@cp bin/ksym.elf iso_root/boot/ksym.elf
 	@cp boot/grub.cfg iso_root/boot/grub/grub.cfg

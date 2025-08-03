@@ -322,7 +322,7 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 long ps2_keyboard_ioctl(int fd_num, int op, void *arg) {
     struct fd *fd = fd_get(fd_num);
     (void)fd;
-    switch (op) {
+    switch ((unsigned)op) {
         case EVIOCGBIT(0, sizeof(unsigned long)):
             *(unsigned long *)arg = (1 << EV_KEY);
             return 0;

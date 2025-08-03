@@ -93,6 +93,14 @@ typedef struct {
 #define STT_LOPROC  13
 #define STT_HIPROC  15
 
+#define SHN_UNDEF 	0
+#define SHN_LOPROC	0xFF00
+#define SHN_HIPROC	0xFF1F
+#define SHN_LOOS	0xFF20
+#define SHN_HIOS	0xFF3F
+#define SHN_ABS		0xFFF1
+#define SHN_COMMON	0xFFF2
+
 typedef struct {
 	Elf64_Word    st_name;
 	unsigned char st_info;
@@ -126,6 +134,56 @@ typedef struct {
 	Elf64_Xword p_memsz;
 	Elf64_Xword p_align;
 } Elf64_Phdr;
+
+#define ELF64_R_SYM(i)((i) >> 32)
+#define ELF64_R_TYPE(i)((i) & 0xffffffffL)
+#define ELF64_R_INFO(s, t)(((s) << 32) + ((t) & 0xffffffffL))
+
+#define R_X86_64_NONE 		0
+#define R_X86_64_64			1
+#define R_X86_64_PC32		2
+#define R_X86_64_GOT32		3
+#define R_X86_64_PLT32		4
+#define R_X86_64_COPY		5
+#define R_X86_64_GLOB_DAT 	6
+#define R_X86_64_JUMP_SLOT 	7
+#define R_X86_64_RELATIVE 	8
+#define R_X86_64_GOTPCREL 	9
+#define R_X86_64_32			10
+#define R_X86_64_32S		11
+#define R_X86_64_16			12
+#define R_X86_64_PC16		13
+#define R_X86_64_8			14
+#define R_X86_64_PC8		15
+#define R_X86_64_DPTMOD64 	16
+#define R_X86_64_DTPOFF64	17
+#define R_X86_64_TPOFF64	18
+#define R_X86_64_TLSGD		19
+#define R_X86_64_TLSLD		20
+#define R_X86_64_DTPOFF32	21
+#define R_X86_64_GOTTPOFF	22
+#define R_X86_64_TPOFF32	23
+#define R_X86_64_PC64		24
+#define R_X86_64_GOTOFF64	25
+#define R_X86_64_GOTOFF32	26
+#define R_X86_64_REX_GOTPCRELX 27
+#define R_X86_64_SIZE32		32
+#define R_X86_64_SIZE64 	33
+#define R_X86_64_GOTPC32_TLSDESC 34
+#define R_X86_64_TLSDESC_CALL 35
+#define R_X86_64_TLSDESC 	36
+#define R_X86_64_IRELATIVE	37
+
+typedef struct {
+	Elf64_Addr r_offset;
+	Elf64_Xword r_info;
+} Elf64_Rel;
+
+typedef struct {
+	Elf64_Addr r_offset;
+	Elf64_Xword r_info;
+	Elf64_Sxword r_addend;
+} Elf64_Rela;
 
 Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_count, char *str, bool cast);
 int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_count, Elf64_Addr addr);
