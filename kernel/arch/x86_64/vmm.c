@@ -267,16 +267,31 @@ void mmu_destroy_user_pm(uintptr_t *pml4) {
     mmu_free(PHYSICAL_IDENT(pml4), 1);
 }
 
-void *mmu_map_module(uintptr_t base, size_t length) {
-    static uintptr_t virt = 0xFFFFFFFF80000000;
+static uintptr_t mod_virt = 0xFFFFFFFF80000000;
 
+void *mmu_map_module(uintptr_t base, size_t length) {
     length = ALIGN_UP(length, PAGE_SIZE);
     for (uint32_t i = 0; i < length; i += PAGE_SIZE) {
-        mmu_map((void *)((uintptr_t)virt + i), (void *)((uintptr_t)base + i), PTE_PRESENT | PTE_WRITABLE);
+        mmu_map((void *)((uintptr_t)mod_virt + i), (void *)((uintptr_t)base + i), PTE_PRESENT | PTE_WRITABLE);
     }
 
-    virt += length;
-    return (void *)(virt - length);
+    mod_virt += length;
+    return (void *)(mod_virt - length);
+}
+
+void *mmu_map_module_bss(size_t pages) {
+    size_t length = pages * PAGE_SIZE;
+
+    for (size_t page = 0; page < pages; page++) {
+        void *paddr = mmu_alloc(1);
+        void *vaddr = (void *)(mod_virt + page * PAGE_SIZE);
+
+        mmu_map(vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
+        memset(vaddr, 0, PAGE_SIZE);
+    }
+
+    mod_virt += length;
+    return (void *)(mod_virt - length);
 }
 
 void vmm_direct_map_2mb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {

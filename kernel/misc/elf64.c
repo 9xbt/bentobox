@@ -116,11 +116,7 @@ int elf_module(struct multiboot_tag_module *mod) {
 
     for (int i = 0; i < ehdr->e_shnum; i++) {
         if (shdr[i].sh_type == SHT_NOBITS && shdr[i].sh_size > 0) {
-            size_t pages = ALIGN_UP(shdr[i].sh_size, PAGE_SIZE) / PAGE_SIZE;
-            
-            shdr[i].sh_addr = (uintptr_t)mmu_alloc(pages);
-            mmu_map_pages(pages, VIRTUAL(shdr[i].sh_addr), (void *)shdr[i].sh_addr, PTE_PRESENT | PTE_WRITABLE);
-            memset((void *)shdr[i].sh_addr, 0, shdr[i].sh_size);
+            shdr[i].sh_addr = (uintptr_t)mmu_map_module_bss(ALIGN_UP(shdr[i].sh_size, PAGE_SIZE) / PAGE_SIZE);
         } else if (shdr[i].sh_size > 0) {
             shdr[i].sh_addr = (uintptr_t)(base + shdr[i].sh_offset);
         }

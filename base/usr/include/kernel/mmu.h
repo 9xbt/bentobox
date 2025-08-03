@@ -46,6 +46,7 @@ uintptr_t mmu_get_physical(uintptr_t *pml4, uintptr_t virt);
 struct process;
 uintptr_t *mmu_create_user_pm(struct process *proc);
 void *mmu_map_module(uintptr_t base, size_t length);
+void *mmu_map_module_bss(size_t pages);
 
 struct vma_head {
     struct vma_block *head;
