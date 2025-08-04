@@ -24,8 +24,7 @@
 #include <kernel/args.h>
 #include <kernel/mmu.h>
 #include <kernel/pci.h>
-
-#include "../../misc/flanterm/flanterm.h"
+#include <flanterm/flanterm.h>
 
 extern void generic_startup(void);
 extern void generic_main(void);

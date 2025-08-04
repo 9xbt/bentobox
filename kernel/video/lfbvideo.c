@@ -10,8 +10,8 @@
 #include <kernel/psf.h>
 
 #define FLANTERM_IN_FLANTERM
-#include "../misc/flanterm/flanterm.h"
-#include "../misc/flanterm/backends/fb.h"
+#include <flanterm/flanterm.h>
+#include <flanterm/backends/fb.h>
 
 struct framebuffer framebuffer;
 struct flanterm_context *ft_ctx = NULL;
