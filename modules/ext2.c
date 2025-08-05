@@ -230,14 +230,12 @@ int ext2_add_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, const c
         uint32_t remaining = entry->total_size - used;
 
         if (entry->inode != 0 && entry->total_size >= used + required) {
-            dprintf("Found empty directory entry\n");
-
             entry->total_size = used;
 
             ext2_dirent *dirent = (ext2_dirent *)((uint8_t *)entry + used);
             dirent->inode = in;
             dirent->name_len = strlen(name);
-            dirent->type = 1; // ?
+            dirent->type = 1;
             dirent->total_size = remaining;
             memcpy(dirent->name, name, dirent->name_len);
 
@@ -246,7 +244,7 @@ int ext2_add_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, const c
 
         offset += entry->total_size;
     }
-    dprintf("No space.\n");
+    dprintf("%s:%d: No space.\n", __FILE__, __LINE__);
     return -ENOSPC;
 }
 
@@ -284,10 +282,26 @@ int ext2_add_inode(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t i
     return -ENOSPC;
 }
 
+bool ext2_check_sequential(uint32_t blocks[], uint32_t count) {
+    if (count <= 1) return true;
+    if (!blocks[0]) return false;
+    
+    for (uint32_t i = 1; i < count; i++) {
+        if (!blocks[i] || blocks[i] != (blocks[i - 1] + 1)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void ext2_read_direct_blocks(ext2_fs *fs, uint32_t blocks[], void *buffer, uint32_t count) {
-    for (uint32_t i = 0; i < count; i++) {
-        if (blocks[i]) {
-            ext2_read_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
+    if (ext2_check_sequential(blocks, count)) {
+        ext2_read_block(fs, blocks[0], buffer, fs->block_size * count);
+    } else {
+        for (uint32_t i = 0; i < count; i++) {
+            if (blocks[i]) {
+                ext2_read_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
+            }
         }
     }
 }
@@ -312,6 +326,12 @@ uint32_t ext2_read_singly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, u
 
     uint32_t *block_ptrs = kmalloc(fs->block_size);
     ext2_read_block(fs, block, block_ptrs, fs->block_size);
+
+    if (ext2_check_sequential(&block_ptrs[offset], count)) {
+        ext2_read_block(fs, block_ptrs[offset], buffer, fs->block_size * count);
+        kfree(block_ptrs);
+        return count;
+    }
 
     uint32_t i;
     for (i = 0; i < count; i++) {
@@ -354,11 +374,25 @@ uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, u
     ext2_read_block(fs, block, doubly_ptrs, fs->block_size);
 
     uint32_t read = 0;
-    for (uint32_t i = offset / doubly_ptr; i < doubly_ptr && read < count; i++) {
-        uint32_t singly_offset = (i == offset / doubly_ptr) ? offset % doubly_ptr : 0;
-        uint32_t singly_count = (count - read > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - read;
-        
-        read += doubly_ptrs[i] ? ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count) : singly_count;
+    uint32_t first_singly_table = offset / doubly_ptr;
+    uint32_t last_singly_table = (offset + count - 1) / doubly_ptr;
+    
+    if (first_singly_table == last_singly_table || 
+        ext2_check_sequential(&doubly_ptrs[first_singly_table], last_singly_table - first_singly_table + 1))
+    {
+        for (uint32_t i = first_singly_table; i <= last_singly_table && read < count; i++) {
+            uint32_t singly_offset = (i == first_singly_table) ? offset % doubly_ptr : 0;
+            uint32_t singly_count = (count - read > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - read;
+            
+            read += doubly_ptrs[i] ? ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count) : singly_count;
+        }
+    } else {
+        for (uint32_t i = offset / doubly_ptr; i < doubly_ptr && read < count; i++) {
+            uint32_t singly_offset = (i == offset / doubly_ptr) ? offset % doubly_ptr : 0;
+            uint32_t singly_count = (count - read > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - read;
+            
+            read += doubly_ptrs[i] ? ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count) : singly_count;
+        }
     }
 
     kfree(doubly_ptrs);
@@ -632,18 +666,12 @@ void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
     ext2_inode inode;
     ext2_read_inode(fs, in, &inode);
 
-    uint32_t total_blocks = (inode.size + fs->block_size - 1) / fs->block_size;
+    if (inode.size == 0) return;
 
-    for (uint32_t i = 0; i < total_blocks && i < 12; i++) {
-        if (inode.direct_block_ptr[i] == 0)
-            continue;
-
-        uint8_t *block = kmalloc(fs->block_size);
-        ext2_read_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
-
-        ext2_mount_directory(fs, block, fs->block_size, parent);
-        kfree(block);
-    }
+    uint8_t *blocks = kmalloc(inode.size);
+    ext2_read_inode_blocks(fs, &inode, blocks, 0, (inode.size + fs->block_size - 1) / fs->block_size);
+    ext2_mount_directory(fs, blocks, inode.size, parent);
+    kfree(blocks);
 }
 
 int init() {
