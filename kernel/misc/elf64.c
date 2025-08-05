@@ -126,7 +126,7 @@ int elf_module(struct multiboot_tag_module *mod) {
 
             ksym_expand(symbol_count);
             for (size_t j = 0; j < symbol_count; j++) {
-                ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+                ksym_register(&strtab[symtab[j].st_name], base + symtab[j].st_value);
             }
         }
     }

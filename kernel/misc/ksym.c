@@ -22,9 +22,6 @@ const char *ksym_name(uintptr_t addr) {
     if (addr >= 0x400000 && addr <= PHYS_MAP_BASE) {
         return "(userspace)";
     }
-    if (addr >= (uintptr_t)&end) {
-        return "(none)";
-    }
 
     struct symbol *best = NULL;
     for (size_t i = 0; i < ksym_used; i++) {
