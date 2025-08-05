@@ -168,16 +168,6 @@ void kill(window_t *client) {
 }
 
 void update(void) {
-    static struct timespec last = {0};
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
-    const long FRAME_TIME_US = 1000000L / FPS_CAP;
-    long elapsed = (now.tv_sec - last.tv_sec) * 1000000L + (now.tv_nsec - last.tv_nsec) / 1000L;
-
-    if (elapsed < FRAME_TIME_US) return;
-    clock_gettime(CLOCK_MONOTONIC, &last);
-
     swap(&background, &back_cv);
 
     time_t now_time = time(NULL);
