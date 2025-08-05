@@ -135,10 +135,8 @@ void isr_handler(struct registers *r) {
 
     dprintf("%s:%d: traceback:\n", __FILE__, __LINE__);
 
-    char symbol[256];
     for (int i = 0; i < 8 && frame_ptr->rbp; i++) {
-        elf_symbol_name(symbol, ksymtab, kstrtab, ksym_count, frame_ptr->rip);
-        dprintf("#%d  0x%p in %s\n", i, frame_ptr->rip, symbol);
+        dprintf("#%d  0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
         if (!mmu_get_physical(this_core()->pml4, (uintptr_t)frame_ptr->rbp)) break;
         frame_ptr = frame_ptr->rbp;
     }

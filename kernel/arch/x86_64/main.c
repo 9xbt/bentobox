@@ -56,7 +56,7 @@ void *mboot2_find_tag(void *base, uint32_t type) {
 void mboot2_load_modules(void *base) {
 	struct multiboot_tag_module *mod = mboot2_find_tag(base, MULTIBOOT_TAG_TYPE_MODULE);
     while (mod) {
-		if (strcmp(mod->string, "ksym")) elf_module(mod);
+		elf_module(mod);
         mod = mboot2_find_next((char *)mod + ALIGN_UP(mod->size, 8), MULTIBOOT_TAG_TYPE_MODULE);
     }
 }
@@ -131,7 +131,6 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	mboot = mboot_info;
 	cmdline = arch_get_cmdline();
 
-	elf_module(mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE));
     gdt_install();
     idt_install();
 	pmm_install();

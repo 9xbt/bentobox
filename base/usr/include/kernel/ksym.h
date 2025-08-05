@@ -1,6 +1,13 @@
 #pragma once
+#include <stddef.h>
 #include <kernel/elf64.h>
 
-extern Elf64_Sym *ksymtab;
-extern char *kstrtab;
-extern int ksym_count;
+struct symbol {
+    const char *name;
+    uintptr_t addr;
+};
+
+uintptr_t ksym_addr(const char *name);
+const char *ksym_name(uintptr_t addr);
+void ksym_expand(size_t count);
+void ksym_register(const char *name, uintptr_t addr);

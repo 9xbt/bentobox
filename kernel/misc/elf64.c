@@ -8,11 +8,8 @@
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
+#include <kernel/ksym.h>
 #include <kernel/mmu.h>
-
-Elf64_Sym *ksymtab = NULL;
-char *kstrtab = NULL;
-int ksym_count = 0;
 
 Elf64_Addr elf_symbol_addr(Elf64_Sym *symtab, const char *strtab, int symbol_count, char *str, bool cast) {
     Elf64_Addr offset = 0;
@@ -93,23 +90,24 @@ int elf_module(struct multiboot_tag_module *mod) {
     Elf64_Shdr *shdr = (Elf64_Shdr *)(mod->mod_start + ehdr->e_shoff);
     Elf64_Sym *symtab = NULL;
     char *strtab = NULL;
-    uint64_t symbol_count = 0;
+    size_t symbol_count = 0;
 
-    if (!strcmp(mod->string, "ksym")) {
+    if (ehdr->e_type == ET_EXEC) {
         for (int i = 0; i < ehdr->e_shnum; i++) {
             if (shdr[i].sh_type == SHT_SYMTAB) {
-                ksymtab = (Elf64_Sym *)(mod->mod_start + shdr[i].sh_offset);
-                ksym_count = shdr[i].sh_size / shdr[i].sh_entsize;
-                kstrtab = (char *)(mod->mod_start + shdr[shdr[i].sh_link].sh_offset);
-                dprintf("%s:%d: read %ld symbols from module '%s'\n", __FILE__, __LINE__, ksym_count, mod->string);
-                break;
+                symtab = (Elf64_Sym *)(mod->mod_start + shdr[i].sh_offset);
+                symbol_count = shdr[i].sh_size / shdr[i].sh_entsize;
+                strtab = (char *)(mod->mod_start + shdr[shdr[i].sh_link].sh_offset);
+
+                ksym_expand(symbol_count);
+                for (size_t j = 0; j < symbol_count; j++) {
+                    ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+                }
+                dprintf("%s:%d: registered %ld symbols from module '%s'\n", __FILE__, __LINE__, symbol_count, mod->string);
+                return 0;
             }
         }
-        return 0;
-    }
-
-    if (ehdr->e_type != ET_REL) {
-        return -ENOEXEC;
+        return -EINVAL;
     }
 
     uintptr_t base = (uintptr_t)mmu_map_module((uintptr_t)mod->mod_start, mod->mod_end - mod->mod_start);
@@ -125,6 +123,11 @@ int elf_module(struct multiboot_tag_module *mod) {
             symtab = (Elf64_Sym *)shdr[i].sh_addr;
             symbol_count = shdr[i].sh_size / sizeof(Elf64_Sym);
             strtab = (char *)shdr[shdr[i].sh_link].sh_addr;
+
+            ksym_expand(symbol_count);
+            for (size_t j = 0; j < symbol_count; j++) {
+                ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+            }
         }
     }
 
@@ -132,7 +135,7 @@ int elf_module(struct multiboot_tag_module *mod) {
         if (symtab[sym].st_shndx > 0 && symtab[sym].st_shndx < SHN_LOPROC) {
             symtab[sym].st_value += shdr[symtab[sym].st_shndx].sh_addr;
         } else if (symtab[sym].st_shndx == SHN_UNDEF && symtab[sym].st_name) {
-            if (!(symtab[sym].st_value = elf_symbol_addr(ksymtab, kstrtab, ksym_count, &strtab[symtab[sym].st_name], false))) {
+            if (!(symtab[sym].st_value = ksym_addr(&strtab[symtab[sym].st_name]))) {
                 dprintf("%s:%d: failed to resolve symbol: %s\n", __FILE__, __LINE__, &strtab[symtab[sym].st_name]);
             }
         }
