@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/malloc.h>
+#include <kernel/list.h>
 
 struct ringbuffer *ringbuffer_create(size_t size) {
     struct ringbuffer *rb = kmalloc(sizeof(struct ringbuffer));
@@ -9,8 +10,17 @@ struct ringbuffer *ringbuffer_create(size_t size) {
     rb->write_ptr = 0;
     rb->read_ptr = 0;
     rb->size = size;
+    rb->waiting_readers = list_create();
+    rb->waiting_writers = list_create();
     return rb;
 };
+
+void ringbuffer_destroy(struct ringbuffer *rb) {
+    list_free(rb->waiting_readers);
+    list_free(rb->waiting_writers);
+    kfree(rb->buffer);
+    kfree(rb);
+}
 
 bool ringbuffer_empty(struct ringbuffer *rb) {
     return rb->read_ptr == rb->write_ptr;

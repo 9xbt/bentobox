@@ -1,4 +1,3 @@
-#include <sys/fcntl.h>
 #include <errno.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/unixpipe.h>
@@ -24,8 +23,7 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
         size_t written = ringbuffer_write(pipe->buffer, &buf[i], len - i);
         if (written == 0) {
-            sched_yield();
-            continue;
+            return -EPIPE;
         }
         i += written;
     }
@@ -52,8 +50,7 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
-    kfree(pipe->buffer->buffer);
-    kfree(pipe->buffer);
+    ringbuffer_destroy(pipe->buffer);
     kfree(pipe->read_end);
     kfree(pipe->write_end);
     kfree(pipe);
