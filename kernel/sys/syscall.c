@@ -488,6 +488,10 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
         case F_SETLK:
         case F_SETLKW:
             return -ENOSYS;
+        case 1032: /* F_GETPIPE_SZ */
+            if (fd->node->type != VFS_UNIXPIPE)
+                return -EINVAL;
+            return UNIXPIPE_BUFFER_SIZE;
         default:
             dprintf("%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
             return -EINVAL;
