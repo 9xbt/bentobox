@@ -3,7 +3,7 @@
 #include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 
-#define UNIXPIPE_BUFFER_SIZE 4096
+#define UNIXPIPE_BUFFER_SIZE 65536
 
 /**
  * His ideas were implemented in 1973 when ("in one feverish night", wrote
