@@ -178,6 +178,8 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
 }
 
 int vfs_close(struct vfs_node *node) {
+    if (!node)
+        return -ENOENT;
     if (node->busy)
         return -EBUSY;
     if (node->close)

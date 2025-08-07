@@ -4,49 +4,35 @@
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
+#include <kernel/sched.h>
+#include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>
 
-long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    struct unix_pipe *pipe = node->device;
-    unsigned char *buf = (unsigned char *)buffer;
-    int i = 0;
-    
-    if (pipe->read_refs <= 0)
-        signal_send(this, SIGPIPE, 0);
-    
-    while (i < (int)len) {
-        if (pipe->read_refs <= 0) {
-            signal_send(this, SIGPIPE, 0);
-            return i > 0 ? i : -EPIPE;
-        }
-
-        size_t written = ringbuffer_write(pipe->buffer, &buf[i], len - i);
-        if (written == 0) {
-            return -EPIPE;
-        }
-        i += written;
-    }
-    return i;
-}
-
 long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct unix_pipe *pipe = node->device;
-    unsigned char *buf = (unsigned char *)buffer;
-    int i = 0;
-    
-    while (i < (int)len) {
-        if (ringbuffer_empty(pipe->buffer)) {
-            if (pipe->write_refs <= 0)
-                return i;
-            sched_yield();
-            continue;
-        }
-
-        size_t read = ringbuffer_read(pipe->buffer, &buf[i], len - i);
-        i += read;
+    if (pipe->write_refs <= 0 && ringbuffer_empty(pipe->buffer)) {
+        return 0;
     }
-    return i;
+    if (pipe->write_refs > 0 && ringbuffer_empty(pipe->buffer)) {
+        list_insert(pipe->buffer->waiting_readers, this);
+        sched_block(TASK_PAUSED);
+    }
+    return ringbuffer_read(pipe->buffer, buffer, len);
+}
+
+long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
+    struct unix_pipe *pipe = node->device;
+    if (pipe->read_refs <= 0) {
+        signal_send(this, SIGPIPE, 0);
+        sched_yield();
+        return -EPIPE;
+    }
+    if (pipe->read_refs > 0 && ringbuffer_full(pipe->buffer)) {
+        list_insert(pipe->buffer->waiting_writers, this);
+        sched_block(TASK_PAUSED);
+    }
+    return ringbuffer_write(pipe->buffer, buffer, len);
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
@@ -71,6 +57,12 @@ long unixpipe_close_write(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
     if (pipe->write_refs > 0) {
         pipe->write_refs--;
+    }
+    if (pipe->write_refs <= 0) {
+        foreach(node_item, pipe->buffer->waiting_readers) {
+            sched_unblock(node_item->value);
+            list_remove(pipe->buffer->waiting_readers, node_item);
+        }
     }
     if (pipe->read_refs <= 0 && pipe->write_refs <= 0) {
         unixpipe_destroy(pipe);

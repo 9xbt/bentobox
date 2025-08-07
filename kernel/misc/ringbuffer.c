@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/malloc.h>
+#include <kernel/sched.h>
 #include <kernel/list.h>
 
 struct ringbuffer *ringbuffer_create(size_t size) {
@@ -39,6 +40,11 @@ size_t ringbuffer_read(struct ringbuffer *rb, unsigned char *buffer, size_t size
         rb->read_ptr = (rb->read_ptr + 1) % rb->size;
         i++;
     }
+
+    foreach(node, rb->waiting_writers) {
+        sched_unblock(node->value);
+        list_remove(rb->waiting_writers, node);
+    }
     return i;
 }
 
@@ -50,6 +56,11 @@ size_t ringbuffer_write(struct ringbuffer *rb, unsigned char *buffer, size_t siz
         rb->buffer[rb->write_ptr] = buf[i];
         rb->write_ptr = (rb->write_ptr + 1) % rb->size;
         i++;
+    }
+
+    foreach(node, rb->waiting_readers) {
+        sched_unblock(node->value);
+        list_remove(rb->waiting_readers, node);
     }
     return i;
 }

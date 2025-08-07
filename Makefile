@@ -42,7 +42,7 @@ run: all
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm #-smp $(shell expr $$(nproc) / 2)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all
