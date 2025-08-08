@@ -8,6 +8,7 @@
 #include <kernel/arch/x86_64/tsc.h>
 #include <kernel/arch/x86_64/tss.h>
 #include <kernel/spinlock.h>
+#include <kernel/assert.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
@@ -300,6 +301,7 @@ struct process *sched_get_foreground(void) {
 }
 
 void sched_kill(struct process *proc, int status) {
+    assert(proc);
     if (proc->pid == 1)
         panic("Attempted to kill init!");
     if (proc->pid == 0)

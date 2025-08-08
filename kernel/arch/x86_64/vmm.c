@@ -316,8 +316,6 @@ void vmm_direct_map_2mb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_
     uintptr_t *pd = (uintptr_t *)PTE_GET_ADDR(pdpt[pdpt_index]);
     
     pd[pd_index] = phys | flags | (1 << 7);
-    
-    vmm_flush_tlb((uintptr_t)virt);
 }
 
 void vmm_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_t flags) {
@@ -333,8 +331,6 @@ void vmm_direct_map_1gb(uintptr_t *pml4, uintptr_t virt, uintptr_t phys, uint64_
     uintptr_t *pdpt = (uintptr_t *)PTE_GET_ADDR(pml4[pml4_index]);
     
     pdpt[pdpt_index] = phys | flags | (1 << 7);
-    
-    vmm_flush_tlb((uintptr_t)virt);
 }
 
 void vmm_install(void) {
