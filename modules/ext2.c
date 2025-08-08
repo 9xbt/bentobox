@@ -530,7 +530,7 @@ long ext2_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
         inode.size = offset + len;
 
     uint32_t block = offset / fs->block_size;
-    uint32_t count = ((offset + len - 1) / fs->block_size) - block + 1;
+    uint32_t count = inode.size ? DIV_CEILING(offset + len, fs->block_size) - (offset / fs->block_size) : 0;
 
     uint8_t *buf = kmalloc(count * fs->block_size);
     ext2_read_inode_blocks(fs, &inode, buf, block, count);
