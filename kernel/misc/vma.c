@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/panic.h>
@@ -76,17 +77,19 @@ void vma_copy_mappings(struct vma_head *dest, struct vma_head *src) {
     struct vma_block *current = src->head->next;
 
     while (current != src->head) {
-        void *virt = vma_map(dest, current->size, 0, current->virt, current->flags);
-        memcpy(virt, VIRTUAL_IDENT(current->phys), current->size * PAGE_SIZE);
+        if (!current->phys || !current->virt) {
+            current = current->next;
+            continue;
+        }
+        assert(current->checksum == current->phys + current->virt);
+        memcpy(vma_map(dest, current->size, 0, current->virt, current->flags),
+            VIRTUAL_IDENT(current->phys), current->size * PAGE_SIZE);
         current = current->next;
     }
 }
 
 void vma_unmap(struct vma_block *block) {
-    if (block->phys + block->virt != block->checksum) {
-        printf("%s:%d: bad checksum at address 0x%x\n", __FILE__, __LINE__, (uint64_t)block);
-        return;
-    }
+    assert(block->phys + block->virt == block->checksum);
 
     block->prev->next = block->next;
     block->next->prev = block->prev;

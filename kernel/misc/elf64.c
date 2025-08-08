@@ -407,7 +407,7 @@ long fork(struct registers *r) {
 
     memcpy(VIRTUAL_IDENT(stack_bottom_phys), VIRTUAL_IDENT(this->stack_bottom_phys), (USER_STACK_SIZE * PAGE_SIZE));
     memcpy(kernel_stack, (void *)this->kernel_stack_bottom, (4 * PAGE_SIZE));
-    
+
     proc->parent = this;
     proc->ctx.rdi = r->rdi;
     proc->ctx.rsi = r->rsi;
@@ -450,6 +450,8 @@ long fork(struct registers *r) {
     for (int i = 0; i < USER_MAX_FDS; i++) {
         /** TODO: make this a separate function? */
         struct fd *fd = &proc->fd_table[i];
+        if (!fd->node)
+            continue;
         if (fd->node->type == VFS_UNIXPIPE) {
             struct unix_pipe *pipe = fd->node->device;
             if (!strcmp(fd->node->name, "[pipe::read]"))

@@ -256,8 +256,9 @@ uintptr_t *mmu_create_user_pm(struct process *proc) {
     for (int i = 256; i < 512; i++) {
         pml4[i] = kernel_pd[i];
     }
-    mmu_map_2mb(0x000000, 0x000000, PTE_PRESENT | PTE_WRITABLE);
-    mmu_map_2mb(0x200000, 0x200000, PTE_PRESENT | PTE_WRITABLE);
+    
+    for (uintptr_t addr = 0x1000; addr < 0x400000; addr += PAGE_SIZE)
+        mmu_map((void *)addr, (void *)addr, PTE_PRESENT | PTE_WRITABLE);
 
     return pml4;
 }
