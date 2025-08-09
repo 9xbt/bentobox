@@ -51,9 +51,10 @@ int main(int argc, char *argv[]) {
     struct passwd *pw = getpwent();
 
     char *home = malloc(strlen(pw->pw_dir) + 1);
-    char *shell = malloc(strlen(pw->pw_shell) + 1);
+    //char *shell = malloc(strlen(pw->pw_shell) + 1);
+    char *shell = "/bin/login";
     strcpy(home, pw->pw_dir);
-    strcpy(shell, pw->pw_shell);
+    //strcpy(shell, pw->pw_shell);
 
     chdir(pw->pw_dir);
     endpwent();
