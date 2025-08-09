@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     }
 
     struct stat st;
-    if (!stat("/proc", &st)) {
+    if (!stat("/proc", &st) && !stat("/proc/mounts", &st)) {
         printf("apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
     } else {
         printf("apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);

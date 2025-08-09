@@ -739,6 +739,9 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
     
     target->inode = 2;
     target->device = fs;
+    target->create = ext2_create;
+    target->remove = ext2_remove;
+    target->mkdir = ext2_mkdir;
 
     char source_path[MAX_PATH], target_path[MAX_PATH];
     vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);
