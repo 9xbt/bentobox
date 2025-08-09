@@ -3,4 +3,4 @@
 
 uint64_t now(void);
 void gettimeofday(long *sec, long *nsec);
-uint64_t uptime(void);
+void uptime(long *sec, long *nsec);

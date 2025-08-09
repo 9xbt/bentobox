@@ -583,7 +583,7 @@ long sys_getrlimit(int resource, struct rlimit *rlim) {
 long sys_sysinfo(struct sysinfo *info) {
     if (!info)
         return -EFAULT;
-    info->uptime = uptime();
+    uptime(&info->uptime, NULL);
     info->totalram = mmu_usable_mem / 1024;
     info->freeram = mmu_usable_mem / 1024 - mmu_used_pages * 4;
     info->sharedram = 0;

@@ -14,15 +14,27 @@ int hex_length(uint64_t val) {
     return len;
 }
 
-void parse_num(char *s, int *ptr, int64_t val, uint32_t base, bool is_signed) {
+int base_length(uint64_t val, uint32_t base) {
+    int len = 1;
+    while (val >= base) {
+        val /= base;
+        len++;
+    }
+    return len;
+}
+
+void parse_num(char *s, int *ptr, int64_t val, uint32_t base, bool is_signed, int width, char pad) {
     if (is_signed && val < 0) {
         s[(*ptr)++] = '-';
         val = -val;
     }
+    for (int i = base_length(val, base); i < width; i++) {
+        s[(*ptr)++] = pad;
+    }
     uint64_t n = (uint64_t)val / base;
     int r = (uint64_t)val % base;
     if (val >= (int64_t)base) {
-        parse_num(s, ptr, n, base, is_signed);
+        parse_num(s, ptr, n, base, false, 0, 0);
     }
     s[(*ptr)++] = (r + '0');
 }
@@ -63,14 +75,24 @@ int vsprintf(char *s, const char *fmt, va_list args) {
         if (*fmt == '%') {
             fmt++;
 
+            int width = 0; char pad = 0;
+            if (*fmt == '0') {
+                pad = '0';
+                width = *++fmt - '0';
+                fmt++;
+            } else if (*fmt >= '0' && *fmt <= '9') {
+                pad = ' ';
+                width = *fmt++ - '0';
+            }
+
             bool is_long = (*fmt == 'l') ? (fmt++, true) : false;
 
             switch (*fmt) {
                 case 'u':
-                    parse_num(s, &ptr, is_long ? va_arg(args, long) : va_arg(args, int), 10, false);
+                    parse_num(s, &ptr, is_long ? va_arg(args, long) : va_arg(args, int), 10, false, width, pad);
                     break;
                 case 'd':
-                    parse_num(s, &ptr, is_long ? va_arg(args, long) : va_arg(args, int), 10, true);
+                    parse_num(s, &ptr, is_long ? va_arg(args, long) : va_arg(args, int), 10, true, width, pad);
                     break;
                 case 'x':
                     parse_hex(s, &ptr, is_long ? va_arg(args, uint64_t) : va_arg(args, uint32_t), 0);

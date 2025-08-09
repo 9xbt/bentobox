@@ -54,13 +54,11 @@ void gettimeofday(long *sec, long *nsec) {
     if (sec) *sec = now();
     if (nsec) {
         if (hpet) hpet_read_time(NULL, nsec);
-        else tsc_read_time(NULL, nsec);
+        else if (tsc_period) tsc_read_time(NULL, nsec);
     }
 }
 
-uint64_t uptime(void) {
-    long seconds;
-    if (hpet) hpet_read_time(&seconds, NULL);
-    else tsc_read_time(&seconds, NULL);
-    return seconds;
+void uptime(long *sec, long *nsec) {
+    if (hpet) hpet_read_time(sec, nsec);
+    else if (tsc_period) tsc_read_time(sec, nsec);
 }

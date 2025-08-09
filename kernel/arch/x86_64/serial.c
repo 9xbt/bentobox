@@ -11,6 +11,7 @@
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/fifo.h>
+#include <kernel/time.h>
 #include <kernel/vfs.h>
 
 #define COM1 0x3f8
@@ -80,7 +81,11 @@ int dprintf(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     char buf[1024] = {0};
-    int ret = vsprintf(buf, fmt, args);
+
+    long secs = 0, nanos = 0;
+    uptime(&secs, &nanos);
+
+    int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
     if (serial_base == COM1) {
         serial_puts(buf);
     }

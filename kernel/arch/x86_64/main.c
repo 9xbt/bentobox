@@ -139,10 +139,10 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	malloc_initialize();
 	framebuffer_initialize();
 	acpi_install();
-	lapic_install();
-	ioapic_install();
 	hpet_install();
 	tsc_install();
+	lapic_install();
+	ioapic_install();
 	lapic_calibrate_timer();
 	smp_initialize();
 	user_initialize();
