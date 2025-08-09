@@ -77,7 +77,8 @@ void ioapic_install(void) {
     uint32_t count = ioapic_gsi_count(ioapic);
 
     if (id != ioapic->id)
-        panic("APIC ID mismatch! Got %u, expected %u", ioapic->id, id);
+        //panic("APIC ID mismatch");
+        dprintf("%s:%d: warning: APIC ID mismatch, expected %u but got %u\n", ioapic->id, id);
 
     for (uint32_t i = 0; i <= count; i++) {
         ioapic_write(ioapic, IOAPIC_REDTBL + (2 * i), 0x10000 | (i + 32)); /* mask interrupt */
@@ -88,6 +89,6 @@ void ioapic_install(void) {
     outb(0xA1, 0xFF);
     asm volatile ("sti");
 
-    dprintf("%s:%d: initialized I/O APIC with %d interrupts\n", __FILE__, __LINE__, count + 1);
+    dprintf("%s:%d: initialized I/O APIC #%lu handling GSI %u-%u\n", __FILE__, __LINE__, 0, ioapic->gsi_base, count);
     //printf("\033[92m * \033[97mInitialized I/O APIC\033[0m\n");
 }
