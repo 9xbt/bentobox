@@ -22,10 +22,8 @@ extern void tty_initialize(void);
 extern void fbdev_initialize(void);
 extern void procfs_initialize(void);
 
-extern struct vfs_node *tmpfs_create_file(struct vfs_node *parent, const char *name);
-extern long tmpfs_remove_file(struct vfs_node *node);
-
 struct vfs_node *vfs_root = NULL, *vfs_devfs = NULL;
+struct vfs_mountpoint vfs_mounts[MAX_MOUNTS] = {0};
 
 struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     struct vfs_node *node = (struct vfs_node *)kmalloc(sizeof(struct vfs_node));
@@ -189,6 +187,10 @@ int vfs_close(struct vfs_node *node) {
 
 void vfs_resolve_path(char *s, struct vfs_node *node) {
     if (!node) node = vfs_root;
+    if (node == vfs_root) {
+        strcpy(s, "/");
+        return;
+    }
 
     char path[MAX_PATH] = "";
     struct vfs_node *current = node;
@@ -318,6 +320,33 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
             break;
     }
     return 0;
+}
+
+void vfs_register(const char *name, vfs_mount_callback mount) {
+    for (int i = 0; i < MAX_MOUNTS; i++) {
+        if (!vfs_mounts[i].name) {
+            struct vfs_mountpoint *mp = &vfs_mounts[i];
+            mp->mount = mount;
+            mp->name = kmalloc(strlen(name) + 1);
+            strcpy(mp->name, name);
+
+            dprintf("%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
+            return;
+        }
+    }
+}
+
+long vfs_mount(struct vfs_node *source, struct vfs_node *target, const char *fstype, unsigned long flags) {
+    if (!source || !target) 
+        return -ENOENT;
+    if (!fstype)
+        return -EFAULT;
+    for (int i = 0; i < MAX_MOUNTS; i++) {
+        if (vfs_mounts[i].name && !strcmp(vfs_mounts[i].name, fstype)) {
+            return vfs_mounts[i].mount(source, target);
+        }
+    }
+    return -EINVAL;
 }
 
 void vfs_install(void) {

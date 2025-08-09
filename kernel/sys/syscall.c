@@ -645,6 +645,17 @@ long sys_arch_prctl(int op, long extra) {
     return 0;
 }
 
+long sys_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
+    (void)data;
+    if (!source || !target || !filesystemtype)
+        return -EFAULT;
+    return vfs_mount(
+        vfs_open(this->cwd, source, false, false),
+        vfs_open(this->cwd, target, false, false),
+        filesystemtype,
+        mountflags);
+}
+
 #define LINUX_REBOOT_MAGIC1     0xfee1dead
 #define LINUX_REBOOT_MAGIC2     0x28121969
 #define LINUX_REBOOT_MAGIC2A    0x05121996
@@ -850,6 +861,7 @@ static syscall_func syscalls[] = {
     [SYS_getppid]           = (syscall_func)(uintptr_t)sys_getppid,
     [SYS_getpgid]           = (syscall_func)(uintptr_t)sys_getpgid,
     [SYS_arch_prctl]        = (syscall_func)(uintptr_t)sys_arch_prctl,
+    [SYS_mount]             = (syscall_func)(uintptr_t)sys_mount,
     [SYS_reboot]            = (syscall_func)(uintptr_t)sys_reboot,
     [SYS_sethostname]       = (syscall_func)(uintptr_t)sys_sethostname,
     [SYS_gettid]            = (syscall_func)(uintptr_t)sys_getpid,

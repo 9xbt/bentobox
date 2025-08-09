@@ -8,6 +8,7 @@
 
 #define MAX_PATH            256
 #define MAX_NESTED_SYMLINKS 10
+#define MAX_MOUNTS          16
 
 typedef enum vfs_node_type {
     VFS_NONE,
@@ -53,6 +54,13 @@ typedef struct vfs_node {
     uint64_t m_time;
 } vfs_node_t;
 
+typedef long (*vfs_mount_callback)(struct vfs_node *source, struct vfs_node *target);
+
+typedef struct vfs_mountpoint {
+    char *name;
+    vfs_mount_callback mount;
+} vfs_mountpoint_t;
+
 extern struct vfs_node *vfs_root, *vfs_devfs;
 
 void vfs_install(void);
@@ -71,3 +79,5 @@ void vfs_unblock_polling(struct vfs_node *node);
 int vfs_remove_node(struct vfs_node *node);
 long vfs_check_perms(struct vfs_node *node, int mode);
 long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink);
+void vfs_register(const char *name, vfs_mount_callback mount);
+long vfs_mount(struct vfs_node *source, struct vfs_node *target, const char *fstype, unsigned long flags);

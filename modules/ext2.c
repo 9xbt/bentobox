@@ -6,6 +6,7 @@
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 #include <kernel/args.h>
 #include <kernel/time.h>
 #include <kernel/mmu.h>
@@ -716,20 +717,7 @@ void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
     kfree(blocks);
 }
 
-int init() {
-    dprintf("%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
-
-    if (!args_contains("root")) {
-        dprintf("%s:%d: root partition not specified in command line\n", __FILE__, __LINE__);
-        return 1;
-    }
-
-    struct vfs_node *sda = vfs_open(NULL, args_value("root"), false, false);
-    if (!sda) {
-        dprintf("%s:%d: cannot open %s\n", __FILE__, __LINE__, args_value("root"));
-        return 1;
-    }
-
+long mount(struct vfs_node *sda, struct vfs_node *target) {
     ext2_fs *fs = kmalloc(sizeof(ext2_fs));
     fs->sda = sda;
     fs->sb = (ext2_sb *)kmalloc(sizeof(ext2_sb));
@@ -737,7 +725,7 @@ int init() {
 
     if (fs->sb->signature != 0xef53) {
         dprintf("%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, args_value("root"));
-        return 1;
+        return -EINVAL;
     }
     fs->block_size = 1024 << fs->sb->log2_block;
     fs->bgd_count = (fs->sb->blocks_count / fs->sb->blocks_per_group) ?: 1;
@@ -746,12 +734,25 @@ int init() {
     fs->inode_size = fs->sb->inode_size;
     ext2_read_block(fs, fs->bgd_block, fs->bgd_table, fs->bgd_count * sizeof(ext2_bgd));
     
-    vfs_root->inode = 2;
-    vfs_root->device = fs;
-    dprintf("%s:%d: mounting %s to /\n", __FILE__, __LINE__, args_value("root"));
-    ext2_mount(fs, vfs_root, 2);
+    target->inode = 2;
+    target->device = fs;
 
+    char source_path[MAX_PATH], target_path[MAX_PATH];
+    vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);
+    dprintf("%s:%d: mounting %s to %s\n", __FILE__, __LINE__, source_path, target_path);
+
+    ext2_mount(fs, target, 2);
     return 0;
+}
+
+int init() {
+    dprintf("%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
+    if (!args_contains("root")) {
+        panic("root partition not specified in command line");
+    }
+
+    vfs_register("ext2", mount);
+    return vfs_mount(vfs_open(NULL, args_value("root"), false, false), vfs_root, "ext2", 0);
 }
 
 int fini() {
