@@ -77,7 +77,7 @@ void ioapic_install(void) {
     uint32_t count = ioapic_gsi_count(ioapic);
 
     if (id != ioapic->id)
-        panic("APIC ID mismatch");
+        panic("APIC ID mismatch! Got %u, expected %u", ioapic->id, id);
 
     for (uint32_t i = 0; i <= count; i++) {
         ioapic_write(ioapic, IOAPIC_REDTBL + (2 * i), 0x10000 | (i + 32)); /* mask interrupt */
