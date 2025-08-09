@@ -14,6 +14,7 @@ void fadt_init(void) {
 
     if (!fadt) panic("couldn't find FADT");
 
+#if 0
     if (fadt->smi_cmd != 0 || fadt->acpi_enable != 0 || fadt->acpi_disable != 0 || (fadt->pm1a_cnt_blk & 1) == 0) {
         outb(fadt->smi_cmd, fadt->acpi_enable);
         while (!(inw(fadt->pm1a_cnt_blk) & 1));
@@ -21,6 +22,7 @@ void fadt_init(void) {
         dprintf("%s:%d: enabled ACPI mode\n", __FILE__, __LINE__);
         return;
     }
+#endif
     
     dprintf("%s:%d: ACPI mode is already enabled\n", __FILE__, __LINE__);
 #else
