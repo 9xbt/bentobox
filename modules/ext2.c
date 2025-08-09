@@ -718,6 +718,9 @@ void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
 }
 
 long mount(struct vfs_node *sda, struct vfs_node *target) {
+    if (!sda)
+        return -ENOENT;
+
     ext2_fs *fs = kmalloc(sizeof(ext2_fs));
     fs->sda = sda;
     fs->sb = (ext2_sb *)kmalloc(sizeof(ext2_sb));

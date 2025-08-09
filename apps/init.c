@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
 #include <sys/utsname.h>
 
 int main(int argc, char *argv[]) {
@@ -18,6 +20,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    struct stat st;
+    if (!stat("/proc", &st)) {
+        printf("apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
+    } else {
+        printf("apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);
+        mkdir("/proc", 0555);
+        mount("proc", "/proc", "proc", 0, NULL);
+    }
+
     FILE *fptr;
     char hostname[256];
     if (!(fptr = fopen("/etc/hostname", "r")) ||
@@ -26,6 +37,8 @@ int main(int argc, char *argv[]) {
         char *newline;
         if ((newline = strchr(hostname, '\n')))
             *newline = '\0';
+
+        printf("apps/%s:%d: setting hostname to '%s'\n", __FILE__, __LINE__, hostname);
 
         if (sethostname(hostname, strlen(hostname))) {
             perror("sethostname");

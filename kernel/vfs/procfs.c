@@ -31,9 +31,8 @@ long procfs_filesystems_read(struct vfs_node *node, void *buffer, long offset, s
     return i;
 }
 
-void procfs_initialize(void) {
-    struct vfs_node *proc = vfs_create_node("proc", VFS_DIRECTORY);
-    vfs_add_node(NULL, proc);
+long procfs_mount(struct vfs_node *source, struct vfs_node *proc) {
+    (void)source;
 
     struct vfs_node *meminfo = vfs_create_node("meminfo", VFS_FILE);
     meminfo->perms = 0444;
@@ -48,4 +47,9 @@ void procfs_initialize(void) {
     filesystems->perms = 0444;
     filesystems->read = procfs_filesystems_read;
     vfs_add_node(proc, filesystems);
+    return 0;
+}
+
+void procfs_initialize(void) {
+    vfs_register("proc", procfs_mount);
 }

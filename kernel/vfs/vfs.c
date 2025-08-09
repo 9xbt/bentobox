@@ -337,7 +337,7 @@ void vfs_register(const char *name, vfs_mount_callback mount) {
 }
 
 long vfs_mount(struct vfs_node *source, struct vfs_node *target, const char *fstype, unsigned long flags) {
-    if (!source || !target) 
+    if (!target) 
         return -ENOENT;
     if (!fstype)
         return -EFAULT;
