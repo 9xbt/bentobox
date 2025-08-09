@@ -21,8 +21,8 @@
 #define FPS_CAP 180
 
 typedef struct canvas {
-    size_t width;
-    size_t height;
+    long width;
+    long height;
     size_t size;
     uint32_t *data;
 } canvas_t;
@@ -56,7 +56,7 @@ canvas_t cursor, background;
 #define stipple(cv, w, h, fg, bg, s) _stipple(cv, w, h, fg, bg, (uint8_t *)s);
 #define line(cv, x1, y1, x2, y2, c) _line(cv, x1, y1, x2, y2, c);
 
-void _rectangle(canvas_t *cv, long x, long y, size_t width, size_t height, uint32_t color) {
+void _rectangle(canvas_t *cv, long x, long y, long width, long height, uint32_t color) {
     for (long yy = y; yy < y + height; yy++) {
         for (long xx = x; xx < x + width; xx++) {
             plot(cv, xx, yy, color);
@@ -81,12 +81,17 @@ void _string(canvas_t *cv, long x, long y, uint32_t color, char *str) {
 }
 
 void _image(canvas_t *cv, long x, long y, canvas_t *image) {
-    for (long yy = y; yy < y + image->height; yy++) {
-        for (long xx = x; xx < x + image->width; xx++) {
-            plot(cv, xx, yy, image->data[(yy - y) * image->width + (xx - x)]);
+    long sx = 0, sy = 0;
+    if (x < 0) sx = -x, x = 0;
+    if (y < 0) sy = -y, y = 0;
+
+    for (long yy = y; yy < y + image->height - sy && yy < cv->height; yy++) {
+        for (long xx = x; xx < x + image->width - sx && xx < cv->width; xx++) {
+            plot(cv, xx, yy, image->data[(yy - y + sy) * image->width + (xx - x + sx)]);
         }
     }
 }
+
 
 void _stipple(canvas_t *cv, size_t width, size_t height, uint32_t fg, uint32_t bg, uint8_t *stipple) {
     for (long y = 0; y < vinfo.yres; y++) {
@@ -259,8 +264,8 @@ int main(int argc, char *argv[]) {
 
     clients = list_create();
 
-    window_t *client = spawn("bentobox", 240, 160);
-    string(&client->cv, 5, 0, 0xFF000000, "Hello, world!");
+    window_t *hello = spawn("bentobox", 240, 160);
+    string(&hello->cv, 5, 0, 0xFF000000, "Hello, world!");
 
     update();
     struct input_event ev;
@@ -290,8 +295,8 @@ int main(int argc, char *argv[]) {
 
                 if (mouse_x < 0) mouse_x = 0;
                 if (mouse_y < 0) mouse_y = 0;
-                if (mouse_x >= vinfo.xres) mouse_x = vinfo.xres - 1;
-                if (mouse_y >= vinfo.yres) mouse_y = vinfo.yres - 1;
+                if (mouse_x >= (int)vinfo.xres) mouse_x = vinfo.xres - 1;
+                if (mouse_y >= (int)vinfo.yres) mouse_y = vinfo.yres - 1;
                 if (dragging && drag_target) {
                     drag_target->x = mouse_x - drag_offset_x;
                     drag_target->y = mouse_y - drag_offset_y;
