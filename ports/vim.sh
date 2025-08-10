@@ -1,20 +1,21 @@
 #!/bin/bash
+target=$(pwd)/base/usr/local/vim
 mkdir -p ports/src
 cd ports/src/
 git clone https://github.com/vim/vim.git --depth=1
 cd vim
+git apply ../../vim.diff
 export CC=musl-gcc
 export CFLAGS="-static"
 export CPPFLAGS="-I/usr/local/ncurses-musl/include"
 export LDFLAGS="-L/usr/local/ncurses-musl/lib -static"
 ./configure \
-    --with-features=normal \
+    --with-features=huge \
     --enable-multibyte \
     --disable-gui \
     --disable-gtk3-check \
     --disable-gnome-check \
     --disable-xsmp \
-    --disable-x11 \
     --disable-xim \
     --disable-selinux \
     --disable-cscope \
@@ -26,8 +27,7 @@ export LDFLAGS="-L/usr/local/ncurses-musl/lib -static"
     --disable-rubyinterp \
     --without-x \
     --without-wayland \
-    --without-wlr \
     --with-tlib=ncurses \
-    --prefix=/usr/local/vim-musl
+    --prefix=$target
 make -j$(nproc)
-sudo make install
+make install

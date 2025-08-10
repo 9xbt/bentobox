@@ -62,3 +62,4 @@
 #define SYS_utimensat       280
 #define SYS_dup3            292
 #define SYS_pipe2           293
+#define SYS_prlimit64       302

@@ -6,6 +6,8 @@
 ./ports/doomgeneric.sh
 ./ports/figlet.sh
 ./ports/neofetch.sh
+./ports/ncurses.sh
+./ports/vim.sh
 
 echo "Cleaning up..."
 rm -rf ports/src/

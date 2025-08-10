@@ -41,6 +41,10 @@ long tty_poll(struct vfs_node *node, long events) {
 }
 
 long tty_enqueue(int c) {
+    /** FIXME: this will break ANSI escape codes for arrow keys */
+    if (!c)
+        return 0;
+
     extern atomic_flag flanterm_lock;
     switch (c) {
         case 0x3:

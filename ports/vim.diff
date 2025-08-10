@@ -1,0 +1,22 @@
+diff --git a/src/os_unix.c b/src/os_unix.c
+index 3e4c6b3..95deba4 100644
+--- a/src/os_unix.c
++++ b/src/os_unix.c
+@@ -8745,6 +8745,8 @@ stop_timeout(void)
+     volatile sig_atomic_t *
+ start_timeout(long msec)
+ {
++	return &timeout_flag;
++
+     struct itimerspec interval = {
+ 	    {0, 0},					// Do not repeat.
+ 	    {msec / 1000, (msec % 1000) * 1000000}};	// Timeout interval
+@@ -8860,6 +8862,8 @@ stop_timeout(void)
+     volatile sig_atomic_t *
+ start_timeout(long msec)
+ {
++	return &timeout_flag;
++
+     struct itimerval	interval = {
+ 	    {0, 0},				    // Do not repeat.
+ 	    {msec / 1000, (msec % 1000) * 1000}};   // Timeout interval

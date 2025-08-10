@@ -162,6 +162,7 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
             ? vma_map(this->vma, pages, 0, (uint64_t)addr, vma_flags)
             : vma_map(this->vma, pages, 0, 0, vma_flags);
 
+        /** TODO: fix mmap returning this when mapping with PROT_NONE */
         if (!ptr) return -ENOMEM;
 
         if (prot != PROT_NONE) memset(ptr, 0, pages * PAGE_SIZE);
@@ -343,10 +344,6 @@ long sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     return ready;
 }
 
-long sys_select() {
-    return 0;
-}
-
 long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *ts, const sigset_t *sigmask) {
     int ready = 0;
     
@@ -377,6 +374,16 @@ long sys_pselect6(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds
     if (exceptfds) *exceptfds = ready_exceptfds;
     
     return ready;
+}
+
+long sys_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
+    //return nfds;
+    struct timespec ts;
+    if (timeout) {
+        ts.tv_sec = timeout->tv_sec;
+        ts.tv_nsec = timeout->tv_usec * 1000;
+    }
+    return sys_pselect6(nfds, readfds, writefds, exceptfds, timeout ? &ts : NULL, NULL);
 }
 
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
@@ -541,7 +548,7 @@ long sys_rmdir(const char *pathname, mode_t mode) {
 }
 
 long sys_unlink(const char *pathname) {
-    struct vfs_node *node = vfs_open(this->cwd, pathname, false, false);
+    struct vfs_node *node = vfs_open(this->cwd, pathname, false, true);
     if (!node)
         return -ENOENT;
     int ret = vfs_close(node);
@@ -569,7 +576,7 @@ long sys_readlink(const char *pathname, char *buf, size_t bufsiz) {
     return strlen(name);
 }
 
-long sys_getrlimit(int resource, struct rlimit *rlim) {
+long sys_getrlimit(unsigned int resource, struct rlimit *rlim) {
     if (!rlim)
         return -EFAULT;
 
@@ -825,6 +832,21 @@ long sys_utimensat() {
     return -ENOENT;
 }
 
+long sys_prlimit64(long pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *old_rlim) {
+    if (!new_rlim || !old_rlim)
+        return -EFAULT;
+    if (pid != this->pid) {
+        dprintf(5, "%s:%d: TODO: do prlimit on requested PID (%ld)\n", __FILE__, __LINE__, pid);
+        return -ESRCH;
+    }
+    switch (resource) {
+        default:
+            dprintf(6, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
+            return -EINVAL;
+    }
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 static syscall_func syscalls[] = {
@@ -889,7 +911,8 @@ static syscall_func syscalls[] = {
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,
     [SYS_dup3]              = (syscall_func)(uintptr_t)sys_dup3,
-    [SYS_pipe2]             = (syscall_func)(uintptr_t)sys_pipe2
+    [SYS_pipe2]             = (syscall_func)(uintptr_t)sys_pipe2,
+    [SYS_prlimit64]         = (syscall_func)(uintptr_t)sys_prlimit64
 };
 
 void syscall_handler(struct registers *r) {
@@ -898,8 +921,6 @@ void syscall_handler(struct registers *r) {
         r->rax = -ENOSYS;
         sched_unlock();
         return;
-    } else {
-        dprintf(5, "%lu  ", r->rax);
     }
 
     syscall_func handler = syscalls[r->rax];
