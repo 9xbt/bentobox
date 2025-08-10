@@ -19,7 +19,7 @@
 static uint16_t serial_base = COM1;
 static atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 static struct fifo *serial_fifo;
-bool kmsg_silence = false;
+int loglevel = 7;
 
 char serial_ringbuffer[1024];
 
@@ -77,7 +77,7 @@ void serial_puts(char *str) {
     release(&serial_lock);
 }
 
-int dprintf(const char *fmt, ...) {
+int dprintf(int level, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     char buf[1024] = {0};
@@ -89,7 +89,7 @@ int dprintf(const char *fmt, ...) {
     if (serial_base == COM1) {
         serial_puts(buf);
     }
-    if (!kmsg_silence) {
+    if (level <= loglevel) {
         puts(buf);
     }
     va_end(args);
@@ -122,7 +122,7 @@ long serial_ioctl(int fd_num, int op, void *arg) {
         case TIOCSPGRP:
             return 0;
         default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
 }

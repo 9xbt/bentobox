@@ -28,7 +28,7 @@ void tsc_install(void) {
         !__get_cpuid(0x80000007, &eax, &ebx, &ecx, &edx) ||
         (edx & (1 << 8)) == 0) {
         if (hpet) {
-            dprintf("%s:%d: invariant TSC not supported\n", __FILE__, __LINE__);
+            dprintf(6, "%s:%d: invariant TSC not supported\n", __FILE__, __LINE__);
             return;
         } else {
             panic("Invariant TSC not supported");
@@ -47,7 +47,7 @@ void tsc_install(void) {
         delta = rdtsc() - start;
     }
     tsc_period = delta / TSC_CALIBRATION_PERIOD;
-    dprintf("%s:%d: detected %lu.%luMHz TSC\n", __FILE__, __LINE__, delta / TSC_CALIBRATION_PERIOD, delta % TSC_CALIBRATION_PERIOD);
+    dprintf(6, "%s:%d: detected %lu.%luMHz TSC\n", __FILE__, __LINE__, delta / TSC_CALIBRATION_PERIOD, delta % TSC_CALIBRATION_PERIOD);
 }
 
 void tsc_sleep(size_t us) {

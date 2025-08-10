@@ -414,12 +414,12 @@ void sched_timetrack(void) {
         uint64_t busy_us = (1000000 > idle_us) ? (1000000 - idle_us) : 0;
         this_core()->usage = (busy_us * 100) / 1000000;
 
-        //dprintf("CPU usage: %lu%%\r", this_core()->usage);
+        //dprintf(6, "CPU usage: %lu%%\r", this_core()->usage);
     }
 }
 
 void sched_jumpstart(void) {
-    kmsg_silence = true;
+    loglevel = 3;
 
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);
@@ -454,6 +454,6 @@ void sched_install(void) {
         sched_add_task(timetracker, core);
     }
     next_pid = 1;
-    dprintf("%s:%d: initialized process lists\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: initialized process lists\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized scheduler\033[0m\n");
 }

@@ -19,12 +19,12 @@ void fadt_init(void) {
         outb(fadt->smi_cmd, fadt->acpi_enable);
         while (!(inw(fadt->pm1a_cnt_blk) & 1));
 
-        dprintf("%s:%d: enabled ACPI mode\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: enabled ACPI mode\n", __FILE__, __LINE__);
         return;
     }
 #endif
     
-    dprintf("%s:%d: ACPI mode is already enabled\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: ACPI mode is already enabled\n", __FILE__, __LINE__);
 #else
     unimplemented;
 #endif

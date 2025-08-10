@@ -64,7 +64,7 @@ int init() {
     struct vfs_node *drive = vfs_open(NULL, drive_name, false, false);
     do {
         if (!drive) {
-            dprintf("%s:%d: cannot open %s\n", __FILE__, __LINE__, "/dev/sda");
+            dprintf(6, "%s:%d: cannot open %s\n", __FILE__, __LINE__, "/dev/sda");
             return -EINVAL;
         }
 
@@ -72,12 +72,12 @@ int init() {
         vfs_read(drive, pt, 512, sizeof(partition_table_t));
 
         if (strcmp(pt->signature, "EFI PART")) {
-            dprintf("%s:%d: not a GPT partition table\n", __FILE__, __LINE__);
+            dprintf(6, "%s:%d: not a GPT partition table\n", __FILE__, __LINE__);
             return -EINVAL;
         }
 
-        dprintf("%s:%d: GPT signature: %s\n", __FILE__, __LINE__, pt->signature);
-        dprintf("%s:%d: %d paritition slots\n", __FILE__, __LINE__, pt->pe_num);
+        dprintf(6, "%s:%d: GPT signature: %s\n", __FILE__, __LINE__, pt->signature);
+        dprintf(6, "%s:%d: %d paritition slots\n", __FILE__, __LINE__, pt->pe_num);
 
         partition_entry_t *pe = kmalloc(pt->pe_size * pt->pe_num);
         vfs_read(drive, pe, pt->pe_lba * 512, pt->pe_size * pt->pe_num);
@@ -91,7 +91,7 @@ int init() {
             }
             sprintf(mountpoint, "sda%d", i + 1);
 
-            dprintf("%s:%d: creating mountpoint for '%ls' at /dev/%s\n", __FILE__, __LINE__, pe[i].name, mountpoint);
+            dprintf(6, "%s:%d: creating mountpoint for '%ls' at /dev/%s\n", __FILE__, __LINE__, pe[i].name, mountpoint);
             device = kmalloc(sizeof(partition_device_t));
             device->drive = drive;
             device->offset = pe[i].start_lba * 512;
@@ -112,7 +112,7 @@ int init() {
 }
 
 int fini() {
-    dprintf("%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
     return 0;
 }
 

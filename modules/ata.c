@@ -209,16 +209,16 @@ long hda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 
 int init() {
     extern char load_addr[];
-    dprintf("%s:%d: starting ATA driver\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: starting ATA driver\n", __FILE__, __LINE__);
 
     mutex_init(&ata_mutex);
 
     char name[40];
     if (ata_identify(ATA_PRIMARY, ATA_MASTER, name) != ATA_OK) {
-        dprintf("%s:%d: failed to initialize ATA primary master\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: failed to initialize ATA primary master\n", __FILE__, __LINE__);
         return 1;
     }
-    dprintf("%s:%d: drive name: '%s'\n", __FILE__, __LINE__, name);
+    dprintf(6, "%s:%d: drive name: '%s'\n", __FILE__, __LINE__, name);
 
     struct vfs_node *hda = vfs_create_node("sda", VFS_BLOCKDEVICE);
     hda->read = hda_read;
@@ -228,7 +228,7 @@ int init() {
 }
 
 int fini() {
-    dprintf("%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
     kfree(ata_ident);
     return 0;
 }

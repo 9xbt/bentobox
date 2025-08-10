@@ -11,5 +11,5 @@ void __assert_failed(const char *file, uint32_t line, const char *func, const ch
 }
 
 void __stub(const char *file, uint32_t line, const char *func) {
-    dprintf("%s:%d: %s is a stub\n", file, line, func);
+    dprintf(6, "%s:%d: %s is a stub\n", file, line, func);
 }

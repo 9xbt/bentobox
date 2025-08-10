@@ -214,7 +214,7 @@ long sys_brk(void *addr) {
         }
         this->brk = map_end;
     } else {
-        dprintf("%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
+        dprintf(6, "%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
     }
     return new_brk;
 }
@@ -493,7 +493,7 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
                 return -EINVAL;
             return UNIXPIPE_BUFFER_SIZE;
         default:
-            dprintf("%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
+            dprintf(6, "%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
             return -EINVAL;
     }
 }
@@ -574,7 +574,7 @@ long sys_getrlimit(int resource, struct rlimit *rlim) {
             rlim->rlim_max = USER_MAX_FDS;
             break;
         default:
-            dprintf("%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
+            dprintf(6, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
             return -EINVAL;
     }
     return 0;
@@ -639,7 +639,7 @@ long sys_arch_prctl(int op, long extra) {
             this->fs = extra;
             break;
         default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
     return 0;
@@ -800,7 +800,7 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
             else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
             break;
         default:    
-            dprintf("%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
+            dprintf(6, "%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
             return -EINVAL;
     }
     return 0;
@@ -879,7 +879,7 @@ static syscall_func syscalls[] = {
 
 void syscall_handler(struct registers *r) {
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
-        dprintf("%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
+        dprintf(5, "%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
         sched_unlock();
         return;

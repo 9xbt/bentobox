@@ -2,7 +2,7 @@
 #include <kernel/vfs.h>
 
 extern char serial_ringbuffer[1024];
-extern bool kmsg_silence;
+extern int loglevel;
 
 void serial_install(void);
 void serial_tty_flush(void);

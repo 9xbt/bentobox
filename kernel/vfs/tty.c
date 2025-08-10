@@ -184,7 +184,7 @@ long tty_ioctl(int fd_num, int op, void *arg) {
         case PIO_UNIMAPCLR:
             return 0;
         default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
 }

@@ -330,7 +330,7 @@ void vfs_register(const char *name, vfs_mount_callback mount) {
             mp->name = kmalloc(strlen(name) + 1);
             strcpy(mp->name, name);
 
-            dprintf("%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
+            dprintf(6, "%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
             return;
         }
     }
@@ -361,6 +361,6 @@ void vfs_install(void) {
     fbdev_initialize();
     procfs_initialize();
 
-    dprintf("%s:%d: initialized VFS\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: initialized VFS\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");
 }

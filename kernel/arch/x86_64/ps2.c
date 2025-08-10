@@ -170,14 +170,14 @@ void irq12_handler(struct registers *r) {
     static int pi = 0;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
-        dprintf("%s:%d: not a mouse packet\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: not a mouse packet\n", __FILE__, __LINE__);
         lapic_eoi();
         return;
     }
 
     uint8_t data = inb(PS2_DATA);
     if (pi == 0 && !(data & (1 << 3))) {
-        dprintf("%s:%d: corrupted mouse packet\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: corrupted mouse packet\n", __FILE__, __LINE__);
         lapic_eoi();
         return;
     }
@@ -332,7 +332,7 @@ long ps2_keyboard_ioctl(int fd_num, int op, void *arg) {
             return 0;
         }
         default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
 }
@@ -358,7 +358,7 @@ long ps2_mouse_ioctl(int fd_num, int op, void *arg) {
     (void)fd;
     switch (op) {
         default:
-            dprintf("%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
 }
@@ -395,7 +395,7 @@ void ps2_send_mouse_command(uint8_t command) {
 
 void ps2_initialize(void) {
     if (!(fadt->iapc_boot_arch & (1 << 1))) {
-        dprintf("%s:%d: warning: no PS/2 controller found\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: warning: no PS/2 controller found\n", __FILE__, __LINE__);
         return;
     }
 
@@ -416,7 +416,7 @@ void ps2_initialize(void) {
 
     ps2_send_command(0xAA);
     if (ps2_read_data() != 0x55) {
-        dprintf("%s:%d: self test failed\n", __FILE__, __LINE__);
+        dprintf(6, "%s:%d: self test failed\n", __FILE__, __LINE__);
         return;
     }
 
@@ -491,5 +491,5 @@ void ps2_initialize(void) {
         vfs_add_node(vfs_open(NULL, "/dev/input", true, true), mouse);
     }
 
-    dprintf("%s:%d: initialized PS/2 controller\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: initialized PS/2 controller\n", __FILE__, __LINE__);
 }

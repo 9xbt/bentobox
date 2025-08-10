@@ -21,7 +21,7 @@
 #define LACKS_STRING_H 0
 #define LACKS_STDLIB_H 1
 #define LACKS_STDIO_H 1
-#define ABORT dprintf("%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
+#define ABORT dprintf(6, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
 #define USE_LOCKS 0
 #define NO_MALLOC_STATS 1
 #define LACKS_STDIO_H 1
@@ -88,7 +88,7 @@ void kfree(void *ptr) {
             return;
         }
     }
-    dprintf("%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
+    dprintf(6, "%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
 }
 
 void *krealloc(void *ptr, size_t size) {
@@ -109,7 +109,7 @@ void *krealloc(void *ptr, size_t size) {
         }
     }
 
-    dprintf("%s:%d: krealloc: invalid pointer %p\n", __FILE__, __LINE__, ptr);
+    dprintf(6, "%s:%d: krealloc: invalid pointer %p\n", __FILE__, __LINE__, ptr);
     assert(false);
     __builtin_unreachable();
 }

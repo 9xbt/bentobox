@@ -727,7 +727,7 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
     vfs_read(sda, fs->sb, 1024, sizeof(ext2_sb));
 
     if (fs->sb->signature != 0xef53) {
-        dprintf("%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, args_value("root"));
+        dprintf(6, "%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, args_value("root"));
         return -EINVAL;
     }
     fs->block_size = 1024 << fs->sb->log2_block;
@@ -745,14 +745,14 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
 
     char source_path[MAX_PATH], target_path[MAX_PATH];
     vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);
-    dprintf("%s:%d: mounting %s to %s\n", __FILE__, __LINE__, source_path, target_path);
+    dprintf(6, "%s:%d: mounting %s to %s\n", __FILE__, __LINE__, source_path, target_path);
 
     ext2_mount(fs, target, 2);
     return 0;
 }
 
 int init() {
-    dprintf("%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
     if (!args_contains("root")) {
         panic("root partition not specified in command line");
     }
@@ -762,7 +762,7 @@ int init() {
 }
 
 int fini() {
-    dprintf("%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
     return 0;
 }
 

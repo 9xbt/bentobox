@@ -14,7 +14,8 @@ void generic_startup(void) {
 }
 
 void generic_main(void) {
-    dprintf("%s:%d: running init process\n", __FILE__, __LINE__);
+    dprintf(6, "%s:%d: running init process\n", __FILE__, __LINE__);
     spawn("/bin/init", 0, NULL, NULL);
+    asm volatile ("int3");
 	sched_jumpstart();
 }
