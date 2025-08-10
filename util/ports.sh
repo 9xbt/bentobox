@@ -5,6 +5,7 @@
 ./ports/busybox.sh
 ./ports/doomgeneric.sh
 ./ports/figlet.sh
+./ports/neofetch.sh
 
 echo "Cleaning up..."
 rm -rf ports/src/

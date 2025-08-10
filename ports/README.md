@@ -15,3 +15,4 @@ You can either run `util/ports.sh` to build all the ports at once, or you can ru
 - busybox 1.35.0 (`ports/busybox.sh`)
 - doomgeneric (`ports/doomgeneric.sh`)
 - figlet (`ports/figlet.sh`)
+- neofetch 7.1.0 (`ports/neofetch.sh`)

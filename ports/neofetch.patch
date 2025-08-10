@@ -1,0 +1,53 @@
+--- neofetch	2025-08-10 15:30:40.866340742 +0200
++++ neofetch	2025-08-10 15:28:07.116179359 +0200
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env bash
++#!/usr/bin/bash
+ # vim: noai:ts=4:sw=4:expandtab
+ # shellcheck source=/dev/null
+ # shellcheck disable=2009
+@@ -946,7 +946,7 @@
+         IRIX*)    os=IRIX ;;
+         FreeMiNT) os=FreeMiNT ;;
+ 
+-        Linux|GNU*)
++        Linux|GNU*|bentobox)
+             os=Linux
+         ;;
+ 
+@@ -4073,15 +4073,18 @@
+         ((++lines,${#line}>ascii_len)) && ascii_len="${#line}"
+     done <<< "${ascii_data//\$\{??\}}"
+ 
++    ascii_len=19
++    lines=12
++
+     # Fallback if file not found.
+-    ((lines==1)) && {
+-        lines=
+-        ascii_len=
+-        image_source=auto
+-        get_distro_ascii
+-        print_ascii
+-        return
+-    }
++    #((lines==1)) && {
++    #    lines=
++    #    ascii_len=
++    #    image_source=auto
++    #    get_distro_ascii
++    #    print_ascii
++    #    return
++    #}
+ 
+     # Colors.
+     ascii_data="${ascii_data//\$\{c1\}/$c1}"
+@@ -11445,7 +11448,7 @@
+ EOF
+                 ;;
+ 
+-                "Linux")
++                "Linux"|"bentobox"*)
+                     set_colors fg 8 3
+                     read -rd '' ascii_data <<'EOF'
+ ${c2}        #####
