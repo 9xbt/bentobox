@@ -16,3 +16,5 @@ You can either run `util/ports.sh` to build all the ports at once, or you can ru
 - doomgeneric (`ports/doomgeneric.sh`)
 - figlet (`ports/figlet.sh`)
 - neofetch 7.1.0 (`ports/neofetch.sh`)
+- vim (`ports/vim.sh`)
+- ncurses (`ports/ncurses.sh`)
