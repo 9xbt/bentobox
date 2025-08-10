@@ -2,12 +2,29 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/utsname.h>
+
+int dprintf(int level, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char buf[1024] = {0};
+
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", ts.tv_sec, ts.tv_nsec / 1000), fmt, args);
+    fwrite(buf, 1, strlen(buf), stdout);
+
+    va_end(args);
+    return ret;
+}
 
 int main(int argc, char *argv[]) {
     sigset_t set;
@@ -22,9 +39,9 @@ int main(int argc, char *argv[]) {
 
     struct stat st;
     if (!stat("/proc", &st) && !stat("/proc/mounts", &st)) {
-        printf("apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
+        dprintf(6, "apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
     } else {
-        printf("apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);
+        dprintf(6, "apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);
         mkdir("/proc", 0555);
         mount("proc", "/proc", "proc", 0, NULL);
     }
@@ -38,7 +55,7 @@ int main(int argc, char *argv[]) {
         if ((newline = strchr(hostname, '\n')))
             *newline = '\0';
 
-        printf("apps/%s:%d: setting hostname to '%s'\n", __FILE__, __LINE__, hostname);
+        dprintf(6, "apps/%s:%d: setting hostname to '%s'\n", __FILE__, __LINE__, hostname);
 
         if (sethostname(hostname, strlen(hostname))) {
             perror("sethostname");

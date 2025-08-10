@@ -796,8 +796,9 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
             gettimeofday(&tp->tv_sec, &tp->tv_nsec);
             break;
         case CLOCK_MONOTONIC:
-            if (hpet) hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
-            else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
+            //if (hpet) hpet_read_time(&tp->tv_sec, &tp->tv_nsec);
+            //else tsc_read_time(&tp->tv_sec, &tp->tv_nsec);
+            uptime(&tp->tv_sec, &tp->tv_nsec);
             break;
         default:    
             dprintf(6, "%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
