@@ -234,6 +234,17 @@ void irq12_handler(struct registers *r) {
     }
 
     lapic_eoi();
+    
+    /** TODO: only preempt the core that proc is on */
+    for (uint32_t id = 0; id < madt_lapics; id++) {
+        if (get_core(id) != this_core() && get_core(id)->current_proc == get_core(id)->idle_proc) {
+            lapic_ipi(id, 0x79);
+        }
+    }
+
+    /** TODO: there has be a better place to do this than here... */
+    if (this_core()->current_proc == this_core()->idle_proc)
+        sched_yield();
 }
 
 static int scancode_linux_keycode(uint8_t scancode) {

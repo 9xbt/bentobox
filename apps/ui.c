@@ -320,7 +320,6 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-        update();
 
         while (pfd[1].revents & POLLIN) {
             ssize_t bytes = read(keyboard, &ev, sizeof(struct input_event));
@@ -334,6 +333,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+        update();
     }
 
     return EXIT_FAILURE;
