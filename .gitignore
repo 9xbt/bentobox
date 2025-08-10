@@ -1,8 +1,8 @@
 bin/
+base/usr/local
+base/usr/share/terminfo
 ports/src/
-kernel/target_arch.c
 compile_commands.json
 .cache
 .vscode
 *.wad
-*.flf

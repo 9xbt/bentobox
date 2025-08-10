@@ -1,3 +1,4 @@
+#include <asm-generic/resource.h>
 #include <linux/resource.h>
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
@@ -515,6 +516,14 @@ long sys_chdir(const char *path) {
     return 0;
 }
 
+long sys_fchdir(int fd_num) {
+    struct fd *fd = fd_get(fd_num);
+    if (!fd)
+        return -EBADF;
+    this->cwd = fd->node;
+    return 0;
+}
+
 long sys_mkdir(const char *pathname, mode_t mode) {
     if (!vfs_open(this->cwd, pathname, true, true)) {
         return -EROFS;
@@ -565,6 +574,10 @@ long sys_getrlimit(int resource, struct rlimit *rlim) {
         return -EFAULT;
 
     switch (resource) {
+        case RLIMIT_DATA:
+            rlim->rlim_cur = RLIM_INFINITY;
+            rlim->rlim_max = RLIM_INFINITY;
+            break;
         case RLIMIT_NPROC:
             rlim->rlim_cur = RLIM_INFINITY;
             rlim->rlim_max = RLIM_INFINITY;
@@ -848,6 +861,7 @@ static syscall_func syscalls[] = {
     [SYS_fcntl]             = (syscall_func)(uintptr_t)sys_fcntl,
     [SYS_getcwd]            = (syscall_func)(uintptr_t)sys_getcwd,
     [SYS_chdir]             = (syscall_func)(uintptr_t)sys_chdir,
+    [SYS_fchdir]            = (syscall_func)(uintptr_t)sys_fchdir,
     [SYS_mkdir]             = (syscall_func)(uintptr_t)sys_mkdir,
     [SYS_rmdir]             = (syscall_func)(uintptr_t)sys_rmdir,
     [SYS_unlink]            = (syscall_func)(uintptr_t)sys_unlink,
@@ -884,6 +898,8 @@ void syscall_handler(struct registers *r) {
         r->rax = -ENOSYS;
         sched_unlock();
         return;
+    } else {
+        dprintf(5, "%lu  ", r->rax);
     }
 
     syscall_func handler = syscalls[r->rax];
