@@ -56,6 +56,7 @@
 #define SYS_set_tid_address 218
 #define SYS_clock_gettime   228
 #define SYS_exit_group      231
+#define SYS_openat          257
 #define SYS_newfstatat      262
 #define SYS_faccessat       269
 #define SYS_pselect6        270

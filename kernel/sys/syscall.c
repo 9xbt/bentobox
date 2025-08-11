@@ -64,6 +64,35 @@ long sys_open(const char *pathname, int flags, mode_t mode) {
     return fd_open(pathname, flags);
 }
 
+long sys_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
+    (void)mode;
+    if (!pathname)
+        return -EFAULT;
+
+    struct vfs_node *node = NULL;
+    if (pathname[0] == '/') {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else if (dirfd == AT_FDCWD) {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else {
+        struct fd *dir_fd = fd_get(dirfd);
+        if (!dir_fd)
+            return -EBADF;
+        if (dir_fd->node->type != VFS_DIRECTORY)
+            return -ENOTDIR;
+
+        foreach(item, dir_fd->node->children) {
+            struct vfs_node *child = item->value;
+            if (!strcmp(child->name, pathname)) {
+                node = child;
+                break;
+            }
+        }
+    }
+
+    return fd_create(node, flags);
+}
+
 long sys_close(int fd) {
     return fd_close(fd);
 }
@@ -100,10 +129,6 @@ long sys_newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int f
     } else if (dirfd == AT_FDCWD) {
         node = vfs_open(this->cwd, pathname, false, false);
     } else {
-        if (dirfd < 0 || dirfd >= (signed)(sizeof this->fd_table / sizeof(struct fd)) || !this->fd_table[dirfd].node) {
-            return -EBADF;
-        }
-
         struct fd *dir_fd = fd_get(dirfd);
         if (!dir_fd)
             return -EBADF;
@@ -906,6 +931,7 @@ static syscall_func syscalls[] = {
     [SYS_set_tid_address]   = (syscall_func)(uintptr_t)sys_set_tid_address,
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
     [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_openat]            = (syscall_func)(uintptr_t)sys_openat,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
     [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
