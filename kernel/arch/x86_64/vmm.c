@@ -214,6 +214,7 @@ uintptr_t mmu_get_physical(uintptr_t *pml4, uintptr_t virt) {
     if ((pdpt = vmm_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
     if ((pd = vmm_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
     if ((pt = vmm_get_next_lvl(pd, pd_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
+    if (!(pt[pt_index] & PTE_PRESENT)) return 0;
 
     return (uintptr_t)PTE_GET_ADDR(pt[pt_index]) | (virt & (PAGE_SIZE - 1));
 }
