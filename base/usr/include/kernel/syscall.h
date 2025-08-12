@@ -23,6 +23,8 @@
 #define SYS_dup2            33
 #define SYS_nanosleep       35
 #define SYS_getpid          39
+#define SYS_socket          41
+#define SYS_clone           56
 #define SYS_fork            57
 #define SYS_execve          59
 #define SYS_exit            60
@@ -57,6 +59,7 @@
 #define SYS_clock_gettime   228
 #define SYS_exit_group      231
 #define SYS_openat          257
+#define SYS_mkdirat         258
 #define SYS_newfstatat      262
 #define SYS_faccessat       269
 #define SYS_pselect6        270

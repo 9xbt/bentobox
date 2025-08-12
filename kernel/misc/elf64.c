@@ -390,7 +390,7 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     return -1;
 }
 
-long fork(struct registers *r) {
+long fork(struct registers *r, uint64_t stack) {
     sched_lock();
 
     struct process *proc = (struct process *)kmalloc(sizeof(struct process));
@@ -412,7 +412,7 @@ long fork(struct registers *r) {
     proc->ctx.rdi = r->rdi;
     proc->ctx.rsi = r->rsi;
     proc->ctx.rbp = r->rbp;
-    proc->ctx.rsp = this->stack;
+    proc->ctx.rsp = stack;
     proc->ctx.rbx = r->rbx;
     proc->ctx.rdx = r->rdx;
     proc->ctx.rcx = r->rcx;

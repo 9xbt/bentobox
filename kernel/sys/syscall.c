@@ -23,6 +23,7 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/socket.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/time.h>
@@ -80,14 +81,7 @@ long sys_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
             return -EBADF;
         if (dir_fd->node->type != VFS_DIRECTORY)
             return -ENOTDIR;
-
-        foreach(item, dir_fd->node->children) {
-            struct vfs_node *child = item->value;
-            if (!strcmp(child->name, pathname)) {
-                node = child;
-                break;
-            }
-        }
+        node = vfs_open(dir_fd->node, pathname, false, false);
     }
 
     return fd_create(node, flags);
@@ -134,14 +128,7 @@ long sys_newfstatat(int dirfd, const char *pathname, struct stat *statbuf, int f
             return -EBADF;
         if (dir_fd->node->type != VFS_DIRECTORY)
             return -ENOTDIR;
-
-        foreach(item, dir_fd->node->children) {
-            struct vfs_node *child = item->value;
-            if (!strcmp(child->name, pathname)) {
-                node = child;
-                break;
-            }
-        }
+        node = vfs_open(dir_fd->node, pathname, false, false);
     }
     return vfs_stat(node, statbuf, true);
 }
@@ -446,8 +433,28 @@ long sys_nanosleep(const struct timespec *duration) {
     return 0;
 }
 
-long sys_fork(struct registers *r) {
-    return fork(r);
+long sys_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
+
+long sys_clone(unsigned long flags, unsigned long newsp, int *parent_tidptr, int *child_tidptr, unsigned long tls) {
+    if ((flags & (CLONE_VM | CLONE_VFORK)) == (CLONE_VM | CLONE_VFORK)) {
+        pid_t pid = fork(this->syscall_ctx, newsp);
+        if (pid == 0) return 0;
+
+        int status;
+        sys_wait4(pid, &status, 0, NULL);
+        return pid;
+    }
+
+    if (!(flags & CLONE_VM)) {
+        return fork(this->syscall_ctx, this->stack);
+    }
+
+    dprintf(4, "%s:%d: unsupported flags 0x%lx\n", __FILE__, __LINE__, flags);
+    return -ENOSYS;
+}
+
+long sys_fork(void) {
+    return fork(this->syscall_ctx, this->stack);
 }
 
 long sys_execve(const char *pathname, char *const *argv, char *const *envp) {
@@ -462,7 +469,10 @@ long sys_exit(long status) {
     __builtin_unreachable();
 }
 
-long sys_wait4(int pid, int *wstatus) {
+long sys_wait4(int pid, int *wstatus, int options, struct rusage *rusage) {
+    (void)options;
+    (void)rusage;
+
     if (!this->children->head) {
         return -ECHILD;
     }
@@ -561,6 +571,28 @@ long sys_mkdir(const char *pathname, mode_t mode) {
         return -EROFS;
     }
     return 0;
+}
+
+long sys_mkdirat(int dirfd, const char *pathname, int flags, mode_t mode) {
+    (void)mode;
+    if (!pathname)
+        return -EFAULT;
+
+    struct vfs_node *node = NULL;
+    if (pathname[0] == '/') {
+        node = vfs_open(this->cwd, pathname, true, true);
+    } else if (dirfd == AT_FDCWD) {
+        node = vfs_open(this->cwd, pathname, true, true);
+    } else {
+        struct fd *dir_fd = fd_get(dirfd);
+        if (!dir_fd)
+            return -EBADF;
+        if (dir_fd->node->type != VFS_DIRECTORY)
+            return -ENOTDIR;
+        node = vfs_open(dir_fd->node, pathname, true, true);
+    }
+
+    return fd_create(node, flags);
 }
 
 long sys_rmdir(const char *pathname, mode_t mode) {
@@ -748,6 +780,16 @@ long sys_getpid(void) {
     return this->pid;
 }
 
+long sys_socket(int domain, int type, int protocol) {
+    switch (domain) {
+        case PF_UNIX:
+            return unixsocket_new(type);
+        default:
+            dprintf(5, "%s:%d: unknown socket domain %d\n", __FILE__, __LINE__, domain);
+            return -ENOSYS;
+    }
+}
+
 struct linux_dirent64 {
     uint64_t       d_ino;
     int64_t        d_off;
@@ -899,6 +941,8 @@ static syscall_func syscalls[] = {
     [SYS_dup2]              = (syscall_func)(uintptr_t)sys_dup2,
     [SYS_nanosleep]         = (syscall_func)(uintptr_t)sys_nanosleep,
     [SYS_getpid]            = (syscall_func)(uintptr_t)sys_getpid,
+    [SYS_socket]            = (syscall_func)(uintptr_t)sys_socket,
+    [SYS_clone]             = (syscall_func)(uintptr_t)sys_clone,
     [SYS_fork]              = (syscall_func)(uintptr_t)sys_fork,
     [SYS_execve]            = (syscall_func)(uintptr_t)sys_execve,
     [SYS_exit]              = (syscall_func)(uintptr_t)sys_exit,
@@ -932,6 +976,7 @@ static syscall_func syscalls[] = {
     [SYS_clock_gettime]     = (syscall_func)(uintptr_t)sys_clock_gettime,
     [SYS_exit_group]        = (syscall_func)(uintptr_t)sys_exit,
     [SYS_openat]            = (syscall_func)(uintptr_t)sys_openat,
+    [SYS_mkdirat]           = (syscall_func)(uintptr_t)sys_mkdirat,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
     [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
@@ -942,6 +987,7 @@ static syscall_func syscalls[] = {
 };
 
 void syscall_handler(struct registers *r) {
+    this->syscall_ctx = r;
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
         dprintf(5, "%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
@@ -950,5 +996,5 @@ void syscall_handler(struct registers *r) {
     }
 
     syscall_func handler = syscalls[r->rax];
-    r->rax = handler((r->rax == SYS_fork) ? (long)r : r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
+    r->rax = handler(r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
 }

@@ -138,7 +138,7 @@ void isr_handler(struct registers *r) {
     }
 
     if (this && this->user) {
-        fprintf(1, "Segmentation fault (core dumped)\n", __FILE__, __LINE__, this->pid);
+        fprintf(1, "Segmentation fault\n", __FILE__, __LINE__, this->pid);
         asm volatile ("sti");
         sched_kill(this, 11);
     }

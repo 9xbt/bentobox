@@ -190,4 +190,4 @@ int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_c
 int elf_module(struct multiboot_tag_module *mod);
 int spawn(const char *file, int argc, char *argv[], char *env[]);
 int exec(const char *path, int argc, char *const argv[], char *const env[]);
-long fork(struct registers *r);
+long fork(struct registers *r, uint64_t stack);

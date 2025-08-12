@@ -81,4 +81,10 @@ void tmpfs_initialize(void) {
     tmp->remove = tmpfs_remove;
     tmp->mkdir = tmpfs_mkdir;
     vfs_add_node(NULL, tmp);
+
+    struct vfs_node *run = vfs_create_node("run", VFS_DIRECTORY);
+    run->create = tmpfs_create;
+    run->remove = tmpfs_remove;
+    run->mkdir = tmpfs_mkdir;
+    vfs_add_node(NULL, run);
 }

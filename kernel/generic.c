@@ -15,6 +15,8 @@ void generic_startup(void) {
 
 void generic_main(void) {
     dprintf(6, "%s:%d: running init process\n", __FILE__, __LINE__);
-    spawn("/bin/init", 0, NULL, NULL);
+    char *env[] = { "TERM=linux", NULL };
+    spawn("/usr/bin/openrc", 0, NULL, env);
+
 	sched_jumpstart();
 }
