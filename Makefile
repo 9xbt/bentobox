@@ -119,7 +119,7 @@ hdd: apps bin/$(IMAGE_NAME).hdd
 
 .PHONY: chroot
 chroot:
-	@sudo chroot base /usr/bin/bash -c "export PATH=\$PATH:/bin; exec /usr/bin/bash -i"
+	@./util/chroot.sh
 
 .PHONY: clean
 clean:
