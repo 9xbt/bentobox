@@ -6,7 +6,7 @@ tar xf figlet-2.2.5.tar.gz
 cd figlet-2.2.5/
 patch -p0 < ../../figlet.diff
 make -j$nproc
-cp figlet ../../../base/usr/bin/
-mkdir -p ../../../base/usr/local/share/figlet
-cp fonts/standard.flf ../../../base/usr/local/share/figlet/
+cp figlet ../../../root/usr/bin/
+mkdir -p ../../../root/usr/local/share/figlet
+cp fonts/standard.flf ../../../root/usr/local/share/figlet/
 cd ../../../

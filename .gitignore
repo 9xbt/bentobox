@@ -1,7 +1,6 @@
-bin/
-base/usr/local
-base/usr/share/terminfo
-ports/src/
+/bin
+/root
+/ports/src
 compile_commands.json
 .cache
 .vscode

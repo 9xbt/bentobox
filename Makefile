@@ -105,6 +105,8 @@ bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f) | a
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 #	@cp -r base bin/
 	@rsync -a --no-times --no-o --no-g base/ bin/base/
+	@mkdir -p root
+	@rsync -a --no-times --no-o --no-g root/ bin/base/
 	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
 	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt

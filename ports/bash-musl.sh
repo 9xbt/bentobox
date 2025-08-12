@@ -21,5 +21,5 @@ cd ../bash/
     CC="$CC" \
     CFLAGS_FOR_BUILD="$CFLAGS"
 make -j$(nproc)
-mkdir -p ../bentobox/base/usr/bin
-cp bash ../bentobox/base/usr/bin/bash
+mkdir -p ../bentobox/root/usr/bin
+cp bash ../bentobox/root/usr/bin/bash

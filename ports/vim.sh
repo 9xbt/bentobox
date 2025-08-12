@@ -1,5 +1,5 @@
 #!/bin/bash
-target=$(pwd)/base/usr/local/vim
+target=$(pwd)/root/usr/local/vim
 mkdir -p ports/src
 cd ports/src/
 git clone https://github.com/vim/vim.git --depth=1
