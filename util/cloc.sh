@@ -1,2 +1,2 @@
 #!/bin/bash
-cloc . --match-d='^(?!.*(kernel/misc/flanterm|bin|lib)).*'
+cloc . --match-d='^(?!.*(root|bin|lib|ports/src)).*'
