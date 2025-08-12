@@ -291,7 +291,7 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
         kfree(buffer);
 
-        if (!strcmp(file, "/bin/bash") || !strcmp(file, "/usr/bin/bash")) return -ENOEXEC;
+        if (!strcmp(file, "/bin/bash") && !strcmp(file, "/usr/bin/bash")) return -ENOEXEC;
 
         int new_argc = 0;
         if (argv) for (; argv[new_argc]; new_argc++);

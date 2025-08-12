@@ -40,7 +40,7 @@
 #define USER_STACK_SIZE 256
 #define USER_STACK_TOP  0x00007ffffffff000
 #define USER_MAX_CHILDS 16
-#define USER_MAX_FDS    16
+#define USER_MAX_FDS    32
 
 enum process_state {
     TASK_RUNNING,

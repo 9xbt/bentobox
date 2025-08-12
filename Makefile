@@ -101,7 +101,7 @@ else
     $(error Unsupported architecture: $(ARCH))
 endif
 
-bin/$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f) | apps
+bin/$(IMAGE_NAME).hdd: $(shell find root -type f) $(shell find base -type f) $(shell find apps -type f) | apps
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 #	@cp -r base bin/
 	@rsync -a --no-times --no-o --no-g base/ bin/base/
