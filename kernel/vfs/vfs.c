@@ -146,31 +146,42 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
     if (path[0] == '/' || !current) current = vfs_root;
 
     if (!strcmp(path, ".")) return current;
-    if (!strcmp(path, "..")) return current->parent;
+    if (!strcmp(path, "..")) return current->parent ?: current;
 
     char *copy = kmalloc(strlen(path) + 1);
     strcpy(copy, path);
-    
+
     struct vfs_node *node = current;
     char *token = strtok(copy, "/");
-    
+    char *next = strtok(NULL, "/");
+
     while (token) {
         if (!strcmp(token, ".")) {
-            /* skip current directory */
+            // skip
         } else if (!strcmp(token, "..")) {
             node = node->parent ?: node;
         } else {
             struct vfs_node *child = vfs_find_child(node, token, !isdir_follow);
+            
             if (!child) {
-                struct vfs_node *file = create ? vfs_touch(node, token, isdir_follow) : NULL;
-                kfree(copy);
-                return file;
+                if (create && !next) {
+                    child = vfs_touch(node, token, isdir_follow);
+                    if (!child) {
+                        kfree(copy);
+                        return NULL;
+                    }
+                } else {
+                    kfree(copy);
+                    return NULL;
+                }
             }
             node = child;
         }
-        token = strtok(NULL, "/");
+
+        token = next;
+        next = strtok(NULL, "/");
     }
-    
+
     kfree(copy);
     return node;
 }
