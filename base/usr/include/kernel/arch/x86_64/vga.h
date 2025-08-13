@@ -1,9 +1,6 @@
 #pragma once
 #include <stdint.h>
 
-extern uint8_t vga_x;
-extern uint8_t vga_y;
-
 void vga_clear(void);
 void vga_puts(const char *str);
 void vga_putchar(const char c);

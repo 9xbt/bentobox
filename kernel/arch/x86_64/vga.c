@@ -8,8 +8,8 @@
 
 #define CURSOR_HEIGHT 2
 
-uint8_t vga_x = 0;
-uint8_t vga_y = 0;
+int8_t vga_x = 0;
+int8_t vga_y = 0;
 uint8_t vga_color = 0x07;
 volatile uint16_t *vga_buffer = (volatile uint16_t *)0xB8000;
 
@@ -49,6 +49,8 @@ void vga_puts(const char *str) {
 }
 
 void vga_putchar(const char c) {
+    static bool wrapped = false;
+
     if (vga_ansi_index >= 16) {
         vga_ansi_index = 0;
         memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
@@ -69,7 +71,48 @@ void vga_putchar(const char c) {
                 vga_x = 0, vga_y = 0, vga_ansi_index = 0;
                 memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
                 return;
-            case 'm':
+            case 'K': {
+                int i = vga_y * 80 + vga_x;
+                int o = (vga_y + 1) * 80;
+                for (; i < o; i++)
+                    vga_buffer[i] = vga_color << 8;
+                vga_ansi_index = 0;
+                memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
+                return;
+            }
+            case 'A': {
+                vga_ansi_code[vga_ansi_index] = 0;
+                vga_ansi_index = 0;
+                int n = atoi(vga_ansi_code + 2);
+                vga_y -= n ? n : 1;
+                memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
+                return;
+            }
+            case 'B': {
+                vga_ansi_code[vga_ansi_index] = 0;
+                vga_ansi_index = 0;
+                int n = atoi(vga_ansi_code + 2);
+                vga_y += n ? n : 1;
+                memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
+                return;
+            }
+            case 'C': {
+                vga_ansi_code[vga_ansi_index] = 0;
+                vga_ansi_index = 0;
+                int n = atoi(vga_ansi_code + 2);
+                vga_x += n ? n : 1;
+                memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
+                return;
+            }
+            case 'D': {
+                vga_ansi_code[vga_ansi_index] = 0;
+                vga_ansi_index = 0;
+                int n = atoi(vga_ansi_code + 2);
+                vga_x -= n ? n : 1;
+                memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
+                return;
+            }
+            case 'm': {
                 vga_ansi_code[vga_ansi_index] = 0;
                 vga_ansi_index = 0;
                 int code = atoi(vga_ansi_code + 2);
@@ -90,6 +133,7 @@ void vga_putchar(const char c) {
                 }
                 memset(vga_ansi_code, 0, sizeof(vga_ansi_code));
                 return;
+            }
             default:
                 vga_ansi_code[vga_ansi_index++] = c;
                 return;
@@ -104,7 +148,10 @@ void vga_putchar(const char c) {
             vga_ansi_code[0] = '\033';
             break;
         case '\n':
-            vga_x = 80;
+            if (!wrapped) {
+                vga_x = 0;
+                vga_y++;
+            }
             break;
         case '\b':
             if (vga_x == 0) {
@@ -131,9 +178,13 @@ void vga_putchar(const char c) {
             break;
     }
 
+    if (wrapped)
+        wrapped = false;
+
     if (vga_x >= 80) { 
         vga_x = 0;
         vga_y++;
+        wrapped = true;
     }
 
     if (vga_y >= 25)

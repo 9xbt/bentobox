@@ -103,7 +103,7 @@ int elf_module(struct multiboot_tag_module *mod) {
                 for (size_t j = 0; j < symbol_count; j++) {
                     ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
                 }
-                dprintf(6, "%s:%d: registered %ld symbols from module '%s'\n", __FILE__, __LINE__, symbol_count, mod->string);
+                dprintf(6, "%s:%d: registered %ld kernel symbols\n", __FILE__, __LINE__, symbol_count);
                 return 0;
             }
         }

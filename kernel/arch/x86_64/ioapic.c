@@ -89,6 +89,6 @@ void ioapic_install(void) {
     outb(0xA1, 0xFF);
     asm volatile ("sti");
 
-    dprintf(6, "%s:%d: initialized I/O APIC #%lu handling GSI %u-%u\n", __FILE__, __LINE__, 0, ioapic->gsi_base, count);
+    dprintf(6, "%s:%d: IOAPIC[%lu]: handling GSI %u-%u\n", __FILE__, __LINE__, 0, ioapic->gsi_base, count);
     //printf("\033[92m * \033[97mInitialized I/O APIC\033[0m\n");
 }
