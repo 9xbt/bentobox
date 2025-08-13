@@ -135,7 +135,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [ ] Lazy ELF loading
 - [X] faccessat
 - [X] Check FD bounds in syscalls that don't
-- [ ] Module symbol parsing
+- [X] Module symbol parsing
 - [X] Proper VFS drivers
 - [X] Fix fork() crashing because of brk() (musl bash 5.1)
 - [X] Fix having a lot of children crashing the kernel
@@ -160,8 +160,8 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Block CTRL+C in init
 - [X] Fix serial read()
 - [X] sysinfo()
-- [ ] Buddy allocator for large reallocations (I'm looking at you tmpfs)
-- [ ] VFS mounting
+- [ ] Write better dlmalloc glue code
+- [X] VFS mounting
 - [X] Fix fork() process adding
 - [ ] MSI/MSI-X
 
