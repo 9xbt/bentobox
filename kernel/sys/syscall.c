@@ -72,16 +72,16 @@ long sys_openat(int dirfd, const char *pathname, int flags, mode_t mode) {
 
     struct vfs_node *node = NULL;
     if (pathname[0] == '/') {
-        node = vfs_open(this->cwd, pathname, false, false);
+        node = vfs_open(this->cwd, pathname, true, false);
     } else if (dirfd == AT_FDCWD) {
-        node = vfs_open(this->cwd, pathname, false, false);
+        node = vfs_open(this->cwd, pathname, true, false);
     } else {
         struct fd *dir_fd = fd_get(dirfd);
         if (!dir_fd)
             return -EBADF;
         if (dir_fd->node->type != VFS_DIRECTORY)
             return -ENOTDIR;
-        node = vfs_open(dir_fd->node, pathname, false, false);
+        node = vfs_open(dir_fd->node, pathname, true, false);
     }
 
     return fd_create(node, flags);
@@ -592,7 +592,10 @@ long sys_mkdirat(int dirfd, const char *pathname, int flags, mode_t mode) {
         node = vfs_open(dir_fd->node, pathname, true, true);
     }
 
-    return fd_create(node, flags);
+    int ret = fd_create(node, flags);
+    if (ret < 0)
+        return ret;
+    return 0;
 }
 
 long sys_rmdir(const char *pathname, mode_t mode) {
@@ -608,6 +611,31 @@ long sys_unlink(const char *pathname) {
     struct vfs_node *node = vfs_open(this->cwd, pathname, false, true);
     if (!node)
         return -ENOENT;
+    int ret = vfs_close(node);
+    if (ret < 0)
+        return ret;
+    return vfs_remove_node(node);
+}
+
+long sys_unlinkat(int dirfd, const char *pathname, int flags) {
+    (void)flags;
+    if (!pathname)
+        return -EFAULT;
+
+    struct vfs_node *node = NULL;
+    if (pathname[0] == '/') {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else if (dirfd == AT_FDCWD) {
+        node = vfs_open(this->cwd, pathname, false, false);
+    } else {
+        struct fd *dir_fd = fd_get(dirfd);
+        if (!dir_fd)
+            return -EBADF;
+        if (dir_fd->node->type != VFS_DIRECTORY)
+            return -ENOTDIR;
+        node = vfs_open(dir_fd->node, pathname, false, false);
+    }
+
     int ret = vfs_close(node);
     if (ret < 0)
         return ret;
@@ -978,6 +1006,7 @@ static syscall_func syscalls[] = {
     [SYS_openat]            = (syscall_func)(uintptr_t)sys_openat,
     [SYS_mkdirat]           = (syscall_func)(uintptr_t)sys_mkdirat,
     [SYS_newfstatat]        = (syscall_func)(uintptr_t)sys_newfstatat,
+    [SYS_unlinkat]          = (syscall_func)(uintptr_t)sys_unlinkat,
     [SYS_faccessat]         = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_pselect6]          = (syscall_func)(uintptr_t)sys_pselect6,
     [SYS_utimensat]         = (syscall_func)(uintptr_t)sys_utimensat,

@@ -61,6 +61,7 @@
 #define SYS_openat          257
 #define SYS_mkdirat         258
 #define SYS_newfstatat      262
+#define SYS_unlinkat        263
 #define SYS_faccessat       269
 #define SYS_pselect6        270
 #define SYS_utimensat       280

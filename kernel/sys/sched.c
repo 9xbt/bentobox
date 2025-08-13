@@ -302,8 +302,8 @@ struct process *sched_get_foreground(void) {
 
 void sched_kill(struct process *proc, int status) {
     assert(proc);
-    if (proc->pid == 1)
-        panic("Attempted to kill init!");
+    //if (proc->pid == 1)
+    //    panic("Attempted to kill init!");
     if (proc->pid == 0)
         panic("Attempted to kill idle task!");
 

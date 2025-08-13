@@ -17,7 +17,8 @@ typedef enum vfs_node_type {
     VFS_CHARDEVICE,
     VFS_BLOCKDEVICE,
     VFS_SYMLINK,
-    VFS_UNIXPIPE
+    VFS_UNIXPIPE,
+    VFS_SOCKET
 } vfs_node_type_t;
 
 typedef struct tty_operations {
