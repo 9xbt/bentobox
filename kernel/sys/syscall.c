@@ -500,6 +500,7 @@ long sys_uname(struct utsname *utsname) {
     /* TODO: should use snprintf here */
     sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
     sprintf(utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    sprintf(utsname->machine, "%s", __kernel_arch);
     return 0;
 }
 
@@ -723,6 +724,10 @@ long sys_getppid(void) {
         return this->parent->pid;
     else
         return 1;
+}
+
+long sys_setsid(void) {
+    return 1;
 }
 
 long sys_getpgid(int pid) {
@@ -993,6 +998,7 @@ static syscall_func syscalls[] = {
     [SYS_getegid]           = (syscall_func)(uintptr_t)sys_getegid,
     [SYS_setppid]           = (syscall_func)(uintptr_t)sys_setpgid,
     [SYS_getppid]           = (syscall_func)(uintptr_t)sys_getppid,
+    [SYS_setsid]            = (syscall_func)(uintptr_t)sys_setsid,
     [SYS_getpgid]           = (syscall_func)(uintptr_t)sys_getpgid,
     [SYS_arch_prctl]        = (syscall_func)(uintptr_t)sys_arch_prctl,
     [SYS_mount]             = (syscall_func)(uintptr_t)sys_mount,

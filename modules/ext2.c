@@ -158,6 +158,8 @@ void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
 }
 
 void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
+    assert(inode);
+
     inode--;
     uint32_t block_group = inode / fs->sb->inodes_per_group;
     uint32_t inode_index = inode % fs->sb->inodes_per_group;
@@ -565,6 +567,8 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
         return NULL;
     assert(fs->sb->signature == 0xef53);
 
+    dprintf(6, "ext2: creating file %s\n", name);
+
     ext2_inode inode;
     memset(&inode, 0, sizeof inode);
     inode.type_perms = EXT_FILE | 0644;
@@ -575,6 +579,7 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
     struct vfs_node *node = vfs_create_node(name, VFS_FILE);
     node->size = 0;
     node->inode = ext2_allocate_inode(fs);
+    assert(node->inode);
     ext2_write_inode(fs, node->inode, &inode);
     node->create = ext2_create;
     node->remove = ext2_remove;

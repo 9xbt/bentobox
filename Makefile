@@ -107,7 +107,7 @@ bin/$(IMAGE_NAME).hdd: $(shell find root -type f) $(shell find base -type f) $(s
 	@rsync -a --no-times --no-o --no-g base/ bin/base/
 	@mkdir -p root
 	@rsync -a --no-times --no-o --no-g root/ bin/base/
-	@genext2fs -d bin/base -b 131072 -L bentobox bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
+	@genext2fs -d bin/base -b 131072 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
 	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
 	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB

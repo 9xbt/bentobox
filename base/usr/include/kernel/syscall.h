@@ -47,6 +47,7 @@
 #define SYS_getegid         108
 #define SYS_setppid         109
 #define SYS_getppid         110
+#define SYS_setsid          112
 #define SYS_getpgid         121
 #define SYS_arch_prctl      158
 #define SYS_mount           165
