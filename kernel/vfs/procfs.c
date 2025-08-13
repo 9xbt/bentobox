@@ -1,3 +1,4 @@
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -52,4 +53,8 @@ long procfs_mount(struct vfs_node *source, struct vfs_node *proc) {
 
 void procfs_initialize(void) {
     vfs_register("proc", procfs_mount);
+
+    struct vfs_node *proc = vfs_create_node("proc", VFS_DIRECTORY);
+    vfs_add_node(NULL, proc);
+    procfs_mount(NULL, proc);
 }
