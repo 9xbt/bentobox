@@ -46,7 +46,7 @@ void vmm_switch_pm(uintptr_t *pm) {
 uintptr_t *vmm_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
     if (lvl[entry] & PTE_PRESENT) return VIRTUAL_IDENT(PTE_GET_ADDR(lvl[entry]));
     if (!alloc) {
-        //dprintf(6, "%s:%d: \033[33mwarning:\033[0m couldn't get next pml\n", __FILE__, __LINE__);
+        //dprintf(LOG_INFO, "%s:%d: \033[33mwarning:\033[0m couldn't get next pml\n", __FILE__, __LINE__);
         return NULL;
     }
 
@@ -349,8 +349,8 @@ void vmm_install(void) {
     this_core()->pml4 = kernel_pd;
     memcpy(kernel_pd, initial_pml[0], PAGE_SIZE);
 
-    dprintf(6, "%s:%d: done mapping kernel regions\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: done mapping kernel regions\n", __FILE__, __LINE__);
 
     vmm_switch_pm(kernel_pd);
-    dprintf(6, "%s:%d: successfully switched page tables\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: successfully switched page tables\n", __FILE__, __LINE__);
 }

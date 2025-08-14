@@ -23,6 +23,6 @@ int unixsocket_new(int type) {
     socket->read = unixsocket_read;
     socket->write = unixsocket_write;
 
-    dprintf(7, "%s:%d: created AF_UNIX socket at fd %d\n", __FILE__, __LINE__, fd);
+    dprintf(LOG_DEBUG, "%s:%d: created AF_UNIX socket at fd %d\n", __FILE__, __LINE__, fd);
     return fd;
 }

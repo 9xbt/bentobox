@@ -26,7 +26,7 @@ void *acpi_find_table(const char *signature) {
             }
         }
 
-        dprintf(6, "%s:%d: ACPI: couldn't find table %s\n", __FILE__, __LINE__, signature);
+        dprintf(LOG_INFO, "%s:%d: ACPI: couldn't find table %s\n", __FILE__, __LINE__, signature);
         return NULL;
     }
     
@@ -42,7 +42,7 @@ void *acpi_find_table(const char *signature) {
         }
     }
 
-    dprintf(6, "%s:%d: ACPI: couldn't find table %s\n", __FILE__, __LINE__, signature);
+    dprintf(LOG_INFO, "%s:%d: ACPI: couldn't find table %s\n", __FILE__, __LINE__, signature);
     return NULL;
 }
 
@@ -52,19 +52,19 @@ void *acpi_get_rsdp(void) {
 
     void *rsdp = mboot2_find_tag(mboot, 15);
     if (rsdp != NULL) {
-        dprintf(6, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, rsdp + 8);
+        dprintf(LOG_INFO, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, rsdp + 8);
         return (void *)(rsdp + 8);
     }
 
     rsdp = mboot2_find_tag(mboot, 14);
     if (rsdp != NULL) {
-        dprintf(6, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, rsdp + 8);
+        dprintf(LOG_INFO, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, rsdp + 8);
         return (void *)(rsdp + 8);
     }
 
     for (uint16_t *addr = (uint16_t*)0x000E0000; addr < (uint16_t*)0x000FFFFF; addr += 16) {
         if (!strncmp((const char*)addr, "RSD PTR ", 8)) {
-            dprintf(6, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, addr);
+            dprintf(LOG_INFO, "%s:%d: found RSDP at address 0x%p\n", __FILE__, __LINE__, addr);
             return (void *)addr;
         }
     }
@@ -90,7 +90,7 @@ void acpi_install() {
         acpi_root_sdt = VIRTUAL(rsdp->rsdt_addr);
     }
     
-    dprintf(6, "%s:%d: ACPI version %s\n", __FILE__, __LINE__, acpi_use_xsdt ? "2.0" : "1.0");
+    dprintf(LOG_INFO, "%s:%d: ACPI version %s\n", __FILE__, __LINE__, acpi_use_xsdt ? "2.0" : "1.0");
 
     mmu_map((void *)ALIGN_DOWN((uintptr_t)acpi_root_sdt, PAGE_SIZE), PHYSICAL(ALIGN_DOWN((uintptr_t)acpi_root_sdt, PAGE_SIZE)), PTE_PRESENT);
     fadt_init();

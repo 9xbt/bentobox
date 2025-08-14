@@ -1,6 +1,16 @@
 #pragma once
 #include <stdarg.h>
-#include <kernel/arch/x86_64/smp.h>
+
+enum {
+    LOG_EMERG,
+    LOG_ALERT,
+    LOG_CRIT,
+    LOG_ERR,
+    LOG_WARNING,
+    LOG_NOTICE,
+    LOG_INFO,
+    LOG_DEBUG
+};
 
 void putchar(char c);
 void puts(char *s);

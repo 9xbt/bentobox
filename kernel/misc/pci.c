@@ -127,7 +127,7 @@ struct pci_device *pci_get_device_from_vendor(uint16_t vendor, uint16_t device) 
 }
 
 void pci_scan(void) {
-    dprintf(6, "%s:%d: finding PCI devices\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: finding PCI devices\n", __FILE__, __LINE__);
     uint8_t function;
     uint8_t bus;
 

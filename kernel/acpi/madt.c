@@ -20,7 +20,7 @@ void madt_init() {
 
     if (!madt) panic("couldn't find MADT");
 
-    dprintf(6, "%s:%d: MADT address: 0x%p\n", __FILE__, __LINE__, (uintptr_t)madt);
+    dprintf(LOG_INFO, "%s:%d: MADT address: 0x%p\n", __FILE__, __LINE__, (uintptr_t)madt);
 
     uint32_t i = 0;
     while (i < madt->length - sizeof(struct acpi_madt)) {
@@ -47,5 +47,5 @@ void madt_init() {
 
         i += entry->length;
     }
-    dprintf(6, "%s:%d: system has %d Local APIC%s and %d I/O APIC%s\n", __FILE__, __LINE__, madt_lapics, madt_lapics == 1 ? "" : "s", madt_ioapics, madt_ioapics == 1 ? "" : "s");
+    dprintf(LOG_INFO, "%s:%d: system has %d Local APIC%s and %d I/O APIC%s\n", __FILE__, __LINE__, madt_lapics, madt_lapics == 1 ? "" : "s", madt_ioapics, madt_ioapics == 1 ? "" : "s");
 }

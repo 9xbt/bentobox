@@ -43,6 +43,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->tty_ops.enqueue = NULL;
     node->tty_ops.dequeue = NULL;
     node->tty_ops.flush = NULL;
+    node->open = NULL;
     node->create = NULL;
     node->remove = NULL;
     node->mkdir = NULL;
@@ -341,7 +342,7 @@ void vfs_register(const char *name, vfs_mount_callback mount) {
             mp->name = kmalloc(strlen(name) + 1);
             strcpy(mp->name, name);
 
-            dprintf(6, "%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
+            dprintf(LOG_INFO, "%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
             return;
         }
     }
@@ -372,6 +373,6 @@ void vfs_install(void) {
     fbdev_initialize();
     procfs_initialize();
 
-    dprintf(6, "%s:%d: initialized VFS\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: initialized VFS\n", __FILE__, __LINE__);
     //printf("\033[92m * \033[97mInitialized virtual filesystem\033[0m\n");
 }

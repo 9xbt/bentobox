@@ -130,11 +130,11 @@ void framebuffer_initialize(void) {
     struct multiboot_tag_framebuffer *fb = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
 
     if (!fb || fb->common.framebuffer_addr == 0xB8000) {
-        dprintf(6, "%s:%d: framebuffer not found\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "%s:%d: framebuffer not found\n", __FILE__, __LINE__);
         vga_enable_cursor();
         return;
     }
-    dprintf(6, "%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
+    dprintf(LOG_INFO, "%s:%d: found framebuffer at 0x%p\n", __FILE__, __LINE__, fb->common.framebuffer_addr);
 
     mmu_map_pages((ALIGN_UP((fb->common.framebuffer_pitch * fb->common.framebuffer_height), PAGE_SIZE) / PAGE_SIZE), VIRTUAL(fb->common.framebuffer_addr), (void *)fb->common.framebuffer_addr, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
 

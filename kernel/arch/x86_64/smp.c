@@ -38,7 +38,7 @@ void smp_initialize(void) {
     if (madt_lapics == 1)
         return;
     if (args_contains("nosmp")) {
-        dprintf(6, "%s:%d: SMP disabled by kernel command line\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "%s:%d: SMP disabled by kernel command line\n", __FILE__, __LINE__);
         madt_lapics = 1;
         return;
     }
@@ -94,7 +94,7 @@ void smp_initialize(void) {
         release(&smp_init_lock);
     }
 
-    dprintf(6, "%s:%d: started %d processors\n", __FILE__, __LINE__, smp_running_cpus);
+    dprintf(LOG_INFO, "%s:%d: started %d processors\n", __FILE__, __LINE__, smp_running_cpus);
     //printf("\033[92m * \033[97mInitialized SMP with %d CPU%s\033[0m\n", smp_running_cpus, smp_running_cpus == 1 ? "" : "s");
 
     /* TODO: return by jumping to __builtin_extract_return_addr(__builtin_return_address(0)) when compiling with UBSAN? */

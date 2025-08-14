@@ -228,7 +228,7 @@ long sys_brk(void *addr) {
         }
         this->brk = map_end;
     } else {
-        dprintf(6, "%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
+        dprintf(LOG_INFO, "%s:%d: %s: TODO: shrinking\n", __FILE__, __LINE__, __func__);
     }
     return new_brk;
 }
@@ -449,7 +449,7 @@ long sys_clone(unsigned long flags, unsigned long newsp, int *parent_tidptr, int
         return fork(this->syscall_ctx, this->stack);
     }
 
-    dprintf(4, "%s:%d: unsupported flags 0x%lx\n", __FILE__, __LINE__, flags);
+    dprintf(LOG_ERR, "%s:%d: unsupported flags 0x%lx\n", __FILE__, __LINE__, flags);
     return -ENOSYS;
 }
 
@@ -537,7 +537,7 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
                 return -EINVAL;
             return UNIXPIPE_BUFFER_SIZE;
         default:
-            dprintf(6, "%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
+            dprintf(LOG_INFO, "%s:%d: %s: command %d not implemented\n", __FILE__, __LINE__, __func__, cmd);
             return -EINVAL;
     }
 }
@@ -680,7 +680,7 @@ long sys_getrlimit(unsigned int resource, struct rlimit *rlim) {
             rlim->rlim_max = USER_MAX_FDS;
             break;
         default:
-            dprintf(6, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
+            dprintf(LOG_INFO, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
             return -EINVAL;
     }
     return 0;
@@ -749,7 +749,7 @@ long sys_arch_prctl(int op, long extra) {
             this->fs = extra;
             break;
         default:
-            dprintf(6, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(LOG_INFO, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
     }
     return 0;
@@ -818,7 +818,7 @@ long sys_socket(int domain, int type, int protocol) {
         case PF_UNIX:
             return unixsocket_new(type);
         default:
-            dprintf(5, "%s:%d: unknown socket domain %d\n", __FILE__, __LINE__, domain);
+            dprintf(LOG_NOTICE, "%s:%d: unknown socket domain %d\n", __FILE__, __LINE__, domain);
             return -ENOSYS;
     }
 }
@@ -921,7 +921,7 @@ long sys_clock_gettime(int clockid, struct timespec *tp) {
             uptime(&tp->tv_sec, &tp->tv_nsec);
             break;
         default:    
-            dprintf(6, "%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
+            dprintf(LOG_INFO, "%s:%d: unknown clockid %d\n", __FILE__, __LINE__, clockid);
             return -EINVAL;
     }
     return 0;
@@ -936,12 +936,12 @@ long sys_prlimit64(long pid, unsigned int resource, const struct rlimit64 *new_r
     if (!new_rlim || !old_rlim)
         return -EFAULT;
     if (pid != this->pid) {
-        dprintf(5, "%s:%d: TODO: do prlimit on requested PID (%ld)\n", __FILE__, __LINE__, pid);
+        dprintf(LOG_NOTICE, "%s:%d: TODO: do prlimit on requested PID (%ld)\n", __FILE__, __LINE__, pid);
         return -ESRCH;
     }
     switch (resource) {
         default:
-            dprintf(6, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
+            dprintf(LOG_INFO, "%s:%d: %s: unknown resource %d\n", __FILE__, __LINE__, __func__, resource);
             return -EINVAL;
     }
     return 0;
@@ -1024,7 +1024,7 @@ static syscall_func syscalls[] = {
 void syscall_handler(struct registers *r) {
     this->syscall_ctx = r;
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
-        dprintf(5, "%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
+        dprintf(LOG_NOTICE, "%s:%d: unknown syscall %lu\n", __FILE__, __LINE__, r->rax);
         r->rax = -ENOSYS;
         sched_unlock();
         return;

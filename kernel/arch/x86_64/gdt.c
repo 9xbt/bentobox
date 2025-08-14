@@ -52,5 +52,5 @@ void gdt_install(void) {
     };
     gdt_flush();
 
-    dprintf(6, "%s:%d: GDT address: 0x%p\n", __FILE__, __LINE__, (uint64_t)&gdt_descriptor);
+    dprintf(LOG_INFO, "%s:%d: GDT address: 0x%p\n", __FILE__, __LINE__, (uint64_t)&gdt_descriptor);
 }

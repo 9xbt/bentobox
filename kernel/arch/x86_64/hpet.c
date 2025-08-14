@@ -60,11 +60,11 @@ void hpet_install(void) {
         hpet_period = (cap >> 32);
     } else return;
 
-    dprintf(6, "%s:%d: 1us is %lu ticks\n", __FILE__, __LINE__, hpet_period * 1 / 1000000);
+    dprintf(LOG_INFO, "%s:%d: 1us is %lu ticks\n", __FILE__, __LINE__, hpet_period * 1 / 1000000);
 
     hpet_write(HPET_REG_CONFIG, 0x0);
     hpet_write(HPET_REG_MAIN_COUNTER, 0);
     hpet_write(HPET_REG_CONFIG, 0x1);
 
-    dprintf(6, "%s:%d: enabled HPET\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: enabled HPET\n", __FILE__, __LINE__);
 }

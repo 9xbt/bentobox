@@ -17,14 +17,14 @@ void __panic(char *file, int line, char *fmt, ...) {
     vsprintf(buf, fmt, args);
     va_end(args);
 
-    dprintf(0, "%s:%d: Kernel panic: %s\n", file, line, buf);
+    dprintf(LOG_EMERG, "%s:%d: Kernel panic: %s\n", file, line, buf);
 
     struct stackframe *frame_ptr = __builtin_frame_address(0);
 
-    dprintf(0, "%s:%d: traceback:\n", file, line);
+    dprintf(LOG_EMERG, "%s:%d: traceback:\n", file, line);
 
     for (int i = 0; i < 8 && frame_ptr->rbp; i++) {
-        dprintf(0, "#%d  0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
+        dprintf(LOG_EMERG, "#%d  0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
         if (!mmu_get_physical(this_core()->pml4, (uintptr_t)frame_ptr->rbp)) break;
         frame_ptr = frame_ptr->rbp;
     }

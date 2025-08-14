@@ -69,8 +69,8 @@ void pmm_install(void) {
 
 	mmu_mark_used(mboot, 2);
     
-    dprintf(6, "%s:%d: bitmap address: 0x%p\n", __FILE__, __LINE__, (uint64_t)mmu_bitmap);
-    dprintf(6, "%s:%d: usable memory: %luK\n", __FILE__, __LINE__, mmu_usable_mem / 1024 - mmu_used_pages * 4);
+    dprintf(LOG_INFO, "%s:%d: bitmap address: 0x%p\n", __FILE__, __LINE__, (uint64_t)mmu_bitmap);
+    dprintf(LOG_INFO, "%s:%d: usable memory: %luK\n", __FILE__, __LINE__, mmu_usable_mem / 1024 - mmu_used_pages * 4);
 }
 
 void mmu_mark_used(void *ptr, size_t page_count) {
@@ -119,14 +119,14 @@ void mmu_free(void *ptr, size_t page_count) {
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
     if ((uintptr_t)ptr < 0x100000 || page > mmu_bitmap_size * 8) {
-        dprintf(6, "%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
+        dprintf(LOG_INFO, "%s:%d: invalid deallocation @ 0x%p\n", __FILE__, __LINE__, ptr);
         return;
     }
 
     acquire(&pmm_lock);
     for (uint64_t i = 0; i < page_count; i++) {
         if (!bitmap_get(mmu_bitmap, page + i)) {
-            dprintf(6, "%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
+            dprintf(LOG_INFO, "%s:%d: double free @ 0x%p\n", __FILE__, __LINE__, ptr);
             release(&pmm_lock);
             return;
         }
