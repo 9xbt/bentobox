@@ -34,9 +34,8 @@ struct fd fd_new(struct vfs_node *node, int flags) {
 int fd_create(struct vfs_node *node, int flags) {
     if (!node) return -ENOENT;
     if (node->open) {
-        long ret = node->open();
-        if (ret < 0)
-            return ret;
+        struct vfs_node *open = node->open(node, flags);
+        if (open) node = open;
     }
 
     for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {

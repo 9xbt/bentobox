@@ -49,6 +49,7 @@
 #define SYS_getppid         110
 #define SYS_setsid          112
 #define SYS_getpgid         121
+#define SYS_mknod           133
 #define SYS_arch_prctl      158
 #define SYS_mount           165
 #define SYS_reboot          169

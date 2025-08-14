@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
@@ -99,9 +100,73 @@ int unixpipe_new(int fds[2], int flags) {
     return 0;
 }
 
-#include <kernel/assert.h>
+long fifo_close_read(vfs_node_t *node) {
+    struct unix_pipe *pipe = node->device;
+    if (pipe->read_refs > 0) {
+        pipe->read_refs--;
+    }
+    return 0;
+}
 
-int fifo_new(int flags) {
-    unimplemented;
-    return -ENOSYS;
+long fifo_close_write(vfs_node_t *node) {
+    struct unix_pipe *pipe = node->device;
+    if (pipe->write_refs > 0) {
+        pipe->write_refs--;
+    }
+    if (pipe->write_refs <= 0) {
+        foreach(node_item, pipe->buffer->waiting_readers) {
+            sched_unblock(node_item->value);
+            list_remove(pipe->buffer->waiting_readers, node_item);
+        }
+    }
+    return 0;
+}
+
+vfs_node_t *fifo_open(vfs_node_t *node, int flags) {
+    struct unix_pipe *pipe = node->device;
+    switch (flags & O_ACCMODE) {
+        case O_RDONLY:
+            pipe->read_refs++;
+            return pipe->read_end;
+        case O_WRONLY:
+            pipe->write_refs++;
+            return pipe->write_end;
+        case O_RDWR:
+            pipe->read_refs++;
+            pipe->write_refs++;
+            return pipe->read_end;
+    }
+    return node;
+}
+
+int fifo_new(const char *pathname) {
+    vfs_node_t *pipes[2] = {
+        vfs_create_node("[pipe::read]", VFS_UNIXPIPE),
+        vfs_create_node("[pipe::write]", VFS_UNIXPIPE)
+    };
+
+    struct unix_pipe *device = kmalloc(sizeof(struct unix_pipe));
+    device->read_end = pipes[0];
+    device->write_end = pipes[1];
+    device->read_refs = 0;
+    device->write_refs = 0;
+    device->buffer = ringbuffer_create(UNIXPIPE_BUFFER_SIZE);
+
+    pipes[0]->read = unixpipe_read;
+    pipes[0]->write = unixpipe_write;
+    pipes[0]->close = unixpipe_close_read;
+    pipes[0]->device = device;
+    
+    pipes[1]->read = unixpipe_read;
+    pipes[1]->write = unixpipe_write;
+    pipes[1]->close = unixpipe_close_write;
+    pipes[1]->device = device;
+
+    vfs_node_t *node = vfs_open(this->cwd, pathname, true, false);
+    node->type = VFS_UNIXPIPE;
+    node->open = fifo_open;
+    node->close = NULL;
+    node->device = device;
+
+    return 0;
 }

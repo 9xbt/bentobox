@@ -740,6 +740,17 @@ long sys_setpgid(void) {
     return 0;
 }
 
+long sys_mknod(const char *pathname, mode_t mode, dev_t dev) {
+    mode_t type = mode & S_IFMT;
+    switch (type) {
+        case S_IFIFO:
+            return fifo_new(pathname);
+        default:
+            dprintf(LOG_NOTICE, "%s:%d: %s: unknown type %u\n", __FILE__, __LINE__, __func__, type);
+            return -EINVAL;
+    }
+}
+
 #define ARCH_SET_FS 0x1002
 
 long sys_arch_prctl(int op, long extra) {
@@ -1000,6 +1011,7 @@ static syscall_func syscalls[] = {
     [SYS_getppid]           = (syscall_func)(uintptr_t)sys_getppid,
     [SYS_setsid]            = (syscall_func)(uintptr_t)sys_setsid,
     [SYS_getpgid]           = (syscall_func)(uintptr_t)sys_getpgid,
+    [SYS_mknod]             = (syscall_func)(uintptr_t)sys_mknod,
     [SYS_arch_prctl]        = (syscall_func)(uintptr_t)sys_arch_prctl,
     [SYS_mount]             = (syscall_func)(uintptr_t)sys_mount,
     [SYS_reboot]            = (syscall_func)(uintptr_t)sys_reboot,

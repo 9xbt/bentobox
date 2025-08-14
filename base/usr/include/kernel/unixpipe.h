@@ -27,3 +27,4 @@ struct unix_pipe {
 };
 
 int unixpipe_new(int fds[2], int flags);
+int fifo_new(const char *pathname);

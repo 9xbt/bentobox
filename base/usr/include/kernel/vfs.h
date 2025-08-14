@@ -41,13 +41,13 @@ typedef struct vfs_node {
     list_t *children;
     list_t *poll_list;
     struct tty_operations tty_ops;
-    long(*open)();
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset);
     long(*poll)(struct vfs_node *node, long events);
     long(*close)(struct vfs_node *node);
     long(*remove)(struct vfs_node *node);
+    struct vfs_node *(*open)(struct vfs_node *node, int flags);
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name);
     struct vfs_node *(*mkdir)(struct vfs_node *parent, const char *name);
     void *device;
