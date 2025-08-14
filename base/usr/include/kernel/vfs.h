@@ -41,6 +41,7 @@ typedef struct vfs_node {
     list_t *children;
     list_t *poll_list;
     struct tty_operations tty_ops;
+    long(*open)();
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset);

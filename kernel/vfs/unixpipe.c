@@ -98,3 +98,10 @@ int unixpipe_new(int fds[2], int flags) {
 
     return 0;
 }
+
+#include <kernel/assert.h>
+
+int fifo_new(int flags) {
+    unimplemented;
+    return -ENOSYS;
+}
