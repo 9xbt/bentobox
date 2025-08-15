@@ -34,8 +34,8 @@ struct fd fd_new(struct vfs_node *node, int flags) {
 int fd_create(struct vfs_node *node, int flags) {
     if (!node) return -ENOENT;
     if (node->open) {
-        struct vfs_node *open = node->open(node, flags);
-        if (open) node = open;
+        if (!(node = node->open(node, flags)))
+            return -1;
     }
 
     for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {
@@ -105,4 +105,13 @@ struct fd *fd_get(int fd) {
     if (!this->fd_table[fd].node)
         return NULL;
     return &this->fd_table[fd];
+}
+
+struct fd *fd_get_from_node(struct vfs_node *node) {
+    for (size_t i = 0; i < sizeof this->fd_table / sizeof(struct fd); i++) {
+        if (this->fd_table[i].open && this->fd_table[i].node == node) {
+            return &this->fd_table[i];
+        }
+    }
+    return NULL;
 }

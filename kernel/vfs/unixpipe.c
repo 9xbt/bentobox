@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
@@ -16,6 +17,9 @@ long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return 0;
     }
     if (pipe->write_refs > 0 && ringbuffer_empty(pipe->buffer)) {
+        struct fd *fd = fd_get_from_node(node);
+        if (fd->flags & O_NONBLOCK)
+            return -EAGAIN;
         list_insert(pipe->buffer->waiting_readers, this);
         sched_block(TASK_PAUSED);
     }
@@ -30,6 +34,9 @@ long unixpipe_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EPIPE;
     }
     if (pipe->read_refs > 0 && ringbuffer_full(pipe->buffer)) {
+        struct fd *fd = fd_get_from_node(node);
+        if (fd->flags & O_NONBLOCK)
+            return -EAGAIN;
         list_insert(pipe->buffer->waiting_writers, this);
         sched_block(TASK_PAUSED);
     }
@@ -131,12 +138,21 @@ vfs_node_t *fifo_open(vfs_node_t *node, int flags) {
         case O_WRONLY:
             pipe->write_refs++;
             return pipe->write_end;
-        case O_RDWR:
-            pipe->read_refs++;
-            pipe->write_refs++;
-            return pipe->read_end;
+        default:
+            dprintf(LOG_NOTICE, "%s:%d: R/W FIFOs are not supported\n", __FILE__, __LINE__);
+            return NULL;
     }
-    return node;
+}
+
+long fifo_poll(struct vfs_node *node, long events) {
+    struct unix_pipe *pipe = node->device;
+    if (events & POLLIN && !ringbuffer_empty(pipe->buffer)) {
+        return POLLIN;
+    }
+    if (events & POLLOUT && !ringbuffer_full(pipe->buffer)) {
+        return POLLOUT;
+    }
+    return 0;
 }
 
 int fifo_new(const char *pathname) {
@@ -153,14 +169,16 @@ int fifo_new(const char *pathname) {
     device->buffer = ringbuffer_create(UNIXPIPE_BUFFER_SIZE);
 
     pipes[0]->read = unixpipe_read;
-    pipes[0]->write = unixpipe_write;
+    pipes[0]->write = NULL;
     pipes[0]->close = unixpipe_close_read;
     pipes[0]->device = device;
+    pipes[0]->poll = fifo_poll;
     
-    pipes[1]->read = unixpipe_read;
+    pipes[1]->read = NULL;
     pipes[1]->write = unixpipe_write;
     pipes[1]->close = unixpipe_close_write;
     pipes[1]->device = device;
+    pipes[1]->poll = fifo_poll;
 
     vfs_node_t *node = vfs_open(this->cwd, pathname, true, false);
     node->type = VFS_UNIXPIPE;

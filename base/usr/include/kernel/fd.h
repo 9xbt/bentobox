@@ -22,3 +22,4 @@ int fd_open(const char *path, int flags);
 int fd_close(int fd);
 int fd_dup(int oldfd_num, int newfd_num);
 struct fd *fd_get(int fd);
+struct fd *fd_get_from_node(struct vfs_node *node);

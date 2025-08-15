@@ -356,7 +356,8 @@ void sched_cleaner(void) {
 
         for (int i = 0; i < USER_MAX_FDS; i++) {
             struct fd *file = &proc->fd_table[i];
-            vfs_close(file->node);
+            if (file->open)
+                vfs_close(file->node);
         }
         
         if (proc->user) {
