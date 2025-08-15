@@ -477,7 +477,8 @@ long sys_wait4(int pid, int *wstatus, int options, struct rusage *rusage) {
         return -ECHILD;
     }
     sched_block(TASK_PAUSED);
-    *wstatus = this->signal_data;
+    if (wstatus)
+        *wstatus = this->signal_data;
     return 0;
 }
 
