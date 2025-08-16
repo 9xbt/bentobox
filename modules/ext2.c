@@ -573,7 +573,7 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
         return NULL;
     assert(fs->sb->signature == 0xef53);
 
-    dprintf(6, "ext2: creating file %s\n", name);
+    dprintf(LOG_INFO, "ext2: creating file %s\n", name);
 
     ext2_inode inode;
     memset(&inode, 0, sizeof inode);
@@ -753,8 +753,9 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
     fs->sb = (ext2_sb *)kmalloc(sizeof(ext2_sb));
     vfs_read(sda, fs->sb, 1024, sizeof(ext2_sb));
 
+    char path[MAX_PATH]; vfs_resolve_path(path, sda);
     if (fs->sb->signature != 0xef53) {
-        dprintf(6, "%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, args_value("root"));
+        dprintf(LOG_ERR, "%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, path);
         return -EINVAL;
     }
     fs->block_size = 1024 << fs->sb->log2_block;
@@ -770,14 +771,12 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
     target->remove = ext2_remove;
     target->mkdir = ext2_mkdir;
     target->open = ext2_open;
-
-    char source_path[MAX_PATH], target_path[MAX_PATH];
-    vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);
+    
     return 0;
 }
 
 int init() {
-    dprintf(6, "%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
     if (!args_contains("root")) {
         panic("root partition not specified in command line");
     }
@@ -787,7 +786,7 @@ int init() {
 }
 
 int fini() {
-    dprintf(6, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
     return 0;
 }
 

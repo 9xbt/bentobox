@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/utsname.h>
+#include <syslog.h>
 
 int dprintf(int level, const char *fmt, ...) {
     va_list args;
@@ -39,9 +40,9 @@ int main(int argc, char *argv[]) {
 
     struct stat st;
     if (!stat("/proc", &st) && !stat("/proc/mounts", &st)) {
-        dprintf(6, "apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "apps/%s:%d: /proc is already mounted\n", __FILE__, __LINE__);
     } else {
-        dprintf(6, "apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "apps/%s:%d: mounting /proc\n", __FILE__, __LINE__);
         mkdir("/proc", 0555);
         mount("proc", "/proc", "proc", 0, NULL);
     }
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
         if ((newline = strchr(hostname, '\n')))
             *newline = '\0';
 
-        dprintf(6, "apps/%s:%d: setting hostname to '%s'\n", __FILE__, __LINE__, hostname);
+        dprintf(LOG_INFO, "apps/%s:%d: setting hostname to '%s'\n", __FILE__, __LINE__, hostname);
 
         if (sethostname(hostname, strlen(hostname))) {
             perror("sethostname");
