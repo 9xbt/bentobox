@@ -5,6 +5,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/vmm.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/elf64.h>
@@ -67,6 +68,9 @@ void idt_install(void) {
     };
 
     asm volatile ("lidt %0" :: "m"(idt_descriptor));
+    outb(0x21, 0xFF);
+    outb(0xA1, 0xFF);
+
     dprintf(LOG_INFO, "%s:%d: IDT address: 0x%p\n", __FILE__, __LINE__, (uint64_t)&idt_descriptor);
 }
 

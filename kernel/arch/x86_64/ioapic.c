@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
-#include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
 #include <kernel/panic.h>
 #include <kernel/acpi.h>
@@ -85,8 +84,6 @@ void ioapic_install(void) {
         ioapic_write(ioapic, IOAPIC_REDTBL + (2 * i) + 1, 0); /* redirect to cpu 0 */
     }
 
-    outb(0x21, 0xFF);
-    outb(0xA1, 0xFF);
     asm volatile ("sti");
 
     dprintf(LOG_INFO, "%s:%d: IOAPIC[%lu]: handling GSI %u-%u\n", __FILE__, __LINE__, 0, ioapic->gsi_base, count);
