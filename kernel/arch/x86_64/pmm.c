@@ -21,6 +21,7 @@ atomic_flag pmm_lock = ATOMIC_FLAG_INIT;
 void pmm_install(void) {
     extern void *mboot, end;
     uintptr_t highest_address = 0;
+    uint32_t mboot_size = *(uint32_t *)mboot;
 
     struct multiboot_tag_mmap *mmap = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MMAP);
     struct multiboot_mmap_entry *mmmt = NULL;
@@ -39,11 +40,24 @@ void pmm_install(void) {
                 mmmt->len -= (uintptr_t)&end - 0x100000;
                 mmmt->addr = (uintptr_t)&end;
             }
-            highest_address = mmmt->addr + mmmt->len;
+
+            if (mmmt->addr + mmmt->len > highest_address)
+                highest_address = mmmt->addr + mmmt->len;
         }
     }
 
     mmu_bitmap = &end;
+
+    if ((void *)mmu_bitmap < mboot + mboot_size)
+        mmu_bitmap = (uint8_t *)ALIGN_UP((uintptr_t)mboot + mboot_size, PAGE_SIZE);
+
+    struct multiboot_tag_module *mod = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE);
+    while (mod) {
+        if (ALIGN_UP(mod->mod_end, PAGE_SIZE) > (uintptr_t)mmu_bitmap)
+            mmu_bitmap = (uint8_t *)ALIGN_UP((uintptr_t)mod->mod_end, PAGE_SIZE);
+        mod = mboot2_find_next((char *)mod + ALIGN_UP(mod->size, 8), MULTIBOOT_TAG_TYPE_MODULE);
+    }
+
     mmu_page_count = highest_address / PAGE_SIZE;
     mmu_bitmap_size = ALIGN_UP(mmu_page_count / 8, PAGE_SIZE);
     memset(mmu_bitmap, 0xFF, mmu_bitmap_size);
@@ -60,14 +74,13 @@ void pmm_install(void) {
     }
 
     mmu_mark_used(mmu_bitmap, mmu_bitmap_size / PAGE_SIZE);
+    mmu_mark_used(mboot, ALIGN_UP(mboot_size, PAGE_SIZE) / PAGE_SIZE);
 
-    struct multiboot_tag_module *mod = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE);
+    mod = mboot2_find_tag(mboot, MULTIBOOT_TAG_TYPE_MODULE);
     while (mod) {
         mmu_mark_used((void *)(uintptr_t)mod->mod_start, ALIGN_UP(mod->mod_end - mod->mod_start, PAGE_SIZE) / PAGE_SIZE);
         mod = mboot2_find_next((char *)mod + ALIGN_UP(mod->size, 8), MULTIBOOT_TAG_TYPE_MODULE);
     }
-
-	mmu_mark_used(mboot, 2);
     
     dprintf(LOG_INFO, "%s:%d: bitmap address: 0x%p\n", __FILE__, __LINE__, (uint64_t)mmu_bitmap);
     dprintf(LOG_INFO, "%s:%d: usable memory: %luK\n", __FILE__, __LINE__, mmu_usable_mem / 1024 - mmu_used_pages * 4);
