@@ -53,9 +53,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->poll = NULL;
     node->close = NULL;
     node->device = NULL;
-    node->a_time = now();
-    node->c_time = now();
-    node->m_time = now();
+    node->a_time = node->c_time = node->m_time = now();
     return node;
 }
 

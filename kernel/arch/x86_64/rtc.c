@@ -24,16 +24,16 @@ enum {
 
 static const uint16_t days_before_month[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
 
-static void rtc_dump(uint16_t *buffer) {
-    for (uint16_t i = 0; i < 128; ++i) {
+static void rtc_dump(uint16_t *buffer, uint16_t count) {
+    for (uint16_t i = 0; i < count; ++i) {
         outb(CMOS_ADDRESS, i);
         buffer[i] = inb(CMOS_DATA);
     }
 }
 
 uint64_t now(void) {
-    uint16_t dump[128];
-    rtc_dump(dump);
+    uint16_t dump[10];
+    rtc_dump(dump, 10);
 
     uint64_t year = century * 100 + from_bcd(dump[CMOS_YEAR]);
     uint64_t month = from_bcd(dump[CMOS_MONTH]);
