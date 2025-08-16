@@ -420,7 +420,7 @@ void sched_timetrack(void) {
 }
 
 void sched_jumpstart(void) {
-    loglevel = 3;
+    loglevel = LOG_ERR;
 
     for (uint32_t i = 0; i < madt_lapics; i++) {
         struct cpu *core = get_core(i);

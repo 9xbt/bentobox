@@ -19,9 +19,9 @@
 static uint16_t serial_base = COM1;
 static atomic_flag serial_lock = ATOMIC_FLAG_INIT;
 static struct fifo *serial_fifo;
-int loglevel = 7;
+int loglevel = LOG_DEBUG;
 
-char serial_ringbuffer[1024];
+char serial_ringbuffer[PAGE_SIZE];
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
@@ -65,19 +65,15 @@ void serial_write_char(char c) {
     outb(COM1, c);
 }
 
-void serial_puts(char *str) {
-    static size_t offset = 0;
-
-    acquire(&serial_lock);
+void serial_puts(const char *str) {
     while (*str) {
-        serial_ringbuffer[offset] = *str;
-        offset = (offset + 1) % sizeof(serial_ringbuffer);
         serial_write_char(*str++);
     }
-    release(&serial_lock);
 }
 
 int dprintf(int level, const char *fmt, ...) {
+    static size_t serial_offset = 0;
+
     va_list args;
     va_start(args, fmt);
     char buf[1024] = {0};
@@ -86,6 +82,14 @@ int dprintf(int level, const char *fmt, ...) {
     uptime(&secs, &nanos);
 
     int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
+
+    acquire(&serial_lock);
+    for (char *p = buf; *p; p++) {
+        serial_ringbuffer[serial_offset] = *p;
+        serial_offset = (serial_offset + 1) % sizeof(serial_ringbuffer);
+    }
+    release(&serial_lock);
+
     if (serial_base == COM1) {
         serial_puts(buf);
     }
