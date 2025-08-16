@@ -11,11 +11,12 @@ struct pci_device {
     uint8_t device;
     uint8_t class;
     uint8_t subclass;
+    uint8_t function;
     uint16_t vendor_id;
     uint16_t device_id;
 };
 
-extern struct pci_device primary_bus[32];
+//extern struct pci_device primary_bus[32];
 
 void pci_scan(void);
 void pci_check_device(uint8_t bus, uint8_t device);

@@ -178,7 +178,7 @@ ahci_port_t *ahci_init_disk(int port_num) {
     }
 
     if (timeout <= 0) {
-        dprintf(6, "%s:%d: Failed to stop command engine on port %d\n", __FILE__, __LINE__, port_num);
+        dprintf(LOG_ERR, "%s:%d: Failed to stop command engine on port %d\n", __FILE__, __LINE__, port_num);
         kfree(ahci_port);
         return NULL;
     }
@@ -230,7 +230,7 @@ ahci_port_t *ahci_init_disk(int port_num) {
     cmd |= HBA_CMD_ST;
     port_write_reg(port_num, PORT_CMD, cmd);
 
-    dprintf(6, "%s:%d: initialized SATA port %d\n", __FILE__, __LINE__, port_num);
+    dprintf(LOG_INFO, "%s:%d: initialized SATA port %d\n", __FILE__, __LINE__, port_num);
     return ahci_port;
 }
 
@@ -394,27 +394,27 @@ long sda_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 int init() {
-    dprintf(6, "%s:%d: starting AHCI driver\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: starting AHCI driver\n", __FILE__, __LINE__);
     mutex_init(&ahci_mutex);
 
     struct pci_device *ahci_dev = pci_get_device(0x01, 0x06);
     if (!ahci_dev) {
-        dprintf(6, "%s:%d: No AHCI controller found!\n", __FILE__, __LINE__);
+        dprintf(LOG_ERR, "%s:%d: No AHCI controller found!\n", __FILE__, __LINE__);
         return 1;
     }
 
-    uint32_t cmd = pci_read(ahci_dev->bus, ahci_dev->device, 0, 0x04);
+    uint32_t cmd = pci_read(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x04);
     cmd |= (1 << 8) | (1 << 2) | (1 << 1);
-    pci_write(ahci_dev->bus, ahci_dev->device, 0, 0x04, cmd);
+    pci_write(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x04, cmd);
 
-    uint32_t bar5 = pci_read(ahci_dev->bus, ahci_dev->device, 0, 0x24);
+    uint32_t bar5 = pci_read(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x24);
     uint32_t memory_type = bar5 & 0x6;
     uint64_t ahci_phys_base = 0;
 
     if (memory_type == 0x0) {
         ahci_phys_base = bar5 & 0xFFFFFFF0;
     } else if (memory_type == 0x4) {
-        dprintf(6, "%s:%d: FATAL: 64-bit AHCI not implemented\n", __FILE__, __LINE__);
+        dprintf(LOG_ERR, "%s:%d: 64-bit AHCI not implemented\n", __FILE__, __LINE__);
         return 1;
     }
 
@@ -435,17 +435,18 @@ int init() {
     }
 
     if (i + 1 >= 1000) {
-        dprintf(6, "%s:%d: FATAL: failed to reset controller: timed out\n", __FILE__, __LINE__);
+        dprintf(LOG_ERR, "%s:%d: Failed to reset controller: timed out\n", __FILE__, __LINE__);
         return 1;
     }
 
     ghc = ahci_read_reg(AHCI_GHC);
     if (!(ghc & GHC_AHCI_ENABLE)) {
         ghc |= GHC_AHCI_ENABLE;
+        ahci_write_reg(AHCI_GHC, ghc);
         hpet_sleep(1000);
         ghc = ahci_read_reg(AHCI_GHC);
         if (!(ghc & GHC_AHCI_ENABLE)) {
-            dprintf(6, "%s:%d: FATAL: failed to enable AHCI mode!\n", __FILE__, __LINE__);
+            dprintf(LOG_ERR, "%s:%d: Failed to enable AHCI mode!\n", __FILE__, __LINE__);
             return 1;
         }
     } else {
@@ -454,7 +455,7 @@ int init() {
 
     uint32_t cap = ahci_read_reg(AHCI_CAP);
     command_slots = ((cap >> 8) & 0x1F) + 1;
-    dprintf(6, "%s:%d: %d command slots available\n", __FILE__, __LINE__, command_slots);
+    dprintf(LOG_INFO, "%s:%d: %d command slots available\n", __FILE__, __LINE__, command_slots);
 
     hpet_sleep(5000);
     ahci_write_reg(AHCI_IS, 0xFFFFFFFF);
@@ -487,7 +488,7 @@ int init() {
 }
 
 int fini() {
-    dprintf(6, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
     return 0;
 }
 
