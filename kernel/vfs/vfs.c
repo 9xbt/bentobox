@@ -35,6 +35,7 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->blocks = 0;
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
+    node->flags = 0;
     node->parent = NULL;
     node->symlink = NULL;
     node->children = list_create();
@@ -153,24 +154,17 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
     struct vfs_node *node = current;
     char *token = strtok(copy, "/");
     char *next = strtok(NULL, "/");
-    bool retry = true;
-    goto search;
-
-research:
-    strcpy(copy, path);
-    node = current;
-    token = strtok(copy, "/");
-    next = strtok(NULL, "/");
-    retry = false;
-search:
+    
     while (token) {
         if (!strcmp(token, ".")) {
             // skip
         } else if (!strcmp(token, "..")) {
             node = node->parent ?: node;
         } else {
-            struct vfs_node *child = vfs_find_child(node, token, !isdir_follow);
+            if (node->type == VFS_DIRECTORY && node->open)
+                node->open(node, O_RDONLY);
             
+            struct vfs_node *child = vfs_find_child(node, token, !isdir_follow);
             if (!child) {
                 if (create && !next) {
                     child = vfs_touch(node, token, isdir_follow);
@@ -179,10 +173,6 @@ search:
                         return NULL;
                     }
                 } else {
-                    if (node->type == VFS_DIRECTORY && node->open && retry) {
-                        node->open(node, O_RDONLY);
-                        goto research;
-                    } 
                     kfree(copy);
                     return NULL;
                 }

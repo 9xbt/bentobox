@@ -36,6 +36,7 @@ typedef struct vfs_node {
     size_t blocks;
     uint16_t perms;
     uint64_t inode;
+    uint64_t flags;
     struct vfs_node *parent;
     struct vfs_node *symlink;
     list_t *children;

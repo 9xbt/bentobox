@@ -120,6 +120,8 @@ typedef struct {
     uint32_t inode_size;
 } ext2_fs;
 
+#define EXT2_FS_FLAGS_MOUNTED 0x1
+
 struct vfs_node *ext2_create(struct vfs_node *parent, const char *name);
 struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name);
 struct vfs_node *ext2_open(vfs_node_t *node, int flags);
@@ -709,15 +711,11 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             }
 
             vfs_add_node(parent, node);
-            //if (node->type == VFS_DIRECTORY &&
-            //    strcmp(name, ".") && 
-            //    strcmp(name, "..")) {
-            //    ext2_mount(fs, node, entry->inode);
-            //}
         }
 
         offset += entry->total_size;
     }
+    parent->flags |= EXT2_FS_FLAGS_MOUNTED;
 }
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
@@ -741,7 +739,7 @@ struct vfs_node *ext2_open(vfs_node_t *node, int flags) {
         return NULL;
     assert(fs->sb->signature == 0xef53);
 
-    if (!node->children->length)
+    if (!(node->flags & EXT2_FS_FLAGS_MOUNTED))
         ext2_mount(fs, node, node->inode);
     return node;
 }
@@ -775,9 +773,6 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
 
     char source_path[MAX_PATH], target_path[MAX_PATH];
     vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);
-    dprintf(6, "%s:%d: mounting %s to %s\n", __FILE__, __LINE__, source_path, target_path);
-
-    ext2_mount(fs, target, 2);
     return 0;
 }
 
