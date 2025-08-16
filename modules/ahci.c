@@ -50,6 +50,7 @@
 #define LOW(x)  ((uint32_t)(x))
 #define HIGH(x) ((uint32_t)((x) >> 32))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 typedef enum {
     AHCI_DEV_NULL,
@@ -311,7 +312,7 @@ int ahci_op(ahci_port_t *ahci_port, uint64_t lba, uint32_t count, char *buffer, 
         
         cmd_tbl->entries[i].dba_low = LOW(page_phys);
         cmd_tbl->entries[i].dba_high = HIGH(page_phys);
-        cmd_tbl->entries[i].dbc = MAX(remaining_sectors * 512 - 1, PAGE_SIZE - 1);
+        cmd_tbl->entries[i].dbc = MIN(remaining_sectors * 512, PAGE_SIZE) - 1;
     }
     
     fis_h2d_t *fis_cmd = (fis_h2d_t*)(&cmd_tbl->cmd_fis);
