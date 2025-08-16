@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/assert.h>
@@ -121,6 +122,7 @@ typedef struct {
 
 struct vfs_node *ext2_create(struct vfs_node *parent, const char *name);
 struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name);
+struct vfs_node *ext2_open(vfs_node_t *node, int flags);
 long ext2_remove(struct vfs_node *node);
 
 void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in);
@@ -145,6 +147,8 @@ void ext2_write_sb(ext2_fs *fs) {
 }
 
 void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
+    assert(inode);
+
     inode--;
     uint32_t block_group = inode / fs->sb->inodes_per_group;
     uint32_t inode_index = inode % fs->sb->inodes_per_group;
@@ -691,6 +695,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             node->create = ext2_create;
             node->remove = ext2_remove;
             node->mkdir = ext2_mkdir;
+            node->open = ext2_open;
             node->a_time = child.last_access_time;
             node->c_time = child.creation_time;
             node->m_time = child.mod_time;
@@ -704,11 +709,11 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, s
             }
 
             vfs_add_node(parent, node);
-            if (node->type == VFS_DIRECTORY &&
-                strcmp(name, ".") && 
-                strcmp(name, "..")) {
-                ext2_mount(fs, node, entry->inode);
-            }
+            //if (node->type == VFS_DIRECTORY &&
+            //    strcmp(name, ".") && 
+            //    strcmp(name, "..")) {
+            //    ext2_mount(fs, node, entry->inode);
+            //}
         }
 
         offset += entry->total_size;
@@ -725,6 +730,20 @@ void ext2_mount(ext2_fs *fs, struct vfs_node *parent, uint32_t in) {
     ext2_read_inode_blocks(fs, &inode, blocks, 0, (inode.size + fs->block_size - 1) / fs->block_size);
     ext2_mount_directory(fs, blocks, inode.size, parent);
     kfree(blocks);
+}
+
+struct vfs_node *ext2_open(vfs_node_t *node, int flags) {
+    if (node->type != VFS_DIRECTORY)
+        return node;
+
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return NULL;
+    assert(fs->sb->signature == 0xef53);
+
+    if (!node->children->length)
+        ext2_mount(fs, node, node->inode);
+    return node;
 }
 
 long mount(struct vfs_node *sda, struct vfs_node *target) {
@@ -752,6 +771,7 @@ long mount(struct vfs_node *sda, struct vfs_node *target) {
     target->create = ext2_create;
     target->remove = ext2_remove;
     target->mkdir = ext2_mkdir;
+    target->open = ext2_open;
 
     char source_path[MAX_PATH], target_path[MAX_PATH];
     vfs_resolve_path(source_path, sda); vfs_resolve_path(target_path, target);

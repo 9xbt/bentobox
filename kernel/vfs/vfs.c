@@ -155,7 +155,16 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
     struct vfs_node *node = current;
     char *token = strtok(copy, "/");
     char *next = strtok(NULL, "/");
+    bool retry = true;
+    goto search;
 
+research:
+    strcpy(copy, path);
+    node = current;
+    token = strtok(copy, "/");
+    next = strtok(NULL, "/");
+    retry = false;
+search:
     while (token) {
         if (!strcmp(token, ".")) {
             // skip
@@ -172,6 +181,10 @@ struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool creat
                         return NULL;
                     }
                 } else {
+                    if (node->type == VFS_DIRECTORY && node->open && retry) {
+                        node->open(node, O_RDONLY);
+                        goto research;
+                    } 
                     kfree(copy);
                     return NULL;
                 }

@@ -15,9 +15,9 @@ void generic_startup(void) {
 
 void generic_main(void) {
     dprintf(LOG_INFO, "%s:%d: running init process\n", __FILE__, __LINE__);
-    char *argv[] = { "/sbin/openrc-init", "single", NULL };
-    char *env[] = { "TERM=linux", NULL };
-    spawn(argv[0], 0, NULL, env);
-    //spawn("/bin/init", 0, NULL, NULL);
+    //char *argv[] = { "/sbin/openrc-init", "single", NULL };
+    //char *env[] = { "TERM=linux", NULL };
+    //spawn(argv[0], 0, NULL, env);
+    spawn("/bin/init", 0, NULL, NULL);
 	sched_jumpstart();
 }
