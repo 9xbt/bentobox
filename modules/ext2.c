@@ -781,7 +781,7 @@ int init() {
         panic("root partition not specified in command line");
     }
 
-    vfs_register("ext2", mount);
+    vfs_register("ext2", mount, false);
     return vfs_mount(vfs_open(NULL, args_value("root"), false, false), vfs_root, "ext2", 0);
 }
 

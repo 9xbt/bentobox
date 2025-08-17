@@ -13,6 +13,7 @@
 #define PTE_NX (1ul << 63)
 
 extern uintptr_t *kernel_pd;
+extern uint8_t *mmu_bitmap;
 
 void pmm_install(void);
 void vmm_install(void);

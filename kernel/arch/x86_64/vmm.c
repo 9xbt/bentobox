@@ -352,5 +352,7 @@ void vmm_install(void) {
     dprintf(LOG_INFO, "%s:%d: done mapping kernel regions\n", __FILE__, __LINE__);
 
     vmm_switch_pm(kernel_pd);
+    mmu_bitmap = (uint8_t *)VIRTUAL_IDENT(mmu_bitmap);
+
     dprintf(LOG_INFO, "%s:%d: successfully switched page tables\n", __FILE__, __LINE__);
 }

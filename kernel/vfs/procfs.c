@@ -22,14 +22,17 @@ long procfs_meminfo_read(struct vfs_node *node, void *buffer, long offset, size_
 long procfs_filesystems_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     if (offset != 0)
         return 0;
+    
     char buf[1024];
-    int i = sprintf(buf, ""
-        "nodev   tmpfs\n"
-        "nodev   proc\n"
-        "        ext2\n"
-    );
+    int count = 0;
+    for (int i = 0; i < MAX_MOUNTS; i++) {
+        if (vfs_mounts[i].name) {
+            count += sprintf(buf + count, "%s%s\n", vfs_mounts[i].nodev ? "nodev   " : "        ", vfs_mounts[i].name);
+        }
+    }
+
     strncpy(buffer, buf, len);
-    return i;
+    return count;
 }
 
 long procfs_mount(struct vfs_node *source, struct vfs_node *proc) {
@@ -52,9 +55,6 @@ long procfs_mount(struct vfs_node *source, struct vfs_node *proc) {
 }
 
 void procfs_initialize(void) {
-    vfs_register("proc", procfs_mount);
-
-    struct vfs_node *proc = vfs_create_node("proc", VFS_DIRECTORY);
-    vfs_add_node(NULL, proc);
-    procfs_mount(NULL, proc);
+    vfs_register("proc", procfs_mount, true);
+    vfs_mount(NULL, vfs_add_node(NULL, vfs_create_node("proc", VFS_DIRECTORY)), "proc", 0);
 }

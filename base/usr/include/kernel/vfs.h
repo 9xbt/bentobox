@@ -62,25 +62,29 @@ typedef long (*vfs_mount_callback)(struct vfs_node *source, struct vfs_node *tar
 typedef struct vfs_mountpoint {
     char *name;
     vfs_mount_callback mount;
+    bool nodev;
 } vfs_mountpoint_t;
 
 extern struct vfs_node *vfs_root, *vfs_devfs;
+extern struct vfs_mountpoint vfs_mounts[MAX_MOUNTS];
 
 void vfs_install(void);
-void vfs_add_node(struct vfs_node *parent, struct vfs_node *node);
+struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type);
+struct vfs_node *vfs_add_node(struct vfs_node *root, struct vfs_node *node);
+int vfs_remove_node(struct vfs_node *node);
 void vfs_add_device(struct vfs_node *node);
+struct vfs_node *vfs_create_symlink(const char *name, const char *target);
+struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);
+struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow);
+struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir);
+struct vfs_node *vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir_follow);
+int vfs_close(struct vfs_node *node);
 void vfs_resolve_path(char *s, struct vfs_node *node);
 long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);
 long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len);
-struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type);
-struct vfs_node* vfs_open(struct vfs_node *current, const char *path, bool create, bool isdir_follow);
-int vfs_close(struct vfs_node *node);
-struct vfs_node *vfs_create_symlink(const char *name, const char *target);
-struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth);
 long vfs_poll(struct vfs_node *node, long events, long timeout);
 void vfs_unblock_polling(struct vfs_node *node);
-int vfs_remove_node(struct vfs_node *node);
 long vfs_check_perms(struct vfs_node *node, int mode);
 long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink);
-void vfs_register(const char *name, vfs_mount_callback mount);
+void vfs_register(const char *name, vfs_mount_callback mount, bool nodev);
 long vfs_mount(struct vfs_node *source, struct vfs_node *target, const char *fstype, unsigned long flags);

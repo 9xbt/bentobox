@@ -75,16 +75,15 @@ struct vfs_node *tmpfs_mkdir(struct vfs_node *parent, const char *name) {
     return dir;
 }
 
-void tmpfs_initialize(void) {
-    struct vfs_node *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
-    tmp->create = tmpfs_create;
-    tmp->remove = tmpfs_remove;
-    tmp->mkdir = tmpfs_mkdir;
-    vfs_add_node(NULL, tmp);
+long tmpfs_mount(struct vfs_node *source, struct vfs_node *target) {
+    target->create = tmpfs_create;
+    target->remove = tmpfs_remove;
+    target->mkdir = tmpfs_mkdir;
+    return 0;
+}
 
-    struct vfs_node *run = vfs_create_node("run", VFS_DIRECTORY);
-    run->create = tmpfs_create;
-    run->remove = tmpfs_remove;
-    run->mkdir = tmpfs_mkdir;
-    vfs_add_node(NULL, run);
+void tmpfs_initialize(void) {
+    vfs_register("tmpfs", tmpfs_mount, true);
+    vfs_mount(NULL, vfs_add_node(NULL, vfs_create_node("tmp", VFS_DIRECTORY)), "tmpfs", 0);
+    vfs_mount(NULL, vfs_add_node(NULL, vfs_create_node("run", VFS_DIRECTORY)), "tmpfs", 0);
 }

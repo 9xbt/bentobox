@@ -1,5 +1,6 @@
 ARCH ?= x86_64
 IMAGE_NAME = image
+DISPLAY ?= gtk
 
 ifeq ($(ARCH),x86_64)
     AS := nasm
@@ -10,7 +11,6 @@ ifeq ($(ARCH),x86_64)
     CCFLAGS := -O2 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -Ilib/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone -mno-80387 -mno-sse -mno-sse2 -fno-strict-aliasing -fno-optimize-sibling-calls
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
     QEMUFLAGS := -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -rtc base=localtime
-    QEMUDISPLAY ?=
 else ifeq ($(ARCH),riscv64)
     AS := riscv64-elf-as
     CC := riscv64-elf-gcc
@@ -38,15 +38,15 @@ all: kernel modules apps iso hdd
 
 .PHONY: run
 run: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) #-no-reboot -no-shutdown -d int -M smm=off
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) #-no-reboot -no-shutdown -d int -M smm=off
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) $(QEMUDISPLAY) -S -s
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) -S -s
 
 .PHONY: apps
 apps:

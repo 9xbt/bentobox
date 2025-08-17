@@ -58,11 +58,12 @@ struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type) {
     return node;
 }
 
-void vfs_add_node(struct vfs_node *root, struct vfs_node *node) {
+struct vfs_node *vfs_add_node(struct vfs_node *root, struct vfs_node *node) {
     if (!root)
         root = vfs_root;
     node->parent = root;
     list_insert(root->children, node);
+    return node;
 }
 
 int vfs_remove_node(struct vfs_node *node) {
@@ -125,7 +126,7 @@ struct vfs_node *vfs_resolve_symlink(struct vfs_node *symlink, int max_depth) {
     return symlink->symlink;
 }
 
-static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow) {
+struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow) {
     foreach(item, parent->children) {
         struct vfs_node *child = item->value;
         if (!strcmp(child->name, name)) {
@@ -135,7 +136,7 @@ static struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name
     return NULL;
 }
 
-static struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir) {
+struct vfs_node *vfs_touch(struct vfs_node *parent, const char *name, bool isdir) {
     return isdir
         ? parent->mkdir ? parent->mkdir(parent, name) : NULL
         : (parent->create ? parent->create(parent, name) : NULL);
@@ -335,12 +336,13 @@ long vfs_stat(struct vfs_node *node, struct stat *statbuf, bool symlink) {
     return 0;
 }
 
-void vfs_register(const char *name, vfs_mount_callback mount) {
+void vfs_register(const char *name, vfs_mount_callback mount, bool nodev) {
     for (int i = 0; i < MAX_MOUNTS; i++) {
         if (!vfs_mounts[i].name) {
             struct vfs_mountpoint *mp = &vfs_mounts[i];
             mp->mount = mount;
             mp->name = kmalloc(strlen(name) + 1);
+            mp->nodev = nodev;
             strcpy(mp->name, name);
 
             dprintf(LOG_INFO, "%s:%d: registered mount '%s'\n", __FILE__, __LINE__, name);
