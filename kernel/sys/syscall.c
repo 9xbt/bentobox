@@ -10,7 +10,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
-#include <time.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/idt.h>
@@ -917,6 +916,9 @@ long sys_getdents64(int fd_num, struct linux_dirent64 *dirp, unsigned int count)
 long sys_set_tid_address(int *tidptr) {
     return this->pid;
 }
+
+#define CLOCK_REALTIME  0
+#define CLOCK_MONOTONIC 1
 
 long sys_clock_gettime(int clockid, struct timespec *tp) {
     (void)clockid;
