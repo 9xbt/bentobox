@@ -615,6 +615,7 @@ struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name) {
     inode.size = 0;
     inode.last_access_time = inode.creation_time = inode.mod_time = now();
     inode.hard_link_count = 2;
+    inode.direct_block_ptr[0] = ext2_allocate_block(fs);
 
     struct vfs_node *node = vfs_create_node(name, VFS_DIRECTORY);
     node->size = 0;
