@@ -19,8 +19,11 @@ uintptr_t ksym_addr(const char *name) {
 
 const char *ksym_name(uintptr_t addr) {
     extern void *end;
-    if (addr >= 0x400000 && addr <= PHYS_MAP_BASE) {
+    if (addr >= 0x400000 && addr < PHYS_MAP_BASE) {
         return "(userspace)";
+    }
+    if (addr >= PHYS_MAP_BASE && addr < MODULE_BASE) {
+        return "(hhdm)";
     }
 
     struct symbol *best = NULL;

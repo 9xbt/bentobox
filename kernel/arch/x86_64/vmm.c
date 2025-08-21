@@ -269,7 +269,7 @@ void mmu_destroy_user_pm(uintptr_t *pml4) {
     mmu_free(PHYSICAL_IDENT(pml4), 1);
 }
 
-static uintptr_t mod_virt = 0xFFFFFFFF80000000;
+static uintptr_t mod_virt = MODULE_BASE;
 
 void *mmu_map_module(uintptr_t base, size_t length) {
     length = ALIGN_UP(length, PAGE_SIZE);
