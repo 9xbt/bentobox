@@ -105,8 +105,8 @@ bin/$(IMAGE_NAME).hdd: $(shell find root -type f) $(shell find base -type f) $(s
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 #	@cp -r base bin/
 	@mkdir -p root
-	@rsync -a --delete base/ bin/base/
-	@rsync -a --delete root/ bin/base/
+	@rsync -a --no-times --no-o --no-g base/ bin/base/
+	@rsync -a --no-times --no-o --no-g root/ bin/base/
 	@genext2fs -d bin/base -b 1048576 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
 	@truncate -s 1000M bin/$(IMAGE_NAME).hdd
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
