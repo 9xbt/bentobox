@@ -351,6 +351,10 @@ void sched_cleaner(void) {
         }
         
         struct process *proc = node->value;
+
+        if (proc->pending_signals)
+            continue;
+
         list_remove(terminated_process_list, node);
         list_remove_value(process_list, proc);
 
