@@ -104,15 +104,15 @@ endif
 bin/$(IMAGE_NAME).hdd: $(shell find root -type f) $(shell find base -type f) $(shell find apps -type f) | apps
 	@echo " HD bin/$(IMAGE_NAME).hdd"
 #	@cp -r base bin/
-	@rsync -a --no-times --no-o --no-g base/ bin/base/
 	@mkdir -p root
-	@rsync -a --no-times --no-o --no-g root/ bin/base/
-	@genext2fs -d bin/base -b 131072 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
-	@dd if=/dev/zero of=bin/$(IMAGE_NAME).hdd bs=1M count=128 status=none
+	@rsync -a --delete base/ bin/base/
+	@rsync -a --delete root/ bin/base/
+	@genext2fs -d bin/base -b 1048576 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
+	@truncate -s 1000M bin/$(IMAGE_NAME).hdd
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
-	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 127MiB
+	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 100%
 	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox
-	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=512 seek=2048 conv=notrunc status=none
+	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=1M seek=1 conv=notrunc,sparse status=none
 	@rm bin/root.hdd
 
 hdd: apps bin/$(IMAGE_NAME).hdd

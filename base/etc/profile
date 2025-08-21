@@ -1,0 +1,3 @@
+export PATH=/usr/local/vim/bin:/usr/local/ncurses/bin:$PATH
+export VIM=/usr/local/vim/share/vim/vim91
+export TERMINFO=/usr/local/ncurses/share/terminfo
