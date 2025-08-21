@@ -135,7 +135,6 @@ void kmain(void *mboot_info, uint32_t mboot_magic) {
 	pmm_install();
 	tss_install();
 	vmm_install();
-	malloc_initialize();
 	framebuffer_initialize();
 	acpi_install();
 	hpet_install();

@@ -4,4 +4,3 @@
 void *kmalloc(size_t n);
 void  kfree(void *ptr);
 void *krealloc(void *ptr, size_t size);
-void  malloc_initialize(void);

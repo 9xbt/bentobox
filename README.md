@@ -160,7 +160,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Block CTRL+C in init
 - [X] Fix serial read()
 - [X] sysinfo()
-- [ ] Write better dlmalloc glue code
+- [X] Write better dlmalloc glue code
 - [X] VFS mounting
 - [X] Fix fork() process adding
 - [ ] MSI/MSI-X

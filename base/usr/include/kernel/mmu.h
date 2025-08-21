@@ -14,6 +14,7 @@
 #define PAGE_SIZE_1G    0x40000000
 
 #define PHYS_MAP_BASE   0xffff800000000000UL
+#define HEAP_BASE       0xffffa00000000000UL
 #define VMALLOC_BASE    0xffffc00000000000UL
 
 #define VIRTUAL(ptr) ((void *)((uintptr_t)(ptr) + (uintptr_t)VMALLOC_BASE))
