@@ -1,6 +1,6 @@
 ARCH ?= x86_64
 IMAGE_NAME = image
-DISPLAY ?= gtk
+QEMUDISPLAY ?= gtk
 
 ifeq ($(ARCH),x86_64)
     AS := nasm
