@@ -38,15 +38,15 @@ all: kernel modules apps iso hdd
 
 .PHONY: run
 run: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) #-no-reboot -no-shutdown -d int -M smm=off
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(QEMUDISPLAY) #-no-reboot -no-shutdown -d int -M smm=off
 
 .PHONY: run-kvm
 run-kvm: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(QEMUDISPLAY) -accel kvm -smp $(shell expr $$(nproc) / 2)
 
 .PHONY: run-gdb
 run-gdb: all
-	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(DISPLAY) -S -s
+	@qemu-system-$(ARCH) $(QEMUFLAGS) -display $(QEMUDISPLAY) -S -s
 
 .PHONY: apps
 apps:
