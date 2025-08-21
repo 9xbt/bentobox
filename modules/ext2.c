@@ -1,4 +1,3 @@
-#include "kernel/list.h"
 #include <stdint.h>
 #include <errno.h>
 #include <kernel/assert.h>
@@ -9,6 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/panic.h>
 #include <kernel/args.h>
+#include <kernel/list.h>
 #include <kernel/time.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
@@ -226,6 +226,46 @@ uint32_t ext2_allocate_inode(ext2_fs *fs) {
     return 0;
 }
 
+void ext2_free_block(ext2_fs *fs, uint32_t block) {
+    uint32_t group = block / fs->sb->blocks_per_group;
+    uint32_t index = block % fs->sb->blocks_per_group;
+
+    uint8_t *bitmap = kmalloc(fs->block_size);
+    ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+
+    if (bitmap_get(bitmap, index)) {
+        bitmap_clear(bitmap, index);
+        ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
+
+        fs->sb->free_blocks_count++;
+        fs->bgd_table[group].free_blocks++;
+        ext2_write_sb(fs);
+        ext2_write_bgd(fs, group, fs->bgd_table[group]);
+    }
+
+    kfree(bitmap);
+}
+
+void ext2_free_inode(ext2_fs *fs, uint32_t ino) {
+    uint32_t group = (ino - 1) / fs->sb->inodes_per_group;
+    uint32_t index = (ino - 1) % fs->sb->inodes_per_group;
+
+    uint8_t *bitmap = kmalloc(fs->block_size);
+    ext2_read_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
+
+    if (bitmap_get(bitmap, index)) {
+        bitmap_clear(bitmap, index);
+        ext2_write_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
+
+        fs->sb->free_inodes_count++;
+        fs->bgd_table[group].free_inodes++;
+        ext2_write_sb(fs);
+        ext2_write_bgd(fs, group, fs->bgd_table[group]);
+    }
+
+    kfree(bitmap);
+}
+
 int ext2_add_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, const char *name, uint32_t in) {
     uint32_t offset = 0;
     uint32_t required = ALIGN_UP(sizeof(ext2_dirent) + strlen(name), 4);
@@ -267,6 +307,28 @@ int ext2_add_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, const c
     return -ENOSPC;
 }
 
+int ext2_remove_dirent(ext2_fs *fs, uint8_t *block_data, size_t block_size, uint32_t inode) {
+    uint32_t offset = 0;
+    ext2_dirent *prev = NULL;
+
+    while (offset < block_size) {
+        ext2_dirent *entry = (ext2_dirent *)(block_data + offset);
+
+        if (!entry->total_size)
+            break;
+
+        if (entry->inode == inode) {
+            if (prev) prev->total_size += entry->total_size;
+            else entry->inode = 0;
+            return 0;
+        }
+
+        prev = entry;
+        offset += entry->total_size;
+    }
+    return -ENOENT;
+}
+
 int ext2_add_inode(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t in) {
     ext2_inode inode;
     ext2_read_inode(fs, dir_inode, &inode);
@@ -299,6 +361,29 @@ int ext2_add_inode(ext2_fs *fs, uint32_t dir_inode, const char *name, uint32_t i
         kfree(block);
     }
     return -ENOSPC;
+}
+
+int ext2_remove_inode(ext2_fs *fs, uint32_t dir_inode, uint32_t in) {
+    ext2_inode inode;
+    ext2_read_inode(fs, dir_inode, &inode);
+
+    uint32_t total_blocks = inode.size ? (inode.size + fs->block_size - 1) / fs->block_size : 1;
+    
+    for (uint32_t i = 0; i < total_blocks && i < 12; i++) {
+        if (inode.direct_block_ptr[i] == 0)
+            continue;
+
+        uint8_t *block = kmalloc(fs->block_size);
+        ext2_read_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
+
+        if (!ext2_remove_dirent(fs, block, fs->block_size, in)) {
+            ext2_write_block(fs, inode.direct_block_ptr[i], block, fs->block_size);
+            kfree(block);
+            return 0;
+        }
+        kfree(block);
+    }
+    return -ENOENT;
 }
 
 bool ext2_check_sequential(uint32_t blocks[], uint32_t count) {
@@ -505,6 +590,55 @@ void ext2_write_inode_blocks(ext2_fs *fs, ext2_inode *in, uint8_t *buffer, uint3
     }
 }
 
+void ext2_free_inode_blocks(ext2_fs *fs, ext2_inode *in) {
+    uint32_t blocks_per_singly = fs->block_size / 4;
+
+    for (uint32_t i = 0; i < 12; i++) {
+        if (in->direct_block_ptr[i]) {
+            ext2_free_block(fs, in->direct_block_ptr[i]);
+            in->direct_block_ptr[i] = 0;
+        }
+    }
+
+    if (in->singly_block_ptr) {
+        uint32_t *entries = kmalloc(fs->block_size);
+        ext2_read_block(fs, in->singly_block_ptr, entries, fs->block_size);
+
+        for (uint32_t i = 0; i < blocks_per_singly; i++) {
+            if (entries[i])
+                ext2_free_block(fs, entries[i]);
+        }
+
+        kfree(entries);
+        ext2_free_block(fs, in->singly_block_ptr);
+        in->singly_block_ptr = 0;
+    }
+
+    if (in->doubly_block_ptr) {
+        uint32_t *doubly_ptrs = kmalloc(fs->block_size);
+        ext2_read_block(fs, in->doubly_block_ptr, doubly_ptrs, fs->block_size);
+
+        for (uint32_t i = 0; i < blocks_per_singly; i++) {
+            if (doubly_ptrs[i]) {
+                uint32_t *singly_ptrs = kmalloc(fs->block_size);
+                ext2_read_block(fs, doubly_ptrs[i], singly_ptrs, fs->block_size);
+
+                for (uint32_t j = 0; j < blocks_per_singly; j++) {
+                    if (singly_ptrs[j])
+                        ext2_free_block(fs, singly_ptrs[j]);
+                }
+
+                kfree(singly_ptrs);
+                ext2_free_block(fs, doubly_ptrs[i]);
+            }
+        }
+
+        kfree(doubly_ptrs);
+        ext2_free_block(fs, in->doubly_block_ptr);
+        in->doubly_block_ptr = 0;
+    }
+}
+
 long ext2_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     ext2_fs *fs = node->device;
     if (!fs)
@@ -573,8 +707,6 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
         return NULL;
     assert(fs->sb->signature == 0xef53);
 
-    dprintf(LOG_INFO, "ext2: creating file %s\n", name);
-
     ext2_inode inode;
     memset(&inode, 0, sizeof inode);
     inode.type_perms = EXT_FILE | 0644;
@@ -600,7 +732,16 @@ struct vfs_node *ext2_create(struct vfs_node *parent, const char *name) {
 }
 
 long ext2_remove(struct vfs_node *node) {
-    return -EPERM;
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return -EIO;
+    assert(fs->sb->signature == 0xef53);
+
+    ext2_inode inode;
+    ext2_read_inode(fs, node->inode, &inode);
+    ext2_free_inode_blocks(fs, &inode);
+
+    return ext2_remove_inode(fs, node->parent->inode, node->inode);
 }
 
 struct vfs_node *ext2_mkdir(struct vfs_node *parent, const char *name) {
