@@ -291,11 +291,14 @@ void sched_sleep(long us) {
     sched_block(TASK_SLEEPING);
 }
 
-struct process *sched_get_foreground(void) {
-    struct process *proc;
-    for (uint32_t id = 0; id < madt_lapics; id++) {
-        proc = get_core(id)->current_proc->value;
-        if (proc) return proc;
+struct process *sched_get_foreground(long pgid) {
+    for (uint32_t i = 0; i < madt_lapics; i++) {
+        struct cpu *core = get_core(i);
+
+        foreach(proc, core->processes) {
+            if (((struct process *)proc->value)->pgid == pgid)
+                return proc->value;
+        }
     }
     return NULL;
 }
@@ -307,9 +310,10 @@ void sched_kill(struct process *proc, int status) {
     if (proc->pid == 0)
         panic("Attempted to kill idle task!");
 
-    if (proc->parent && proc->parent->state != TASK_RUNNING) {
+    if (proc->state == TASK_KILLED)
+        return;
+    if (proc->parent)
         signal_send(proc->parent, SIGCHLD, status);
-    }
 
     sched_lock();
     
@@ -453,10 +457,12 @@ void sched_install(void) {
         idle->state = TASK_PAUSED;
         core->idle_proc = sched_add_task(idle, core);
         idle->pid = 0;
+        idle->pgid = 0;
 
-        struct process *timetracker = sched_new_task(sched_timetrack, "System Load Calculator");
-        timetracker->pid = 2;
-        sched_add_task(timetracker, core);
+        //struct process *timetracker = sched_new_task(sched_timetrack, "System Load Calculator");
+        //timetracker->pid = 2;
+        //timetracker->pgid = 0;
+        //sched_add_task(timetracker, core);
     }
     next_pid = 1;
     dprintf(LOG_INFO, "%s:%d: initialized process lists\n", __FILE__, __LINE__);

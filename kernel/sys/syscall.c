@@ -731,12 +731,17 @@ long sys_setsid(void) {
 }
 
 long sys_getpgid(int pid) {
-    if (!pid)
-        return this->pid;
-    return pid;
+    struct process *proc = pid ? sched_find_process(pid) : this;
+    if (!proc)
+        return -ESRCH;
+    return proc->pgid;
 }
 
-long sys_setpgid(void) {
+long sys_setpgid(int pid, int pgid) {
+    struct process *proc = pid ? sched_find_process(pid) : this;
+    if (!proc)
+        return -ESRCH;
+    proc->pgid = pgid ? pgid : pid;
     return 0;
 }
 

@@ -22,7 +22,7 @@
 #define LACKS_STDLIB_H 1
 #define LACKS_STDIO_H 1
 #define ABORT dprintf(LOG_INFO, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
-#define USE_LOCKS 0
+#define USE_LOCKS 1
 #define NO_MALLOC_STATS 1
 #define LACKS_STDIO_H 1
 #define MALLOC_FAILURE_ACTION

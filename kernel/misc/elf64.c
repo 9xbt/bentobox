@@ -260,6 +260,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     }
 
     struct process *proc = sched_new_user_task((void *)ehdr->e_entry, file, argc, argv, env);
+    proc->pgid = 1;
 
     sched_lock();
     vmm_switch_pm(proc->pml4);
@@ -445,6 +446,7 @@ long fork(struct registers *r, uint64_t stack) {
     proc->parent = this;
     proc->cwd = this->cwd;
     proc->brk = this->brk;
+    proc->pgid = this->pgid;
     memcpy(proc->fxsave, this->fxsave, sizeof proc->fxsave);
     memcpy(proc->fd_table, this->fd_table, sizeof proc->fd_table);
     for (int i = 0; i < USER_MAX_FDS; i++) {

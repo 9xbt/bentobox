@@ -17,6 +17,7 @@
 
 static struct fifo *tty_fifo;
 static vfs_node_t *console;
+static int tty_pgid = 1;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
@@ -41,8 +42,7 @@ long tty_poll(struct vfs_node *node, long events) {
 }
 
 long tty_enqueue(int c) {
-    /** FIXME: this will break ANSI escape codes for arrow keys */
-    if (!c)
+    if (c <= 0)
         return 0;
 
     extern atomic_flag flanterm_lock;
@@ -50,8 +50,11 @@ long tty_enqueue(int c) {
         case 0x3:
             release(&flanterm_lock);
             printf("^C\n");
-            if (console->poll_list->head) {
-                signal_send(console->poll_list->head->value, SIGINT, 0);
+
+            struct process *proc = sched_get_foreground(tty_pgid);
+            if (proc) {
+                dprintf(LOG_INFO, "sending SIGINT to %s (pgid %d)\n", proc->name, proc->pgid);
+                signal_send(proc, SIGINT, 0);
             }
             return 0;
     }
@@ -156,9 +159,11 @@ long tty_ioctl(int fd_num, int op, void *arg) {
         case TIOCSWINSZ:
             return 0;
         case TIOCGPGRP:
-            *(int *)arg = this->pid;
+            *(int *)arg = tty_pgid;
             return 0;
         case TIOCSPGRP:
+            tty_pgid = *(int *)arg;
+            dprintf(LOG_INFO, "%s (%d): set tty pgid to %d\n", this->name, this->pid, tty_pgid);
             return 0;
         case KDFONTOP: {
             struct console_font_op *fop = (struct console_font_op *)arg;
