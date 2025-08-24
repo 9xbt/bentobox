@@ -33,7 +33,7 @@ static volatile LIMINE_REQUESTS_END_MARKER;
 // Halt and catch fire function.
 static void hcf(void) {
     for (;;) {
-        asm ("hlt");
+        asm ("wfi");
     }
 }
 

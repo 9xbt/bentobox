@@ -1,6 +1,11 @@
 /bin
-/root
-/ports/src
+/obj
+/build/cc-runtime
+/build/freestnd-c-hdrs
+/build/limine
+/build/limine-protocol
+/build/ovmf
+/build/kernel-deps
 compile_commands.json
 .cache
 .vscode
