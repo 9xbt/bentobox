@@ -4,6 +4,9 @@ ARCH := aarch64
 QEMUFLAGS := -m 2G
 IMAGE_NAME := bin/$(ARCH)/image.iso
 
+CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only
+LDFLAGS += -m aarch64elf
+
 HOST_CC := cc
 HOST_CFLAGS := -g -O2 -pipe
 HOST_CPPFLAGS :=

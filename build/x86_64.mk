@@ -4,6 +4,10 @@ ARCH := x86_64
 QEMUFLAGS := -m 2G
 IMAGE_NAME := bin/$(ARCH)/image
 
+CFLAGS += -m64 -march=x86-64 -mabi=sysv -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
+LDFLAGS += -m elf_x86_64
+NASMFLAGS := -Wall -f elf64 -g -F dwarf
+
 HOST_CC := cc
 HOST_CFLAGS := -g -O2 -pipe
 HOST_CPPFLAGS :=
