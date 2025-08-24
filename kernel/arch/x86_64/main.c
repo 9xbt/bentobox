@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <kernel/arch/x86_64/gdt.h>
+#include <kernel/arch/x86_64/idt.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/printf.h>
@@ -13,15 +15,16 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
-static void hcf(void) {
-    for (;;) {
-        asm ("hlt");
-    }
+void arch_prepare_fatal(void) {}
+
+void arch_fatal(void) {
+	asm ("cli");
+	for (;;) asm ("hlt");
 }
 
 void kmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
-        hcf();
+        arch_fatal();
     }
 
     framebuffer_initialize();
@@ -30,5 +33,8 @@ void kmain(void) {
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
-    hcf();
+    gdt_install();
+    idt_install();
+
+    arch_fatal();
 }
