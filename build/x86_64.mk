@@ -2,7 +2,7 @@
 
 ARCH := x86_64
 QEMUFLAGS := -m 2G
-IMAGE_NAME := bin/$(ARCH)/image.iso
+IMAGE_NAME := bin/$(ARCH)/image
 
 HOST_CC := cc
 HOST_CFLAGS := -g -O2 -pipe
@@ -15,11 +15,11 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
