@@ -3,6 +3,7 @@
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/printf.h>
+#include <kernel/mmu.h>
 #include <limine.h>
 
 __attribute__((used, section(".limine_requests")))
@@ -19,7 +20,7 @@ void arch_fatal(void) {
 }
 
 const char *esr_ec_reasons[0x40] = {
-    [0x00] = "Unknown",
+    [0x00] = "Unknown reason",
     [0x01] = "Trapped WFI/WFE",
     [0x03] = "Trapped MCR/MRC (coproc instructions, aarch32)",
     [0x04] = "Trapped MCRR/MRRC (coproc, aarch32)",
@@ -43,24 +44,28 @@ const char *esr_ec_reasons[0x40] = {
 };
 
 void aarch64_fault_handler(struct registers *r) {
-    uint64_t esr_el1, far_el1, elr_el1;
+    uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
     
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
     asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
     asm volatile("mrs %0, ELR_EL1" : "=r"(elr_el1));
+    asm volatile("mrs %0, SPSR_EL1" : "=r"(spsr_el1));
 
-    dprintf(LOG_EMERG, "%s:%d: aarch64 Fault: \033[91m%s\033[0m on CPU %d\n", __FILE__, __LINE__, esr_ec_reasons[(esr_el1 >> 26) & 0x3F], 0);
-    dprintf(LOG_EMERG, "x0:  0x%p x1:  0x%p x2:  0x%p\n", r->x0, r->x1, r->x2);
-    dprintf(LOG_EMERG, "x3:  0x%p x4:  0x%p x5:  0x%p\n", r->x3, r->x4, r->x5);
-    dprintf(LOG_EMERG, "x6:  0x%p x7:  0x%p x8:  0x%p\n", r->x6, r->x7, r->x8);
-    dprintf(LOG_EMERG, "x9:  0x%p x10: 0x%p x11: 0x%p\n", r->x9, r->x10, r->x11);
-    dprintf(LOG_EMERG, "x12: 0x%p x13: 0x%p x14: 0x%p\n", r->x12, r->x13, r->x14);
-    dprintf(LOG_EMERG, "x15: 0x%p x16: 0x%p x17: 0x%p\n", r->x15, r->x16, r->x17);
-    dprintf(LOG_EMERG, "x18: 0x%p x19: 0x%p x20: 0x%p\n", r->x18, r->x19, r->x20);
-    dprintf(LOG_EMERG, "x21: 0x%p x22: 0x%p x23: 0x%p\n", r->x21, r->x22, r->x23);
-    dprintf(LOG_EMERG, "x24: 0x%p x25: 0x%p x26: 0x%p\n", r->x24, r->x25, r->x26);
-    dprintf(LOG_EMERG, "x27: 0x%p x28: 0x%p x29: 0x%p\n", r->x27, r->x28, r->x29);
-    dprintf(LOG_EMERG, "x30: 0x%p PC:  0x%p SP:  0x%p\n", r->x30, elr_el1, r);
+    uint64_t ec = (esr_el1 >> 26) & 0x3F;
+
+    dprintf(LOG_EMERG, "EL1-EL1 fault: \033[91m%s\033[0m on CPU %d\n", esr_ec_reasons[ec], 0);
+    dprintf(LOG_EMERG, "x0:  0x%p x1:  0x%p x2:  0x%p x3:  0x%p\n", r->x0,  r->x1,  r->x2,  r->x3);
+    dprintf(LOG_EMERG, "x4:  0x%p x5:  0x%p x6:  0x%p x7:  0x%p\n", r->x4,  r->x5,  r->x6,  r->x7);
+    dprintf(LOG_EMERG, "x8:  0x%p x9:  0x%p x10: 0x%p x11: 0x%p\n", r->x8,  r->x9,  r->x10, r->x11);
+    dprintf(LOG_EMERG, "x12: 0x%p x13: 0x%p x14: 0x%p x15: 0x%p\n", r->x12, r->x13, r->x14, r->x15);
+    dprintf(LOG_EMERG, "x16: 0x%p x17: 0x%p x18: 0x%p x19: 0x%p\n", r->x16, r->x17, r->x18, r->x19);
+    dprintf(LOG_EMERG, "x20: 0x%p x21: 0x%p x22: 0x%p x23: 0x%p\n", r->x20, r->x21, r->x22, r->x23);
+    dprintf(LOG_EMERG, "x24: 0x%p x25: 0x%p x26: 0x%p x27: 0x%p\n", r->x24, r->x25, r->x26, r->x27);
+    dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p PC:  0x%p\n", r->x28, r->x29, r->x30, elr_el1);
+    
+    if (ec == 0x24 || ec == 0x25) {
+        dprintf(LOG_EMERG, "Faulting address: 0x%p\n", far_el1);
+    }
 
     arch_fatal();
 }
@@ -68,8 +73,6 @@ void aarch64_fault_handler(struct registers *r) {
 void vectors_install(void) {
     extern char _evt[];
     asm volatile("msr VBAR_EL1, %0" :: "r"(&_evt));
-
-    dprintf(LOG_INFO, "%s:%d: installed exception vectors\n", __FILE__, __LINE__);
 }
 
 void kmain(void) {
@@ -84,8 +87,7 @@ void kmain(void) {
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
     vectors_install();
-
-    asm volatile ("udf #0");
+    pmm_install();
 
     arch_fatal();
 }
