@@ -87,7 +87,7 @@ void kmain(void) {
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
     vectors_install();
-    pmm_install();
+    mmu_initialize();
 
     arch_fatal();
 }
