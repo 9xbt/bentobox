@@ -1,12 +1,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
 
 extern void arch_fatal(void);
-extern void arch_prepare_fatal(void);
 
 __attribute__((aligned(0x10)))
 struct idt_entry idt_entries[256];

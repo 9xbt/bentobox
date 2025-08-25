@@ -15,8 +15,6 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
-void arch_prepare_fatal(void) {}
-
 void arch_fatal(void) {
 	asm ("cli");
 	for (;;) asm ("hlt");
