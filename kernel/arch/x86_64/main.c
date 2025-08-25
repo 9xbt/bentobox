@@ -34,7 +34,7 @@ void kmain(void) {
 
     gdt_install();
     idt_install();
-    pmm_install();
+    mmu_initialize();
 
     arch_fatal();
 }

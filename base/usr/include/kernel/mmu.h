@@ -14,4 +14,6 @@
 
 extern uintptr_t hhdm_offset;
 
-void pmm_install(void);
+void  mmu_initialize(void);
+void *mmu_alloc_frame(void);
+void  mmu_free(void *ptr);

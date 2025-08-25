@@ -13,7 +13,7 @@ static volatile struct limine_hhdm_request hhdm = {
 };
 
 __attribute__((used, section(".limine_requests")))
-static volatile struct limine_memmap_request memmap_request = {
+volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST,
     .revision = 0
 };
@@ -68,8 +68,10 @@ void pmm_install(void) {
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
 }
 
+static uint64_t last_page = 0;
+
 void *mmu_alloc_frame(void) {
-    for (uint64_t page = 0; page < mmu_page_count; page++) {
+    for (uint64_t page = last_page; page < mmu_page_count; page++) {
         if (!bitmap_get(mmu_bitmap, page)) {
             bitmap_set(mmu_bitmap, page);
             mmu_used_pages++;
@@ -82,4 +84,13 @@ void *mmu_alloc_frame(void) {
 void mmu_free(void *ptr) {
     bitmap_clear(mmu_bitmap, (uint64_t)ptr / PAGE_SIZE);
     mmu_used_pages--;
+    last_page = (uint64_t)ptr / PAGE_SIZE;
+}
+
+void mmu_initialize(void) {
+    pmm_install();
+#if defined(__x86_64__)
+    extern void vmm_install(void);
+    vmm_install();
+#endif
 }
