@@ -58,5 +58,5 @@ void gdt_install(void) {
     };
     gdt_flush();
 
-    dprintf(LOG_INFO, "%s:%d: GDT address: 0x%p\n", __FILE__, __LINE__, (uint64_t)&gdt_descriptor);
+    dprintf(LOG_INFO, "\033[93mgdt:\033[0m reloaded selectors\n");
 }

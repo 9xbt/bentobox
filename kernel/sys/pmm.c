@@ -65,7 +65,7 @@ void pmm_install(void) {
         mmu_usable_mem += entry->length;
     }
 
-    dprintf(LOG_INFO, "mmu: usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
+    dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
 }
 
 void *mmu_alloc_frame(void) {

@@ -4,6 +4,7 @@
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/printf.h>
+#include <kernel/mmu.h>
 #include <limine.h>
 
 __attribute__((used, section(".limine_requests")))
@@ -33,6 +34,7 @@ void kmain(void) {
 
     gdt_install();
     idt_install();
+    pmm_install();
 
     arch_fatal();
 }
