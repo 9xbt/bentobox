@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/malloc.h>
 
 #ifdef __x86_64__
 void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
@@ -185,6 +186,16 @@ char *strtok(char *str, const char *delim) {
     }
 
     return token;
+}
+
+char *strdup(const char *s) {
+    if (!s) {
+        return NULL;
+    }
+
+    char *copy = kmalloc(strlen(s) + 1);
+    strcpy(copy, s);
+    return copy;
 }
 
 int atoi(char *s) {
