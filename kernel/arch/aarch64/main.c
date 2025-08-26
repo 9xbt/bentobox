@@ -62,11 +62,11 @@ void aarch64_fault_handler(struct registers *r) {
     dprintf(LOG_EMERG, "x20: 0x%p x21: 0x%p x22: 0x%p x23: 0x%p\n", r->x20, r->x21, r->x22, r->x23);
     dprintf(LOG_EMERG, "x24: 0x%p x25: 0x%p x26: 0x%p x27: 0x%p\n", r->x24, r->x25, r->x26, r->x27);
     dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p PC:  0x%p\n", r->x28, r->x29, r->x30, elr_el1);
+    dprintf(LOG_EMERG, "ESR_EL1: 0x%p\n", esr_el1);
+    dprintf(LOG_EMERG, "FAR_EL1: 0x%p\n", far_el1);
+    dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_el1);
+    dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_el1);
     
-    if (ec == 0x24 || ec == 0x25) {
-        dprintf(LOG_EMERG, "Faulting address: 0x%p\n", far_el1);
-    }
-
     arch_fatal();
 }
 

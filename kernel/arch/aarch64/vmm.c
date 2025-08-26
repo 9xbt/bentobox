@@ -13,11 +13,9 @@ static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flag
     if (!alloc)
         return NULL;
 
-    (void)flags;
-
     uintptr_t *pml = (uintptr_t*)VIRTUAL_HHDM(mmu_alloc_frame());
     memset(pml, 0, PAGE_SIZE);
-    lvl[entry] = (uintptr_t)PHYSICAL_HHDM(pml) | PTE_VALID | PTE_TABLE;
+    lvl[entry] = (uintptr_t)PHYSICAL_HHDM(pml) | flags;
     return pml;
 }
 
@@ -39,10 +37,10 @@ void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t l1_index = ((uintptr_t)virt >> 30) & 0x1FF;
     uintptr_t l2_index = ((uintptr_t)virt >> 21) & 0x1FF;
 
-    uintptr_t *l1 = pt_get_next_lvl(pm, l0_index, 0, true);
-    uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, 0, true);
+    uintptr_t *l1 = pt_get_next_lvl(pm, l0_index, PTE_VALID | PTE_TABLE, true);
+    uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, PTE_VALID | PTE_TABLE, true);
 
-    l2[l2_index] = ((uintptr_t)phys & ~0x1FFFFFUL) | (flags & ~PTE_TABLE) | PTE_VALID;
+    l2[l2_index] = ((uintptr_t)phys & ~0x1FFFFFUL) | flags | PTE_BLOCK;
 
     tlb_invalidate(virt);
 }
@@ -55,11 +53,11 @@ void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t l2_index = ((uintptr_t)virt >> 21) & 0x1FF;
     uintptr_t l3_index = ((uintptr_t)virt >> 12) & 0x1FF;
 
-    uintptr_t *l1 = pt_get_next_lvl(pm, l0_index, 0, true);
-    uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, 0, true);
-    uintptr_t *l3 = pt_get_next_lvl(l2, l2_index, 0, true);
+    uintptr_t *l1 = pt_get_next_lvl(pm, l0_index, PTE_VALID | PTE_TABLE, true);
+    uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, PTE_VALID | PTE_TABLE, true);
+    uintptr_t *l3 = pt_get_next_lvl(l2, l2_index, PTE_VALID | PTE_TABLE, true);
 
-    l3[l3_index] = ((uintptr_t)phys & ~0xFFFUL) | flags | PTE_VALID | PTE_TABLE;
+    l3[l3_index] = ((uintptr_t)phys & ~0xFFFUL) | flags | PTE_4K_PAGE;
     tlb_invalidate(virt);
 }
 

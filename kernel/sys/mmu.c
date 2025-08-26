@@ -80,6 +80,9 @@ void mmu_initialize(void) {
         mmu_usable_mem += entry->length;
     }
 
+    first_entry->base -= bitmap_size;
+    first_entry->length += bitmap_size;
+
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
 
     kernel_pd = VIRTUAL_HHDM(mmu_alloc_frame());
@@ -92,7 +95,7 @@ void mmu_initialize(void) {
             entry->type != LIMINE_MEMMAP_EXECUTABLE_AND_MODULES &&
             entry->type != LIMINE_MEMMAP_FRAMEBUFFER)
             continue;
-        
+
         size_t j, end = entry->base + entry->length;
         #ifdef __x86_64__
         uintptr_t flags = PTE_PRESENT | PTE_WRITABLE;
