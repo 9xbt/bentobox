@@ -24,6 +24,7 @@ SECTIONS
     . = 0xffffffff80000000;
 
     /* Define a section to contain the Limine requests and assign it to its own PHDR */
+    text_start_ld = .;
     .limine_requests : {
         KEEP(*(.limine_requests_start))
         KEEP(*(.limine_requests))
@@ -33,7 +34,6 @@ SECTIONS
     /* Move to the next memory page for .text */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
-    text_start_ld = .;
     .text : {
         *(.text .text.*)
     } :text

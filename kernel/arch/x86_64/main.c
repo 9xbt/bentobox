@@ -4,12 +4,9 @@
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/printf.h>
+#include <kernel/acpi.h>
 #include <kernel/mmu.h>
 #include <limine.h>
-
-#include <kernel/malloc.h>
-#include <kernel/string.h>
-#include <kernel/panic.h>
 
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
@@ -39,12 +36,7 @@ void kmain(void) {
     gdt_install();
     idt_install();
     mmu_initialize();
-
-    char *ptr = kmalloc(14);
-    strcpy(ptr, "Hello, world!");
-    dprintf(LOG_INFO, "%s\n", ptr);
-
-    panic("Mrrrp");
+    acpi_install();
 
     arch_fatal();
 }
