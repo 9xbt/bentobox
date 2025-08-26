@@ -13,7 +13,7 @@ static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flag
     if (!alloc)
         return NULL;
 
-    uintptr_t *pml = (uintptr_t*)VIRTUAL_HHDM(mmu_alloc_frame());
+    uintptr_t *pml = (uintptr_t*)VIRTUAL_HHDM(mmu_alloc());
     memset(pml, 0, PAGE_SIZE);
     lvl[entry] = (uintptr_t)PHYSICAL_HHDM(pml) | flags;
     return pml;

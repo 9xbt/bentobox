@@ -85,7 +85,7 @@ void mmu_initialize(void) {
 
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
 
-    kernel_pd = VIRTUAL_HHDM(mmu_alloc_frame());
+    kernel_pd = VIRTUAL_HHDM(mmu_alloc());
     memset(kernel_pd, 0, PAGE_SIZE);
 
     for (i = 0; i < mmap->entry_count; i++) {
@@ -98,9 +98,9 @@ void mmu_initialize(void) {
 
         size_t j, end = entry->base + entry->length;
         #ifdef __x86_64__
-        uintptr_t flags = PTE_PRESENT | PTE_WRITABLE;
+        uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
         #elif __aarch64__
-        uintptr_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+        uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
         #endif
         for (j = entry->base; j < ALIGN_UP(entry->base, PAGE_SIZE_2M) && j < end; j += PAGE_SIZE)
             mmu_map(kernel_pd, VIRTUAL_HHDM(j), (void *)j, flags);
@@ -129,7 +129,7 @@ void mmu_initialize(void) {
     uint64_t rodata_flags = PTE_VALID | PTE_AF | PTE_PXN;
     uint64_t data_flags   = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
     #endif
-    
+
     for (void *text = text_start; text < text_end; text += PAGE_SIZE)
         mmu_map(kernel_pd, text, text - virt_base + phys_base, text_flags);
     for (void *rodata = rodata_start; rodata < rodata_end; rodata += PAGE_SIZE)
@@ -144,7 +144,7 @@ void mmu_initialize(void) {
 
 static uint64_t last_page = 0;
 
-void *mmu_alloc_frame(void) {
+void *mmu_alloc(void) {
     for (uint64_t page = last_page; page < mmu_page_count; page++) {
         if (!bitmap_get(mmu_bitmap, page)) {
             bitmap_set(mmu_bitmap, page);

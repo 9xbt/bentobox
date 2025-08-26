@@ -6,6 +6,9 @@
 #include <kernel/mmu.h>
 #include <limine.h>
 
+#include <kernel/malloc.h>
+#include <kernel/string.h>
+
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
 
@@ -88,6 +91,10 @@ void kmain(void) {
 
     vectors_install();
     mmu_initialize();
+
+    char *ptr = kmalloc(14);
+    strcpy(ptr, "Hello, world!");
+    dprintf(LOG_INFO, "%s\n", ptr);
 
     arch_fatal();
 }
