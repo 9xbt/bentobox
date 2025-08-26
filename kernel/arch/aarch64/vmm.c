@@ -64,4 +64,4 @@ void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
 void mmu_unmap_2mb(uintptr_t *pm, void *virt) {}
 void mmu_unmap(uintptr_t *pm, void *virt) {}
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt) {}
-uint64_t mmu_get_flags(uintptr_t *pm, void *virt) {}
+uint64_t mmu_get_flags(uintptr_t *pm, void *virt) { return PTE_VALID; }

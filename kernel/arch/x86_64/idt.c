@@ -7,6 +7,7 @@
 #include <kernel/printf.h>
 
 extern void arch_fatal(void);
+extern void arch_print_backtrace(void);
 
 __attribute__((aligned(0x10)))
 struct idt_entry idt_entries[256];
@@ -118,15 +119,7 @@ void isr_handler(struct registers *r) {
             r->error_code & 0x02 ? "write operation," : "read operation,",
             r->error_code & 0x04 ? "user mode" : "kernel mode");
     }
-
-    struct stackframe *frame_ptr = __builtin_frame_address(0);
-
-    dprintf(LOG_EMERG, "traceback:\n");
-
-    for (int i = 0; i < 8 && frame_ptr->rbp; i++) {
-        dprintf(LOG_EMERG, "#%d  0x%p in %s\n", i, frame_ptr->rip, "(none)");
-        frame_ptr = frame_ptr->rbp;
-    }
+    arch_print_backtrace();
 
     arch_fatal();
 }

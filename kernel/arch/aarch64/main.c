@@ -46,6 +46,8 @@ const char *esr_ec_reasons[0x40] = {
     [0x3F] = "Implementation-defined exception",
 };
 
+extern void arch_print_backtrace(void);
+
 void aarch64_fault_handler(struct registers *r) {
     uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
     
@@ -69,7 +71,8 @@ void aarch64_fault_handler(struct registers *r) {
     dprintf(LOG_EMERG, "FAR_EL1: 0x%p\n", far_el1);
     dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_el1);
     dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_el1);
-    
+    arch_print_backtrace();
+
     arch_fatal();
 }
 
