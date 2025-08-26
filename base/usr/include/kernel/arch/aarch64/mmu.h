@@ -15,11 +15,6 @@
 #define PTE_BLOCK   (1UL << 0)
 
 #define PTE_ATTR_IDX(x) ((x) << 2)
-#define MAIR_DEVICE_nGnRnE  0
-#define MAIR_DEVICE_nGnRE   1
-#define MAIR_NORMAL_NC      2
-#define MAIR_NORMAL_WT      3
-#define MAIR_IDX_NORMAL         4
 
 #define PTE_SH_NONE     (0UL << 8)
 #define PTE_SH_OUTER    (2UL << 8)

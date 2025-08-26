@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 ARCH := aarch64
-QEMUFLAGS := -m 2G -S -s
+QEMUFLAGS := -m 2G #-S -s
 IMAGE_NAME := bin/$(ARCH)/image.iso
 
 CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only

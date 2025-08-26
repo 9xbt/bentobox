@@ -126,7 +126,7 @@ void mmu_initialize(void) {
     uint64_t rodata_flags = PTE_VALID | PTE_AF | PTE_PXN;
     uint64_t data_flags   = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
     #endif
-
+    
     for (void *text = text_start; text < text_end; text += PAGE_SIZE)
         mmu_map(kernel_pd, text, text - virt_base + phys_base, text_flags);
     for (void *rodata = rodata_start; rodata < rodata_end; rodata += PAGE_SIZE)
@@ -134,22 +134,9 @@ void mmu_initialize(void) {
     for (void *data = data_start; data < data_end; data += PAGE_SIZE)
         mmu_map(kernel_pd, data, data - virt_base + phys_base, data_flags);
 
-    uintptr_t ttbr0, ttbr1;
-    asm volatile("mrs %0, ttbr0_el1" : "=r"(ttbr0));
-    asm volatile("mrs %0, ttbr1_el1" : "=r"(ttbr1));
-
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m ttbr0_el1: 0x%p\n", ttbr0);
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m ttbr1_el1: 0x%p\n", ttbr1);
-
     mmu_switch_pm(kernel_pd);
 
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m switched to new pagemap\n");
-
-    asm volatile("mrs %0, ttbr0_el1" : "=r"(ttbr0));
-    asm volatile("mrs %0, ttbr1_el1" : "=r"(ttbr1));
-
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m ttbr0_el1: 0x%p\n", ttbr0);
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m ttbr1_el1: 0x%p\n", ttbr1);
 }
 
 static uint64_t last_page = 0;

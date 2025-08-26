@@ -8,24 +8,17 @@
 #include <limine.h>
 
 static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
-    if (lvl[entry] & PTE_VALID)
+    if ((lvl[entry] & PTE_VALID) && (lvl[entry] & PTE_TABLE))
         return VIRTUAL_HHDM(PTE_GET_ADDR(lvl[entry]));
     if (!alloc)
         return NULL;
 
+    (void)flags;
+
     uintptr_t *pml = (uintptr_t*)VIRTUAL_HHDM(mmu_alloc_frame());
     memset(pml, 0, PAGE_SIZE);
-    lvl[entry] = (uintptr_t)PHYSICAL_HHDM(pml) | PTE_VALID | PTE_TABLE | flags;
+    lvl[entry] = (uintptr_t)PHYSICAL_HHDM(pml) | PTE_VALID | PTE_TABLE;
     return pml;
-}
-
-static bool pt_empty(uintptr_t *pt) {
-    for (int i = 0; i < 512; i++) {
-        if (pt[i] & PTE_VALID) {
-            return false;
-        }
-    }
-    return true;
 }
 
 static inline void tlb_invalidate(void *va) {
@@ -34,8 +27,9 @@ static inline void tlb_invalidate(void *va) {
 }
 
 void mmu_switch_pm(uintptr_t *pm) {
+    asm volatile("msr ttbr0_el1, %0" : : "r"(PHYSICAL_HHDM(pm)) : "memory");
     asm volatile("msr ttbr1_el1, %0" : : "r"(PHYSICAL_HHDM(pm)) : "memory");
-    asm volatile("dsb ish; isb");
+    asm volatile("dsb ish; tlbi vmalle1; dsb ish; isb" : : : "memory");
 }
 
 void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
@@ -48,7 +42,7 @@ void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t *l1 = pt_get_next_lvl(pm, l0_index, 0, true);
     uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, 0, true);
 
-    l2[l2_index] = ((uintptr_t)phys & ~0x1FFFFFUL) | flags;
+    l2[l2_index] = ((uintptr_t)phys & ~0x1FFFFFUL) | (flags & ~PTE_TABLE) | PTE_VALID;
 
     tlb_invalidate(virt);
 }
@@ -65,7 +59,7 @@ void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t *l2 = pt_get_next_lvl(l1, l1_index, 0, true);
     uintptr_t *l3 = pt_get_next_lvl(l2, l2_index, 0, true);
 
-    l3[l3_index] = ((uintptr_t)phys & ~0xFFFUL) | flags;
+    l3[l3_index] = ((uintptr_t)phys & ~0xFFFUL) | flags | PTE_VALID | PTE_TABLE;
     tlb_invalidate(virt);
 }
 
