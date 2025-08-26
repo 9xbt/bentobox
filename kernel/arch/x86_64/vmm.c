@@ -68,8 +68,8 @@ void mmu_unmap_2mb(uintptr_t *pm, void *virt) {
     uintptr_t pd_index = ((uintptr_t)virt >> 21) & 0x1ff;
 
     uintptr_t *pml4 = pm, *pdpt, *pd;
-    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
-    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
+    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, 0, false)) == NULL) return;
+    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, 0, false)) == NULL) return;
 
     pd[pd_index] = 0;
         
@@ -93,9 +93,9 @@ void mmu_unmap(uintptr_t *pm, void *virt) {
     uintptr_t pt_index   = ((uintptr_t)virt >> 12) & 0x1ff;
 
     uintptr_t *pml4 = pm, *pdpt, *pd, *pt;
-    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
-    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
-    if ((pt = pt_get_next_lvl(pd, pd_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
+    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, 0, false)) == NULL) return;
+    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, 0, false)) == NULL) return;
+    if ((pt = pt_get_next_lvl(pd, pd_index, 0, false)) == NULL) return;
 
     pt[pt_index] = 0;
 
@@ -124,9 +124,9 @@ uintptr_t mmu_get_physical(uintptr_t *pm, void *virt) {
     uintptr_t pt_index   = ((uintptr_t)virt >> 12) & 0x1ff;
 
     uintptr_t *pml4 = pm, *pdpt, *pd, *pt;
-    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
-    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
-    if ((pt = pt_get_next_lvl(pd, pd_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
+    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, 0, false)) == NULL) return 0;
+    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, 0, false)) == NULL) return 0;
+    if ((pt = pt_get_next_lvl(pd, pd_index, 0, false)) == NULL) return 0;
     if (!(pt[pt_index] & PTE_PRESENT)) return 0;
 
     return (uintptr_t)PTE_GET_ADDR(pt[pt_index]) | ((uintptr_t)virt & (PAGE_SIZE - 1));
@@ -139,10 +139,9 @@ uint64_t mmu_get_flags(uintptr_t *pm, void *virt) {
     uintptr_t pt_index   = ((uintptr_t)virt >> 12) & 0x1ff;
 
     uintptr_t *pml4 = pm, *pdpt, *pd, *pt;
-    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
-    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
-    if ((pt = pt_get_next_lvl(pd, pd_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return 0;
-    if (!(pt[pt_index] & PTE_PRESENT)) return 0;
+    if ((pdpt = pt_get_next_lvl(pml4, pml4_index, 0, false)) == NULL) return 0;
+    if ((pd = pt_get_next_lvl(pdpt, pdpt_index, 0, false)) == NULL) return 0;
+    if ((pt = pt_get_next_lvl(pd, pd_index, 0, false)) == NULL) return 0;
 
     return PTE_GET_FLAGS(pt[pt_index]);
 }
