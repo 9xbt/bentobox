@@ -1,28 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include <kernel/arch/x86_64/vmm.h>
+#include <kernel/arch/x86_64/mmu.h>
 #include <kernel/assert.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/mmu.h>
 #include <limine.h>
-
-extern char text_start_ld[];
-extern char text_end_ld[];
-extern char rodata_start_ld[];
-extern char rodata_end_ld[];
-extern char data_start_ld[];
-extern char data_end_ld[];
-
-extern volatile struct limine_memmap_request memmap_request;
-
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_executable_address_request kernel_address_request = {
-    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST,
-    .revision = 0
-};
-
-uintptr_t *kernel_pd;
 
 static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
     if (lvl[entry] & PTE_PRESENT)
@@ -43,6 +26,10 @@ static bool pt_empty(uintptr_t *pt) {
         }
     }
     return true;
+}
+
+void mmu_switch_pm(uintptr_t *pm) {
+    asm volatile("mov %0, %%cr3" ::"r"((uint64_t)PHYSICAL_HHDM(pm)) : "memory");
 }
 
 void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
@@ -158,50 +145,4 @@ uint64_t mmu_get_flags(uintptr_t *pm, void *virt) {
     if (!(pt[pt_index] & PTE_PRESENT)) return 0;
 
     return PTE_GET_FLAGS(pt[pt_index]);
-}
-
-void vmm_install(void) {
-    kernel_pd = VIRTUAL_HHDM(mmu_alloc_frame());
-    memset(kernel_pd, 0, PAGE_SIZE);
-
-    struct limine_memmap_response *mmap = memmap_request.response;
-    struct limine_memmap_entry *entry;
-
-    for (size_t i = 0; i < mmap->entry_count; i++) {
-        entry = mmap->entries[i];
-        if (entry->type != LIMINE_MEMMAP_USABLE &&
-            entry->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE &&
-            entry->type != LIMINE_MEMMAP_EXECUTABLE_AND_MODULES &&
-            entry->type != LIMINE_MEMMAP_FRAMEBUFFER)
-            continue;
-        
-        size_t j, end = entry->base + entry->length;
-        for (j = entry->base; j < ALIGN_UP(entry->base, PAGE_SIZE_2M) && j < end; j += PAGE_SIZE)
-            mmu_map(kernel_pd, VIRTUAL_HHDM(j), (void *)j, PTE_PRESENT | PTE_WRITABLE);
-        for (j = ALIGN_UP(entry->base, PAGE_SIZE_2M); j + PAGE_SIZE_2M <= ALIGN_DOWN(end, PAGE_SIZE_2M); j += PAGE_SIZE_2M)
-            mmu_map_2mb(kernel_pd, VIRTUAL_HHDM(j), (void *)j, PTE_PRESENT | PTE_WRITABLE);
-        for (j = ALIGN_DOWN(end, PAGE_SIZE_2M); j < end; j += PAGE_SIZE)
-            mmu_map(kernel_pd, VIRTUAL_HHDM(j), (void *)j, PTE_PRESENT | PTE_WRITABLE);
-    }
-
-    uintptr_t phys_base = kernel_address_request.response->physical_base;
-    uintptr_t virt_base = kernel_address_request.response->virtual_base;
-
-    void *text_start    = (void *)ALIGN_DOWN((uintptr_t)text_start_ld, PAGE_SIZE);
-    void *text_end      = (void *)ALIGN_UP((uintptr_t)text_end_ld, PAGE_SIZE);
-    void *rodata_start  = (void *)ALIGN_DOWN((uintptr_t)rodata_start_ld, PAGE_SIZE);
-    void *rodata_end    = (void *)ALIGN_UP((uintptr_t)rodata_end_ld, PAGE_SIZE);
-    void *data_start    = (void *)ALIGN_DOWN((uintptr_t)data_start_ld, PAGE_SIZE);
-    void *data_end      = (void *)ALIGN_UP((uintptr_t)data_end_ld, PAGE_SIZE);
-
-    for (void *text = text_start; text < text_end; text += PAGE_SIZE)
-        mmu_map(kernel_pd, text, text - virt_base + phys_base, PTE_PRESENT);
-    for (void *rodata = rodata_start; rodata < rodata_end; rodata += PAGE_SIZE)
-        mmu_map(kernel_pd, rodata, rodata - virt_base + phys_base, PTE_PRESENT | PTE_NX);
-    for (void *data = data_start; data < data_end; data += PAGE_SIZE)
-        mmu_map(kernel_pd, data, data - virt_base + phys_base, PTE_PRESENT | PTE_WRITABLE | PTE_NX);
-
-    asm volatile("mov %0, %%cr3" ::"r"((uint64_t)PHYSICAL_HHDM(kernel_pd)) : "memory");
-
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m switched to new pagemap\n");
 }
