@@ -17,6 +17,9 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
+extern void generic_startup(void);
+extern void generic_main(void);
+
 void arch_fatal(void) {
 	asm ("cli");
 	for (;;) asm ("hlt");
@@ -38,5 +41,6 @@ void kmain(void) {
     mmu_initialize();
     acpi_install();
 
-    arch_fatal();
+    generic_startup();
+    generic_main();
 }

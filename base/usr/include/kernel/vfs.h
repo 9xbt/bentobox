@@ -6,6 +6,17 @@
 
 #define MAX_PATH 256
 
+#define O_ACCMODE	00000003
+#define O_RDONLY	00000000
+#define O_WRONLY	00000001
+#define O_RDWR		00000002
+#define O_CREAT		00000100
+#define O_TRUNC		00001000
+#define O_APPEND	00002000
+#define O_NONBLOCK	00004000
+#define O_NOFOLLOW	00400000
+#define O_CLOEXEC	02000000
+
 typedef enum vfs_node_type {
     VFS_NONE,
     VFS_FILE,
@@ -31,7 +42,7 @@ struct vfs_node_ops {
 
 typedef struct vfs_node {
     char name[MAX_PATH];
-    bool open;
+    bool open, busy;
     enum vfs_node_type type;
     size_t size;
     size_t blocks;
@@ -49,12 +60,12 @@ typedef struct vfs_node {
 } vfs_node_t;
 
 void vfs_install(void);
-struct vfs_node *vfs_create_node(const char *name, enum vfs_node_type type);
-struct vfs_node *vfs_add_node(struct vfs_node *parent, struct vfs_node *node);
-long vfs_remove_node(struct vfs_node *node);
-struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow);
-struct vfs_node *vfs_lookup(struct vfs_node *cwd, const char *path, bool follow_symlinks);
-struct vfs_node *vfs_open(struct vfs_node *cwd, const char *path, long flags);
-long vfs_close(struct vfs_node *node);
-long vfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);
-long vfs_write(struct vfs_node *node, void *buffer, long offset, size_t len);
+vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
+vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
+long vfs_remove_node(vfs_node_t *node);
+vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow);
+vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type);
+vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
+long vfs_close(vfs_node_t *node);
+long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
+long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len);

@@ -19,6 +19,9 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
+extern void generic_startup(void);
+extern void generic_main(void);
+
 void arch_fatal(void) {
 	for (;;) asm ("wfi");
 }
@@ -96,11 +99,6 @@ void kmain(void) {
     vectors_install();
     mmu_initialize();
 
-    char *ptr = kmalloc(14);
-    strcpy(ptr, "Hello, world!");
-    dprintf(LOG_INFO, "%s\n", ptr);
-    
-    panic("Mrrrp");
-
-    arch_fatal();
+    generic_startup();
+    generic_main();
 }

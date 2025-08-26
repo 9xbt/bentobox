@@ -157,7 +157,10 @@ void *mmu_alloc(void) {
 }
 
 void mmu_free(void *ptr) {
-    bitmap_clear(mmu_bitmap, (uint64_t)ptr / PAGE_SIZE);
+    uint64_t page = (uint64_t)ptr / PAGE_SIZE;
+    bitmap_clear(mmu_bitmap, page);
     mmu_used_pages--;
-    last_page = (uint64_t)ptr / PAGE_SIZE;
+
+    if (page < last_page)
+        last_page = (uint64_t)ptr / PAGE_SIZE;
 }
