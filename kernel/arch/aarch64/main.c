@@ -8,6 +8,7 @@
 
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
@@ -46,7 +47,7 @@ const char *esr_ec_reasons[0x40] = {
     [0x3F] = "Implementation-defined exception",
 };
 
-extern void arch_print_backtrace(void);
+extern void arch_do_backtrace(void);
 
 void aarch64_fault_handler(struct registers *r) {
     uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
@@ -71,7 +72,7 @@ void aarch64_fault_handler(struct registers *r) {
     dprintf(LOG_EMERG, "FAR_EL1: 0x%p\n", far_el1);
     dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_el1);
     dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_el1);
-    arch_print_backtrace();
+    arch_do_backtrace();
 
     arch_fatal();
 }
@@ -98,6 +99,8 @@ void kmain(void) {
     char *ptr = kmalloc(14);
     strcpy(ptr, "Hello, world!");
     dprintf(LOG_INFO, "%s\n", ptr);
+    
+    panic("Mrrrp");
 
     arch_fatal();
 }

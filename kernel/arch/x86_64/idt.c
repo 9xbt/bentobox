@@ -7,7 +7,7 @@
 #include <kernel/printf.h>
 
 extern void arch_fatal(void);
-extern void arch_print_backtrace(void);
+extern void arch_do_backtrace(void);
 
 __attribute__((aligned(0x10)))
 struct idt_entry idt_entries[256];
@@ -119,7 +119,7 @@ void isr_handler(struct registers *r) {
             r->error_code & 0x02 ? "write operation," : "read operation,",
             r->error_code & 0x04 ? "user mode" : "kernel mode");
     }
-    arch_print_backtrace();
+    arch_do_backtrace();
 
     arch_fatal();
 }

@@ -3,7 +3,7 @@
 #include <kernel/printf.h>
 #include <kernel/mmu.h>
 
-void arch_print_backtrace(void) {
+void arch_do_backtrace(void) {
     struct stackframe {
         struct stackframe *fp;
         uint64_t lr;
