@@ -46,27 +46,31 @@ void mmu_initialize(void) {
     uintptr_t highest_address = 0;
 
     struct limine_memmap_response *mmap = memmap_request.response;
-    struct limine_memmap_entry *entry, *first_entry = NULL;
+    struct limine_memmap_entry *entry, *bitmap_entry = NULL;
 
     size_t i;
     for (i = 0; i < mmap->entry_count; i++) {
         entry = mmap->entries[i];
-        if (entry->type != LIMINE_MEMMAP_USABLE)
-            continue;
 
-        if (!first_entry)
-            first_entry = entry;
-
-        if (entry->base + entry->length > highest_address)
+        if (entry->type == LIMINE_MEMMAP_USABLE &&
+            entry->base + entry->length > highest_address)
             highest_address = entry->base + entry->length;
     }
 
     mmu_page_count = highest_address / PAGE_SIZE;
-    mmu_bitmap = VIRTUAL_HHDM(first_entry->base);
-
     size_t bitmap_size = ALIGN_UP(mmu_page_count / 8, PAGE_SIZE);
-    first_entry->base += bitmap_size;
-    first_entry->length -= bitmap_size;
+
+    for (i = 0; i < mmap->entry_count; i++) {
+        entry = mmap->entries[i];
+        
+        if (entry->type == LIMINE_MEMMAP_USABLE &&
+            entry->length >= bitmap_size)
+            bitmap_entry = entry;
+    }
+
+    mmu_bitmap = VIRTUAL_HHDM(bitmap_entry->base);
+    bitmap_entry->base += bitmap_size;
+    bitmap_entry->length -= bitmap_size;
 
     memset(mmu_bitmap, 0xFF, bitmap_size);
 
@@ -80,8 +84,8 @@ void mmu_initialize(void) {
         mmu_usable_mem += entry->length;
     }
 
-    first_entry->base -= bitmap_size;
-    first_entry->length += bitmap_size;
+    bitmap_entry->base -= bitmap_size;
+    bitmap_entry->length += bitmap_size;
 
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
 

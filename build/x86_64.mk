@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 ARCH := x86_64
-QEMUFLAGS := -m 2G
+QEMUFLAGS := -m 2G -smp 4
 IMAGE_NAME := bin/$(ARCH)/image
 
 CFLAGS += -m64 -march=x86-64 -mabi=sysv -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel

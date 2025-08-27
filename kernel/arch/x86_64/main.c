@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/smp.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/printf.h>
@@ -40,6 +41,7 @@ void kmain(void) {
     idt_install();
     mmu_initialize();
     acpi_install();
+    smp_initialize();
 
     generic_startup();
     generic_main();

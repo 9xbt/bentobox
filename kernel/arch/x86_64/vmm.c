@@ -8,7 +8,7 @@
 #include <limine.h>
 
 static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
-    if (lvl[entry] & PTE_PRESENT)
+    if (lvl && lvl[entry] & PTE_PRESENT)
         return VIRTUAL_HHDM(PTE_GET_ADDR(lvl[entry]));
     if (!alloc)
         return NULL;
