@@ -1,3 +1,4 @@
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
@@ -25,6 +26,7 @@ void ap_startup() {
     idt_reinstall();
     mmu_switch_pm(kernel_pd);
     gdt_flush();
+    lapic_reinstall();
     
     for (;;) asm ("hlt");
 }

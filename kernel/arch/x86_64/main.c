@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <kernel/arch/x86_64/ioapic.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
@@ -58,6 +60,8 @@ void kmain(void) {
     mmu_initialize();
     acpi_install();
     hpet_install();
+    lapic_install();
+    ioapic_install();
     smp_initialize();
 
     generic_startup();
