@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
@@ -41,6 +42,7 @@ void kmain(void) {
     idt_install();
     mmu_initialize();
     acpi_install();
+    hpet_install();
     smp_initialize();
 
     generic_startup();

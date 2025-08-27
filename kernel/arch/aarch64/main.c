@@ -25,6 +25,11 @@ void arch_fatal(void) {
 	for (;;) asm ("wfi");
 }
 
+void uptime(long *sec, long *nsec) {
+    if (sec) *sec = 0;
+    if (nsec) *nsec = 0;
+}
+
 void kmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         arch_fatal();

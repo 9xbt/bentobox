@@ -4,8 +4,9 @@
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/time.h>
 
-int loglevel = LOG_DEBUG;
+int loglevel = LOG_INFO;
 spinlock_t flanterm_lock = 0;
 
 void putchar(char c) {
@@ -158,7 +159,7 @@ int dprintf(int level, const char *fmt, ...) {
     char buf[1024] = {0};
 
     long secs = 0, nanos = 0;
-    //uptime(&secs, &nanos);
+    uptime(&secs, &nanos);
 
     int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
 
