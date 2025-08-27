@@ -10,6 +10,8 @@
 #include <kernel/mmu.h>
 #include <limine.h>
 
+#include <kernel/time.h>
+
 __attribute__((used, section(".limine_requests")))
 static volatile LIMINE_BASE_REVISION(3);
 
@@ -40,10 +42,7 @@ void arch_do_backtrace(void) {
     }
 }
 
-void uptime(long *sec, long *nsec) {
-    if (sec) *sec = 0;
-    if (nsec) *nsec = 0;
-}
+uint64_t boot_time = 0;
 
 void kmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
@@ -56,6 +55,7 @@ void kmain(void) {
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
+    asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
     vectors_install();
     mmu_initialize();
     acpi_install();
