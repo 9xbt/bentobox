@@ -34,7 +34,6 @@ SECTIONS
     /* Move to the next memory page for .text */
     . = ALIGN(CONSTANT(MAXPAGESIZE));
 
-    text_start_ld = .;
     .text : {
         *(.text .text.*)
     } :text

@@ -1,17 +1,23 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <kernel/lfbvideo.h>
+#include <kernel/spinlock.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 
 int loglevel = LOG_DEBUG;
+spinlock_t flanterm_lock = 0;
 
 void putchar(char c) {
+    acquire(&flanterm_lock);
     flanterm_write(ft_ctx, &c, 1);
+    release(&flanterm_lock);
 }
 
 void puts(char *s) {
+    acquire(&flanterm_lock);
 	flanterm_write(ft_ctx, s, strlen(s));
+    release(&flanterm_lock);
 }
 
 int hex_length(uint64_t val) {

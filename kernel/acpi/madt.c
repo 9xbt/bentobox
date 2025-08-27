@@ -1,3 +1,4 @@
+#include "kernel/smp.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/printf.h>
@@ -13,6 +14,9 @@ size_t madt_lapics = 0;
 size_t madt_ioapics = 0;
 size_t madt_isos = 0;
 
+struct madt_gicc *madt_gicc_list[SMP_MAX_CORES];
+size_t madt_giccs = 0;
+
 void madt_init(void) {
     if (!(madt = (struct acpi_madt *)acpi_find_table("APIC")))
         panic("couldn't find MADT");
@@ -23,22 +27,29 @@ void madt_init(void) {
 
         switch (entry->type) {
             case 0:
-                if (!(((struct madt_lapic*)entry)->flags & 1)) break;
-                madt_lapic_list[madt_lapics++] = (struct madt_lapic*)entry;
+                if (!(((struct madt_lapic *)entry)->flags & 1)) break;
+                madt_lapic_list[madt_lapics++] = (struct madt_lapic *)entry;
                 break;
             case 1:
-                madt_ioapic_list[madt_ioapics++] = (struct madt_ioapic*)entry;
+                madt_ioapic_list[madt_ioapics++] = (struct madt_ioapic *)entry;
                 break;
             case 2:
-                madt_iso_list[madt_isos++] = (struct madt_iso*)entry;
+                madt_iso_list[madt_isos++] = (struct madt_iso *)entry;
                 break;
             case 5:
-                lapic_addr = (struct madt_lapic_addr*)entry;
+                lapic_addr = (struct madt_lapic_addr *)entry;
+                break;
+            case 11:
+                madt_gicc_list[madt_giccs++] = (struct madt_gicc *)entry;
                 break;
         }
 
         i += entry->length;
     }
 
+    #ifdef __x86_64__
     dprintf(LOG_INFO, "\033[93macpi:\033[0m found %d Local APIC(s) and %d I/O APIC(s)\n", madt_lapics, madt_ioapics);
+    #elif __aarch64__
+    dprintf(LOG_INFO, "\033[93macpi:\033[0m found %d GICC(s)\n", madt_giccs);
+    #endif
 }
