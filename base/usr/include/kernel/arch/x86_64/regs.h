@@ -25,3 +25,13 @@ struct registers {
     uint64_t rsp;
     uint64_t ss;
 } __attribute__((packed));
+
+struct context {
+    uint64_t stack;
+    uint64_t user_stack;
+    uint64_t gs;
+    uint64_t fs;
+    uint64_t user_gs;
+    struct registers regs;
+    char fxsave[512];
+};

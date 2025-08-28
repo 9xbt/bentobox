@@ -124,10 +124,10 @@ void isr_handler(struct registers *r) {
     arch_fatal();
 }
 
-void irq_handler(struct registers r) {
+void irq_handler(struct registers *r) {
     void(*handler)(struct registers *);
-    handler = irq_handlers[r.int_no - 32];
+    handler = irq_handlers[r->int_no - 32];
 
     if (handler != NULL)
-        handler(&r);
+        handler(r);
 }

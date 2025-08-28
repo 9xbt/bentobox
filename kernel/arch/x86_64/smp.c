@@ -6,6 +6,7 @@
 #include <kernel/printf.h>
 #include <kernel/acpi.h>
 #include <kernel/args.h>
+#include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -22,6 +23,8 @@ struct cpu bsp = {
 };
 struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
+size_t cpu_count = 1;
+
 void ap_startup() {
     idt_reinstall();
     mmu_switch_pm(kernel_pd);
@@ -36,26 +39,27 @@ void smp_initialize(void) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;
     }
-    if (madt_lapics < 2)
-        return;
+    cpu_count = madt_lapics;
 
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     bspid >>= 24;
 
-    for (size_t i = 0; i < madt_lapics; i++) {
-        if (madt_lapic_list[i]->id == bspid)
-            continue;
-
+    for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
         core->id = i;
         core->logical_id = madt_lapic_list[i]->id;
+        core->processes = list_create();
+        core->threads = list_create();
+        core->current_tcb = NULL;
         cpu_list[i] = core;
 
-        smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
+        if (madt_lapic_list[i]->id != bspid)
+            smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
     }
 
-    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", madt_lapics - 1);
+    if (cpu_count > 1)
+        dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
 }
 
 struct cpu *get_core(size_t core) {
