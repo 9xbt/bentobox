@@ -48,53 +48,14 @@ void arch_do_backtrace(void) {
     }
 }
 
-void schedule(struct registers *r) {
-    lapic_stop_timer();
-
-    if (this_cpu->current_tcb) {
-        if (this->state != THREAD_NEW) {
-            memcpy(&(this->ctx.regs), r, sizeof(struct registers));
-            asm volatile ("fxsave %0 " : : "m"(this->ctx.fxsave));
-        } else {
-            this->state = THREAD_RUNNING;
-        }
-    } else {
-        this_cpu->current_tcb = this_cpu->threads->head;
-    }
-
-    if (this_cpu->current_tcb->next)
-        this_cpu->current_tcb = this_cpu->current_tcb->next;
-    else
-        this_cpu->current_tcb = this_cpu->threads->head;
-
-    memcpy(r, &(this->ctx.regs), sizeof(struct registers));
-    asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
-
-    lapic_eoi();
-    lapic_oneshot(0x80, 5);
-}
-
 void idle(void) {
     for (;;) {
+        dprintf(LOG_INFO, "a");
         asm ("hlt");
     }
 }
 
-void jumpstart(void) {
-    irq_register(0x80 - 32, schedule);
-
-    for (size_t i = 0; i < cpu_count; i++) {
-        struct cpu *core = get_core(i);
-        if (core == this_cpu)
-            continue;
-        sched_add_process(core, sched_new_process(idle, "idle"));
-        lapic_ipi(core->logical_id, 0x80);
-    }
-    sched_add_process(this_cpu, sched_new_process(idle, "idle"));
-    lapic_ipi(this_cpu->logical_id, 0x80);
-}
-
-void create_context(struct context *ctx, void *entry) {
+void arch_context_init(struct context *ctx, void *entry) {
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
@@ -107,8 +68,18 @@ void create_context(struct context *ctx, void *entry) {
     ctx->regs.rflags = 0x202;
 }
 
-void destroy_context(struct context *ctx) {
+void arch_context_free(struct context *ctx) {
     mmu_free(PHYSICAL_HHDM(ctx->stack));
+}
+
+void arch_save_context(void) {
+    asm volatile ("fxsave %0 " : : "m"(this->ctx.fxsave));
+}
+
+void arch_restore_context(void) {
+    asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
+    lapic_eoi();
+    lapic_oneshot(0x80, 5);
 }
 
 void kmain(void) {
@@ -133,4 +104,16 @@ void kmain(void) {
 
     generic_startup();
     generic_main();
+
+    irq_register(0x80 - 32, sched_schedule);
+
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        if (core == this_cpu)
+            continue;
+        sched_add_process(core, sched_new_process(idle, "idle"));
+        lapic_ipi(core->logical_id, 0x80);
+    }
+    sched_add_process(this_cpu, sched_new_process(idle, "idle"));
+    lapic_ipi(this_cpu->logical_id, 0x80);
 }

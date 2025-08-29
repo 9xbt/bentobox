@@ -32,7 +32,8 @@ struct process {
 
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
 
-void sched_install(void);
 node_t *sched_add_process(struct cpu *cpu, struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
 struct process *sched_new_process(void *entry, const char *name);
+void sched_schedule(struct registers *r);
+void sched_install(void);

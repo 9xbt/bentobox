@@ -9,5 +9,4 @@ void generic_startup(void) {
 
 void generic_main(void) {
     sched_install();
-    arch_fatal();
 }

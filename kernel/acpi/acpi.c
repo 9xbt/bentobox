@@ -56,12 +56,19 @@ void acpi_install(void) {
     if (!rsdp)
         panic("couldn't find ACPI");
 
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF;
+    #endif
+    mmu_map(kernel_pd, rsdp, PHYSICAL_HHDM(rsdp), flags);
     if (rsdp->revision != 0) {
         acpi_use_xsdt = true;
         acpi_rsdt = VIRTUAL_HHDM(((struct acpi_xsdp *)rsdp)->xsdt_addr);
     } else {
         acpi_rsdt = VIRTUAL_HHDM(rsdp->rsdt_addr);
     }
+    mmu_map(kernel_pd, acpi_rsdt, PHYSICAL_HHDM(acpi_rsdt), flags);
     
     dprintf(LOG_INFO, "\033[93macpi:\033[0m using %s\n", acpi_use_xsdt ? "XSDT (version 2.0)" : "RSDT (version 1.0)");
 

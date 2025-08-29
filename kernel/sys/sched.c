@@ -6,15 +6,23 @@
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 
-extern void create_context(struct context *ctx, void *entry);
-extern void destroy_context(struct context *ctx);
-extern void jumpstart(void);
+extern void arch_context_init(struct context *ctx, void *entry);
+extern void arch_context_free(struct context *ctx);
+extern void arch_save_context(void);
+extern void arch_restore_context(void);
+
+node_t *sched_add_process(struct cpu *cpu, struct process *proc) {
+    foreach(thread, proc->threads) {
+        list_insert(cpu->threads, thread->value);
+    }
+    return list_insert(cpu->processes, proc);
+}
 
 struct thread *sched_new_thread(struct process *parent, void *entry) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = 0;
     tcb->state = THREAD_NEW;
-    create_context(&tcb->ctx, entry);
+    arch_context_init(&tcb->ctx, entry);
     tcb->parent = parent;
     
     return tcb;
@@ -36,15 +44,27 @@ struct process *sched_new_process(void *entry, const char *name) {
     return proc;
 }
 
-node_t *sched_add_process(struct cpu *cpu, struct process *proc) {
-    foreach(thread, proc->threads) {
-        list_insert(cpu->threads, thread->value);
+void sched_schedule(struct registers *r) {
+    if (this_cpu->current_tcb) {
+        if (this->state != THREAD_NEW) {
+            memcpy(&(this->ctx.regs), r, sizeof(struct registers));
+            arch_save_context();
+        } else {
+            this->state = THREAD_RUNNING;
+        }
+    } else {
+        this_cpu->current_tcb = this_cpu->threads->head;
     }
-    return list_insert(cpu->processes, proc);
+
+    if (this_cpu->current_tcb->next)
+        this_cpu->current_tcb = this_cpu->current_tcb->next;
+    else
+        this_cpu->current_tcb = this_cpu->threads->head;
+
+    memcpy(r, &(this->ctx.regs), sizeof(struct registers));
+    arch_restore_context();
 }
 
 void sched_install(void) {
     dprintf(LOG_INFO, "\033[93msched:\033[0m initialized process lists\n");
-
-    jumpstart();
 }
