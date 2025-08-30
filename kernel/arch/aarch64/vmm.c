@@ -55,7 +55,7 @@ void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
 }
 
 void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
-    assert(((uintptr_t)virt & (PAGE_SIZE - 1)) == 0);
+    virt = (void *)((uintptr_t)virt & ~(PAGE_SIZE - 1));
 
     uintptr_t l0_index = ((uintptr_t)virt >> 39) & 0x1FF;
     uintptr_t l1_index = ((uintptr_t)virt >> 30) & 0x1FF;

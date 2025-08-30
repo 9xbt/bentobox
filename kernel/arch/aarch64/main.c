@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <kernel/arch/aarch64/vectors.h>
 #include <kernel/arch/aarch64/regs.h>
+#include <kernel/arch/aarch64/gic.h>
 #include <kernel/arch/aarch64/mmu.h>
 #include <kernel/arch/aarch64/smp.h>
 #include <kernel/lfbvideo.h>
@@ -59,6 +60,7 @@ void kmain(void) {
     vectors_install();
     mmu_initialize();
     acpi_install();
+    gic_install();
     smp_initialize();
 
     generic_startup();

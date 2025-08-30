@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/smp.h>
 
 struct acpi_rsdp {
     char signature[8];
@@ -110,12 +109,6 @@ struct madt_iso {
     uint16_t flags;
 } __attribute__((packed));
 
-struct madt_lapic_addr {
-    struct madt_entry entry;
-    uint16_t reserved;
-    uint64_t lapic_address;
-} __attribute__((packed));
-
 struct madt_gicc {
     struct madt_entry entry;
     uint16_t reserved;
@@ -125,7 +118,7 @@ struct madt_gicc {
     uint32_t parking_protocol_ver;
     uint32_t performance_gsiv;
     uint64_t parked_address;
-    uint64_t phys_base_address;
+    uint64_t phys_base;
     uint64_t gigv;
     uint64_t gigh;
     uint32_t vgiv_maintenance_int;
@@ -137,17 +130,28 @@ struct madt_gicc {
     uint16_t trbe_int;
 } __attribute__((packed));
 
+struct madt_gicd {
+    struct madt_entry entry;
+    uint16_t reserved;
+    uint32_t gic_id;
+    uint64_t phys_base;
+    uint32_t reserved_2;
+    uint8_t  version;
+    char     reserved_3[3];
+} __attribute__((packed));
+
 extern struct acpi_madt   *madt;
-extern struct madt_lapic  *madt_lapic_list[SMP_MAX_CORES];
-extern struct madt_ioapic *madt_ioapic_list[SMP_MAX_CORES];
-extern struct madt_iso    *madt_iso_list[SMP_MAX_CORES];
-extern struct madt_lapic_addr *lapic_addr;
+extern struct madt_lapic  **madt_lapic_list;
+extern struct madt_ioapic **madt_ioapic_list;
+extern struct madt_iso    **madt_iso_list;
 extern size_t madt_lapics;
 extern size_t madt_ioapics;
 extern size_t madt_isos;
 
-extern struct madt_gicc *madt_gicc_list[SMP_MAX_CORES];
+extern struct madt_gicc **madt_gicc_list;
+extern struct madt_gicd **madt_gicd_list;
 extern size_t madt_giccs;
+extern size_t madt_gicds;
 
 void  acpi_install(void);
 void  acpi_reboot(void);

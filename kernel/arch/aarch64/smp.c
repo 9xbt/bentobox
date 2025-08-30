@@ -1,4 +1,5 @@
 #include <kernel/arch/aarch64/vectors.h>
+#include <kernel/arch/aarch64/gic.h>
 #include <kernel/arch/aarch64/smp.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
@@ -25,6 +26,7 @@ extern void _ap_trampoline();
 void ap_startup(void) {
     vectors_install();
     mmu_switch_pm(kernel_pd);
+    gicc_install();
 
     for (;;) asm ("wfi");
 }

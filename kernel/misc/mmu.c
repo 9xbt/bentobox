@@ -97,7 +97,8 @@ void mmu_initialize(void) {
         if (entry->type != LIMINE_MEMMAP_USABLE &&
             entry->type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE &&
             entry->type != LIMINE_MEMMAP_EXECUTABLE_AND_MODULES &&
-            entry->type != LIMINE_MEMMAP_FRAMEBUFFER)
+            entry->type != LIMINE_MEMMAP_FRAMEBUFFER &&
+            entry->type != LIMINE_MEMMAP_ACPI_RECLAIMABLE)
             continue;
 
         size_t j, end = entry->base + entry->length;
