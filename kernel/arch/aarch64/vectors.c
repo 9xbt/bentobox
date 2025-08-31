@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <kernel/arch/aarch64/regs.h>
+#include <kernel/arch/aarch64/gic.h>
 #include <kernel/printf.h>
 #include <kernel/smp.h>
 
@@ -56,6 +57,15 @@ void aarch64_fault_handler(struct registers *r) {
     arch_do_backtrace();
 
     arch_fatal();
+}
+
+void aarch64_irq_handler(struct registers *r) {
+    (void)r;
+
+    uint32_t irq = gicc_read(this_cpu->gicc, GICC_IAR) & 0x3FF;
+    if (irq == 1) {
+        for (;;) asm ("wfi");
+    }
 }
 
 void vectors_install(void) {

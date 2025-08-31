@@ -9,6 +9,7 @@
 #include <kernel/printf.h>
 #include <kernel/acpi.h>
 #include <kernel/mmu.h>
+#include <kernel/smp.h>
 #include <limine.h>
 
 #include <kernel/time.h>
@@ -26,6 +27,7 @@ extern void generic_startup(void);
 extern void generic_main(void);
 
 void arch_fatal(void) {
+    gic_send_sgi(1, 0xff & ~(1 << this_cpu->logical_id));
 	for (;;) asm ("wfi");
 }
 
@@ -60,8 +62,9 @@ void kmain(void) {
     vectors_install();
     mmu_initialize();
     acpi_install();
-    gic_install();
     smp_initialize();
+    gic_install();
+    smp_bootstrap();
 
     generic_startup();
     generic_main();

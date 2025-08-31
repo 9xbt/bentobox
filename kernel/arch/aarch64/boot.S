@@ -4,7 +4,9 @@ _start:
     msr spsel, #1
     mov sp, x20
     bl kmain
-    b .
+_wfi_loop:
+    wfi
+    b _wfi_loop
 
 .globl _ap_trampoline
 _ap_trampoline:

@@ -60,7 +60,7 @@ _irq_stub:
     mov x29, sp
 
     mov x0, sp
-    bl aarch64_fault_handler
+    bl aarch64_irq_handler
 
     ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16

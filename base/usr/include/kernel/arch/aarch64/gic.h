@@ -1,4 +1,6 @@
 #pragma once
+#include <stdint.h>
+#include <kernel/acpi.h>
 
 #define GICD_CTLR       0x000
 #define GICD_ISENABLER0 0x100
@@ -10,5 +12,9 @@
 #define GICC_IAR        0x0C
 #define GICC_EOIR       0x10
 
-void gicc_install(void);
 void gic_install(void);
+void gic_send_sgi(uint8_t sgiid, uint8_t mask);
+void gicd_write(struct madt_gicd *gicd, uint32_t offset, uint32_t value);
+void gicc_write(struct madt_gicc *gicc, uint32_t offset, uint32_t value);
+uint32_t gicd_read(struct madt_gicd *gicd, uint32_t offset);
+uint32_t gicc_read(struct madt_gicc *gicc, uint32_t offset);
