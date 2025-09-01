@@ -1,4 +1,4 @@
-.extern aarch64_fault_handler
+.extern fault_handler
 _fault_stub:
     stp x0, x1, [sp, #-16]!
     stp x2, x3, [sp, #-16]!
@@ -19,7 +19,7 @@ _fault_stub:
     mov x29, sp
 
     mov x0, sp
-    bl aarch64_fault_handler
+    bl fault_handler
 
     ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16
@@ -40,6 +40,7 @@ _fault_stub:
 
     eret
 
+.extern irq_handler
 _irq_stub:
     stp x0, x1, [sp, #-16]!
     stp x2, x3, [sp, #-16]!
@@ -57,10 +58,12 @@ _irq_stub:
     stp x26, x27, [sp, #-16]!
     stp x28, x29, [sp, #-16]!
     stp x30, xzr, [sp, #-16]!
+    mrs x0, SP_EL0
+    stp x30, x0, [sp, #-16]!
     mov x29, sp
 
     mov x0, sp
-    bl aarch64_irq_handler
+    bl irq_handler
 
     ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16

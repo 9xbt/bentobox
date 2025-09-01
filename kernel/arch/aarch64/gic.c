@@ -56,4 +56,6 @@ void gic_install(void) {
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized CPU interfaces\n");
     
     asm volatile ("msr daifclr, #2");
+
+    gicd_write(gicd, GICD_ISENABLER0, 1 << 29);
 }

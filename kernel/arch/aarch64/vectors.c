@@ -2,6 +2,7 @@
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/printf.h>
+#include <kernel/sched.h>
 #include <kernel/smp.h>
 
 const char *esr_ec_reasons[0x40] = {
@@ -31,7 +32,7 @@ const char *esr_ec_reasons[0x40] = {
 extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
 
-void aarch64_fault_handler(struct registers *r) {
+void fault_handler(struct registers *r) {
     uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
     
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
@@ -59,13 +60,20 @@ void aarch64_fault_handler(struct registers *r) {
     arch_fatal();
 }
 
-void aarch64_irq_handler(struct registers *r) {
+void irq_handler(struct registers *r) {
     (void)r;
 
     uint32_t irq = gicc_read(this_cpu->gicc, GICC_IAR) & 0x3FF;
+    dprintf(LOG_INFO, "irq %u!\n", irq);
     if (irq == 1) {
+        asm ("msr daifset, #2");
         for (;;) asm ("wfi");
     }
+    if (irq == 0 || irq == 30) {
+        sched_schedule(r);
+    }
+
+    gicc_write(this_cpu->gicc, GICC_EOIR, irq);
 }
 
 void vectors_install(void) {

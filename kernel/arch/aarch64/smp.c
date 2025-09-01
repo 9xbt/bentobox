@@ -56,6 +56,9 @@ void smp_initialize(void) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
         core->id = i;
         core->logical_id = madt_gicc_list[i]->mpidr & 0xff;
+        core->processes = list_create();
+        core->threads = list_create();
+        core->current_tcb = NULL;
         cpu_list[core->logical_id] = core;
     }
 

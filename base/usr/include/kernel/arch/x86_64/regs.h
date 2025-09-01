@@ -19,7 +19,7 @@ struct registers {
     uint64_t rax;
     uint64_t int_no;
     uint64_t error_code;
-    uint64_t rip;
+    uint64_t rip; 
     uint64_t cs;
     uint64_t rflags;
     uint64_t rsp;

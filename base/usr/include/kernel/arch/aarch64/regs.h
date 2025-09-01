@@ -2,9 +2,7 @@
 #include <stdint.h>
 
 struct registers {
-    uint64_t x30;
-    uint64_t zero;
-    
+    uint64_t x30, sp;
     uint64_t x28, x29;
     uint64_t x26, x27;
     uint64_t x24, x25;
@@ -21,3 +19,9 @@ struct registers {
     uint64_t x2, x3;
     uint64_t x0, x1;
 } __attribute__((packed));
+
+struct context {
+    struct registers regs;
+    uint64_t elr_elx;
+    uint64_t spsr_elx;
+};

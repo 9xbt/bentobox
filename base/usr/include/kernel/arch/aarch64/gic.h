@@ -6,6 +6,7 @@
 #define GICD_ISENABLER0 0x100
 #define GICD_IPRIORITYR 0x400
 #define GICD_SGIR       0xF00
+#define GICD_ITARGETSR(n) (0x800 + (n) * 4)
 
 #define GICC_CTLR       0x00
 #define GICC_PMR        0x04
