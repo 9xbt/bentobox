@@ -164,6 +164,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] VFS mounting
 - [X] Fix fork() process adding
 - [ ] MSI/MSI-X
+- [ ] Fix gcc builds crashing
 
 ## Screenshots
 ![image](https://github.com/user-attachments/assets/847c395a-446b-4aea-8dad-370437ebe4fc)

@@ -4,7 +4,7 @@ QEMUDISPLAY ?= gtk
 
 ifeq ($(ARCH),x86_64)
     AS := nasm
-    CC := x86_64-elf-gcc
+    CC := clang
     LD := ld
     ARCH_DIR := kernel/arch/x86_64
     ASFLAGS := -f elf64 -g -F dwarf

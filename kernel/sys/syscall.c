@@ -162,7 +162,7 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd_num, off_t 
     if (length == 0)
         return -EINVAL;
 
-    if (flags & MAP_ANONYMOUS) {
+    if (fd_num == -1) {
         if (offset != 0 || fd_num != -1) return -EINVAL;
 
         uint64_t vma_flags = 0;
