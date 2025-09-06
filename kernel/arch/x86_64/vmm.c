@@ -30,7 +30,6 @@ void vmm_flush_tlb(uintptr_t virt) {
     __asm__ volatile ("invlpg (%0)" ::"r"(virt) : "memory");
 }
 
-__attribute__((no_sanitize("undefined")))
 void vmm_switch_pm(uintptr_t *pm) {
     assert(pm != NULL);
 
@@ -44,16 +43,24 @@ void vmm_switch_pm(uintptr_t *pm) {
 }
 
 uintptr_t *vmm_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
-    if (lvl[entry] & PTE_PRESENT) return VIRTUAL_IDENT(PTE_GET_ADDR(lvl[entry]));
-    if (!alloc) {
-        //dprintf(LOG_INFO, "%s:%d: \033[33mwarning:\033[0m couldn't get next pml\n", __FILE__, __LINE__);
+    if (lvl && lvl[entry] & PTE_PRESENT)
+        return VIRTUAL_IDENT(PTE_GET_ADDR(lvl[entry]));
+    if (!alloc)
         return NULL;
-    }
 
     uintptr_t *pml = VIRTUAL_IDENT(mmu_alloc(1));
     memset(pml, 0, PAGE_SIZE);
     lvl[entry] = (uintptr_t)PHYSICAL_IDENT(pml) | flags;
     return pml;
+}
+
+static bool vmm_pt_empty(uintptr_t *pt) {
+    for (int i = 0; i < 512; i++) {
+        if (pt[i] & PTE_PRESENT) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void mmu_map_2mb(uintptr_t virt, uintptr_t phys, uint64_t flags) {
@@ -64,7 +71,7 @@ void mmu_map_2mb(uintptr_t virt, uintptr_t phys, uint64_t flags) {
     uintptr_t *pdpt = vmm_get_next_lvl(this_core()->pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
     uintptr_t *pd = vmm_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
  
-    pd[pd_index] = phys | flags | (1 << 7);
+    pd[pd_index] = phys | flags | PTE_HUGE;
 }
 
 void mmu_unmap_2mb(uintptr_t virt) {
@@ -76,46 +83,22 @@ void mmu_unmap_2mb(uintptr_t virt) {
     if ((pdpt = vmm_get_next_lvl(pml4, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
     if ((pd = vmm_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, false)) == NULL) return;
 
-    /* check if the page directory entry is present */
-    if (pd[pd_index] & PTE_PRESENT) {
-        /* clear the page directory entry */
-        pd[pd_index] = 0;
+    pd[pd_index] = 0;
 
-        /* check if the page directory is empty */
-        bool pd_empty = true;
-        for (int i = 0; i < 512; i++) {
-            if (pd[i] & PTE_PRESENT) {
-                pd_empty = false;
-                break;
-            }
-        }
-
-        /* free it if it's empty */
-        if (pd_empty) {
-            mmu_free(pd, 1);
-            pdpt[pdpt_index] = 0;
-        }
+    if (vmm_pt_empty(pd)) {
+        mmu_free(PHYSICAL_IDENT(pd), 1);
+        pdpt[pdpt_index] = 0;
     }
 
-    /* check if the page directory pointer table entry is present */
-    bool pdpt_empty = true;
-    for (int i = 0; i < 512; i++) {
-        if (pdpt[i] & PTE_PRESENT) {
-            pdpt_empty = false;
-            break;
-        }
-    }
-
-    /* free it if it's empty */
-    if (pdpt_empty) {
-        mmu_free(pdpt, 1);
+    if (vmm_pt_empty(pdpt)) {
+        mmu_free(PHYSICAL_IDENT(pdpt), 1);
         pml4[pml4_index] = 0;
     }
 
     vmm_flush_tlb(virt);
 }
 
-__attribute__((no_sanitize("undefined")))
+
 void mmu_map(void *virt, void *phys, uint64_t flags) {
     uintptr_t pml4_index = ((uintptr_t)virt >> 39) & 0x1ff;
     uintptr_t pdpt_index = ((uintptr_t)virt >> 30) & 0x1ff;
@@ -144,47 +127,17 @@ void mmu_unmap(void *virt) {
 
     pt[pt_index] = 0;
 
-    /* check if the page table entry is present */
-    bool pt_empty = true;
-    for (int i = 0; i < 512; i++) {
-        if (pt[i] & PTE_PRESENT) {
-            pt_empty = false;
-            break;
-        }
-    }
-
-    /* free it if it's empty */
-    if (pt_empty) {
+    if (vmm_pt_empty(pt)) {
         mmu_free(PHYSICAL_IDENT(pt), 1);
         pd[pd_index] = 0;
     }
 
-    /* check if the page directory entry is present */
-    bool pd_empty = true;
-    for (int i = 0; i < 512; i++) {
-        if (pd[i] & PTE_PRESENT) {
-            pd_empty = false;
-            break;
-        }
-    }
-
-    /* free it if it's empty */
-    if (pd_empty) {
+    if (vmm_pt_empty(pd)) {
         mmu_free(PHYSICAL_IDENT(pd), 1);
         pdpt[pdpt_index] = 0;
     }
 
-    /* check if the page directory pointer table entry is present */
-    bool pdpt_empty = true;
-    for (int i = 0; i < 512; i++) {
-        if (pdpt[i] & PTE_PRESENT) {
-            pdpt_empty = false;
-            break;
-        }
-    }
-
-    /* free it if it's empty */
-    if (pdpt_empty) {
+    if (vmm_pt_empty(pdpt)) {
         mmu_free(PHYSICAL_IDENT(pdpt), 1);
         pml4[pml4_index] = 0;
     }
@@ -233,8 +186,7 @@ void mmu_free_page_table(uintptr_t *table, int level) {
 
         uintptr_t entry = table[i];
 
-        if (level == 2 && (entry & (1 << 7))) {
-            /* 2 MiB huge page */
+        if (level == 2 && (entry & PTE_HUGE)) {
             table[i] = 0;
             continue;
         }

@@ -10,6 +10,7 @@
 #define PTE_USER     4ul
 #define PTE_WT       8ul
 #define PTE_CD       16ul
+#define PTE_HUGE     128ul
 #define PTE_NX (1ul << 63)
 
 extern uintptr_t *kernel_pd;
