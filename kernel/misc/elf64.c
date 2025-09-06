@@ -1,5 +1,5 @@
 #include <stdbool.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/multiboot.h>
 #include <kernel/unixpipe.h>
 #include <kernel/module.h>

@@ -1,5 +1,5 @@
 #include <stddef.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>

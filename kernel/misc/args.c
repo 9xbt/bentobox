@@ -11,13 +11,15 @@ int args_contains(const char *s) {
 char *args_value(const char *s) {
     if (!cmdline) return NULL;
     char *arg = strstr(cmdline, s);
-    if (!arg) return NULL;
+    if (!arg)
+        return NULL;
     arg += strlen(s);
-    if (*arg != '=') return NULL;
+    if (*arg != '=')
+        return NULL;
     arg++;
     
     char *end = strchr(arg, ' ');
-    int len = end ? (end - arg) : strlen(arg);
+    size_t len = end ? (size_t)(end - arg) : strlen(arg);
     
     static char result[256];
     strncpy(result, arg, len);

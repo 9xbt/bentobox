@@ -1,16 +1,14 @@
-#include <bits/types/struct_timeval.h>
-#include <linux/input-event-codes.h>
-#include <linux/input.h>
 #include <sys/poll.h>
+#include <sys/time.h>
 #include <stdbool.h>
-#include <ioctls.h>
-#include <errno.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
+#include <kernel/input.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/acpi.h>
@@ -331,17 +329,8 @@ long ps2_keyboard_read_event(struct vfs_node *node, void *buffer, long offset, s
 }
 
 long ps2_keyboard_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = fd_get(fd_num);
-    (void)fd;
-    switch ((unsigned)op) {
-        case EVIOCGBIT(0, sizeof(unsigned long)):
-            *(unsigned long *)arg = (1 << EV_KEY);
-            return 0;
-        case EVIOCGBIT(EV_KEY, KEY_MAX/8 + 1): {
-            unsigned char *keybits = (unsigned char *)arg;
-            memset(keybits, 0xFF, KEY_MAX/8 + 1);
-            return 0;
-        }
+    //struct fd *fd = fd_get(fd_num);
+    switch (op) {
         default:
             dprintf(LOG_INFO, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
             return -EINVAL;
@@ -365,8 +354,7 @@ long ps2_mouse_read_event(struct vfs_node *node, void *buffer, long offset, size
 }
 
 long ps2_mouse_ioctl(int fd_num, int op, void *arg) {
-    struct fd *fd = fd_get(fd_num);
-    (void)fd;
+    //struct fd *fd = fd_get(fd_num);
     switch (op) {
         default:
             dprintf(LOG_INFO, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);

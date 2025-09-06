@@ -1,11 +1,11 @@
 #include <stdint.h>
-#include <errno.h>
 #include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/panic.h>
 #include <kernel/args.h>
 #include <kernel/list.h>

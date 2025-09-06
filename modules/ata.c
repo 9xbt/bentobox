@@ -208,7 +208,6 @@ long hda_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
 }
 
 int init() {
-    extern char load_addr[];
     dprintf(LOG_INFO, "%s:%d: starting ATA driver\n", __FILE__, __LINE__);
 
     mutex_init(&ata_mutex);

@@ -19,7 +19,8 @@ uint64_t mmu_used_pages = 0;
 atomic_flag pmm_lock = ATOMIC_FLAG_INIT;
 
 void pmm_install(void) {
-    extern void *mboot, end;
+    extern void *mboot;
+    extern char end[];
     uintptr_t highest_address = 0;
     uint32_t mboot_size = *(uint32_t *)mboot;
 
@@ -46,7 +47,7 @@ void pmm_install(void) {
         }
     }
 
-    mmu_bitmap = &end;
+    mmu_bitmap = (uint8_t *)&end;
 
     if ((void *)mmu_bitmap < mboot + mboot_size)
         mmu_bitmap = (uint8_t *)ALIGN_UP((uintptr_t)mboot + mboot_size, PAGE_SIZE);

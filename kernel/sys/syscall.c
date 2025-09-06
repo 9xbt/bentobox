@@ -1,15 +1,18 @@
-#include <asm-generic/resource.h>
-#include <linux/resource.h>
-#include <sys/sysinfo.h>
+//#include <asm-generic/resource.h>
+//#include <linux/resource.h>
+//#include <sys/sysinfo.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
+#include <sys/sysinfo.h>
+#include <sys/select.h>
 #include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <errno.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/idt.h>
@@ -23,6 +26,7 @@
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/socket.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/time.h>
@@ -432,11 +436,11 @@ long sys_nanosleep(const struct timespec *duration) {
     return 0;
 }
 
-long sys_wait4(int pid, int *wstatus, int options, struct rusage *rusage);
+long sys_wait4(int pid, int *wstatus, int options, void *rusage);
 
 long sys_clone(unsigned long flags, unsigned long newsp, int *parent_tidptr, int *child_tidptr, unsigned long tls) {
     if ((flags & (CLONE_VM | CLONE_VFORK)) == (CLONE_VM | CLONE_VFORK)) {
-        pid_t pid = fork(this->syscall_ctx, newsp);
+        long pid = fork(this->syscall_ctx, newsp);
         if (pid == 0) return 0;
 
         int status;
@@ -468,7 +472,7 @@ long sys_exit(long status) {
     __builtin_unreachable();
 }
 
-long sys_wait4(int pid, int *wstatus, int options, struct rusage *rusage) {
+long sys_wait4(int pid, int *wstatus, int options, void *rusage) {
     (void)options;
     (void)rusage;
 
@@ -513,16 +517,16 @@ long sys_fcntl(int fd_num, int cmd, long arg) {
             return sys_dup(fd_num);
         case F_DUPFD_CLOEXEC: {
             int newfd = sys_dup(fd_num);
-            fd_get(newfd)->flags |= FD_CLOEXEC;
+            fd_get(newfd)->flags |= O_CLOEXEC;
             return newfd;
         }
         case F_GETFD:
-            return fd->flags & FD_CLOEXEC;
+            return fd->flags & O_CLOEXEC;
         case F_SETFD:
             if (arg & FD_CLOEXEC) {
-                fd->flags |= FD_CLOEXEC;
+                fd->flags |= O_CLOEXEC;
             } else {
-                fd->flags &= ~FD_CLOEXEC;
+                fd->flags &= ~O_CLOEXEC;
             }
             return 0;
         case F_GETFL:
@@ -951,7 +955,7 @@ long sys_utimensat() {
     return -ENOENT;
 }
 
-long sys_prlimit64(long pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *old_rlim) {
+long sys_prlimit64(long pid, unsigned int resource, void *new_rlim, void *old_rlim) {
     if (!new_rlim || !old_rlim)
         return -EFAULT;
     if (pid != this->pid) {

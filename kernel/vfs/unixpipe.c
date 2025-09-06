@@ -1,11 +1,11 @@
-#include <errno.h>
-#include <fcntl.h>
+#include <sys/fcntl.h>
 #include <sys/poll.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>

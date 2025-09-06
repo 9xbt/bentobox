@@ -1,8 +1,8 @@
-#include <errno.h>
 #include <kernel/malloc.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/args.h>
 #include <kernel/vfs.h>
 

@@ -1,8 +1,8 @@
-#include <errno.h>
-#include <fcntl.h>
+#include <sys/fcntl.h>
 #include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>

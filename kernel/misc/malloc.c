@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -6,7 +6,7 @@
 #include <kernel/mmu.h>
 
 #define MSPACES 0
-#define ONLY_MSPACES 0
+//#define ONLY_MSPACES 0
 #define FOOTERS 0
 #define HAVE_MMAP 0
 #define HAVE_MREMAP 0
@@ -21,11 +21,11 @@
 #define LACKS_STRING_H 0
 #define LACKS_STDLIB_H 1
 #define LACKS_STDIO_H 1
-#define ABORT dprintf(LOG_INFO, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
+#define LACKS_SCHED_H 1
+#define ABORT dprintf(LOG_ERR, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
 #define USE_LOCKS 1
 #define NO_MALLOC_STATS 1
-#define LACKS_STDIO_H 1
-#define MALLOC_FAILURE_ACTION
+#define MALLOC_FAILURE_ACTION dprintf(LOG_ERR, "%s:%d: %s: allocation failed\n", __FILE__, __LINE__, __func__);
 
 static uintptr_t brk = HEAP_BASE;
 

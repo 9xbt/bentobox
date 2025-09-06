@@ -10,7 +10,7 @@ C_EXES = $(C_SRCS:.c=)
 S_EXES = $(S_SRCS:.S=)
 
 # Flags
-CFLAGS = -static -O2 -I../base/usr/include/
+CFLAGS = -static -O2
 ASFLAGS = -f elf64
 LDFLAGS =
 

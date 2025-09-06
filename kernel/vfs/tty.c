@@ -1,7 +1,7 @@
-#include <ioctls.h>
+//#include <ioctls.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>

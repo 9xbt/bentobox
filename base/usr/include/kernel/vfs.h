@@ -1,9 +1,8 @@
 #pragma once
+#include <sys/stat.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
-#include <stdatomic.h>
-#include <sys/stat.h>
 #include <kernel/list.h>
 
 #define MAX_PATH            256
@@ -44,7 +43,7 @@ typedef struct vfs_node {
     struct tty_operations tty_ops;
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, void *buffer, long offset, size_t len);
-    long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset);
+    long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
     long(*poll)(struct vfs_node *node, long events);
     long(*close)(struct vfs_node *node);
     long(*remove)(struct vfs_node *node);

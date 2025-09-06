@@ -1,5 +1,4 @@
-#include <ioctls.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/video.h>
@@ -8,7 +7,7 @@
 
 struct fb_var_screeninfo vinfo = {};
 
-long fbdev_mmap(struct vfs_node *node, void *addr, size_t length, int prot, int flags, off_t offset) {
+long fbdev_mmap(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset) {
     if (addr == NULL) {
         return framebuffer.addr + offset;
     }

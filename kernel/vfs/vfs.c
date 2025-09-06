@@ -1,12 +1,12 @@
+#include <sys/fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stddef.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <kernel/spinlock.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
 #include <kernel/time.h>

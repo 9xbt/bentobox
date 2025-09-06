@@ -442,7 +442,7 @@ void sched_jumpstart(void) {
     next_pid++;
 
     irq_register(0x79 - 32, sched_schedule);
-    for (uint32_t i = madt_lapics - 1; i >= 0; i--) {
+    for (uint32_t i = madt_lapics; i-- > 0;) {
         lapic_ipi(i, 0x79);
     }
 }

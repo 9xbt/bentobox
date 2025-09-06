@@ -1,8 +1,7 @@
 #include <stdatomic.h>
 #include <sys/poll.h>
-#include <ioctls.h>
 #include <stddef.h>
-#include <errno.h>
+#include <kernel/errno.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
