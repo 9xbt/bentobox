@@ -195,6 +195,7 @@ static void elf_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr
             
             uint64_t flags = PTE_PRESENT | PTE_USER;
             if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
+            if (!(phdr[i].p_flags & PF_X)) flags |= PTE_NX;
 
             for (size_t page = 0; page < pages; page++) {
                 void *paddr = mmu_alloc(1);

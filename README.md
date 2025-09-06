@@ -63,7 +63,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
     - [X] Doubly indirect blocks
     - [ ] Triply indirect blocks
     - [X] Reading
-    - [ ] Writing
+    - [X] Writing
     - [X] Mounting
     - [ ] Caching
 - [X] Framebuffer support
@@ -109,7 +109,7 @@ Finally, you can simply run `make run-kvm -j$(nproc)` and the kernel will run in
 - [X] Higher half modules (map kernel to higher half)
 - [ ] Implement task threading
 - [X] Implement a VMA
-- [ ] Support NX bit
+- [X] Support NX bit
 - [X] Fix VMA
 - [X] Fix read()
 - [X] TSC timing

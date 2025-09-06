@@ -33,7 +33,7 @@ void write_fs(uint64_t value) {
 }
 
 void user_initialize(void) {
-    wrmsr(IA32_EFER, rdmsr(IA32_EFER) | (1 << 0));
+    wrmsr(IA32_EFER, rdmsr(IA32_EFER) | (1 << 0) | (1ULL << 11));
     wrmsr(IA32_STAR, ((uint64_t)0x08 << 32) | ((uint64_t)0x13 << 48));
     wrmsr(IA32_LSTAR, (uint64_t)syscall_entry);
     wrmsr(IA32_CSTAR, 0);
