@@ -53,7 +53,7 @@ long tty_enqueue(int c) {
 
             struct process *proc = sched_get_foreground(tty_pgid);
             if (proc) {
-                dprintf(LOG_INFO, "sending SIGINT to %s (pgid %d)\n", proc->name, proc->pgid);
+                //dprintf(LOG_INFO, "sending SIGINT to %s (pgid %d)\n", proc->name, proc->pgid);
                 signal_send(proc, SIGINT, 0);
             }
             return 0;
@@ -163,7 +163,7 @@ long tty_ioctl(int fd_num, int op, void *arg) {
             return 0;
         case TIOCSPGRP:
             tty_pgid = *(int *)arg;
-            dprintf(LOG_INFO, "%s (%d): set tty pgid to %d\n", this->name, this->pid, tty_pgid);
+            //dprintf(LOG_INFO, "%s (%d): set tty pgid to %d\n", this->name, this->pid, tty_pgid);
             return 0;
         case KDFONTOP: {
             struct console_font_op *fop = (struct console_font_op *)arg;

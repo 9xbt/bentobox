@@ -72,6 +72,8 @@ void serial_puts(const char *str) {
 }
 
 int dprintf(int level, const char *fmt, ...) {
+    acquire(&serial_lock);
+    
     static size_t serial_offset = 0;
 
     va_list args;
@@ -83,12 +85,10 @@ int dprintf(int level, const char *fmt, ...) {
 
     int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
 
-    acquire(&serial_lock);
     for (char *p = buf; *p; p++) {
         serial_ringbuffer[serial_offset] = *p;
         serial_offset = (serial_offset + 1) % sizeof(serial_ringbuffer);
     }
-    release(&serial_lock);
 
     if (serial_base == COM1) {
         serial_puts(buf);
@@ -97,6 +97,8 @@ int dprintf(int level, const char *fmt, ...) {
         puts(buf);
     }
     va_end(args);
+
+    release(&serial_lock);
     return ret;
 }
 
