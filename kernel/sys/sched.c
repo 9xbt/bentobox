@@ -16,6 +16,7 @@
 #include <kernel/panic.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
+#include <kernel/args.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
@@ -76,9 +77,6 @@ struct process *sched_new_task(void *entry, const char *name) {
     proc->fs = 0;
     proc->state = TASK_RUNNING;
     proc->user = false;
-    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
-    proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
-    proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/console", false, false), 0);
     proc->vma = NULL;
     proc->children = list_create();
     proc->time.total = 0;
@@ -159,9 +157,7 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
     proc->fs = 0;
     proc->state = TASK_RUNNING;
     proc->user = true;
-    proc->fd_table[0] = fd_new(vfs_open(vfs_root, "/dev/tty1", false, false), 0);
-    proc->fd_table[1] = fd_new(vfs_open(vfs_root, "/dev/tty1", false, false), 0);
-    proc->fd_table[2] = fd_new(vfs_open(vfs_root, "/dev/tty1", false, false), 0);
+    proc->fd_table[0] = proc->fd_table[1] = proc->fd_table[2] = fd_new(vfs_open(vfs_root, args_contains("tty") ? args_value("tty") : "/dev/tty1", false, false), 0);
     proc->vma = vma_create();
     proc->signal_handlers[SIGINT] = _sigint;
     proc->signal_handlers[SIGPIPE] = _sigpipe;
@@ -234,14 +230,12 @@ void sched_schedule(struct registers *r) {
                 proc->state = TASK_RUNNING;
                 
                 for (int sig = 1; sig <= 32; sig++) {
-                    uint32_t sig_mask = 1u << (sig - 1); // here
+                    uint32_t sig_mask = 1u << (sig - 1);
                     
                     if ((pending & sig_mask) && proc->signal_handlers[sig]) {
                         proc->signal_handlers[sig](proc);
                     }
                 }
-                //this_core()->current_proc = current;
-                //goto actually_switch;
             }
 
             if (proc->state == TASK_RUNNING) {
