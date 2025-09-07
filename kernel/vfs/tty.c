@@ -1,22 +1,21 @@
-//#include <ioctls.h>
+#include <sys/poll.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <kernel/errno.h>
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/video.h>
 #include <kernel/fifo.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/fd.h>
-#include <sys/poll.h>
 
 static struct fifo *tty_fifo;
-static vfs_node_t *console;
+static vfs_node_t *tty;
 static int tty_pgid = 1;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
@@ -58,7 +57,7 @@ long tty_enqueue(int c) {
             }
             return 0;
     }
-    vfs_unblock_polling(console);
+    vfs_unblock_polling(tty);
     return !fifo_enqueue(tty_fifo, c);
 }
 
@@ -74,7 +73,7 @@ long tty_dequeue(bool block) {
         if (!block) {
             return -EAGAIN;
         }
-        vfs_poll(console, POLLIN, -1);
+        vfs_poll(tty, POLLIN, -1);
     }
     return c;
 }
@@ -198,25 +197,40 @@ long tty_ioctl(int fd_num, int op, void *arg) {
     }
 }
 
+long console_write(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    dprintf(LOG_INFO, "");
+    return tty_write(node, buffer, offset, len);
+}
+
 extern long serial_tty_poll(struct vfs_node *node, long events);
 
 void tty_initialize(void) {
     tty_fifo = fifo_create(1024);
 
-    console = vfs_create_node("console", VFS_CHARDEVICE);
+    tty = vfs_create_node("tty1", VFS_CHARDEVICE);
+    tty->perms = 0600;
+    tty->read = tty_read;
+    tty->write = tty_write;
+    tty->isatty = true;
+    tty->poll = tty_poll;
+    tty->tty_ops.ioctl = tty_ioctl;
+    tty->tty_ops.flush = tty_flush;
+    tty->tty_ops.enqueue = tty_enqueue;
+    tty->tty_ops.dequeue = tty_dequeue;
+    vfs_add_device(tty);
+
+    vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;
-    console->read = tty_read;
-    console->write = tty_write;
+    console->write = console_write;
     console->isatty = true;
-    console->poll = tty_poll;
-    console->tty_ops.ioctl = tty_ioctl;
-    console->tty_ops.flush = tty_flush;
-    console->tty_ops.enqueue = tty_enqueue;
-    console->tty_ops.dequeue = tty_dequeue;
+    console->tty_ops.ioctl = serial_ioctl;
+    console->tty_ops.flush = serial_tty_flush;
+    console->tty_ops.enqueue = serial_tty_enqueue;
+    console->tty_ops.dequeue = serial_tty_dequeue;
     vfs_add_device(console);
 
     vfs_node_t *serial_tty = vfs_create_node("ttyS0", VFS_CHARDEVICE);
-    serial_tty->perms = 0666;
+    serial_tty->perms = 0660;
     serial_tty->read = tty_read;
     serial_tty->write = tty_write;
     serial_tty->isatty = true;
