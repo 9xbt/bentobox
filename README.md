@@ -1,4 +1,5 @@
-# bentobox
+# bentobox ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/9xbt/bentobox/ci.yml)
+
 bentobox is a 64-bit SMP-enabled operating system targeting x86_64 with plans to support RISC-V
 
 ## Features on x86_64
