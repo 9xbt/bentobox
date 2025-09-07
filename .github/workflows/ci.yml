@@ -18,7 +18,7 @@ jobs:
       fetch-depth: 0
 
     - name: Install dependencies
-      run: sudo apt update && sudo apt install -y build-essential nasm grub-pc-bin xorriso mtools genext2fs curl musl
+      run: sudo apt update && sudo apt install -y build-essential nasm grub-pc-bin xorriso mtools genext2fs curl musl clang
 
     - name: Run check
       run: make -j$(nproc)
