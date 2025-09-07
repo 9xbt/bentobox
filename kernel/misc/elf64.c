@@ -69,6 +69,7 @@ int elf_symbol_name(char *s, Elf64_Sym *symtab, const char *strtab, int symbol_c
     return 0;
 }
 
+__attribute__((no_sanitize("alignment")))
 int elf_module(struct multiboot_tag_module *mod) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->mod_start;
 

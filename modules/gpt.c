@@ -99,6 +99,7 @@ int init() {
             part->perms = 0660;
             part->read = gpt_read;
             part->write = gpt_write;
+            part->size = (pe[i].end_lba * 512) - (pe[i].start_lba * 512);
             part->device = device;
             vfs_add_device(part);
         }

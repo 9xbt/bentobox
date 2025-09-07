@@ -89,8 +89,10 @@ struct process *sched_new_task(void *entry, const char *name) {
 struct process *sched_new_user_task(void *entry, const char *name, int argc, char *argv[], char *env[]) {
     if (!argc || !argv) {
         argc = 1;
-        argv[0] = (char *)name;
-        argv[1] = NULL;
+        static char *_argv[2];
+        _argv[0] = (char *)name;
+        _argv[1] = NULL;
+        argv = _argv;
     }
 
     struct process *proc = (struct process *)kmalloc(sizeof(struct process));
@@ -232,7 +234,7 @@ void sched_schedule(struct registers *r) {
                 proc->state = TASK_RUNNING;
                 
                 for (int sig = 1; sig <= 32; sig++) {
-                    uint32_t sig_mask = 1 << (sig - 1);
+                    uint32_t sig_mask = 1u << (sig - 1); // here
                     
                     if ((pending & sig_mask) && proc->signal_handlers[sig]) {
                         proc->signal_handlers[sig](proc);

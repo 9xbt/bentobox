@@ -123,7 +123,8 @@ int vprintf(const char *fmt, va_list args) {
     char buf[1024] = {-1};
     int ret = vsprintf(buf, fmt, args);
     
-    puts(buf);
+    extern void serial_puts(char *);
+    serial_puts(buf);
     return ret;
 }
 

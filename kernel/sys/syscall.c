@@ -1045,6 +1045,7 @@ static syscall_func syscalls[] = {
     [SYS_prlimit64]         = (syscall_func)(uintptr_t)sys_prlimit64
 };
 
+__attribute__((no_sanitize("function")))
 void syscall_handler(struct registers *r) {
     this->syscall_ctx = r;
     if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {

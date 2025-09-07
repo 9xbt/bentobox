@@ -31,6 +31,7 @@ static void rtc_dump(uint16_t *buffer, uint16_t count) {
     }
 }
 
+__attribute__((no_sanitize("alignment")))
 uint64_t now(void) {
     uint16_t dump[10];
     rtc_dump(dump, 10);

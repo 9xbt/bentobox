@@ -18,7 +18,7 @@
 #define	SATA_SIG_SEMB	0xC33C0101	/* Enclosure management bridge */
 #define	SATA_SIG_PM	    0x96690101	/* Port multiplier */
 
-#define GHC_AHCI_ENABLE (1 << 31)   /* AHCI Enable */
+#define GHC_AHCI_ENABLE (1u << 31)   /* AHCI Enable */
 #define GHC_MRSM        (1 << 2)    /* MSI Revert to Single Message */
 #define GHC_IE          (1 << 1)    /* Interrupt Enable */
 #define GHC_HR          (1 << 0)    /* HBA Reset */
