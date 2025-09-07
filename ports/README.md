@@ -18,3 +18,4 @@ You can either run `util/ports.sh` to build all the ports at once, or you can ru
 - neofetch 7.1.0 (`ports/neofetch.sh`)
 - vim (`ports/vim.sh`)
 - ncurses (`ports/ncurses.sh`)
+- tree (`ports/tree.sh`)
