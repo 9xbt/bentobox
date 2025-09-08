@@ -19,3 +19,4 @@ You can either run `util/ports.sh` to build all the ports at once, or you can ru
 - vim (`ports/vim.sh`)
 - ncurses (`ports/ncurses.sh`)
 - tree (`ports/tree.sh`)
+- lua (`ports/lua.sh`)
