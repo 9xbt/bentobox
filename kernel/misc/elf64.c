@@ -353,18 +353,19 @@ int exec(const char *file, int argc, char *const argv[], char *const env[]) {
         memmove((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i], len);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
+    #define PUSH(x) (*VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = (x))
+
+    PUSH(0);
     for (i = envc - 1; i >= 0; i--) {
-        depth += 8;
-        *VIRTUAL_IDENT(stack_top_phys - depth) = env_ptrs[i];
+        PUSH(env_ptrs[i]);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
+    PUSH(0);
     for (i = argc - 1; i >= 0; i--) {
-        *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argv_ptrs[i];
+        PUSH(argv_ptrs[i]);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argc;
+    PUSH(argc);
     
     this->ctx.rsp = USER_STACK_TOP - depth;
     memset(VIRTUAL_IDENT(this->stack_bottom_phys), 0, (USER_STACK_SIZE * PAGE_SIZE) - depth);

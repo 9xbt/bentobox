@@ -128,18 +128,19 @@ struct process *sched_new_user_task(void *entry, const char *name, int argc, cha
         strcpy((char *)VIRTUAL_IDENT(stack_top_phys - depth), argv[i]);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
+    #define PUSH(x) (*VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = (x))
+
+    PUSH(0);
     for (i = envc - 1; i >= 0; i--) {
-        depth += 8;
-        *VIRTUAL_IDENT(stack_top_phys - depth) = env_ptrs[i];
+        PUSH(env_ptrs[i]);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = 0;
+    PUSH(0);
     for (i = argc - 1; i >= 0; i--) {
-        *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argv_ptrs[i];
+        PUSH(argv_ptrs[i]);
     }
 
-    *VIRTUAL_IDENT(stack_top_phys - (depth += 8)) = argc;
+    PUSH(argc);
     
     proc->ctx.rsp = stack_top - depth;
     proc->ctx.rip = (uint64_t)entry;
