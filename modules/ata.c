@@ -19,6 +19,14 @@
 #define ATA_OK              0x00
 #define ATA_NO_DRIVES       0x01
 #define ATA_DISK_ERR        0x02
+#define ATA_IS_SATA         0x03
+
+char *ata_errors[] = {
+    "",
+    "no drives",
+    "disk error",
+    "drive is actually SATA"
+};
 
 uint16_t ata_base;
 uint8_t  ata_type;
@@ -115,7 +123,7 @@ uint8_t ata_write(uint32_t lba, void *buffer, uint32_t sectors) {
     return ATA_OK;
 }
 
-uint8_t ata_identify(uint16_t base, uint8_t type, char *name) {
+uint8_t ata_identify(uint16_t base, uint8_t type) {
     ata_base = base;
     ata_type = type;
 
@@ -145,6 +153,15 @@ uint8_t ata_identify(uint16_t base, uint8_t type, char *name) {
         identify_data[i] = inw(base);
     }
 
+    uint16_t transport = identify_data[222];
+
+    if (transport & 0x02) {
+        kfree(ata_ident);
+        return ATA_IS_SATA;
+    }
+
+    char name[41];
+
     uint8_t i = 0;
     for (i = 0; i < 40; i += 2) {
         name[i] = ata_ident[54 + i + 1];
@@ -157,6 +174,7 @@ uint8_t ata_identify(uint16_t base, uint8_t type, char *name) {
             break;
         }
     }
+    dprintf(LOG_INFO, "%s:%d: drive name: '%s'\n", __FILE__, __LINE__, name);
 
     ata_400ns();
     return ATA_OK;
@@ -212,12 +230,11 @@ int init() {
 
     mutex_init(&ata_mutex);
 
-    char name[40];
-    if (ata_identify(ATA_PRIMARY, ATA_MASTER, name) != ATA_OK) {
-        dprintf(LOG_ERR, "%s:%d: failed to initialize ATA primary master\n", __FILE__, __LINE__);
+    uint8_t err = ata_identify(ATA_PRIMARY, ATA_MASTER);
+    if (err != ATA_OK) {
+        dprintf(LOG_ERR, "%s:%d: failed to initialize: %s\n", __FILE__, __LINE__, ata_errors[err]);
         return 1;
     }
-    dprintf(LOG_INFO, "%s:%d: drive name: '%s'\n", __FILE__, __LINE__, name);
 
     struct vfs_node *hda = vfs_create_node("sda", VFS_BLOCKDEVICE);
     hda->read = hda_read;
