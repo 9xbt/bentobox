@@ -10,7 +10,7 @@ ifeq ($(ARCH),x86_64)
     ASFLAGS := -f elf64 -g -F dwarf
     CCFLAGS := -O2 -m64 -std=gnu11 -g -ffreestanding -Wall -Wextra -Wshadow -Wuninitialized -Wstrict-aliasing -nostdlib -Ibase/usr/include/ -Ilib/ -fno-stack-protector -Wno-unused-parameter -fno-stack-check -fno-lto -mno-red-zone -mno-80387 -mno-sse -mno-sse2 -fno-strict-aliasing -fno-optimize-sibling-calls #-fsanitize=undefined
     LDFLAGS := -m elf_x86_64 -Tkernel/arch/x86_64/linker.ld -z noexecstack
-    QEMUFLAGS := -m 256M -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -rtc base=localtime
+    QEMUFLAGS := -m 256M -serial stdio -cdrom bin/$(IMAGE_NAME).iso -boot d -M q35 -drive file=bin/$(IMAGE_NAME).hdd,format=raw,if=none,id=hdd0 -device ahci,id=ahci -device ide-hd,drive=hdd0,bus=ahci.0 -rtc base=localtime -net nic,model=rtl8139 -net user
 else ifeq ($(ARCH),riscv64)
     AS := riscv64-elf-as
     CC := riscv64-elf-gcc
@@ -107,13 +107,11 @@ bin/$(IMAGE_NAME).hdd: $(shell find root -type f) $(shell find base -type f) $(s
 	@mkdir -p root
 	@rsync -a --no-times --no-o --no-g base/ bin/base/
 	@rsync -a --no-times --no-o --no-g root/ bin/base/
-	@genext2fs -d bin/base -b 524288 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
+	@genext2fs -d bin/base -b 1048576 -L bentobox -N 10000 bin/root.hdd 2>&1 >/dev/null | grep -v copying | cat
 	@truncate -s 1000M bin/$(IMAGE_NAME).hdd
 	@parted -s bin/$(IMAGE_NAME).hdd mklabel gpt
-	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 500MiB
+	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary ext2 1MiB 100%
 	@parted -s bin/$(IMAGE_NAME).hdd name 1 bentobox
-	@parted -s bin/$(IMAGE_NAME).hdd mkpart primary 500MiB 100%
-	@parted -s bin/$(IMAGE_NAME).hdd name 2 testarea
 	@dd if=bin/root.hdd of=bin/$(IMAGE_NAME).hdd bs=1M seek=1 conv=notrunc,sparse status=none
 	@rm bin/root.hdd
 

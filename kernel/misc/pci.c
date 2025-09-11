@@ -51,8 +51,8 @@ int pci_find_capability(struct pci_device *dev, uint8_t cap_id) {
 
 void pci_check_device(uint8_t bus, uint8_t device) {
     uint8_t function = 0;
-    uint16_t vendor_id = pci_config_read_word(bus, device, 0, 0x02);
-    uint16_t device_id = pci_config_read_word(bus, device, 0, 0x00);
+    uint16_t vendor_id = pci_config_read_word(bus, device, 0, 0x00);
+    uint16_t device_id = pci_config_read_word(bus, device, 0, 0x02);
     uint8_t class = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A) >> 8);
     uint8_t subclass = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A));
 
@@ -89,8 +89,8 @@ void pci_check_bus(uint8_t bus) {
 void pci_check_function(uint8_t bus, uint8_t device, uint8_t function) {
     uint8_t class = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A) >> 8);
     uint8_t subclass = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A));
-    uint16_t vendor_id = pci_config_read_word(bus, device, function, 0x02);
-    uint16_t device_id = pci_config_read_word(bus, device, function, 0x00);
+    uint16_t vendor_id = pci_config_read_word(bus, device, function, 0x00);
+    uint16_t device_id = pci_config_read_word(bus, device, function, 0x02);
 
     primary_bus[device][function].bus = 0;
     primary_bus[device][function].device = device;

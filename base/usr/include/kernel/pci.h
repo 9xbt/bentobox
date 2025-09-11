@@ -1,10 +1,12 @@
 #pragma once
 #include <stdint.h>
 
-#define PCI_CONFIG_ADDRESS 0xCF8
-#define PCI_CONFIG_DATA    0xCFC
-
-#define PCI_CAP_ID_MSI     0x05
+#define PCI_CONFIG_ADDRESS  0xCF8
+#define PCI_CONFIG_DATA     0xCFC
+#define PCI_CAP_ID_MSI      0x05
+#define PCI_IO_SPACE        (1 << 1)
+#define PCI_BUS_MASTER      (1 << 2)
+#define PCI_SERR_ENABLE     (1 << 8)
 
 struct pci_device {
     uint8_t bus;
@@ -15,8 +17,6 @@ struct pci_device {
     uint16_t vendor_id;
     uint16_t device_id;
 };
-
-//extern struct pci_device primary_bus[32];
 
 void pci_scan(void);
 void pci_check_device(uint8_t bus, uint8_t device);

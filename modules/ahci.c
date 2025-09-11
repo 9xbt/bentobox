@@ -18,7 +18,7 @@
 #define	SATA_SIG_SEMB	0xC33C0101	/* Enclosure management bridge */
 #define	SATA_SIG_PM	    0x96690101	/* Port multiplier */
 
-#define GHC_AHCI_ENABLE (1u << 31)   /* AHCI Enable */
+#define GHC_AHCI_ENABLE (1u << 31)  /* AHCI Enable */
 #define GHC_MRSM        (1 << 2)    /* MSI Revert to Single Message */
 #define GHC_IE          (1 << 1)    /* Interrupt Enable */
 #define GHC_HR          (1 << 0)    /* HBA Reset */
@@ -405,7 +405,7 @@ int init() {
     }
 
     uint32_t cmd = pci_read(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x04);
-    cmd |= (1 << 8) | (1 << 2) | (1 << 1);
+    cmd |= PCI_SERR_ENABLE | PCI_BUS_MASTER | PCI_IO_SPACE;
     pci_write(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x04, cmd);
 
     uint32_t bar5 = pci_read(ahci_dev->bus, ahci_dev->device, ahci_dev->function, 0x24);

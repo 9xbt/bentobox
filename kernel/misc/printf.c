@@ -95,7 +95,7 @@ int vsprintf(char *s, const char *fmt, va_list args) {
                     parse_num(s, &ptr, is_long ? va_arg(args, long) : va_arg(args, int), 10, true, width, pad);
                     break;
                 case 'x':
-                    parse_hex(s, &ptr, is_long ? va_arg(args, uint64_t) : va_arg(args, uint32_t), 0);
+                    parse_hex(s, &ptr, is_long ? va_arg(args, uint64_t) : va_arg(args, uint32_t), width);
                     break;
                 case 'p':
                     parse_hex(s, &ptr, va_arg(args, uint64_t), 16);
