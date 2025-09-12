@@ -31,6 +31,9 @@ OBJ := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
 OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
+MODULE_SOURCES := $(shell find modules -type f -name '*.c')
+MODULE_OBJS := $(addprefix obj/, $(MODULE_SOURCES:.c=.ko))
+
 .PHONY: all
 all: $(IMAGE_NAME).iso
 
@@ -39,7 +42,7 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT)
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS)
 
 -include $(HEADER_DEPS)
 
@@ -62,6 +65,11 @@ obj/$(ARCH)/%.asm.o: %.asm
 	@echo " AS $<"
 	@mkdir -p "$(dir $@)"
 	@nasm $(NASMFLAGS) $< -o $@
+
+obj/modules/%.ko: modules/%.c
+	@echo " CC $<"
+	@mkdir -p "$$(dirname $@)"
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -mcmodel=large -fno-pic -c $< -o $@
 
 .PHONY: clean
 clean:

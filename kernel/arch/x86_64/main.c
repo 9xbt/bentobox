@@ -1,3 +1,4 @@
+#include "kernel/ksym.h"
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/arch/x86_64/lapic.h>
@@ -11,6 +12,7 @@
 #include <kernel/context.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
 #include <kernel/mmu.h>
@@ -25,6 +27,12 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
+
+__attribute__((used, section(".limine_requests")))
+struct limine_executable_file_request ksym_request = {
+    .id = LIMINE_EXECUTABLE_FILE_REQUEST,
+    .revision = 0
+};
 
 extern void generic_startup(void);
 extern void generic_main(void);
@@ -43,7 +51,7 @@ void arch_do_backtrace(void) {
     dprintf(LOG_EMERG, "Call Trace:\n");
 
     for (int i = 0; i < 8 && frame_ptr->rbp && mmu_get_flags(kernel_pd, frame_ptr) & PTE_PRESENT; i++) {
-        dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->rip, "(none)");
+        dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
         frame_ptr = frame_ptr->rbp;
     }
 }
@@ -96,12 +104,12 @@ void kmain(void) {
     gdt_install();
     idt_install();
     mmu_initialize();
+    elf64_module(ksym_request.response->executable_file);
     acpi_install();
     hpet_install();
     lapic_install();
     ioapic_install();
     smp_initialize();
-
     generic_startup();
     generic_main();
 

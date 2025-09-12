@@ -1,0 +1,134 @@
+#include <stdbool.h>
+#include <kernel/module.h>
+#include <kernel/printf.h>
+#include <kernel/string.h>
+#include <kernel/elf64.h>
+#include <kernel/errno.h>
+#include <kernel/list.h>
+#include <kernel/ksym.h>
+#include <kernel/mmu.h>
+#include <limine.h>
+
+static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int symbol_count, const char *str) {
+    for (int i = 0; i < symbol_count; i++) {
+        if (!strcmp(&strtab[symtab[i].st_name], str)) {
+            return symtab[i].st_value;
+        }
+    }
+    return 0;
+}
+
+__attribute__((no_sanitize("alignment")))
+int elf64_module(struct limine_file *mod) {
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->address;
+
+    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m invalid elf file\n");
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf class\n");
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_type != ET_EXEC && ehdr->e_type != ET_REL) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf type\n");
+        return -ENOEXEC;
+    }
+
+    Elf64_Shdr *shdr = (Elf64_Shdr *)(mod->address + ehdr->e_shoff);
+    Elf64_Sym *symtab = NULL;
+    char *strtab = NULL;
+    size_t symbol_count = 0;
+
+    if (ehdr->e_type == ET_EXEC) {
+        for (int i = 0; i < ehdr->e_shnum; i++) {
+            if (shdr[i].sh_type == SHT_SYMTAB) {
+                symtab = (Elf64_Sym *)(mod->address + shdr[i].sh_offset);
+                symbol_count = shdr[i].sh_size / shdr[i].sh_entsize;
+                strtab = (char *)(mod->address + shdr[shdr[i].sh_link].sh_offset);
+
+                ksym_expand(symbol_count);
+                for (size_t j = 0; j < symbol_count; j++) {
+                    ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+                }
+                dprintf(LOG_INFO, "\033[93melf:\033[0m registered %ld kernel symbols\n", symbol_count);
+                return 0;
+            }
+        }
+        return -EINVAL;
+    }
+
+    uintptr_t base = (uintptr_t)mmu_map_module((uintptr_t)mod->address, mod->size);
+
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+        if (shdr[i].sh_type == SHT_NOBITS && shdr[i].sh_size > 0) {
+            shdr[i].sh_addr = (uintptr_t)mmu_map_module_bss(ALIGN_UP(shdr[i].sh_size, PAGE_SIZE) / PAGE_SIZE);
+        } else if (shdr[i].sh_size > 0) {
+            shdr[i].sh_addr = (uintptr_t)(base + shdr[i].sh_offset);
+        }
+        
+        if (shdr[i].sh_type == SHT_SYMTAB) {
+            symtab = (Elf64_Sym *)(mod->address + shdr[i].sh_offset);
+            symbol_count = shdr[i].sh_size / sizeof(Elf64_Sym);
+            strtab = (char *)(mod->address + shdr[shdr[i].sh_link].sh_offset);
+
+            ksym_expand(symbol_count);
+            for (size_t j = 0; j < symbol_count; j++) {
+                ksym_register(&strtab[symtab[j].st_name], base + symtab[j].st_value);
+            }
+        }
+    }
+
+    for (uint64_t sym = 0; sym < symbol_count; sym++) {
+        if (symtab[sym].st_shndx > 0 && symtab[sym].st_shndx < SHN_LOPROC) {
+            symtab[sym].st_value += shdr[symtab[sym].st_shndx].sh_addr;
+        } else if (symtab[sym].st_shndx == SHN_UNDEF && symtab[sym].st_name) {
+            if (!(symtab[sym].st_value = ksym_addr(&strtab[symtab[sym].st_name]))) {
+                dprintf(LOG_INFO, "\033[93melf:\033[0m failed to resolve symbol: %s\n", &strtab[symtab[sym].st_name]);
+            }
+        }
+    }
+
+    for (int i = 0; i < ehdr->e_shnum; i++) {
+        if (shdr[i].sh_type != SHT_RELA) continue;
+        if (shdr[i].sh_info >= ehdr->e_shnum) continue;
+
+        Elf64_Rela *rela = (Elf64_Rela *)(mod->address + shdr[i].sh_offset);
+        int rela_count = shdr[i].sh_size / sizeof(Elf64_Rela);
+
+        for (int j = 0; j < rela_count; j++) {
+            uintptr_t target = rela[j].r_offset + shdr[shdr[i].sh_info].sh_addr;
+            
+            #define S (symtab[ELF64_R_SYM(rela[j].r_info)].st_value)
+            #define A (rela[j].r_addend)
+            #define P (target)
+            #define T32 (*(uint32_t*)target)
+            #define T64 (*(uint64_t*)target)
+            
+            switch (ELF64_R_TYPE(rela[j].r_info)) {
+                case R_X86_64_64:
+                    T64 = S + A;
+                    break;
+                case R_X86_64_32:
+                    T32 = (uint32_t)(S + A);
+                    break;
+                case R_X86_64_PC32:
+                    T32 = (uint32_t)(S + A - P);
+                    break;
+                default:
+                    dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
+                    break;
+            }
+        }
+    }
+
+    struct Module *metadata = (struct Module *)(elf64_find_symbol(symtab, strtab, symbol_count, "metadata"));
+    if (!metadata) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m module metadata not found for \"%s\"\n", mod->string);
+        return -1;
+    }
+
+    return metadata->init();
+}

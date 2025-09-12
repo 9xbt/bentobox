@@ -40,8 +40,11 @@ static size_t   mmu_page_count = 0;
 size_t mmu_usable_mem = 0;
 size_t mmu_used_pages = 0;
 
+static uintptr_t module_base = 0;
+
 void mmu_initialize(void) {
     hhdm_offset = hhdm.response->offset;
+    module_base = ALIGN_UP((uintptr_t)data_end_ld, PAGE_SIZE);
 
     uintptr_t highest_address = 0;
 
@@ -167,4 +170,29 @@ void mmu_free(void *ptr) {
 
     if (page < last_page)
         last_page = (uint64_t)ptr / PAGE_SIZE;
+}
+
+void *mmu_map_module(uintptr_t base, size_t len) {
+    len = ALIGN_UP(len, PAGE_SIZE);
+    for (uint32_t i = 0; i < len; i += PAGE_SIZE) {
+        mmu_map(kernel_pd, (void *)((uintptr_t)module_base + i), (void *)(mmu_get_physical(kernel_pd, (void *)base + i)), PTE_PRESENT | PTE_WRITABLE);
+    }
+
+    module_base += len;
+    return (void *)(module_base - len);
+}
+
+void *mmu_map_module_bss(size_t pages) {
+    size_t length = pages * PAGE_SIZE;
+
+    for (size_t page = 0; page < pages; page++) {
+        void *paddr = mmu_alloc();
+        void *vaddr = (void *)(module_base + page * PAGE_SIZE);
+
+        mmu_map(kernel_pd, vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
+        memset(vaddr, 0, PAGE_SIZE);
+    }
+
+    module_base += length;
+    return (void *)(module_base - length);
 }

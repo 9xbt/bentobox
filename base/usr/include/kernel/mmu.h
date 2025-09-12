@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/mmu.h>
@@ -33,3 +34,5 @@ void  mmu_unmap(uintptr_t *pm, void *virt);
 void  mmu_switch_pm(uintptr_t *pm);
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt);
 uint64_t  mmu_get_flags(uintptr_t *pm, void *virt);
+void *mmu_map_module(uintptr_t base, size_t len);
+void *mmu_map_module_bss(size_t pages);
