@@ -56,6 +56,17 @@ long vfs_remove_node(vfs_node_t *node) {
     return 0;
 }
 
+struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow_symlinks) {
+    (void)follow_symlinks;
+    foreach(item, parent->children) {
+        struct vfs_node *child = item->value;
+        if (!strcmp(child->name, name)) {
+            return child;
+        }
+    }
+    return NULL;
+}
+
 vfs_node_t *vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     return parent->ops && parent->ops->create ? parent->ops->create(parent, name, type) : NULL;
 }
@@ -69,6 +80,19 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
     vfs_node_t *node = cwd;
     
     while (token) {
+        if (strcmp(token, ".") == 0) {
+            token = next;
+            next = strtok(NULL, "/");
+            continue;
+        }
+
+        if (strcmp(token, "..") == 0) {
+            if (node->parent) node = node->parent;
+            token = next;
+            next = strtok(NULL, "/");
+            continue;
+        }
+
         if (node->type == VFS_DIRECTORY && node->ops && node->ops->open)
             node->ops->open(node, O_RDONLY);
         
@@ -141,7 +165,7 @@ char *vfs_resolve_path(vfs_node_t *node) {
     if (node == vfs_root) return strdup("/");
 
     char path[MAX_PATH] = "";
-    struct vfs_node *current = node;
+    vfs_node_t *current = node;
 
     while (current != NULL) {
         sprintf(path, "%s%s%s", current == vfs_root ? "" : "/", current->name, path);
@@ -151,12 +175,18 @@ char *vfs_resolve_path(vfs_node_t *node) {
     return strdup(path);
 }
 
+vfs_node_t *vfs_get_root(void) {
+    return vfs_root;
+}
+
 void vfs_print_tree(vfs_node_t *node) {
+    if (!node)
+        node = vfs_root;
     if (node == vfs_root)
         dprintf(LOG_DEBUG, "/\n");
 
     foreach(i, node->children) {
-        struct vfs_node *child = i->value;
+        vfs_node_t *child = i->value;
 
         char *path = vfs_resolve_path(child);
         dprintf(LOG_DEBUG, "%s\n", path);
@@ -177,6 +207,4 @@ void vfs_install(void) {
     vfs_add_node(vfs_add_node(vfs_root, vfs_create_node("dir", VFS_DIRECTORY)), vfs_create_node("file_in_dir", VFS_FILE));
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
-
-    vfs_print_tree(vfs_root);
 }

@@ -28,7 +28,7 @@ typedef enum vfs_node_type {
     VFS_SOCKET
 } vfs_node_type_t;
 
-struct vfs_node_ops {
+typedef struct vfs_node_ops {
     struct vfs_node *(*open)(struct vfs_node *node, int flags);
     long (*close)(struct vfs_node *node);
     long (*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
@@ -38,7 +38,7 @@ struct vfs_node_ops {
     long (*rename)(struct vfs_node *node, const char *name);
     long (*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
     long (*poll)(struct vfs_node *node, long events);
-};
+} vfs_node_ops_t;
 
 typedef struct vfs_node {
     char name[MAX_PATH];
@@ -69,3 +69,5 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
 long vfs_close(vfs_node_t *node);
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len);
+vfs_node_t *vfs_get_root(void);
+void vfs_print_tree(vfs_node_t *node);

@@ -42,34 +42,39 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS)
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) bin/$(ARCH)/initrd.tar
 
 -include $(HEADER_DEPS)
 
 bin/$(ARCH)/$(OUTPUT): kernel/arch/$(ARCH)/linker.ld $(OBJ)
-	@echo " LD $@"
+	@echo "  LD $@"
 	@mkdir -p "$(dir $@)"
 	@$(LD) $(LDFLAGS) $(OBJ) -o $@
 
 obj/$(ARCH)/%.c.o: %.c
-	@echo " CC $<"
+	@echo "  CC $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 obj/$(ARCH)/%.S.o: %.S
-	@echo " AS $<"
+	@echo "  AS $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 obj/$(ARCH)/%.asm.o: %.asm
-	@echo " AS $<"
+	@echo "  AS $<"
 	@mkdir -p "$(dir $@)"
 	@nasm $(NASMFLAGS) $< -o $@
 
 obj/modules/%.ko: modules/%.c
-	@echo " CC $<"
+	@echo "  CC $<"
 	@mkdir -p "$$(dirname $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -mcmodel=large -fno-pic -c $< -o $@
+
+bin/$(ARCH)/initrd.tar: $(shell find base -type f)
+	@echo " TAR $@"
+	@mkdir -p "$(dir $@)"
+	@tar -C base -cf $@ .
 
 .PHONY: clean
 clean:
