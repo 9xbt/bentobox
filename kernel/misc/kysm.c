@@ -18,14 +18,12 @@ uintptr_t ksym_addr(const char *name) {
 }
 
 const char *ksym_name(uintptr_t addr) {
-    #if 0
-    if (addr >= 0x400000 && addr < PHYS_MAP_BASE) {
+    if (addr == 0x0) {
+        return "(none)";
+    }
+    if (addr < hhdm_offset) {
         return "(userspace)";
     }
-    if (addr >= PHYS_MAP_BASE && addr < MODULE_BASE) {
-        return "(hhdm)";
-    }
-    #endif
 
     struct symbol *best = NULL;
     for (size_t i = 0; i < ksym_used; i++) {
