@@ -8,8 +8,10 @@
 #include <kernel/version.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
+#include <kernel/ksym.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -22,6 +24,12 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
+
+__attribute__((used, section(".limine_requests")))
+struct limine_executable_file_request ksym_request = {
+    .id = LIMINE_EXECUTABLE_FILE_REQUEST,
+    .revision = 0
+};
 
 extern void generic_startup(void);
 extern void generic_main(void);
@@ -41,7 +49,7 @@ void arch_do_backtrace(void) {
     dprintf(LOG_EMERG, "Call Trace:\n");
 
     for (int i = 0; i < 8 && frame_ptr && mmu_get_flags(kernel_pd, frame_ptr) & PTE_VALID; i++) {
-        dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->lr, "(none)");
+        dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->lr, ksym_name(frame_ptr->lr));
         frame_ptr = frame_ptr->fp;
     }
 }
@@ -104,6 +112,7 @@ void kmain(void) {
     asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
     vectors_install();
     mmu_initialize();
+    elf64_module(ksym_request.response->executable_file);
     acpi_install();
     smp_initialize();
     gic_install();

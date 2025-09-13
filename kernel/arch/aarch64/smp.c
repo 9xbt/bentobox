@@ -35,6 +35,11 @@ void ap_startup(void) {
 }
 
 void smp_bootstrap(void) {
+    if (args_contains("nosmp")) {
+        dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
+        return;
+    }
+
     uint64_t mpidr;
     asm volatile("mrs %0, mpidr_el1" : "=r" (mpidr));
 
@@ -42,16 +47,11 @@ void smp_bootstrap(void) {
         if (madt_gicc_list[i]->mpidr != mpidr)
             smp_request.response->cpus[i]->goto_address = (limine_goto_address)_ap_trampoline;
     }
+    
+    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", madt_giccs - 1);
 }
 
 void smp_initialize(void) {
-    if (args_contains("nosmp")) {
-        dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
-        return;
-    }
-    if (madt_giccs < 2)
-        return;
-
     for (size_t i = 0; i < madt_giccs; i++) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
         core->id = i;
@@ -61,8 +61,6 @@ void smp_initialize(void) {
         core->current_tcb = NULL;
         cpu_list[core->logical_id] = core;
     }
-
-    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", madt_giccs - 1);
 }
 
 struct cpu *get_core(size_t core) {

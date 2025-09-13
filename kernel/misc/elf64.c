@@ -18,6 +18,20 @@ static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int s
     return 0;
 }
 
+/*
+ * Borrowed from https://github.com/klange/toaruos/blob/master/kernel/misc/elf64.c
+ */
+
+static uint32_t aarch64_imm_adr(uint32_t val) {
+	uint32_t low  = (val & 0x3) << 29;
+	uint32_t high = ((val >> 2) & 0x7ffff) << 5;
+	return low | high;
+}
+
+static uint32_t aarch64_imm_12(uint32_t val) {
+	return (val & 0xFFF) << 10;
+}
+
 __attribute__((no_sanitize("alignment")))
 int elf64_module(struct limine_file *mod) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->address;
@@ -117,6 +131,21 @@ int elf64_module(struct limine_file *mod) {
                 case R_X86_64_PC32:
                     T32 = (uint32_t)(S + A - P);
                     break;
+                case R_AARCH64_ABS64:
+                    T64 = S + A;
+                    break;
+                case R_AARCH64_ABS32:
+                    T32 = (uint32_t)(S + A);
+                    break;
+                case R_AARCH64_ADR_PREL_PG_HI21:
+					T32 = T32 | aarch64_imm_adr(((S + A) >> 12) - (P >> 12));
+					break;
+                case R_AARCH64_ADD_ABS_LO12_NC:
+                    T32 = (T32 & 0xFFC003FF) | aarch64_imm_12(S + A);
+                    break;
+                case R_AARCH64_CALL26:
+					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
+					break;
                 default:
                     dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
                     break;

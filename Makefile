@@ -32,7 +32,20 @@ OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
-MODULE_OBJS := $(addprefix obj/, $(MODULE_SOURCES:.c=.ko))
+MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
+
+APPS_LDFLAGS :=
+
+APPS_SOURCES := $(shell find apps -type f)
+APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
+APPS_NASMFILES := $(filter %.asm,$(APPS_SOURCES))
+APPS_OBJS := $(addprefix obj/$(ARCH)/,$(APPS_CFILES:.c=.o))
+APPS_EXECUTABLES := $(addprefix bin/$(ARCH)/,$(APPS_CFILES:.c=))
+
+ifeq ($(ARCH),x86_64)
+APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_NASMFILES:.asm=.o))
+APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_NASMFILES:.asm=))
+endif
 
 .PHONY: all
 all: $(IMAGE_NAME).iso
@@ -42,39 +55,46 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) bin/$(ARCH)/initrd.tar
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar
 
 -include $(HEADER_DEPS)
 
 bin/$(ARCH)/$(OUTPUT): kernel/arch/$(ARCH)/linker.ld $(OBJ)
-	@echo "  LD $@"
+	@echo " LD $@"
 	@mkdir -p "$(dir $@)"
 	@$(LD) $(LDFLAGS) $(OBJ) -o $@
 
 obj/$(ARCH)/%.c.o: %.c
-	@echo "  CC $<"
+	@echo " CC $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 obj/$(ARCH)/%.S.o: %.S
-	@echo "  AS $<"
+	@echo " AS $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 obj/$(ARCH)/%.asm.o: %.asm
-	@echo "  AS $<"
+	@echo " AS $<"
 	@mkdir -p "$(dir $@)"
 	@nasm $(NASMFLAGS) $< -o $@
 
-obj/modules/%.ko: modules/%.c
-	@echo "  CC $<"
+obj/$(ARCH)/modules/%.ko: modules/%.c
+	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -mcmodel=large -fno-pic -c $< -o $@
 
-bin/$(ARCH)/initrd.tar: $(shell find base -type f)
-	@echo " TAR $@"
+bin/$(ARCH)/apps/%: obj/$(ARCH)/apps/%.o
+	@echo " LD $@"
 	@mkdir -p "$(dir $@)"
-	@tar -C base -cf $@ .
+	@$(LD) $(APPS_LDFLAGS) $< -o $@
+
+bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
+	@echo " AR $@"
+	@mkdir -p "$(dir $@)"
+	@mkdir -p bin/base
+	@cp -r base/* bin/base/
+	@tar -C bin/base -cf $@ .
 
 .PHONY: clean
 clean:

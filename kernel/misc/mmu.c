@@ -173,9 +173,15 @@ void mmu_free(void *ptr) {
 }
 
 void *mmu_map_module(uintptr_t base, size_t len) {
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW;
+    #endif
+
     len = ALIGN_UP(len, PAGE_SIZE);
     for (uint32_t i = 0; i < len; i += PAGE_SIZE) {
-        mmu_map(kernel_pd, (void *)((uintptr_t)module_base + i), (void *)(mmu_get_physical(kernel_pd, (void *)base + i)), PTE_PRESENT | PTE_WRITABLE);
+        mmu_map(kernel_pd, (void *)((uintptr_t)module_base + i), (void *)(mmu_get_physical(kernel_pd, (void *)base + i)), flags);
     }
 
     module_base += len;
@@ -183,13 +189,18 @@ void *mmu_map_module(uintptr_t base, size_t len) {
 }
 
 void *mmu_map_module_bss(size_t pages) {
-    size_t length = pages * PAGE_SIZE;
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
 
+    size_t length = pages * PAGE_SIZE;
     for (size_t page = 0; page < pages; page++) {
         void *paddr = mmu_alloc();
         void *vaddr = (void *)(module_base + page * PAGE_SIZE);
 
-        mmu_map(kernel_pd, vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
+        mmu_map(kernel_pd, vaddr, paddr, flags);
         memset(vaddr, 0, PAGE_SIZE);
     }
 

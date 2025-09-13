@@ -42,8 +42,9 @@ build/limine/limine:
 $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
-	@cp bin/$(ARCH)/* iso_root/boot/
-	@cp -r obj/modules/* iso_root/boot/
+	@cp bin/$(ARCH)/kernel iso_root/boot/
+	@cp bin/$(ARCH)/initrd.tar iso_root/boot/
+	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
 	@cp boot/limine.conf iso_root/boot/limine/
 	@mkdir -p iso_root/EFI/BOOT
@@ -58,3 +59,8 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@./build/limine/limine bios-install $(IMAGE_NAME).iso 2>&1 >/dev/null | grep -Ev \
 		"Physical|Installing|Secondary|partition|Stage|Reminder|Limine|directories|Converting|Conversion" | cat
 	@rm -rf iso_root
+
+obj/$(ARCH)/apps/%.o: apps/%.asm
+	@echo " AS $<"
+	@mkdir -p "$$(dirname $@)"
+	@nasm -f elf64 -o $@ $<

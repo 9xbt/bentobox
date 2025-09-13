@@ -173,6 +173,12 @@ typedef struct {
 #define R_X86_64_TLSDESC 	36
 #define R_X86_64_IRELATIVE	37
 
+#define R_AARCH64_ABS64		257
+#define R_AARCH64_ABS32		258
+#define R_AARCH64_ADR_PREL_PG_HI21 275
+#define R_AARCH64_ADD_ABS_LO12_NC 277
+#define R_AARCH64_CALL26	283
+
 typedef struct {
 	Elf64_Addr r_offset;
 	Elf64_Xword r_info;

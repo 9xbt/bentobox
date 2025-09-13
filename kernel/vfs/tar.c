@@ -16,15 +16,13 @@ vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type 
     return vfs_add_node(parent, node);
 }
 
-int oct2bin(unsigned char *str, int size) {
-    int n = 0;
-    unsigned char *c = str;
-    while (size-- > 0) {
-        n *= 8;
-        n += *c - '0';
-        c++;
+int oct2bin(char *oct, int size) {
+    unsigned int out = 0;
+    int i = 0;
+    while ((i < size) && oct[i]){
+        out = (out << 3) | (unsigned int) (oct[i++] - '0');
     }
-    return n;
+    return out;
 }
 
 void tar_module(struct limine_file *mod) {
@@ -33,7 +31,7 @@ void tar_module(struct limine_file *mod) {
     struct tar *tar = (struct tar *)mod->address;
 
     while (!memcmp(tar->ustar, "ustar", 5)) {
-        int filesize = oct2bin((unsigned char *)tar->size, sizeof(tar->size));
+        int filesize = oct2bin(tar->size, sizeof(tar->size));
 
         vfs_node_type_t type;
         switch (tar->type) {
@@ -49,17 +47,20 @@ void tar_module(struct limine_file *mod) {
                 break;
             default:
                 dprintf(LOG_WARNING, "\033[93mtar:\033[0m skipping '%s': unsupported type %c\n", tar->name, tar->type);
-                tar = (struct tar *)((unsigned char *)tar + ((filesize + 511) / 512 + 1) * 512);
+                tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
                 continue;
         }
 
         vfs_node_t *node = vfs_lookup(NULL, tar->name, true, type);
         if (!node) {
             dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s\n", tar->name);
+        } else if (type == VFS_FILE) {
+            node->device = (void *)((unsigned char *)tar + 512);
+            node->size = filesize;
         }
 
-        tar = (struct tar *)((unsigned char *)tar + ((filesize + 511) / 512 + 1) * 512);
+        tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
     }
 
-    vfs_print_tree(NULL);
+    //vfs_print_tree(NULL);
 }
