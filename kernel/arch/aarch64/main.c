@@ -57,6 +57,7 @@ void arch_do_backtrace(void) {
 void idle(void) {
     for (;;) {
         dprintf(LOG_INFO, "a");
+        asm volatile ("msr daifclr, #2");
         asm ("wfi");
     }
 }
@@ -69,7 +70,7 @@ void arch_context_init(struct context *ctx, void *entry) {
 }
 
 void arch_context_free(struct context *ctx) {
-    
+    (void)ctx;
 }
 
 void arch_save_context(void) {

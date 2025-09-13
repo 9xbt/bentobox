@@ -58,12 +58,16 @@ _irq_stub:
     stp x26, x27, [sp, #-16]!
     stp x28, x29, [sp, #-16]!
     stp x30, xzr, [sp, #-16]!
-    mrs x0, SP_EL0
-    stp x30, x0, [sp, #-16]!
-    mov x29, sp
+    
+    mrs x1, SP_EL0
+    str x1, [sp, #-8]!
 
+    mov x29, sp
     mov x0, sp
     bl irq_handler
+
+    ldr x1, [sp], #8
+    msr SP_EL0, x1
 
     ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16

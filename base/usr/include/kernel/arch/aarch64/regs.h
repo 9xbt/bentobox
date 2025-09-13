@@ -24,4 +24,5 @@ struct context {
     struct registers regs;
     uint64_t elr_elx;
     uint64_t spsr_elx;
+    uint64_t daif;
 };

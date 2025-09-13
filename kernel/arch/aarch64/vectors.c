@@ -63,7 +63,8 @@ void fault_handler(struct registers *r) {
 void irq_handler(struct registers *r) {
     (void)r;
 
-    uint32_t irq = gicc_read(this_cpu->gicc, GICC_IAR) & 0x3FF;
+    uint32_t iar = gicc_read(this_cpu->gicc, GICC_IAR);
+    uint32_t irq = iar & 0x3FF;
     dprintf(LOG_INFO, "irq %u!\n", irq);
     if (irq == 1) {
         asm ("msr daifset, #2");
@@ -73,7 +74,7 @@ void irq_handler(struct registers *r) {
         sched_schedule(r);
     }
 
-    gicc_write(this_cpu->gicc, GICC_EOIR, irq);
+    gicc_write(this_cpu->gicc, GICC_EOIR, iar);
 }
 
 void vectors_install(void) {
