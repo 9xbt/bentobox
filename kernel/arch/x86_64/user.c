@@ -1,7 +1,9 @@
 #include <stdint.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/context.h>
+#include <kernel/syscall.h>
 #include <kernel/printf.h>
+#include <kernel/errno.h>
 
 extern void syscall_entry(void);
 
@@ -44,6 +46,12 @@ void user_initialize(void) {
 }
 
 void syscall_handler(struct registers *r) {
-    dprintf(LOG_INFO, "\033[93muser:\033[0m syscall %lu\n", r->rax);
-    r->rax = 0;
+    if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
+        dprintf(LOG_INFO, "\033[93muser:\033[0m unknown syscall %lu\n", r->rax);
+        r->rax = -ENOSYS;
+        return;
+    }
+
+    syscall_func handler = syscalls[r->rax];
+    r->rax = handler(r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
 }
