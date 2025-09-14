@@ -5,15 +5,24 @@
 #include <limine.h>
 
 vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len);
 
 vfs_node_ops_t tar_ops = {
-    .create = tar_create
+    .create = tar_create,
+    .read = tar_read
 };
 
 vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     vfs_node_t *node = vfs_create_node(name, type);
     node->ops = &tar_ops;
     return vfs_add_node(parent, node);
+}
+
+long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    // TODO: check for ustar signature
+    size_t count = len < node->size - offset ? len : node->size - offset;
+    memcpy(buffer, node->device + offset, count);
+    return count;
 }
 
 int oct2bin(char *oct, int size) {

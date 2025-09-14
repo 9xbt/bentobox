@@ -92,9 +92,10 @@ bin/$(ARCH)/apps/%: obj/$(ARCH)/apps/%.o
 bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
 	@echo " AR $@"
 	@mkdir -p "$(dir $@)"
-	@mkdir -p bin/base
-	@cp -r base/* bin/base/
-	@tar -C bin/base -cf $@ .
+	@mkdir -p bin/$(ARCH)/base/bin
+	@cp -r base/* bin/$(ARCH)/base/
+	@cp -r bin/$(ARCH)/apps/* bin/$(ARCH)/base/bin/
+	@tar -C bin/$(ARCH)/base -cf $@ .
 
 .PHONY: clean
 clean:

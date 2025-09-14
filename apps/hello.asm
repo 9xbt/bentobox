@@ -13,6 +13,8 @@ _start:
     mov rdi, 0        ;   EXIT_SUCCESS
     syscall           ; );
 
+    jmp $
+
 section .rodata
     msg: db "Hello, world!", 10
     msglen: equ $ - msg

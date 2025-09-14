@@ -1,4 +1,5 @@
 #include <kernel/arch/x86_64/lapic.h>
+#include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
@@ -30,6 +31,7 @@ void ap_startup() {
     mmu_switch_pm(kernel_pd);
     gdt_flush();
     lapic_reinstall();
+    user_initialize();
     
     for (;;) asm ("hlt");
 }

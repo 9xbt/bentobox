@@ -2,11 +2,13 @@
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/malloc.h>
 #include <kernel/elf64.h>
 #include <kernel/errno.h>
 #include <kernel/list.h>
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
+#include <kernel/vfs.h>
 #include <limine.h>
 
 static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int symbol_count, const char *str) {
@@ -160,4 +162,52 @@ int elf64_module(struct limine_file *mod) {
     }
 
     return metadata->init();
+}
+
+int spawn(const char *file, int argc, char *argv[], char *env[]) {
+    (void)argc;
+    (void)argv;
+    (void)env;
+
+    vfs_node_t *node = vfs_open(NULL, file, 0);
+    if (!node) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: no such file or directory\n", file);
+        return -ENOENT;
+    }
+    if (node->type == VFS_DIRECTORY) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: is a directory\n", file);
+        return -EISDIR;
+    }
+
+    void *buffer = kmalloc(node->size);
+    vfs_read(node, buffer, 0, node->size);
+
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
+
+    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m invalid elf file\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf class\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_type != ET_EXEC) {
+        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf type\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    dprintf(LOG_INFO, "\033[93melf:\033[0m file seems valid\n");
+
+    kfree(buffer);
+    vfs_close(node);
+    return 0;
 }

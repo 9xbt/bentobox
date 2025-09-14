@@ -34,6 +34,6 @@ struct process {
 
 node_t *sched_add_process(struct cpu *cpu, struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
-struct process *sched_new_process(void *entry, const char *name);
+struct process *sched_new_process(void *entry, const char *name, bool user);
 void sched_schedule(struct registers *r);
 void sched_install(void);

@@ -121,8 +121,12 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
 
 vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
     vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
+    if (!node)
+        return NULL;
     if (node->open)
         return NULL;
+    if (node->ops && node->ops->open)
+        node->ops->open(node, flags);
     return node;
 }
 
@@ -202,9 +206,6 @@ void vfs_print_tree(vfs_node_t *node) {
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
     vfs_root->open = true;
-
-    vfs_add_node(vfs_root, vfs_create_node("test", VFS_FILE));
-    vfs_add_node(vfs_add_node(vfs_root, vfs_create_node("dir", VFS_DIRECTORY)), vfs_create_node("file_in_dir", VFS_FILE));
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

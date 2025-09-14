@@ -1,9 +1,10 @@
-#include "kernel/ksym.h"
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
+#include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/gdt.h>
+#include <kernel/arch/x86_64/tss.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/smp.h>
@@ -15,6 +16,7 @@
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
+#include <kernel/ksym.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -63,7 +65,7 @@ void idle(void) {
     }
 }
 
-void arch_context_init(struct context *ctx, void *entry) {
+void arch_context_init(struct context *ctx, void *entry, bool user) {
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
@@ -71,8 +73,8 @@ void arch_context_init(struct context *ctx, void *entry) {
     ctx->stack = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
     ctx->regs.rsp = ctx->stack + PAGE_SIZE - 8;
     ctx->regs.rip = (uint64_t)entry;
-    ctx->regs.cs = 0x08;
-    ctx->regs.ss = 0x10;
+    ctx->regs.cs = user ? 0x23 : 0x08;
+    ctx->regs.ss = user ? 0x1b : 0x10;
     ctx->regs.rflags = 0x202;
 }
 
@@ -104,13 +106,17 @@ void kmain(void) {
     gdt_install();
     idt_install();
     mmu_initialize();
+    tss_install();
     elf64_module(ksym_request.response->executable_file);
     acpi_install();
     hpet_install();
     lapic_install();
     ioapic_install();
     smp_initialize();
+    user_initialize();
+
     generic_startup();
+    spawn("/bin/hello", 0, NULL, NULL);
     generic_main();
 
     irq_register(0x80 - 32, sched_schedule);
@@ -119,9 +125,9 @@ void kmain(void) {
         struct cpu *core = get_core(i);
         if (core == this_cpu)
             continue;
-        sched_add_process(core, sched_new_process(idle, "idle"));
+        sched_add_process(core, sched_new_process(idle, "idle", false));
         lapic_ipi(core->logical_id, 0x80);
     }
-    sched_add_process(this_cpu, sched_new_process(idle, "idle"));
+    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
     lapic_ipi(this_cpu->logical_id, 0x80);
 }
