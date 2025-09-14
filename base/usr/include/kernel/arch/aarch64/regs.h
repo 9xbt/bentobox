@@ -25,4 +25,8 @@ struct context {
     uint64_t elr_elx;
     uint64_t spsr_elx;
     uint64_t daif;
+    uint64_t stack;
+    uint64_t stack_bottom;
+    uint64_t user_stack;
+    uint64_t user_stack_bottom;
 };

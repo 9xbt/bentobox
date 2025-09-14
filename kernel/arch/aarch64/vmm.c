@@ -35,8 +35,12 @@ static inline void tlb_invalidate(void *va) {
 
 void mmu_switch_pm(uintptr_t *pm) {
     asm volatile("msr ttbr0_el1, %0" : : "r"(PHYSICAL_HHDM(pm)) : "memory");
-    asm volatile("msr ttbr1_el1, %0" : : "r"(PHYSICAL_HHDM(pm)) : "memory");
-    asm volatile("dsb ish; tlbi vmalle1; dsb ish; isb" : : : "memory");
+    if (pm == kernel_pd) {
+        asm volatile("msr ttbr1_el1, %0" : : "r"(PHYSICAL_HHDM(pm)) : "memory");
+        asm volatile("dsb ish; tlbi vmalle1; dsb ish; isb" : : : "memory");
+    } else {
+        asm volatile("dsb ish; tlbi vmalle1; dsb ish; isb" : : : "memory");
+    }
 }
 
 void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {

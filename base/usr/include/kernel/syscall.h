@@ -3,6 +3,7 @@
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/syscall.h>
 #elif __aarch64__
+#include <kernel/arch/aarch64/syscall.h>
 #endif
 
 typedef long (*syscall_func)(long, long, long, long, long, long);

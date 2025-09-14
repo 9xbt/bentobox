@@ -34,17 +34,24 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
+APPS_ASFLAGS := -nostdlib -static -ffreestanding -fno-builtin -fno-stack-protector -O0 -Wall -Wextra -march=armv8-a
 APPS_LDFLAGS :=
-
 APPS_SOURCES := $(shell find apps -type f)
+
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
+APPS_ASFILES := $(filter %.S,$(APPS_SOURCES))
 APPS_NASMFILES := $(filter %.asm,$(APPS_SOURCES))
+
 APPS_OBJS := $(addprefix obj/$(ARCH)/,$(APPS_CFILES:.c=.o))
 APPS_EXECUTABLES := $(addprefix bin/$(ARCH)/,$(APPS_CFILES:.c=))
 
 ifeq ($(ARCH),x86_64)
 APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_NASMFILES:.asm=.o))
 APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_NASMFILES:.asm=))
+endif
+ifeq ($(ARCH),aarch64)
+APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_ASFILES:.S=.o))
+APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
 endif
 
 .PHONY: all
@@ -88,6 +95,16 @@ bin/$(ARCH)/apps/%: obj/$(ARCH)/apps/%.o
 	@echo " LD $@"
 	@mkdir -p "$(dir $@)"
 	@$(LD) $(APPS_LDFLAGS) $< -o $@
+
+obj/$(ARCH)/apps/%.o: apps/%.S
+	@echo " AS $<"
+	@mkdir -p "$$(dirname $@)"
+	@$(CC) $(APPS_ASFLAGS) -c $< -o $@
+
+obj/$(ARCH)/apps/%.o: apps/%.asm
+	@echo " AS $<"
+	@mkdir -p "$$(dirname $@)"
+	@nasm -f elf64 -o $@ $<
 
 bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
 	@echo " AR $@"

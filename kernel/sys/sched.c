@@ -53,15 +53,15 @@ void sched_schedule(struct registers *r) {
         } else {
             this->state = THREAD_RUNNING;
         }
+        if (this_cpu->current_tcb->next)
+            this_cpu->current_tcb = this_cpu->current_tcb->next;
+        else
+            this_cpu->current_tcb = this_cpu->threads->head;
     } else {
         this_cpu->current_tcb = this_cpu->threads->head;
+        if (this->state == THREAD_NEW)
+            this->state = THREAD_RUNNING;
     }
-
-    if (this_cpu->current_tcb->next)
-        this_cpu->current_tcb = this_cpu->current_tcb->next;
-    else
-        this_cpu->current_tcb = this_cpu->threads->head;
-
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();
 }

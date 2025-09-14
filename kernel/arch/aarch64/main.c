@@ -61,52 +61,43 @@ void idle(void) {
     }
 }
 
-void b(void) {
-    for (;;) {
-        dprintf(LOG_INFO, "b\n");
-        asm ("wfi");
-    }
-}
-
-void arch_context_init(struct context *ctx, void *entry, bool user) {
-    (void)user;
-
+void arch_context_init(struct thread *tcb, void *entry, bool user) {
+    struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
-    ctx->spsr_elx = 0x3c5;
+    ctx->spsr_elx = user ? 0x0 : 0x345;
+    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
+    ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
+    ctx->regs.sp = ctx->stack;
 }
 
-void arch_context_free(struct context *ctx) {
-    (void)ctx;
+void arch_context_free(struct thread *tcb) {
+    (void)tcb;
 }
 
 void arch_save_context(void) {
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(0));
     
-    if (!this->parent->user) {
-        asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
-        asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
-    }
+    asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
+    asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
 }
 
 void arch_restore_context(void) {
-    if (!this->parent->user) {
-        asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
-        this->ctx.spsr_elx &= ~(1UL << 7);
-        asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
-    }
+    mmu_switch_pm(this->parent->pm);
+
+    asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
+    asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
 
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(1));
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
-    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 5));
+    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 500));
 }
 
 void arch_jumpstart(void) {
     sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
-    sched_add_process(this_cpu, sched_new_process(b, "b", false));
     gic_send_sgi(0, 1);
 }
 
@@ -133,5 +124,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
+    spawn("/bin/hello", 0, NULL, NULL);
     generic_main();
 }

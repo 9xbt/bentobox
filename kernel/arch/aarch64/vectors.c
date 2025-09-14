@@ -32,7 +32,7 @@ const char *esr_ec_reasons[0x40] = {
 extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
 
-void fault_handler(struct registers *r) {
+void do_regdump(const char *msg, struct registers *r) {
     uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
     
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
@@ -42,7 +42,7 @@ void fault_handler(struct registers *r) {
 
     uint64_t ec = (esr_el1 >> 26) & 0x3F;
 
-    dprintf(LOG_EMERG, "EL1-EL1 fault: \033[91m%s\033[0m on CPU %d\n", esr_ec_reasons[ec], this_cpu->id);
+    dprintf(LOG_EMERG, "%s: \033[91m%s\033[0m on CPU %d\n", msg, esr_ec_reasons[ec], this_cpu->id);
     dprintf(LOG_EMERG, "x0:  0x%p x1:  0x%p x2:  0x%p x3:  0x%p\n", r->x0,  r->x1,  r->x2,  r->x3);
     dprintf(LOG_EMERG, "x4:  0x%p x5:  0x%p x6:  0x%p x7:  0x%p\n", r->x4,  r->x5,  r->x6,  r->x7);
     dprintf(LOG_EMERG, "x8:  0x%p x9:  0x%p x10: 0x%p x11: 0x%p\n", r->x8,  r->x9,  r->x10, r->x11);
@@ -56,7 +56,23 @@ void fault_handler(struct registers *r) {
     dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_el1);
     dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_el1);
     arch_do_backtrace();
+}
 
+void el1_fault_handler(struct registers *r) {
+    do_regdump("EL1-EL1 fault", r);
+    arch_fatal();
+}
+
+void el0_fault_handler(struct registers *r) {
+    uint64_t esr_el1;
+    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
+
+    if (((esr_el1 >> 26) & 0x3F) == 0x15) {
+        dprintf(LOG_INFO, "syscall!\n");
+        return;
+    }
+
+    do_regdump("EL0-EL1 fault", r);
     arch_fatal();
 }
 

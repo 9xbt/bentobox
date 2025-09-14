@@ -59,8 +59,3 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@./build/limine/limine bios-install $(IMAGE_NAME).iso 2>&1 >/dev/null | grep -Ev \
 		"Physical|Installing|Secondary|partition|Stage|Reminder|Limine|directories|Converting|Conversion" | cat
 	@rm -rf iso_root
-
-obj/$(ARCH)/apps/%.o: apps/%.asm
-	@echo " AS $<"
-	@mkdir -p "$$(dirname $@)"
-	@nasm -f elf64 -o $@ $<
