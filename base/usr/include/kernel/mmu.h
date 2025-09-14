@@ -36,3 +36,4 @@ uintptr_t mmu_get_physical(uintptr_t *pm, void *virt);
 uint64_t  mmu_get_flags(uintptr_t *pm, void *virt);
 void *mmu_map_module(uintptr_t base, size_t len);
 void *mmu_map_module_bss(size_t pages);
+uintptr_t *mmu_create_pagemap(void);

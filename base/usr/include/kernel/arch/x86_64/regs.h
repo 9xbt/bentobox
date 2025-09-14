@@ -28,7 +28,9 @@ struct registers {
 
 struct context {
     uint64_t stack;
+    uint64_t stack_bottom;
     uint64_t user_stack;
+    uint64_t user_stack_bottom;
     uint64_t gs;
     uint64_t fs;
     uint64_t user_gs;

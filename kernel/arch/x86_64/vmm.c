@@ -145,3 +145,14 @@ uint64_t mmu_get_flags(uintptr_t *pm, void *virt) {
 
     return PTE_GET_FLAGS(pt[pt_index]);
 }
+
+uintptr_t *mmu_create_pagemap(void) {
+    uintptr_t *pm = (uintptr_t *)VIRTUAL_HHDM(mmu_alloc());
+    memset(pm, 0, PAGE_SIZE);
+
+    for (int i = 256; i < 512; i++) {
+        pm[i] = kernel_pd[i];
+    }
+
+    return pm;
+}

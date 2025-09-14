@@ -60,7 +60,7 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        dprintf(LOG_INFO, "a");
+        //dprintf(LOG_INFO, "a");
         asm ("hlt");
     }
 }
@@ -70,8 +70,13 @@ void arch_context_init(struct context *ctx, void *entry, bool user) {
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
 
-    ctx->stack = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
-    ctx->regs.rsp = ctx->stack + PAGE_SIZE - 8;
+    ctx->stack_bottom = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
+    ctx->stack = ctx->stack_bottom + PAGE_SIZE - 8;
+    if (user) {
+        ctx->user_stack_bottom = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
+        ctx->user_stack = ctx->user_stack_bottom + PAGE_SIZE - 8;
+    }
+    ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
     ctx->regs.cs = user ? 0x23 : 0x08;
     ctx->regs.ss = user ? 0x1b : 0x10;
@@ -79,17 +84,37 @@ void arch_context_init(struct context *ctx, void *entry, bool user) {
 }
 
 void arch_context_free(struct context *ctx) {
-    mmu_free(PHYSICAL_HHDM(ctx->stack));
+    mmu_free(PHYSICAL_HHDM(ctx->stack_bottom));
 }
 
 void arch_save_context(void) {
+    this->ctx.gs = read_kernel_gs();
+    this->ctx.user_gs = read_gs();
     asm volatile ("fxsave %0 " : : "m"(this->ctx.fxsave));
 }
 
 void arch_restore_context(void) {
+    mmu_switch_pm(this->parent->pm);
+    write_kernel_gs((uint64_t)this);
+    write_gs(this->ctx.user_gs);
+    set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
     lapic_eoi();
     lapic_oneshot(0x80, 5);
+}
+
+void arch_jumpstart(void) {
+    irq_register(0x80 - 32, sched_schedule);
+
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        if (core == this_cpu)
+            continue;
+        sched_add_process(core, sched_new_process(idle, "idle", false));
+        lapic_ipi(core->logical_id, 0x80);
+    }
+    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
+    lapic_ipi(this_cpu->logical_id, 0x80);
 }
 
 void kmain(void) {
@@ -117,17 +142,5 @@ void kmain(void) {
 
     generic_startup();
     spawn("/bin/hello", 0, NULL, NULL);
-    generic_main();
-
-    irq_register(0x80 - 32, sched_schedule);
-
-    for (size_t i = 0; i < cpu_count; i++) {
-        struct cpu *core = get_core(i);
-        if (core == this_cpu)
-            continue;
-        sched_add_process(core, sched_new_process(idle, "idle", false));
-        lapic_ipi(core->logical_id, 0x80);
-    }
-    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
-    lapic_ipi(this_cpu->logical_id, 0x80);
+    generic_main();    
 }

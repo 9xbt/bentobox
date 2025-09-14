@@ -46,7 +46,7 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@cp bin/$(ARCH)/initrd.tar iso_root/boot/
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
-	@cp boot/limine.conf iso_root/boot/limine/
+	@cp build/limine.conf iso_root/boot/limine/
 	@mkdir -p iso_root/EFI/BOOT
 	@cp build/limine/limine-bios.sys build/limine/limine-bios-cd.bin build/limine/limine-uefi-cd.bin iso_root/boot/limine/
 	@cp build/limine/BOOTX64.EFI iso_root/EFI/BOOT/

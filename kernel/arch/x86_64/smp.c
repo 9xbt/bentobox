@@ -36,16 +36,27 @@ void ap_startup() {
     for (;;) asm ("hlt");
 }
 
-void smp_initialize(void) {
+void smp_bootstrap(void) {
     if (args_contains("nosmp")) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;
     }
-    cpu_count = madt_lapics;
 
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     bspid >>= 24;
+
+    for (size_t i = 0; i < cpu_count; i++) {
+        if (madt_lapic_list[i]->id != bspid)
+            smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
+    }
+
+    if (cpu_count > 1)
+        dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
+}
+
+void smp_initialize(void) {
+    cpu_count = args_contains("nosmp") ? 1 : madt_lapics;
 
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
@@ -55,13 +66,9 @@ void smp_initialize(void) {
         core->threads = list_create();
         core->current_tcb = NULL;
         cpu_list[i] = core;
-
-        if (madt_lapic_list[i]->id != bspid)
-            smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
     }
-
-    if (cpu_count > 1)
-        dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
+    
+    smp_bootstrap();
 }
 
 struct cpu *get_core(size_t core) {

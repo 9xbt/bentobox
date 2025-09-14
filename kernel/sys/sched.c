@@ -10,6 +10,7 @@ extern void arch_context_init(struct context *ctx, void *entry, bool user);
 extern void arch_context_free(struct context *ctx);
 extern void arch_save_context(void);
 extern void arch_restore_context(void);
+extern void arch_jumpstart(void);
 
 node_t *sched_add_process(struct cpu *cpu, struct process *proc) {
     foreach(thread, proc->threads) {
@@ -31,7 +32,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry) {
 struct process *sched_new_process(void *entry, const char *name, bool user) {
     struct process *proc = kmalloc(sizeof(struct process));
     proc->name = strdup(name);
-    proc->pm = kernel_pd;
+    proc->pm = mmu_create_pagemap();
     proc->pid = 0;
     proc->user = user;
     proc->parent = NULL;
@@ -66,5 +67,5 @@ void sched_schedule(struct registers *r) {
 }
 
 void sched_install(void) {
-    dprintf(LOG_INFO, "\033[93msched:\033[0m initialized process lists\n");
+    arch_jumpstart();
 }

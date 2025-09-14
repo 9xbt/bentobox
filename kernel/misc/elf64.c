@@ -5,6 +5,7 @@
 #include <kernel/malloc.h>
 #include <kernel/elf64.h>
 #include <kernel/errno.h>
+#include <kernel/sched.h>
 #include <kernel/list.h>
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
@@ -39,17 +40,17 @@ int elf64_module(struct limine_file *mod) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->address;
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m invalid elf file\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m invalid elf file\n");
         return -ENOEXEC;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf class\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf class\n");
         return -ENOEXEC;
     }
 
     if (ehdr->e_type != ET_EXEC && ehdr->e_type != ET_REL) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf type\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf type\n");
         return -ENOEXEC;
     }
 
@@ -102,7 +103,7 @@ int elf64_module(struct limine_file *mod) {
             symtab[sym].st_value += shdr[symtab[sym].st_shndx].sh_addr;
         } else if (symtab[sym].st_shndx == SHN_UNDEF && symtab[sym].st_name) {
             if (!(symtab[sym].st_value = ksym_addr(&strtab[symtab[sym].st_name]))) {
-                dprintf(LOG_INFO, "\033[93melf:\033[0m failed to resolve symbol: %s\n", &strtab[symtab[sym].st_name]);
+                dprintf(LOG_ERR, "\033[93melf:\033[0m failed to resolve symbol: %s\n", &strtab[symtab[sym].st_name]);
             }
         }
     }
@@ -149,7 +150,7 @@ int elf64_module(struct limine_file *mod) {
 					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
 					break;
                 default:
-                    dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
+                    dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
                     break;
             }
         }
@@ -157,11 +158,51 @@ int elf64_module(struct limine_file *mod) {
 
     struct Module *metadata = (struct Module *)(elf64_find_symbol(symtab, strtab, symbol_count, "metadata"));
     if (!metadata) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m module metadata not found for \"%s\"\n", mod->string);
+        dprintf(LOG_ERR, "\033[93melf:\033[0m module metadata not found for \"%s\"\n", mod->string);
         return -1;
     }
 
     return metadata->init();
+}
+
+
+static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdr[i].p_type == PT_LOAD) {
+            uintptr_t page_start = ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE);
+            uintptr_t page_end = ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE);
+            size_t pages = (page_end - page_start) / PAGE_SIZE;
+            
+            uint64_t flags = PTE_PRESENT | PTE_USER;
+            if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
+            if (!(phdr[i].p_flags & PF_X)) flags |= PTE_NX;
+
+            for (size_t page = 0; page < pages; page++) {
+                void *paddr = mmu_alloc();
+                void *vaddr = (void *)(page_start + page * PAGE_SIZE);
+
+                mmu_map(kernel_pd, vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
+            }
+
+            if (phdr[i].p_filesz > 0) {
+                uintptr_t src = (uintptr_t)(uintptr_t)ehdr + phdr[i].p_offset;
+                uintptr_t dest = phdr[i].p_vaddr;
+
+                memcpy((void *)dest, (void *)src, phdr[i].p_filesz);
+            }
+
+            if (phdr[i].p_memsz > phdr[i].p_filesz) {
+                memset((void *)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
+            }
+
+            for (size_t page = 0; page < pages; page++) {
+                void *vaddr = (void *)(page_start + page * PAGE_SIZE);
+                void *paddr = (void *)mmu_get_physical(kernel_pd, vaddr);
+
+                mmu_map(proc->pm, vaddr, paddr, flags);
+            }
+        }
+    }
 }
 
 int spawn(const char *file, int argc, char *argv[], char *env[]) {
@@ -185,29 +226,34 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m invalid elf file\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m invalid elf file\n");
         kfree(buffer);
         vfs_close(node);
         return -ENOEXEC;
     }
 
     if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf class\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf class\n");
         kfree(buffer);
         vfs_close(node);
         return -ENOEXEC;
     }
 
     if (ehdr->e_type != ET_EXEC) {
-        dprintf(LOG_INFO, "\033[93melf:\033[0m unsupported elf type\n");
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf type\n");
         kfree(buffer);
         vfs_close(node);
         return -ENOEXEC;
     }
 
-    dprintf(LOG_INFO, "\033[93melf:\033[0m file seems valid\n");
+    struct process *proc = sched_new_process((void *)ehdr->e_entry, file, true);
+    
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
+    elf64_load_sections(proc, ehdr, phdr);
 
     kfree(buffer);
     vfs_close(node);
+
+    sched_add_process(this_cpu, proc);
     return 0;
 }
