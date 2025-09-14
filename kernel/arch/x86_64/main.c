@@ -71,7 +71,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
 
-    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, tcb->parent->pm, 4, PTE_PRESENT | PTE_WRITABLE);
+    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_PRESENT | PTE_WRITABLE);
     ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
     if (user) {
         ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, tcb->parent->pm, 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
