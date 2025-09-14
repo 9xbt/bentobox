@@ -31,7 +31,8 @@ extern char rodata_end_ld[];
 extern char data_start_ld[];
 extern char data_end_ld[];
 
-uintptr_t *kernel_pd;
+uintptr_t  *kernel_pd;
+struct vma *kernel_vma;
 
 uintptr_t hhdm_offset;
 
@@ -148,6 +149,8 @@ void mmu_initialize(void) {
     mmu_switch_pm(kernel_pd);
 
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m switched to new pagemap\n");
+
+    kernel_vma = vma_create(VMA_KERNEL_BASE, 256 * 1024 * 1024);
 }
 
 static uint64_t last_page = 0;

@@ -29,6 +29,12 @@ static bool pt_empty(uintptr_t *pt) {
 }
 
 void mmu_switch_pm(uintptr_t *pm) {
+    if (pm != kernel_pd) {
+        for (int i = 256; i < 512; i++) {
+            pm[i] = kernel_pd[i];
+        }
+    }
+
     asm volatile("mov %0, %%cr3" ::"r"((uint64_t)PHYSICAL_HHDM(pm)) : "memory");
 }
 

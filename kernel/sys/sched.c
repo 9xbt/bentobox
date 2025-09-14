@@ -6,8 +6,8 @@
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 
-extern void arch_context_init(struct context *ctx, void *entry, bool user);
-extern void arch_context_free(struct context *ctx);
+extern void arch_context_init(struct thread *tcb, void *entry, bool user);
+extern void arch_context_free(struct thread *tcb);
 extern void arch_save_context(void);
 extern void arch_restore_context(void);
 extern void arch_jumpstart(void);
@@ -23,8 +23,8 @@ struct thread *sched_new_thread(struct process *parent, void *entry) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = 0;
     tcb->state = THREAD_NEW;
-    arch_context_init(&tcb->ctx, entry, parent->user);
     tcb->parent = parent;
+    arch_context_init(tcb, entry, parent->user);
     
     return tcb;
 }

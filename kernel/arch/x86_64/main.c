@@ -65,16 +65,17 @@ void idle(void) {
     }
 }
 
-void arch_context_init(struct context *ctx, void *entry, bool user) {
+void arch_context_init(struct thread *tcb, void *entry, bool user) {
+    struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
 
-    ctx->stack_bottom = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
-    ctx->stack = ctx->stack_bottom + PAGE_SIZE - 8;
+    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, tcb->parent->pm, 4, PTE_PRESENT | PTE_WRITABLE);
+    ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
     if (user) {
-        ctx->user_stack_bottom = (uint64_t)VIRTUAL_HHDM(mmu_alloc());
-        ctx->user_stack = ctx->user_stack_bottom + PAGE_SIZE - 8;
+        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, tcb->parent->pm, 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE) - 8;
     }
     ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
@@ -83,8 +84,8 @@ void arch_context_init(struct context *ctx, void *entry, bool user) {
     ctx->regs.rflags = 0x202;
 }
 
-void arch_context_free(struct context *ctx) {
-    mmu_free(PHYSICAL_HHDM(ctx->stack_bottom));
+void arch_context_free(struct thread *tcb) {
+    (void)tcb;
 }
 
 void arch_save_context(void) {

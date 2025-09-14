@@ -12,6 +12,7 @@
 #define PAGE_SIZE_2M    0x200000
 #define PAGE_SIZE_1G    0x40000000
 
+#define VMA_KERNEL_BASE 0xffffa00000000000UL
 #define HEAP_BASE       0xffffc00000000000UL
 
 #define VIRTUAL_HHDM(ptr) ((void *)((uintptr_t)(ptr) + (uintptr_t)hhdm_offset))
@@ -22,7 +23,8 @@
 #define ALIGN_DOWN(x, y) ((x / y) * y)
 
 extern uintptr_t hhdm_offset;
-extern uintptr_t *kernel_pd;
+extern uintptr_t  *kernel_pd;
+extern struct vma *kernel_vma;
 
 void  mmu_initialize(void);
 void *mmu_alloc(void);
@@ -37,3 +39,14 @@ uint64_t  mmu_get_flags(uintptr_t *pm, void *virt);
 void *mmu_map_module(uintptr_t base, size_t len);
 void *mmu_map_module_bss(size_t pages);
 uintptr_t *mmu_create_pagemap(void);
+
+struct vma {
+    uint8_t *bitmap;
+    size_t pages;
+    size_t used_pages;
+    uintptr_t base;
+};
+
+struct vma *vma_create(uintptr_t base, size_t size);
+void *vmalloc(struct vma *vma, uintptr_t *pm, size_t page_count, uint64_t flags);
+void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);

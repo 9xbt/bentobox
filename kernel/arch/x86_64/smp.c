@@ -3,6 +3,7 @@
 #include <kernel/arch/x86_64/gdt.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/tss.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/acpi.h>
@@ -30,6 +31,7 @@ void ap_startup() {
     idt_reinstall();
     mmu_switch_pm(kernel_pd);
     gdt_flush();
+    tss_install();
     lapic_reinstall();
     user_initialize();
     
