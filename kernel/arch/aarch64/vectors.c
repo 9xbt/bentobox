@@ -65,7 +65,6 @@ void irq_handler(struct registers *r) {
 
     uint32_t iar = gicc_read(this_cpu->gicc, GICC_IAR);
     uint32_t irq = iar & 0x3FF;
-    dprintf(LOG_INFO, "irq %u!\n", irq);
     if (irq == 1) {
         asm ("msr daifset, #2");
         for (;;) asm ("wfi");

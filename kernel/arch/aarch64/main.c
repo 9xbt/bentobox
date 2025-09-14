@@ -56,13 +56,21 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        dprintf(LOG_INFO, "a");
-        asm volatile ("msr daifclr, #2");
+        dprintf(LOG_INFO, "a\n");
         asm ("wfi");
     }
 }
 
-void arch_context_init(struct context *ctx, void *entry) {
+void b(void) {
+    for (;;) {
+        dprintf(LOG_INFO, "b\n");
+        asm ("wfi");
+    }
+}
+
+void arch_context_init(struct context *ctx, void *entry, bool user) {
+    (void)user;
+
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
@@ -77,16 +85,15 @@ void arch_save_context(void) {
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(0));
     
     if (!this->parent->user) {
-        asm volatile("mrs %0, ESR_EL1" : "=r"(this->ctx.elr_elx));
+        asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
         asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
     }
 }
 
 void arch_restore_context(void) {
-    dprintf(LOG_INFO, "context switch!\n");
-
     if (!this->parent->user) {
         asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
+        this->ctx.spsr_elx &= ~(1UL << 7);
         asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
     }
 
@@ -94,7 +101,13 @@ void arch_restore_context(void) {
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
-    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"((1 * cntfrq_el0) / 1));
+    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 5));
+}
+
+void arch_jumpstart(void) {
+    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
+    sched_add_process(this_cpu, sched_new_process(b, "b", false));
+    gic_send_sgi(0, 1);
 }
 
 uint64_t boot_time = 0;
@@ -121,7 +134,4 @@ void kmain(void) {
 
     generic_startup();
     generic_main();
-
-    sched_add_process(this_cpu, sched_new_process(idle, "idle"));
-    gic_send_sgi(0, 1);
 }

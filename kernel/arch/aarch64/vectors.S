@@ -86,6 +86,7 @@ _irq_stub:
     ldp x2, x3, [sp], #16
     ldp x0, x1, [sp], #16
 
+    msr daifclr, #2
     eret
 
 .globl _evt

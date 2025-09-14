@@ -94,7 +94,7 @@ bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
-	@cp -r bin/$(ARCH)/apps/* bin/$(ARCH)/base/bin/
+	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf $@ .
 
 .PHONY: clean

@@ -165,7 +165,6 @@ int elf64_module(struct limine_file *mod) {
     return metadata->init();
 }
 
-
 static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
@@ -173,15 +172,27 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
             uintptr_t page_end = ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE);
             size_t pages = (page_end - page_start) / PAGE_SIZE;
             
+            #ifdef __x86_64__
             uint64_t flags = PTE_PRESENT | PTE_USER;
             if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
             if (!(phdr[i].p_flags & PF_X)) flags |= PTE_NX;
+            #elif __aarch64__
+            uint64_t flags = PTE_VALID | PTE_AF | PTE_USER;
+            flags |= (phdr[i].p_flags & PF_W) ? PTE_RW : PTE_RO;
+            if (!(phdr[i].p_flags & PF_X)) flags |= PTE_UXN;
+            #endif
 
             for (size_t page = 0; page < pages; page++) {
-                void *paddr = mmu_alloc();
                 void *vaddr = (void *)(page_start + page * PAGE_SIZE);
+                void *paddr = mmu_alloc();
 
-                mmu_map(kernel_pd, vaddr, paddr, PTE_PRESENT | PTE_WRITABLE);
+                mmu_map(kernel_pd, vaddr, paddr, 
+                #ifdef __x86_64__
+                    PTE_PRESENT | PTE_WRITABLE
+                #elif __aarch64__
+                    PTE_VALID | PTE_AF | PTE_RW | PTE_PXN
+                #endif
+                );
             }
 
             if (phdr[i].p_filesz > 0) {
@@ -200,6 +211,7 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
                 void *paddr = (void *)mmu_get_physical(kernel_pd, vaddr);
 
                 mmu_map(proc->pm, vaddr, paddr, flags);
+                mmu_unmap(kernel_pd, vaddr);
             }
         }
     }
