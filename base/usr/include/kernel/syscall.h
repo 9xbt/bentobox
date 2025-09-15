@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/syscall.h>
@@ -6,6 +7,4 @@
 #include <kernel/arch/aarch64/syscall.h>
 #endif
 
-typedef long (*syscall_func)(long, long, long, long, long, long);
-
-extern syscall_func syscalls[SYSCALL_COUNT];
+void syscall_handler(size_t *args);

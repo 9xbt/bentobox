@@ -1,10 +1,10 @@
 section .text
     global syscall_entry
-    extern syscall_handler
+    extern do_syscall
 
 syscall_entry:
     swapgs
-    mov [gs:16], rsp
+    mov [gs:24], rsp
     mov rsp, [gs:8]
 
     push rax
@@ -30,7 +30,7 @@ syscall_entry:
     popf
 
     mov rdi, rsp
-    call syscall_handler
+    call do_syscall
 
     pop r15
     pop r14
@@ -49,6 +49,6 @@ syscall_entry:
     pop rax
 
     mov [gs:8], rsp
-    mov rsp, [gs:16]
+    mov rsp, [gs:24]
     swapgs
     o64 sysret

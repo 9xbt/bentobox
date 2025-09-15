@@ -45,13 +45,7 @@ void user_initialize(void) {
     wrmsr(IA32_CSTAR + 1, 0x200);
 }
 
-void syscall_handler(struct registers *r) {
-    if (r->rax >= sizeof syscalls / sizeof(void *) || !syscalls[r->rax]) {
-        dprintf(LOG_INFO, "\033[93muser:\033[0m unknown syscall %lu\n", r->rax);
-        r->rax = -ENOSYS;
-        return;
-    }
-
-    syscall_func handler = syscalls[r->rax];
-    r->rax = handler(r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9);
+void do_syscall(struct registers *r) {
+    size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
+    syscall_handler(args);
 }

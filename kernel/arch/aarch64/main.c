@@ -56,7 +56,7 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        dprintf(LOG_INFO, "a\n");
+        //dprintf(LOG_INFO, "a\n");
         asm ("wfi");
     }
 }
@@ -69,7 +69,13 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     ctx->spsr_elx = user ? 0x0 : 0x345;
     ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
     ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
-    ctx->regs.sp = ctx->stack;
+    if (user) {
+        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE * 4) - 8;
+        ctx->regs.sp = ctx->user_stack;
+    } else {
+        ctx->regs.sp = ctx->stack;
+    }
 }
 
 void arch_context_free(struct thread *tcb) {
@@ -81,10 +87,14 @@ void arch_save_context(void) {
     
     asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
     asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
+
+    asm volatile("mrs %0, SP_EL0" : "=r"(this->ctx.user_stack));
 }
 
 void arch_restore_context(void) {
     mmu_switch_pm(this->parent->pm);
+
+    asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
 
     asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
     asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
@@ -93,7 +103,7 @@ void arch_restore_context(void) {
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
-    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 500));
+    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 5));
 }
 
 void arch_jumpstart(void) {

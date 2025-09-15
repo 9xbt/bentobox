@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
+#include <kernel/syscall.h>
 #include <kernel/printf.h>
 #include <kernel/sched.h>
 #include <kernel/smp.h>
@@ -68,7 +69,9 @@ void el0_fault_handler(struct registers *r) {
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
 
     if (((esr_el1 >> 26) & 0x3F) == 0x15) {
-        dprintf(LOG_INFO, "syscall!\n");
+        size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
+        asm ("msr daifclr, #2");
+        syscall_handler(args);
         return;
     }
 

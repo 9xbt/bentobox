@@ -57,7 +57,7 @@ int elf64_module(struct limine_file *mod) {
     Elf64_Shdr *shdr = (Elf64_Shdr *)(mod->address + ehdr->e_shoff);
     Elf64_Sym *symtab = NULL;
     char *strtab = NULL;
-    size_t symbol_count = 0;
+    size_t symbol_count = 0, real_symbol_count = 0;
 
     if (ehdr->e_type == ET_EXEC) {
         for (int i = 0; i < ehdr->e_shnum; i++) {
@@ -68,9 +68,9 @@ int elf64_module(struct limine_file *mod) {
 
                 ksym_expand(symbol_count);
                 for (size_t j = 0; j < symbol_count; j++) {
-                    ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+                    real_symbol_count += ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
                 }
-                dprintf(LOG_INFO, "\033[93melf:\033[0m registered %ld kernel symbols\n", symbol_count);
+                dprintf(LOG_INFO, "\033[93melf:\033[0m registered %ld kernel symbols\n", real_symbol_count);
                 return 0;
             }
         }
@@ -93,7 +93,7 @@ int elf64_module(struct limine_file *mod) {
 
             ksym_expand(symbol_count);
             for (size_t j = 0; j < symbol_count; j++) {
-                ksym_register(&strtab[symtab[j].st_name], base + symtab[j].st_value);
+                real_symbol_count += ksym_register(&strtab[symtab[j].st_name], base + symtab[j].st_value);
             }
         }
     }

@@ -13,6 +13,7 @@ HOST_CPPFLAGS :=
 HOST_LDFLAGS :=
 HOST_LIBS :=
 
+ARCH_ASFLAGS += -march=armv8-a
 APPS_LDFLAGS += -m aarch64elf
 
 .PHONY: all

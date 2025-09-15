@@ -10,4 +10,4 @@ struct symbol {
 uintptr_t ksym_addr(const char *name);
 const char *ksym_name(uintptr_t addr);
 void ksym_expand(size_t count);
-void ksym_register(const char *name, uintptr_t addr);
+int  ksym_register(const char *name, uintptr_t addr);

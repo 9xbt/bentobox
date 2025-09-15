@@ -59,9 +59,12 @@ void ksym_expand(size_t count) {
     }
 }
 
-void ksym_register(const char *name, uintptr_t addr) {
+int ksym_register(const char *name, uintptr_t addr) {
+    if (!name || name[0] == '\0' || name[0] == '$')
+        return 0;
     ksym_expand(1);
     ksym[ksym_used].name = name;
     ksym[ksym_used].addr = addr;
     ksym_used++;
+    return 1;
 }
