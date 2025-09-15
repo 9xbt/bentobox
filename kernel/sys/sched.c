@@ -1,3 +1,4 @@
+#include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -12,37 +13,76 @@ extern void arch_save_context(void);
 extern void arch_restore_context(void);
 extern void arch_jumpstart(void);
 
-node_t *sched_add_process(struct cpu *cpu, struct process *proc) {
-    foreach(thread, proc->threads) {
-        list_insert(cpu->threads, thread->value);
+list_t *processes = NULL;
+
+uint8_t *pid_bitmap = NULL;
+uint8_t *tid_bitmap = NULL;
+size_t last_pid_bit = 0;
+size_t last_tid_bit = 0;
+
+int sched_allocate_pid(void) {
+    for (int pid = last_pid_bit; pid < SCHED_BITMAP_SIZE * 8; pid++) {
+        if (!bitmap_get(pid_bitmap, pid)) {
+            bitmap_set(pid_bitmap, pid);
+            return pid;
+        }
     }
-    return list_insert(cpu->processes, proc);
+    return -1;
+}
+
+int sched_allocate_tid(void) {
+    for (int tid = last_tid_bit; tid < SCHED_BITMAP_SIZE * 8; tid++) {
+        if (!bitmap_get(pid_bitmap, tid)) {
+            bitmap_set(pid_bitmap, tid);
+            return tid;
+        }
+    }
+    return -1;
+}
+
+struct cpu *sched_find_cpu(void) {
+    static size_t id = 0;
+    if (id >= cpu_count) id = 0;
+    return cpu_list[id];
+}
+
+node_t *sched_add_process(struct process *proc) {
+    foreach(thread, proc->threads) {
+        list_insert(sched_find_cpu()->threads, thread->value);
+    }
+    return list_insert(processes, proc);
 }
 
 struct thread *sched_new_thread(struct process *parent, void *entry) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
-    tcb->tid = 0;
+    tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_NEW;
     tcb->parent = parent;
     arch_context_init(tcb, entry, parent->user);
     
+    list_insert(parent->threads, tcb);
     return tcb;
 }
 
-struct process *sched_new_process(void *entry, const char *name, bool user) {
+struct process *sched_new_process(const char *name, bool user) {
     struct process *proc = kmalloc(sizeof(struct process));
     proc->name = strdup(name);
     proc->pm = mmu_create_pagemap();
-    proc->pid = 0;
+    proc->pid = sched_allocate_pid();
     proc->user = user;
     proc->parent = NULL;
     proc->children = list_create();
     proc->threads = list_create();
-
-    list_insert(proc->threads, sched_new_thread(proc, entry));
     
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s'\n", name);
     return proc;
+}
+
+node_t *sched_find_next(void) {
+    if (this_cpu->current_tcb->next)
+        return this_cpu->current_tcb->next;
+    else
+        return this_cpu->threads->head;
 }
 
 void sched_schedule(struct registers *r) {
@@ -53,10 +93,7 @@ void sched_schedule(struct registers *r) {
         } else {
             this->state = THREAD_RUNNING;
         }
-        if (this_cpu->current_tcb->next)
-            this_cpu->current_tcb = this_cpu->current_tcb->next;
-        else
-            this_cpu->current_tcb = this_cpu->threads->head;
+        this_cpu->current_tcb = sched_find_next();
     } else {
         this_cpu->current_tcb = this_cpu->threads->head;
         if (this->state == THREAD_NEW)
@@ -67,5 +104,16 @@ void sched_schedule(struct registers *r) {
 }
 
 void sched_install(void) {
-    arch_jumpstart();
+    processes = list_create();
+
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
+
+    pid_bitmap = vmalloc(kernel_vma, kernel_pd, SCHED_BITMAP_SIZE / PAGE_SIZE, flags);
+    tid_bitmap = vmalloc(kernel_vma, kernel_pd, SCHED_BITMAP_SIZE / PAGE_SIZE, flags);
+
+    dprintf(LOG_INFO, "\033[93msched:\033[0m initialized scheduler\n");
 }

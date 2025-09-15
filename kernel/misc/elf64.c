@@ -259,7 +259,8 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
         return -ENOEXEC;
     }
 
-    struct process *proc = sched_new_process((void *)ehdr->e_entry, file, true);
+    struct process *proc = sched_new_process(file, true);
+    sched_new_thread(proc, (void *)ehdr->e_entry);
     
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     elf64_load_sections(proc, ehdr, phdr);
@@ -267,6 +268,6 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     kfree(buffer);
     vfs_close(node);
 
-    sched_add_process(this_cpu, proc);
+    sched_add_process(proc);
     return 0;
 }

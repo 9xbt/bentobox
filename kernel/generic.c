@@ -2,13 +2,14 @@
 #include <kernel/sched.h>
 #include <kernel/vfs.h>
 
-extern void arch_fatal(void);
+extern void arch_jumpstart(void);
 
 void generic_startup(void) {
     vfs_install();
     modules_install();
+    sched_install();
 }
 
 void generic_main(void) {
-    sched_install();
+    arch_jumpstart();
 }

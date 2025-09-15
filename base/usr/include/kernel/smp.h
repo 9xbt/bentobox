@@ -9,9 +9,9 @@ struct cpu {
     size_t id;
     size_t logical_id;
     
-    list_t *processes;
     list_t *threads;
     node_t *current_tcb;
+    node_t *idle_tcb;
 
     struct madt_gicc *gicc;
 };

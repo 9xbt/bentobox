@@ -60,7 +60,7 @@ void lapic_calibrate_timer(void) {
     lapic_write(LAPIC_TIMER_LVT, (1 << 16) | 0xff);
     lapic_write(LAPIC_TIMER_INITCNT, 0xFFFFFFFF);
 
-    arch_sleep(1000);
+    arch_sleep(1000000);
 
     lapic_write(LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
 

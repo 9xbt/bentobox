@@ -5,6 +5,8 @@
 #include <kernel/list.h>
 #include <kernel/smp.h>
 
+#define SCHED_BITMAP_SIZE   4096
+
 enum thread_state {
     THREAD_NEW,
     THREAD_RUNNING,
@@ -32,8 +34,8 @@ struct process {
 
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
 
-node_t *sched_add_process(struct cpu *cpu, struct process *proc);
+node_t *sched_add_process(struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
-struct process *sched_new_process(void *entry, const char *name, bool user);
+struct process *sched_new_process(const char *name, bool user);
 void sched_schedule(struct registers *r);
 void sched_install(void);

@@ -43,6 +43,8 @@ void smp_bootstrap(void) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;
     }
+    if (cpu_count == 1)
+        return;
 
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
@@ -53,8 +55,7 @@ void smp_bootstrap(void) {
             smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
     }
 
-    if (cpu_count > 1)
-        dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
+    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
 }
 
 void smp_initialize(void) {
@@ -64,7 +65,6 @@ void smp_initialize(void) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
         core->id = i;
         core->logical_id = madt_lapic_list[i]->id;
-        core->processes = list_create();
         core->threads = list_create();
         core->current_tcb = NULL;
         cpu_list[i] = core;

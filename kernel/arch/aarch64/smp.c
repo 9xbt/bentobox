@@ -21,6 +21,8 @@ struct cpu bsp = {
 };
 struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
+size_t cpu_count = 1;
+
 extern void _ap_trampoline();
 
 void ap_startup(void) {
@@ -39,24 +41,27 @@ void smp_bootstrap(void) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;
     }
+    if (cpu_count == 1)
+        return;
 
     uint64_t mpidr;
     asm volatile("mrs %0, mpidr_el1" : "=r" (mpidr));
 
-    for (size_t i = 0; i < madt_giccs; i++) {
+    for (size_t i = 0; i < cpu_count; i++) {
         if (madt_gicc_list[i]->mpidr != mpidr)
             smp_request.response->cpus[i]->goto_address = (limine_goto_address)_ap_trampoline;
     }
     
-    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", madt_giccs - 1);
+    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
 }
 
 void smp_initialize(void) {
-    for (size_t i = 0; i < madt_giccs; i++) {
+    cpu_count = madt_giccs;
+
+    for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = kmalloc(sizeof(struct cpu));
         core->id = i;
         core->logical_id = madt_gicc_list[i]->mpidr & 0xff;
-        core->processes = list_create();
         core->threads = list_create();
         core->current_tcb = NULL;
         cpu_list[core->logical_id] = core;

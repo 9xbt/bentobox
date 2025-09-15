@@ -60,7 +60,7 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        //dprintf(LOG_INFO, "a");
+        dprintf(LOG_INFO, "a\n");
         asm ("hlt");
     }
 }
@@ -101,20 +101,19 @@ void arch_restore_context(void) {
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
     lapic_eoi();
-    lapic_oneshot(0x80, 5);
+    lapic_oneshot(0x80, 250);
 }
 
 void arch_jumpstart(void) {
     irq_register(0x80 - 32, sched_schedule);
-
+    node_t *idle_proc = sched_add_process(sched_new_process("idle", false));
+    
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        if (core == this_cpu)
-            continue;
-        sched_add_process(core, sched_new_process(idle, "idle", false));
-        lapic_ipi(core->logical_id, 0x80);
+        core->idle_tcb = list_insert(core->threads, sched_new_thread(idle_proc->value, idle));
+        if (core != this_cpu)
+            lapic_ipi(core->logical_id, 0x80);
     }
-    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
     lapic_ipi(this_cpu->logical_id, 0x80);
 }
 

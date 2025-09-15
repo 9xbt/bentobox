@@ -56,7 +56,7 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        //dprintf(LOG_INFO, "a\n");
+        dprintf(LOG_INFO, "a\n");
         asm ("wfi");
     }
 }
@@ -103,12 +103,17 @@ void arch_restore_context(void) {
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
-    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 5));
+    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 250));
 }
 
 void arch_jumpstart(void) {
-    sched_add_process(this_cpu, sched_new_process(idle, "idle", false));
-    gic_send_sgi(0, 1);
+    node_t *idle_proc = sched_add_process(sched_new_process("idle", false));
+    
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        core->idle_tcb = list_insert(core->threads, sched_new_thread(idle_proc->value, idle));
+    }
+    gic_send_sgi(0, 0xff);
 }
 
 uint64_t boot_time = 0;
@@ -134,6 +139,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
-    spawn("/bin/hello", 0, NULL, NULL);
+    //spawn("/bin/hello", 0, NULL, NULL);
     generic_main();
 }

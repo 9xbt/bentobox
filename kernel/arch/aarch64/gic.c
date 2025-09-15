@@ -53,9 +53,15 @@ void gic_install(void) {
     gicc_write(this_cpu->gicc, GICC_PMR, 0xFF);
     gicc_write(this_cpu->gicc, GICC_CTLR, 1);
 
+    /*
+     * TODO: get the physical timer working on other cores
+     */
+
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized CPU interfaces\n");
     
     asm volatile ("msr daifclr, #2");
 
     gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
+
+    //gicd_write(gicd, GICD_ITARGETSR(30), 0xff);
 }
