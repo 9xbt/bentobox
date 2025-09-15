@@ -1,3 +1,8 @@
+/*
+ * Credits:
+ *  - aarch64_imm_adr, aarch64_imm_12: https://github.com/klange/toaruos/blob/master/kernel/misc/elf64.c
+ */
+
 #include <stdbool.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
@@ -20,10 +25,6 @@ static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int s
     }
     return 0;
 }
-
-/*
- * Borrowed from https://github.com/klange/toaruos/blob/master/kernel/misc/elf64.c
- */
 
 static uint32_t aarch64_imm_adr(uint32_t val) {
 	uint32_t low  = (val & 0x3) << 29;
