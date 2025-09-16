@@ -1,5 +1,7 @@
 #pragma once
+#include <stdbool.h>
 #include <stddef.h>
+#include <kernel/spinlock.h>
 #include <kernel/acpi.h>
 #include <kernel/list.h>
 
@@ -12,6 +14,9 @@ struct cpu {
     list_t *threads;
     node_t *current_tcb;
     node_t *idle_tcb;
+
+    void *tlb_va;
+    spinlock_t tlb_lock;
 
     struct madt_gicc *gicc;
 };

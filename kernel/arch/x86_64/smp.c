@@ -1,3 +1,4 @@
+#include "kernel/spinlock.h"
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/gdt.h>
@@ -34,8 +35,13 @@ void ap_startup() {
     tss_install();
     lapic_reinstall();
     user_initialize();
-    
+
     for (;;) asm ("hlt");
+}
+
+void smp_tlb_invalidate() {
+    asm volatile ("invlpg (%0)" ::"r"(this_cpu->tlb_va) : "memory");
+    release(&this_cpu->tlb_lock);
 }
 
 void smp_bootstrap(void) {
@@ -49,6 +55,8 @@ void smp_bootstrap(void) {
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     bspid >>= 24;
+
+    irq_register(0x81 - 32, smp_tlb_invalidate);
 
     for (size_t i = 0; i < cpu_count; i++) {
         if (madt_lapic_list[i]->id != bspid)
@@ -67,6 +75,10 @@ void smp_initialize(void) {
         core->logical_id = madt_lapic_list[i]->id;
         core->threads = list_create();
         core->current_tcb = NULL;
+        core->idle_tcb = NULL;
+        core->tlb_va = NULL;
+        //core->tlb_lock = 0;
+        release(&core->tlb_lock);
         cpu_list[i] = core;
     }
     

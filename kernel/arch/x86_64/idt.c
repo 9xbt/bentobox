@@ -95,7 +95,8 @@ void isr_handler(struct registers *r) {
         return;
     }
     if (r->int_no == 2) {
-        arch_fatal();
+        asm ("cli");
+	    for (;;) asm ("hlt");
     }
 
     uint64_t cr2;

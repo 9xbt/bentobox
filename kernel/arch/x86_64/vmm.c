@@ -1,10 +1,13 @@
+#include "kernel/spinlock.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/mmu.h>
 #include <kernel/assert.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/mmu.h>
+#include <kernel/smp.h>
 #include <limine.h>
 
 static uintptr_t *pt_get_next_lvl(uintptr_t *lvl, uintptr_t entry, uint64_t flags, bool alloc) {
@@ -28,6 +31,21 @@ static bool pt_empty(uintptr_t *pt) {
     return true;
 }
 
+static inline void tlb_invalidate(void *va) {
+    asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
+
+    if (va < (void *)hhdm_offset) return;
+
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        if (core != this_cpu) {
+            acquire(&core->tlb_lock);
+            core->tlb_va = va;
+            lapic_ipi(core->logical_id, 0x81);
+        }
+    }
+}
+
 void mmu_switch_pm(uintptr_t *pm) {
     if (pm != kernel_pd) {
         for (int i = 256; i < 512; i++) {
@@ -48,9 +66,11 @@ void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t *pdpt = pt_get_next_lvl(pm, pml4_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
     uintptr_t *pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
  
+    bool flush = pd[pd_index] & PTE_PRESENT;
+
     pd[pd_index] = (uintptr_t)phys | flags | PTE_HUGE;
 
-    asm volatile ("invlpg (%0)" ::"r"(virt) : "memory");
+    if (flush) tlb_invalidate(virt);
 }
 
 void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
@@ -63,9 +83,11 @@ void mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t *pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
     uintptr_t *pt = pt_get_next_lvl(pd, pd_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
 
+    bool flush = pt[pt_index] & PTE_PRESENT;
+
     pt[pt_index] = (uintptr_t)phys | flags;
     
-    asm volatile ("invlpg (%0)" ::"r"(virt) : "memory");
+    if (flush) tlb_invalidate(virt);
 }
 
 void mmu_unmap_2mb(uintptr_t *pm, void *virt) {
@@ -89,7 +111,7 @@ void mmu_unmap_2mb(uintptr_t *pm, void *virt) {
         pml4[pml4_index] = 0;
     }
 
-    asm volatile ("invlpg (%0)" ::"r"(virt) : "memory");
+    tlb_invalidate(virt);
 }
 
 void mmu_unmap(uintptr_t *pm, void *virt) {
@@ -120,7 +142,7 @@ void mmu_unmap(uintptr_t *pm, void *virt) {
         pml4[pml4_index] = 0;
     }
 
-    asm volatile ("invlpg (%0)" ::"r"(virt) : "memory");
+    tlb_invalidate(virt);
 }
 
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt) {

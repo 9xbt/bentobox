@@ -40,6 +40,12 @@ extern void generic_startup(void);
 extern void generic_main(void);
 
 void arch_fatal(void) {
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        if (core != this_cpu)
+            lapic_ipi(core->logical_id, 0x02);
+    }
+
 	asm ("cli");
 	for (;;) asm ("hlt");
 }

@@ -64,6 +64,10 @@ void smp_initialize(void) {
         core->logical_id = madt_gicc_list[i]->mpidr & 0xff;
         core->threads = list_create();
         core->current_tcb = NULL;
+        core->idle_tcb = NULL;
+        core->tlb_va = NULL;
+        core->tlb_lock = 0;
+        core->gicc = NULL;
         cpu_list[core->logical_id] = core;
     }
 }
