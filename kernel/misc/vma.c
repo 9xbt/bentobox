@@ -49,7 +49,9 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, size_t page_count, uint64_t flags)
         return NULL;
     void *ptr = (void *)(pages * PAGE_SIZE + vma->base);
     for (size_t i = 0; i < page_count * PAGE_SIZE; i += PAGE_SIZE) {
-        mmu_map(pm, ptr + i, mmu_alloc(), flags);
+        void *phys = mmu_alloc();
+        mmu_map(pm, ptr + i, phys, flags);
+        memset(VIRTUAL_HHDM(phys), 0, PAGE_SIZE);
     }
     return ptr;
 }

@@ -71,7 +71,7 @@ void el0_fault_handler(struct registers *r) {
     if (((esr_el1 >> 26) & 0x3F) == 0x15) {
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
         asm ("msr daifclr, #2");
-        syscall_handler(args);
+        r->x8 = syscall_handler(args);
         return;
     }
 

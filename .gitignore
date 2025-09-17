@@ -4,6 +4,7 @@
 /build/freestnd-c-hdrs
 /build/limine
 /build/limine-protocol
+/build/mlibc
 /build/ovmf
 /build/kernel-deps
 compile_commands.json

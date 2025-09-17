@@ -1,3 +1,7 @@
 [submodule "lib/flanterm"]
 	path = lib/flanterm
 	url = https://github.com/mintsuki/flanterm
+[submodule "lib/mlibc"]
+	path = lib/mlibc
+	url = https://github.com/9xbt/mlibc
+	branch = bentobox

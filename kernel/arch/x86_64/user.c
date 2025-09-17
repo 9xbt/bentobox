@@ -47,5 +47,5 @@ void user_initialize(void) {
 
 void do_syscall(struct registers *r) {
     size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
-    syscall_handler(args);
+    r->rax = syscall_handler(args);
 }

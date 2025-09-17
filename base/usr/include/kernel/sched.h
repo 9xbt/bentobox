@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <kernel/context.h>
 #include <kernel/list.h>
+#include <kernel/mmu.h>
 #include <kernel/smp.h>
 
 #define SCHED_BITMAP_SIZE   4096
@@ -25,6 +26,7 @@ struct process {
     uint64_t *pm;
     int pid;
     bool user;
+    struct vma *vma;
 
     struct process *parent;
     list_t *children;

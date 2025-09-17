@@ -69,9 +69,11 @@ void *kmalloc(size_t n) {
 }
 
 void kfree(void *ptr) {
+    assert(ptr);
     dlfree(ptr);
 }
 
 void *krealloc(void *ptr, size_t size) {
+    assert(size);
     return dlrealloc(ptr, size);
 }

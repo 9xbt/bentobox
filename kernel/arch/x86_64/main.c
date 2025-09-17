@@ -76,12 +76,38 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
-
+    
+    int argc = 0;
+    char *argv[] = { NULL };
+    
     ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_PRESENT | PTE_WRITABLE);
     ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
     if (user) {
-        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, tcb->parent->pm, 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE) - 8;
+        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE * 4);
+
+        long depth = ((argc) % 2 == 0) ? 24 : 16;
+
+        uint64_t argv_ptrs[argc + 1];
+        argv_ptrs[argc] = 0;
+
+        int i = 0;
+        for (i = 0; i < argc; i++) {
+            depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+            argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+            strcpy((char *)ctx->user_stack - depth, argv[i]);
+        }
+
+        #define PUSH(x) (*(uint64_t*)(ctx->user_stack - (depth += 8)) = (x))
+
+        PUSH(0);
+        for (i = argc - 1; i >= 0; i--) {
+            PUSH(argv_ptrs[i]);
+        }
+
+        PUSH(argc);
+
+        ctx->user_stack -= depth;
     }
     ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
@@ -106,6 +132,7 @@ void arch_restore_context(void) {
     write_gs(this->ctx.user_gs);
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
+    write_fs(this->ctx.fs);
     lapic_eoi();
     lapic_oneshot(0x80, 250);
 }
@@ -147,6 +174,6 @@ void kmain(void) {
     user_initialize();
 
     generic_startup();
-    spawn("/bin/hello", 0, NULL, NULL);
+    spawn("/bin/main", 0, NULL, NULL);
     generic_main();    
 }

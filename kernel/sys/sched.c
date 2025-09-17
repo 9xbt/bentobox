@@ -73,6 +73,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->parent = NULL;
     proc->children = list_create();
     proc->threads = list_create();
+    proc->vma = vma_create(0x555555554000, 256 * 1024 * 1024);
     
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s'\n", name);
     return proc;
