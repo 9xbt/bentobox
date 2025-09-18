@@ -7,7 +7,7 @@
 vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
 long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len);
 
-vfs_node_ops_t tar_ops = {
+vfs_ops_t tar_ops = {
     .create = tar_create,
     .read = tar_read
 };

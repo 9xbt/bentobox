@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <kernel/list.h>
 
-#define MAX_PATH 256
+#define MAX_PATH    256
 
 #define O_ACCMODE	00000003
 #define O_RDONLY	00000000
@@ -28,7 +28,7 @@ typedef enum vfs_node_type {
     VFS_SOCKET
 } vfs_node_type_t;
 
-typedef struct vfs_node_ops {
+typedef struct vfs_ops {
     struct vfs_node *(*open)(struct vfs_node *node, int flags);
     long (*close)(struct vfs_node *node);
     long (*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
@@ -38,7 +38,7 @@ typedef struct vfs_node_ops {
     long (*rename)(struct vfs_node *node, const char *name);
     long (*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
     long (*poll)(struct vfs_node *node, long events);
-} vfs_node_ops_t;
+} vfs_ops_t;
 
 typedef struct vfs_node {
     char name[MAX_PATH];
@@ -55,7 +55,7 @@ typedef struct vfs_node {
     list_t *children;
     struct vfs_node *parent;
     struct vfs_node *symlink;
-    struct vfs_node_ops *ops;
+    struct vfs_ops *ops;
     void *device;
 } vfs_node_t;
 

@@ -5,18 +5,31 @@
 #include <kernel/printf.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
+#include <kernel/file.h>
 #include <kernel/mmu.h>
 
-/** TODO: these are horrendous stubs. */
+static long sys_read_write(int fd, void *buffer, size_t len, bool write) {
+    struct file *file = file_get(fd);
+    if (!file || !file->open)
+        return -EBADFD;
+    if (!file->node)
+        return -ENOENT;
+    if (!file->node->ops || (!file->node->ops->write && write) || (!file->node->ops->read && !write))
+        return 0;
 
-#include <kernel/string.h>
+    long ret = write ?
+        vfs_write(file->node, buffer, file->offset, len) :
+        vfs_read(file->node, buffer, file->offset, len);
+    file->offset += ret;
+    return ret;
+}
+
+long sys_read(int fd, void *buffer, size_t len) {
+    return sys_read_write(fd, buffer, len, false);
+}
 
 long sys_write(int fd, void *buffer, size_t len) {
-    (void)fd;
-    char str[len + 1];
-    memcpy(str, buffer, len);
-    printf("%s", buffer);
-    return 0;
+    return sys_read_write(fd, buffer, len, true);
 }
 
 long sys_exit(int status) {
@@ -73,6 +86,7 @@ typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
     [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls

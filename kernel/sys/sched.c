@@ -3,6 +3,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/sched.h>
+#include <kernel/file.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
@@ -74,7 +75,10 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->children = list_create();
     proc->threads = list_create();
     proc->vma = vma_create(0x555555554000, 256 * 1024 * 1024);
-    
+    proc->max_files = 16;
+    proc->files = kmalloc(sizeof(struct file) * proc->max_files);
+    proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/console", 0), 0);
+
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s'\n", name);
     return proc;
 }

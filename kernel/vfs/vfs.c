@@ -4,6 +4,8 @@
 #include <kernel/errno.h>
 #include <kernel/vfs.h>
 
+extern void console_initialize(void);
+
 vfs_node_t *vfs_root = NULL;
 
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
@@ -206,6 +208,10 @@ void vfs_print_tree(vfs_node_t *node) {
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
     vfs_root->open = true;
+
+    vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
+
+    console_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

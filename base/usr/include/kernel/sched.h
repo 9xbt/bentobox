@@ -27,6 +27,8 @@ struct process {
     int pid;
     bool user;
     struct vma *vma;
+    struct file *files;
+    int max_files;
 
     struct process *parent;
     list_t *children;
@@ -35,6 +37,7 @@ struct process {
 };
 
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
+#define this_proc ((struct process *)(this_core()->current_tcb ? ((struct thread *)this_core()->current_tcb->value)->parent : NULL))
 
 node_t *sched_add_process(struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
