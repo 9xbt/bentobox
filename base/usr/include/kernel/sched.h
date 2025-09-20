@@ -9,7 +9,6 @@
 #define SCHED_BITMAP_SIZE   4096
 
 enum thread_state {
-    THREAD_NEW,
     THREAD_RUNNING,
     THREAD_PAUSED,
     THREAD_ZOMBIE,
@@ -26,6 +25,7 @@ struct thread {
     enum thread_state state;
     struct context ctx;
     struct process *parent;
+    bool new;
     struct cpu *cpu;
 };
 

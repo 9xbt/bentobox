@@ -19,10 +19,8 @@ const char *witty_comments[] = {
 };
 
 const char *witty(void) {
-    static unsigned long rnd = 88172645463325252ul;
     long nsec;
     uptime(NULL, &nsec);
-    rnd ^= nsec;
-    rnd = rnd * 6364136223846793005ul + 1;
-    return witty_comments[rnd % (sizeof(witty_comments) / sizeof(const char *))];
+    size_t count = sizeof(witty_comments) / sizeof(*witty_comments);
+    return witty_comments[nsec % count];
 }

@@ -94,26 +94,21 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, u
 }
 
 void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
-    size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;
-
-    if (!bitmap_get(vma->bitmap, page)) {
-        foreach(i, vma->regions) {
-            struct vma_region *region = i->value;
-            if (region->va == (uintptr_t)ptr) {
-                for (size_t i = 0; i < region->pages; i++) {
-                    void *vaddr = (void *)region->va + (i * PAGE_SIZE);
-                    mmu_free((void *)mmu_get_physical(pm, vaddr));
-                    mmu_unmap(pm, vaddr);
-                }
-                list_remove(vma->regions, i);
-                kfree(region);
-                return;
+    foreach(i, vma->regions) {
+        struct vma_region *region = i->value;
+        if (region->va == (uintptr_t)ptr) {
+            for (size_t i = 0; i < region->pages; i++) {
+                void *vaddr = (void *)region->va + (i * PAGE_SIZE);
+                mmu_free((void *)mmu_get_physical(pm, vaddr));
+                mmu_unmap(pm, vaddr);
             }
+            list_remove(vma->regions, i);
+            kfree(region);
+            return;
         }
-        dprintf(LOG_ERR, "\033[93mvma:\033[0m no region found at 0x%p\n", ptr);
-        return;
     }
 
+    size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;
     for (size_t i = 0; i < page_count; i++) {
         void *vaddr = ptr + (i * PAGE_SIZE);
         mmu_free((void *)mmu_get_physical(pm, vaddr));

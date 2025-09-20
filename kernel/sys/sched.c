@@ -37,8 +37,8 @@ int sched_allocate_pid(void) {
 
 int sched_allocate_tid(void) {
     for (int tid = last_tid_bit; tid < SCHED_BITMAP_SIZE * 8; tid++) {
-        if (!bitmap_get(pid_bitmap, tid)) {
-            bitmap_set(pid_bitmap, tid);
+        if (!bitmap_get(tid_bitmap, tid)) {
+            bitmap_set(tid_bitmap, tid);
             return tid;
         }
     }
@@ -64,8 +64,9 @@ node_t *sched_add_process(struct process *proc) {
 struct thread *sched_new_thread(struct process *parent, void *entry) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
-    tcb->state = THREAD_NEW;
+    tcb->state = THREAD_RUNNING;
     tcb->parent = parent;
+    tcb->new = true;
     tcb->cpu = NULL;
     arch_context_init(tcb, entry, parent->user);
     
@@ -101,12 +102,13 @@ void sched_kill(struct process *proc) {
     cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {
         this->state = THREAD_PAUSED;
+        for (;;);
         sched_yield();
     }
 }
 
 node_t *sched_find_next(void) {
-    node_t *start = this_cpu->current_tcb->next ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
+    node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
         if (t->state == THREAD_RUNNING)
@@ -123,20 +125,17 @@ void sched_schedule(struct registers *r) {
         if (this->state == THREAD_ZOMBIE)
             __atomic_store_n(&this->state, THREAD_ZOMBIE_ACK, __ATOMIC_SEQ_CST);
 
-        if (this->state == THREAD_NEW) {
-            this->state = THREAD_RUNNING;
-        } else {
+        if (!this->new) {
             memcpy(&(this->ctx.regs), r, sizeof(struct registers));
             arch_save_context();
         }
 
         this_cpu->current_tcb = sched_find_next();
-        this->cpu = this_cpu;
     } else {
-        this_cpu->current_tcb = this_cpu->threads->head;
-        if (this->state == THREAD_NEW)
-            this->state = THREAD_RUNNING;
+        this_cpu->current_tcb = sched_find_next();
     }
+    this->new = false;
+    this->cpu = this_cpu;
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();
 }
@@ -148,7 +147,7 @@ void sched_cleaner(void) {
             if (proc->state != PROCESS_ZOMBIE)
                 continue;
 
-            dprintf(LOG_INFO, "cleaning %s\n", proc->name);
+            dprintf(LOG_INFO, "\033[93msched:\033[0m cleaning %s\n", proc->name);
 
             for (int i = 0; i < proc->max_files; i++) {
                 struct file *file = &proc->files[i];
@@ -158,12 +157,14 @@ void sched_cleaner(void) {
 
             foreach(j, proc->threads) {
                 struct thread *tcb = j->value;
-                tcb->state = THREAD_ZOMBIE;
-                arch_yield(tcb->cpu);
-                while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
-                    #ifdef __x86_64__
-                    __builtin_ia32_pause();
-                    #endif
+                if (tcb->cpu->current_tcb->value == tcb) {
+                    tcb->state = THREAD_ZOMBIE;
+                    arch_yield(tcb->cpu);
+                    while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
+                        #ifdef __x86_64__
+                        __builtin_ia32_pause();
+                        #endif
+                    }
                 }
                 arch_context_free(tcb);
             }
@@ -193,6 +194,8 @@ void sched_install(void) {
     processes  = list_create();
     pid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
     tid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
+    memset(pid_bitmap, 0, SCHED_BITMAP_SIZE);
+    memset(tid_bitmap, 0, SCHED_BITMAP_SIZE);
 
     struct process *cleaner = sched_new_process("psycho killer", false);
     cleaner_tcb = sched_new_thread(cleaner, sched_cleaner);
