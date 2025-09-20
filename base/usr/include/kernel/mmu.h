@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/list.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/mmu.h>
@@ -34,19 +35,29 @@ void  mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags);
 void  mmu_unmap_2mb(uintptr_t *pm, void *virt);
 void  mmu_unmap(uintptr_t *pm, void *virt);
 void  mmu_switch_pm(uintptr_t *pm);
+void  mmu_destroy_pagemap(uintptr_t *pm);
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt);
 uint64_t  mmu_get_flags(uintptr_t *pm, void *virt);
 void *mmu_map_module(uintptr_t base, size_t len);
 void *mmu_map_module_bss(size_t pages);
 uintptr_t *mmu_create_pagemap(void);
+uintptr_t *mmu_get_pm(void);
 
 struct vma {
     uint8_t *bitmap;
     size_t pages;
     size_t used_pages;
     uintptr_t base;
+    list_t *regions;
+};
+
+struct vma_region {
+    size_t pages;
+    uintptr_t va;
+    uint64_t flags;
 };
 
 struct vma *vma_create(uintptr_t base, size_t size);
-void *vmalloc(struct vma *vma, uintptr_t *pm, size_t page_count, uint64_t flags);
+void  vma_destroy(struct vma *vma, uintptr_t *pm);
+void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, uint64_t flags);
 void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);

@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include <kernel/spinlock.h>
 
 typedef struct node {
     struct node *prev;
@@ -12,6 +13,7 @@ typedef struct list {
     node_t *head;
     node_t *tail;
     size_t length;
+    spinlock_t lock;
 } list_t;
 
 list_t *list_create(void);
@@ -25,3 +27,4 @@ void   *list_pop(list_t *list);
 void    list_empty(list_t *list);
 
 #define foreach(i, list) for (node_t *i = (list)->head; i; i = i->next)
+#define foreach_safe(i, list) for (node_t *i = (list)->head, *_next_##i = i ? i->next : NULL; i; i = _next_##i, _next_##i = i ? i->next : NULL)

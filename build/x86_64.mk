@@ -1,5 +1,7 @@
 .SUFFIXES:
 
+USER_QEMUFLAGS :=
+
 ARCH := x86_64
 QEMUFLAGS := -m 2G -smp 2 #-d int -M smm=off -no-reboot -no-shutdown
 IMAGE_NAME := bin/$(ARCH)/image
@@ -19,7 +21,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(QEMUFLAGS) $(USER_QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso

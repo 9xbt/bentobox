@@ -13,6 +13,7 @@
 #include <kernel/context.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/malloc.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
@@ -80,11 +81,15 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     int argc = 0;
     char *argv[] = { NULL };
     
-    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_PRESENT | PTE_WRITABLE);
-    ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
+    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
+    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     if (user) {
-        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE * 4);
+        uintptr_t *pm = mmu_get_pm();
+        asm volatile ("cli" ::: "memory");
+        mmu_switch_pm(tcb->parent->pm);
+        
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (4 * PAGE_SIZE), 4, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack = 0x7ffffffff000;
 
         long depth = ((argc) % 2 == 0) ? 24 : 16;
 
@@ -98,7 +103,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
             strcpy((char *)ctx->user_stack - depth, argv[i]);
         }
 
-        #define PUSH(x) (*(uint64_t*)(ctx->user_stack - (depth += 8)) = (x))
+        #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
 
         PUSH(0);
         for (i = argc - 1; i >= 0; i--) {
@@ -108,6 +113,9 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
         PUSH(argc);
 
         ctx->user_stack -= depth;
+
+        mmu_switch_pm(pm);
+        asm volatile ("sti" ::: "memory");
     }
     ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
@@ -117,7 +125,9 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
 }
 
 void arch_context_free(struct thread *tcb) {
-    (void)tcb;
+    struct context *ctx = &tcb->ctx;
+    kfree((void *)ctx->stack_bottom);
+    vfree(tcb->parent->vma, tcb->parent->pm, (void *)ctx->user_stack_bottom, 4);
 }
 
 void arch_save_context(void) {
@@ -127,7 +137,7 @@ void arch_save_context(void) {
 }
 
 void arch_restore_context(void) {
-    mmu_switch_pm(this->parent->pm);
+    mmu_switch_pm(this_proc->pm);
     write_kernel_gs((uint64_t)this);
     write_gs(this->ctx.user_gs);
     set_kernel_stack(this->ctx.stack);
@@ -137,13 +147,24 @@ void arch_restore_context(void) {
     lapic_oneshot(0x80, 250);
 }
 
+void arch_yield(struct cpu *cpu) {
+    if (!cpu)
+        return;
+    if (cpu == this_cpu)
+        asm volatile ("int $0x80");
+    else
+        lapic_ipi(cpu->logical_id, 0x80);
+}
+
 void arch_jumpstart(void) {
     irq_register(0x80 - 32, sched_schedule);
-    node_t *idle_proc = sched_add_process(sched_new_process("idle", false));
+    node_t *idle_proc = sched_add_process(sched_new_process("idle angel", false));
     
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        core->idle_tcb = list_insert(core->threads, sched_new_thread(idle_proc->value, idle));
+        struct thread *tcb = sched_new_thread(idle_proc->value, idle);
+        tcb->state = THREAD_PAUSED;
+        core->idle_tcb = list_insert(core->threads, tcb);
         if (core != this_cpu)
             lapic_ipi(core->logical_id, 0x80);
     }

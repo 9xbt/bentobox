@@ -1,3 +1,4 @@
+#include <kernel/spinlock.h>
 #include <kernel/malloc.h>
 #include <kernel/list.h>
 
@@ -6,10 +7,12 @@ list_t *list_create(void) {
     list->head = NULL;
     list->tail = NULL;
     list->length = 0;
+    list->lock = 0;
     return list;
 }
 
 void list_free(list_t *list) {
+    acquire(&list->lock);
     node_t *node = list->head;
     while (node) {
         node_t *next = node->next;
@@ -20,6 +23,7 @@ void list_free(list_t *list) {
 }
 
 void list_append(list_t *list, node_t *node) {
+    acquire(&list->lock);
     node->owner = list;
     if (!list->length) {
         list->head = node;
@@ -27,6 +31,7 @@ void list_append(list_t *list, node_t *node) {
         node->prev = NULL;
         node->next = NULL;
         list->length++;
+        release(&list->lock);
         return;
     }
     list->tail->next = node;
@@ -34,6 +39,7 @@ void list_append(list_t *list, node_t *node) {
     node->prev = list->tail;
     list->tail = node;
     list->length++;
+    release(&list->lock);
 }
 
 node_t *list_insert(list_t *list, void *item) {
@@ -50,6 +56,7 @@ void list_remove(list_t *list, node_t *node) {
     if (!list || !node || node->owner != list)
         return;
     
+    acquire(&list->lock);
     if (node->prev)
         node->prev->next = node->next;
     else
@@ -64,6 +71,7 @@ void list_remove(list_t *list, node_t *node) {
     node->owner = NULL;
     node->next = NULL;
     node->prev = NULL;
+    release(&list->lock);
 }
 
 node_t *list_find(list_t *list, void *value) {

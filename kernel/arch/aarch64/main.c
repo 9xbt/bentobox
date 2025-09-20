@@ -8,6 +8,7 @@
 #include <kernel/version.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/malloc.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
@@ -67,11 +68,11 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
     ctx->spsr_elx = user ? 0x0 : 0x345;
-    ctx->stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
-    ctx->stack = ctx->stack_bottom + (PAGE_SIZE * 4) - 8;
+    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
+    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     if (user) {
-        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
-        ctx->user_stack = ctx->user_stack_bottom + (PAGE_SIZE * 4) - 8;
+        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 0x7ffffffff000 - (4 * PAGE_SIZE), 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack = 0x7ffffffff000 - 8;
         ctx->regs.sp = ctx->user_stack;
     } else {
         ctx->regs.sp = ctx->stack;
@@ -92,7 +93,7 @@ void arch_save_context(void) {
 }
 
 void arch_restore_context(void) {
-    mmu_switch_pm(this->parent->pm);
+    mmu_switch_pm(this_proc->parent->pm);
 
     asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
 
@@ -107,11 +108,13 @@ void arch_restore_context(void) {
 }
 
 void arch_jumpstart(void) {
-    node_t *idle_proc = sched_add_process(sched_new_process("idle", false));
+    node_t *idle_proc = sched_add_process(sched_new_process("idle angel", false));
     
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        core->idle_tcb = list_insert(core->threads, sched_new_thread(idle_proc->value, idle));
+        struct thread *tcb = sched_new_thread(idle_proc->value, idle);
+        tcb->state = THREAD_PAUSED;
+        core->idle_tcb = list_insert(core->threads, tcb);
     }
     gic_send_sgi(0, 0xff);
 }

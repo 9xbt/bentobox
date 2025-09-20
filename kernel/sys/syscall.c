@@ -34,8 +34,8 @@ long sys_write(int fd, void *buffer, size_t len) {
 
 long sys_exit(int status) {
     (void)status;
-    for (;;);
-    return 0;
+    sched_kill(this_proc);
+    __builtin_unreachable();
 }
 
 #define MAP_ANON  0x1000
@@ -56,20 +56,24 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     if (fd == -1) {
         if (offset != 0)
             return -EINVAL;
-        if (flags & MAP_FIXED) {
-            dprintf(LOG_ERR, "\033[93mmmap:\033[0m fixed mappings aren't implemented!\n");
-            return -ENOSYS;
-        }
 
         uint64_t vma_flags = 0;
         if (prot != PROT_NONE) {
             vma_flags = PTE_USER;
+            #ifdef __x86_64__
             if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
             if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
+            if (!(prot & PROT_EXEC)) vma_flags |= PTE_NX;
+            #elif __aarch64__
+            if ((prot & PROT_READ) || (prot & PROT_WRITE)) vma_flags |= PTE_VALID | PTE_AF;
+            if (prot & PROT_READ) vma_flags |= PTE_RO;
+            if (prot & PROT_WRITE) vma_flags |= PTE_RW;
+            if (!(prot & PROT_EXEC)) vma_flags |= PTE_UXN;
+            #endif
         }
 
         size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
-        void *ptr = vmalloc(this->parent->vma, this->parent->pm, pages, vma_flags);
+        void *ptr = vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, pages, vma_flags);
 
         return (long)ptr;
     }
@@ -77,8 +81,10 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
 }
 
 long sys_set_tls(uint64_t fs) {
+    #ifdef __x86_64__
     write_fs(fs);
     this->ctx.fs = fs;
+    #endif
     return 0;
 }
 

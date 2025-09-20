@@ -13,6 +13,7 @@ extern void arch_context_free(struct thread *tcb);
 extern void arch_save_context(void);
 extern void arch_restore_context(void);
 extern void arch_jumpstart(void);
+extern void arch_yield(struct cpu *cpu);
 
 list_t *processes = NULL;
 
@@ -20,6 +21,9 @@ uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
 size_t last_pid_bit = 0;
 size_t last_tid_bit = 0;
+
+struct process *init_proc = NULL;
+struct thread  *cleaner_tcb = NULL;
 
 int sched_allocate_pid(void) {
     for (int pid = last_pid_bit; pid < SCHED_BITMAP_SIZE * 8; pid++) {
@@ -43,13 +47,16 @@ int sched_allocate_tid(void) {
 
 struct cpu *sched_find_cpu(void) {
     static size_t id = 0;
-    if (id >= cpu_count) id = 0;
-    return cpu_list[id];
+    struct cpu *c = cpu_list[id];
+    id = (id + 1) % cpu_count;
+    return c;
 }
 
 node_t *sched_add_process(struct process *proc) {
     foreach(thread, proc->threads) {
-        list_insert(sched_find_cpu()->threads, thread->value);
+        struct cpu *cpu = sched_find_cpu();
+        ((struct thread *)thread->value)->cpu = cpu;
+        list_insert(cpu->threads, thread->value);
     }
     return list_insert(processes, proc);
 }
@@ -59,6 +66,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry) {
     tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_NEW;
     tcb->parent = parent;
+    tcb->cpu = NULL;
     arch_context_init(tcb, entry, parent->user);
     
     list_insert(parent->threads, tcb);
@@ -71,6 +79,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->pm = mmu_create_pagemap();
     proc->pid = sched_allocate_pid();
     proc->user = user;
+    proc->state = PROCESS_ALIVE;
     proc->parent = NULL;
     proc->children = list_create();
     proc->threads = list_create();
@@ -83,22 +92,46 @@ struct process *sched_new_process(const char *name, bool user) {
     return proc;
 }
 
+void sched_yield(void) {
+    arch_yield(this_cpu);
+}
+
+void sched_kill(struct process *proc) {
+    proc->state = PROCESS_ZOMBIE;
+    cleaner_tcb->state = THREAD_RUNNING;
+    if (proc == this_proc) {
+        this->state = THREAD_PAUSED;
+        sched_yield();
+    }
+}
+
 node_t *sched_find_next(void) {
-    if (this_cpu->current_tcb->next)
-        return this_cpu->current_tcb->next;
-    else
-        return this_cpu->threads->head;
+    node_t *start = this_cpu->current_tcb->next ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
+    do {
+        struct thread *t = (struct thread *)node->value;
+        if (t->state == THREAD_RUNNING)
+            return node;
+
+        node = node->next ? node->next : this_cpu->threads->head;
+    } while (node != start);
+
+    return this_cpu->idle_tcb;
 }
 
 void sched_schedule(struct registers *r) {
     if (this_cpu->current_tcb) {
-        if (this->state != THREAD_NEW) {
+        if (this->state == THREAD_ZOMBIE)
+            __atomic_store_n(&this->state, THREAD_ZOMBIE_ACK, __ATOMIC_SEQ_CST);
+
+        if (this->state == THREAD_NEW) {
+            this->state = THREAD_RUNNING;
+        } else {
             memcpy(&(this->ctx.regs), r, sizeof(struct registers));
             arch_save_context();
-        } else {
-            this->state = THREAD_RUNNING;
         }
+
         this_cpu->current_tcb = sched_find_next();
+        this->cpu = this_cpu;
     } else {
         this_cpu->current_tcb = this_cpu->threads->head;
         if (this->state == THREAD_NEW)
@@ -108,17 +141,63 @@ void sched_schedule(struct registers *r) {
     arch_restore_context();
 }
 
+void sched_cleaner(void) {
+    for (;;) {
+        foreach_safe(i, processes) {
+            struct process *proc = i->value;
+            if (proc->state != PROCESS_ZOMBIE)
+                continue;
+
+            dprintf(LOG_INFO, "cleaning %s\n", proc->name);
+
+            for (int i = 0; i < proc->max_files; i++) {
+                struct file *file = &proc->files[i];
+                if (file->open)
+                    vfs_close(file->node);
+            }
+
+            foreach(j, proc->threads) {
+                struct thread *tcb = j->value;
+                tcb->state = THREAD_ZOMBIE;
+                arch_yield(tcb->cpu);
+                while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
+                    #ifdef __x86_64__
+                    __builtin_ia32_pause();
+                    #endif
+                }
+                arch_context_free(tcb);
+            }
+            list_free(proc->threads);
+
+            foreach(j, proc->children) {
+                struct process *child = j->value;
+                child->parent = init_proc;
+            }
+            list_free(proc->children);
+
+            vma_destroy(proc->vma, proc->pm);
+            mmu_destroy_pagemap(proc->pm);
+            kfree(proc->files);
+            kfree(proc->name);
+
+            list_remove(processes, i);
+            kfree(proc);
+        }
+
+        this->state = THREAD_PAUSED;
+        sched_yield();
+    }
+}
+
 void sched_install(void) {
-    processes = list_create();
+    processes  = list_create();
+    pid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
+    tid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
 
-    #ifdef __x86_64__
-    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
-    #elif __aarch64__
-    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
-    #endif
-
-    pid_bitmap = vmalloc(kernel_vma, kernel_pd, SCHED_BITMAP_SIZE / PAGE_SIZE, flags);
-    tid_bitmap = vmalloc(kernel_vma, kernel_pd, SCHED_BITMAP_SIZE / PAGE_SIZE, flags);
+    struct process *cleaner = sched_new_process("psycho killer", false);
+    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner);
+    cleaner_tcb->state = THREAD_PAUSED;
+    sched_add_process(cleaner);
 
     dprintf(LOG_INFO, "\033[93msched:\033[0m initialized scheduler\n");
 }
