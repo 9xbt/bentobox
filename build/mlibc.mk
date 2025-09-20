@@ -1,7 +1,6 @@
 .PHONY: setup resetup build clean install
 
 ARCH := x86_64
-LIBGCC := $(shell aarch64-linux-gnu-gcc -print-libgcc-file-name)
 
 setup:
 	cd lib/mlibc && \
@@ -28,7 +27,3 @@ install:
 
 uninstall:
 	rm -rf build/mlibc/$(ARCH)/
-
-libgcc:
-	mkdir -p build/libgcc
-	cd build/libgcc && ar x $(LIBGCC) addtf3.o divtf3.o multf3.o subtf3.o
