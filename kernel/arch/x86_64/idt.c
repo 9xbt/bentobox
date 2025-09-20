@@ -5,6 +5,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
+#include <kernel/witty.h>
 
 extern void arch_fatal(void);
 extern void arch_do_backtrace(void);
@@ -16,7 +17,7 @@ extern void *idt_int_table[];
 
 void *irq_handlers[256];
 
-const char* isr_errors[32] = {
+const char *isr_errors[32] = {
     "division by zero",
     "debug",
     "non-maskable interrupt",
@@ -107,6 +108,7 @@ void isr_handler(struct registers *r) {
     bspid >>= 24;
 
     dprintf(LOG_EMERG, "x86 Fault: \033[91m%s\033[0m on CPU %d\n", isr_errors[r->int_no], bspid);
+    dprintf(LOG_EMERG, "// %s\n", witty());
     dprintf(LOG_EMERG, "rdi: 0x%p rsi: 0x%p rbp:    0x%p\n", r->rdi, r->rsi, r->rbp);
     dprintf(LOG_EMERG, "rsp: 0x%p rbx: 0x%p rdx:    0x%p\n", r->rsp, r->rbx, r->rdx);
     dprintf(LOG_EMERG, "rcx: 0x%p rax: 0x%p rip:    0x%p\n", r->rcx, r->rax, r->rip);

@@ -4,6 +4,7 @@
 #include <kernel/syscall.h>
 #include <kernel/printf.h>
 #include <kernel/sched.h>
+#include <kernel/witty.h>
 #include <kernel/smp.h>
 
 const char *esr_ec_reasons[0x40] = {
@@ -44,6 +45,7 @@ void do_regdump(const char *msg, struct registers *r) {
     uint64_t ec = (esr_el1 >> 26) & 0x3F;
 
     dprintf(LOG_EMERG, "%s: \033[91m%s\033[0m on CPU %d\n", msg, esr_ec_reasons[ec], this_cpu->id);
+    dprintf(LOG_EMERG, "// %s\n", witty());
     dprintf(LOG_EMERG, "x0:  0x%p x1:  0x%p x2:  0x%p x3:  0x%p\n", r->x0,  r->x1,  r->x2,  r->x3);
     dprintf(LOG_EMERG, "x4:  0x%p x5:  0x%p x6:  0x%p x7:  0x%p\n", r->x4,  r->x5,  r->x6,  r->x7);
     dprintf(LOG_EMERG, "x8:  0x%p x9:  0x%p x10: 0x%p x11: 0x%p\n", r->x8,  r->x9,  r->x10, r->x11);
