@@ -1,0 +1,18 @@
+[host_machine]
+system = 'bentobox'
+cpu_family = 'x86_64'
+cpu = 'x86_64' 
+endian = 'little'
+
+[build_machine]
+system = 'linux'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = '/usr/bin/clang'
+cpp = '/usr/bin/clang++'
+ar = '/usr/bin/ar'
+ld = '/usr/bin/ld'
+strip = '/usr/bin/llvm-strip'

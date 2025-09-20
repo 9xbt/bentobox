@@ -34,7 +34,7 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
-APPS_CFLAGS := -nostdlib -static -L$(CURDIR)/build/mlibc/lib -I$(CURDIR)/build/mlibc/include $(CURDIR)/build/mlibc/lib/crt0.o -lc
+APPS_CFLAGS := -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group
 APPS_ASFLAGS := -nostdlib -static -ffreestanding -fno-builtin -fno-stack-protector -O0 -Wall -Wextra
 APPS_LDFLAGS :=
 APPS_SOURCES := $(shell find apps -type f)
@@ -100,13 +100,13 @@ bin/$(ARCH)/apps/%: obj/$(ARCH)/apps/%.o
 bin/$(ARCH)/apps/%: apps/%.c
 	@echo " CC $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(APPS_CFLAGS) $< -o $@
+	@$(APPS_CC) $(APPS_CFLAGS) $< -o $@
 
 ifeq ($(ARCH),aarch64)
 obj/$(ARCH)/apps/%.o: apps/%.S
 	@echo " AS $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(APPS_ASFLAGS) $< -o $@
+	@$(CC) $(APPS_ASFLAGS) -c $< -o $@
 endif
 
 ifeq ($(ARCH),x86_64)

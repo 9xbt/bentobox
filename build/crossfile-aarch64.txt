@@ -1,0 +1,19 @@
+[host_machine]
+system = 'bentobox'
+cpu_family = 'aarch64'
+cpu = 'aarch64' 
+endian = 'little'
+
+[build_machine]
+system = 'linux'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = '/usr/bin/aarch64-linux-gnu-gcc'
+cpp = '/usr/bin/aarch64-linux-gnu-g++'
+ar = '/usr/bin/aarch64-linux-gnu-ar'
+ld = '/usr/bin/aarch64-linux-gnu-ld'
+strip = '/usr/bin/aarch64-linux-gnu-strip'
+c_args = ['-mlong-double-64']

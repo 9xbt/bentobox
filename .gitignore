@@ -2,6 +2,7 @@
 /obj
 /build/cc-runtime
 /build/freestnd-c-hdrs
+/build/libgcc
 /build/limine
 /build/limine-protocol
 /build/mlibc

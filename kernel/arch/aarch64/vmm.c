@@ -28,6 +28,26 @@ static bool pt_empty(uintptr_t *pt) {
     return true;
 }
 
+static void pt_destroy(uintptr_t *pt, int lvl) {
+    if (!pt || !lvl)
+        return;
+
+    int count = lvl == 4 ? 256 : 512;
+    for (int i = 0; i < count; i++) {
+        if (!(pt[i] & PTE_VALID))
+            continue;
+
+        uintptr_t *next = VIRTUAL_HHDM(PTE_GET_ADDR(pt[i]));
+        if (lvl > 1) {
+            pt_destroy(next, lvl - 1);
+            mmu_free(PHYSICAL_HHDM(next));
+        }
+
+        pt[i] = 0;
+    }
+    mmu_free(PHYSICAL_HHDM(pt));
+}
+
 static inline void tlb_invalidate(void *va) {
     asm volatile("tlbi vae1, %0" : : "r"((uintptr_t)va >> 12) : "memory");
     asm volatile("dsb ish; isb");
@@ -174,4 +194,8 @@ uintptr_t *mmu_create_pagemap(void) {
     }
 
     return pm;
+}
+
+void mmu_destroy_pagemap(uintptr_t *pm) {
+    pt_destroy(pm, 4);
 }

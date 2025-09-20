@@ -93,7 +93,7 @@ void arch_save_context(void) {
 }
 
 void arch_restore_context(void) {
-    mmu_switch_pm(this_proc->parent->pm);
+    mmu_switch_pm(this_proc->pm);
 
     asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
 
@@ -105,6 +105,10 @@ void arch_restore_context(void) {
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
     asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 250));
+}
+
+void arch_yield(struct cpu *cpu) {
+    gic_send_sgi(0, (1 << cpu->logical_id));
 }
 
 void arch_jumpstart(void) {
@@ -142,6 +146,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
-    //spawn("/bin/hello", 0, NULL, NULL);
+    spawn("/bin/hello", 0, NULL, NULL);
     generic_main();
 }

@@ -56,7 +56,7 @@ void smp_bootstrap(void) {
 }
 
 void smp_initialize(void) {
-    cpu_count = madt_giccs;
+    cpu_count = args_contains("nosmp") ? 1 :madt_giccs;
 
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = kmalloc(sizeof(struct cpu));

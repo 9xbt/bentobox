@@ -44,7 +44,7 @@ void gic_install(void) {
 
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized distributor\n");
 
-    for (size_t i = 0; i < madt_giccs; i++) {
+    for (size_t i = 0; i < cpu_count; i++) {
         struct madt_gicc *gicc = madt_gicc_list[i];
         mmu_map(kernel_pd, VIRTUAL_HHDM(gicc->phys_base), (void*)gicc->phys_base, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
         cpu_list[i]->gicc = gicc;
