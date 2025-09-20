@@ -16,8 +16,8 @@ _fault_stub:
     stp x26, x27, [sp, #-16]!
     stp x28, x29, [sp, #-16]!
     stp x30, xzr, [sp, #-16]!
+    
     mov x29, sp
-
     mov x0, sp
     bl el1_fault_handler
 

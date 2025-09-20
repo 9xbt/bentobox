@@ -28,4 +28,8 @@ struct context {
     struct registers regs;
     uint64_t elr_elx;
     uint64_t spsr_elx;
+    uint64_t tpidr_el0;
+    __uint128_t fp[32];
+    uint32_t fpsr;
+    uint32_t fpcr;
 };

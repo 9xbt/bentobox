@@ -35,14 +35,14 @@ extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
 
 void do_regdump(const char *msg, struct registers *r) {
-    uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
+    uint64_t esr_elx, far_elx, elr_elx, spsr_elx;
     
-    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
-    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
-    asm volatile("mrs %0, ELR_EL1" : "=r"(elr_el1));
-    asm volatile("mrs %0, SPSR_EL1" : "=r"(spsr_el1));
+    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_elx));
+    asm volatile("mrs %0, FAR_EL1" : "=r"(far_elx));
+    asm volatile("mrs %0, ELR_EL1" : "=r"(elr_elx));
+    asm volatile("mrs %0, SPSR_EL1" : "=r"(spsr_elx));
 
-    uint64_t ec = (esr_el1 >> 26) & 0x3F;
+    uint64_t ec = (esr_elx >> 26) & 0x3F;
 
     dprintf(LOG_EMERG, "%s: \033[91m%s\033[0m on CPU %d\n", msg, esr_ec_reasons[ec], this_cpu->id);
     dprintf(LOG_EMERG, "// %s\n", witty());
@@ -53,11 +53,11 @@ void do_regdump(const char *msg, struct registers *r) {
     dprintf(LOG_EMERG, "x16: 0x%p x17: 0x%p x18: 0x%p x19: 0x%p\n", r->x16, r->x17, r->x18, r->x19);
     dprintf(LOG_EMERG, "x20: 0x%p x21: 0x%p x22: 0x%p x23: 0x%p\n", r->x20, r->x21, r->x22, r->x23);
     dprintf(LOG_EMERG, "x24: 0x%p x25: 0x%p x26: 0x%p x27: 0x%p\n", r->x24, r->x25, r->x26, r->x27);
-    dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p PC:  0x%p\n", r->x28, r->x29, r->x30, elr_el1);
-    dprintf(LOG_EMERG, "ESR_EL1: 0x%p\n", esr_el1);
-    dprintf(LOG_EMERG, "FAR_EL1: 0x%p\n", far_el1);
-    dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_el1);
-    dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_el1);
+    dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p SP:  0x%p\n", r->x28, r->x29, r->x30, r->sp);
+    dprintf(LOG_EMERG, "ESR_EL1: 0x%p\n", esr_elx);
+    dprintf(LOG_EMERG, "FAR_EL1: 0x%p\n", far_elx);
+    dprintf(LOG_EMERG, "ELR_EL1: 0x%p\n", elr_elx);
+    dprintf(LOG_EMERG, "SPSR_EL1: 0x%p\n", spsr_elx);
     arch_do_backtrace();
 }
 
@@ -72,8 +72,8 @@ void el0_fault_handler(struct registers *r) {
 
     if (((esr_el1 >> 26) & 0x3F) == 0x15) {
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
+        r->x0 = syscall_handler(args);
         asm ("msr daifclr, #2");
-        r->x8 = syscall_handler(args);
         return;
     }
 

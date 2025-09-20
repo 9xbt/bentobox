@@ -32,6 +32,9 @@ struct limine_executable_file_request ksym_request = {
     .revision = 0
 };
 
+extern void aarch64_save_fp(__uint128_t *);
+extern void aarch64_restore_fp(__uint128_t *);
+
 extern void generic_startup(void);
 extern void generic_main(void);
 
@@ -68,15 +71,45 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
     ctx->spsr_elx = user ? 0x0 : 0x345;
+
+    int argc = 0;
+    char *argv[] = { NULL };
+
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     if (user) {
-        ctx->user_stack_bottom = (uint64_t)vmalloc(kernel_vma, kernel_pd, 0x7ffffffff000 - (4 * PAGE_SIZE), 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
-        ctx->user_stack = 0x7ffffffff000 - 8;
-        ctx->regs.sp = ctx->user_stack;
-    } else {
-        ctx->regs.sp = ctx->stack;
+        uintptr_t *pm = mmu_get_pm();
+        mmu_switch_pm(tcb->parent->pm);
+
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (4 * PAGE_SIZE), 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack = 0x7ffffffff000;
+
+        long depth = ((argc) % 2 == 0) ? 24 : 16;
+
+        uint64_t argv_ptrs[argc + 1];
+        argv_ptrs[argc] = 0;
+
+        int i = 0;
+        for (i = 0; i < argc; i++) {
+            depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+            argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+            strcpy((char *)ctx->user_stack - depth, argv[i]);
+        }
+
+        #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
+
+        PUSH(0);
+        for (i = argc - 1; i >= 0; i--) {
+            PUSH(argv_ptrs[i]);
+        }
+
+        PUSH(argc);
+
+        ctx->user_stack -= depth;
+
+        mmu_switch_pm(pm);
     }
+    ctx->regs.sp = user ? ctx->user_stack : ctx->stack;
 }
 
 void arch_context_free(struct thread *tcb) {
@@ -90,10 +123,29 @@ void arch_save_context(void) {
     asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
 
     asm volatile("mrs %0, SP_EL0" : "=r"(this->ctx.user_stack));
+
+    asm volatile("mrs %0, TPIDR_EL0" : "=r"(this->ctx.tpidr_el0));
+
+    uint64_t fpsr, fpcr;
+    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+
+    this->ctx.fpsr = (uint32_t)fpsr;
+    this->ctx.fpcr = (uint32_t)fpcr;
+
+    aarch64_save_fp(this->ctx.fp);
 }
 
 void arch_restore_context(void) {
+    aarch64_restore_fp(this->ctx.fp);
+
+    uint64_t fpsr = this->ctx.fpsr, fpcr = this->ctx.fpcr;
+    asm volatile("msr fpsr, %0" :: "r"(fpsr));
+    asm volatile("msr fpcr, %0" :: "r"(fpcr));
+
     mmu_switch_pm(this_proc->pm);
+
+    asm volatile("msr TPIDR_EL0, %0" :: "r"(this->ctx.tpidr_el0));
 
     asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
 
@@ -137,6 +189,13 @@ void kmain(void) {
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
     asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
+
+    uint64_t cpacr;
+    asm volatile("mrs %0, cpacr_el1" : "=r"(cpacr));
+    cpacr |= (0b11 << 20);
+    asm volatile("msr cpacr_el1, %0" : : "r"(cpacr));
+    asm volatile("isb");
+
     vectors_install();
     mmu_initialize();
     elf64_module(ksym_request.response->executable_file);
@@ -146,6 +205,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
-    spawn("/bin/hello", 0, NULL, NULL);
+    spawn("/bin/main", 0, NULL, NULL);
     generic_main();
 }

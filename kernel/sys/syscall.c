@@ -84,6 +84,8 @@ long sys_set_tls(uint64_t fs) {
     #ifdef __x86_64__
     write_fs(fs);
     this->ctx.fs = fs;
+    #elif __aarch64__
+    asm volatile("msr TPIDR_EL0, %0" :: "r"(fs));
     #endif
     return 0;
 }

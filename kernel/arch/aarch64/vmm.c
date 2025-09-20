@@ -63,6 +63,12 @@ void mmu_switch_pm(uintptr_t *pm) {
     }
 }
 
+uintptr_t *mmu_get_pm(void) {
+    uint64_t pm;
+    asm volatile("mrs %0, ttbr0_el1" : "=r"(pm));
+    return VIRTUAL_HHDM(pm);
+}
+
 void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     assert(((uintptr_t)virt & (PAGE_SIZE_2M - 1)) == 0);
 
