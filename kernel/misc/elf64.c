@@ -234,7 +234,12 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     }
 
     void *buffer = kmalloc(node->size);
-    vfs_read(node, buffer, 0, node->size);
+    if (vfs_read(node, buffer, 0, node->size) < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m I/O error\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -EIO;
+    }
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 

@@ -1,5 +1,6 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/tar.h>
 #include <kernel/vfs.h>
 #include <limine.h>
@@ -19,9 +20,14 @@ vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type 
 }
 
 long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
-    // TODO: check for ustar signature
+    struct tar *tar = (struct tar *)node->device;
+    if (memcmp(tar->ustar, "ustar", 5)) {
+        dprintf(LOG_ERR, "\033[93mtar:\033[0m invalid signature at 0x%p\n", tar);
+        return -EINVAL;
+    }
+    
     size_t count = len < node->size - offset ? len : node->size - offset;
-    memcpy(buffer, node->device + offset, count);
+    memcpy(buffer, node->device + 512 + offset, count);
     return count;
 }
 
@@ -64,7 +70,8 @@ void tar_module(struct limine_file *mod) {
         if (!node) {
             dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s\n", tar->name);
         } else if (type == VFS_FILE) {
-            node->device = (void *)((unsigned char *)tar + 512);
+            // node->device = (void *)((unsigned char *)tar + 512);
+            node->device = tar;
             node->size = filesize;
         }
 
