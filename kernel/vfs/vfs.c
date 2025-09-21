@@ -4,7 +4,7 @@
 #include <kernel/errno.h>
 #include <kernel/vfs.h>
 
-extern void console_initialize(void);
+extern void tty_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 
@@ -18,10 +18,12 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
     node->flags = 0;
-    node->parent = NULL;
-    node->symlink = NULL;
     node->atime = node->ctime = node->mtime = 0;
     node->children = list_create();
+    node->parent = NULL;
+    node->symlink = NULL;
+    node->ops = NULL;
+    node->tty_ops = NULL;
     node->device = NULL;
     return node;
 }
@@ -211,7 +213,7 @@ void vfs_install(void) {
 
     vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
 
-    console_initialize();
+    tty_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

@@ -30,15 +30,22 @@ typedef enum vfs_node_type {
 
 typedef struct vfs_ops {
     struct vfs_node *(*open)(struct vfs_node *node, int flags);
-    long (*close)(struct vfs_node *node);
-    long (*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
-    long (*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);
+    long(*close)(struct vfs_node *node);
+    long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
+    long(*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name, enum vfs_node_type type);
-    long (*remove)(struct vfs_node *node);
-    long (*rename)(struct vfs_node *node, const char *name);
-    long (*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
-    long (*poll)(struct vfs_node *node, long events);
+    long(*remove)(struct vfs_node *node);
+    long(*rename)(struct vfs_node *node, const char *name);
+    long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
+    long(*poll)(struct vfs_node *node, long events);
 } vfs_ops_t;
+
+typedef struct vfs_tty_ops {
+    long(*ioctl)(int fd, int op, void *arg);
+    long(*enqueue)(int c);
+    long(*dequeue)(bool block);
+    void(*flush)(void);
+} vfs_tty_ops_t;
 
 typedef struct vfs_node {
     char name[MAX_PATH];
@@ -56,6 +63,7 @@ typedef struct vfs_node {
     struct vfs_node *parent;
     struct vfs_node *symlink;
     struct vfs_ops *ops;
+    struct vfs_tty_ops *tty_ops;
     void *device;
 } vfs_node_t;
 

@@ -8,6 +8,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/smp.h>
+#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
 #include <kernel/context.h>
@@ -67,7 +68,7 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        dprintf(LOG_INFO, "a\n");
+        // dprintf(LOG_INFO, "a\n");
         asm ("hlt");
     }
 }
@@ -144,7 +145,7 @@ void arch_restore_context(void) {
     asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
     lapic_eoi();
-    lapic_oneshot(0x80, 250);
+    lapic_oneshot(0x80, 5);
 }
 
 void arch_yield(struct cpu *cpu) {
@@ -195,6 +196,9 @@ void kmain(void) {
     user_initialize();
 
     generic_startup();
+    
+    ps2_hid_install();
     spawn("/bin/main", 0, NULL, NULL);
+
     generic_main();    
 }
