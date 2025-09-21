@@ -2,7 +2,6 @@
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/context.h>
 #include <kernel/syscall.h>
-#include <kernel/printf.h>
 #include <kernel/errno.h>
 
 extern void syscall_entry(void);
@@ -48,4 +47,17 @@ void user_initialize(void) {
 void do_syscall(struct registers *r) {
     size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
     r->rax = syscall_handler(args);
+}
+
+void enable_sse(void) {
+    asm volatile (
+        "mov %%cr0, %%rax\n"
+        "and $0xFFFB, %%ax\n"
+        "or $0x2, %%ax\n"
+        "mov %%rax, %%cr0\n"
+        "mov %%cr4, %%rax\n"
+        "or $0x600, %%ax\n"
+        "mov %%rax, %%cr4"
+        ::: "rax", "memory"
+    );
 }

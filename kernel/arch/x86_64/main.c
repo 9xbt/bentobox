@@ -38,6 +38,8 @@ struct limine_executable_file_request ksym_request = {
     .revision = 0
 };
 
+extern void enable_sse(void);
+
 extern void generic_startup(void);
 extern void generic_main(void);
 
