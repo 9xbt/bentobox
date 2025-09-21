@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 struct registers {
-    uint64_t x30, sp;
+    uint64_t x30, zero;
     uint64_t x28, x29;
     uint64_t x26, x27;
     uint64_t x24, x25;
@@ -27,7 +27,9 @@ struct context {
     uint64_t user_stack_bottom;
     struct registers regs;
     uint64_t elr_elx;
+    uint64_t elr_el0;
     uint64_t spsr_elx;
+    uint64_t spsr_el0;
     uint64_t tpidr_el0;
     __uint128_t fp[32];
     uint32_t fpsr;

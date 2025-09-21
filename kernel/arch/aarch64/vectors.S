@@ -57,17 +57,13 @@ _lower_fault_stub:
     stp x24, x25, [sp, #-16]!
     stp x26, x27, [sp, #-16]!
     stp x28, x29, [sp, #-16]!
-
-    mrs x1, SP_EL0
-    stp x30, x1, [sp, #-16]!
+    stp x30, xzr, [sp, #-16]!
 
     mov x29, sp
     mov x0, sp
     bl el0_fault_handler
 
-    ldp x30, x1, [sp], #16
-    msr SP_EL0, x1
-    
+    ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16
     ldp x26, x27, [sp], #16
     ldp x24, x25, [sp], #16
@@ -88,6 +84,8 @@ _lower_fault_stub:
 
 .extern irq_handler
 _irq_stub:
+    mov x16, sp
+    
     stp x0, x1, [sp, #-16]!
     stp x2, x3, [sp, #-16]!
     stp x4, x5, [sp, #-16]!
@@ -103,17 +101,13 @@ _irq_stub:
     stp x24, x25, [sp, #-16]!
     stp x26, x27, [sp, #-16]!
     stp x28, x29, [sp, #-16]!
-
-    mrs x1, SP_EL0
-    stp x30, x1, [sp, #-16]!
+    stp x30, xzr, [sp, #-16]!
 
     mov x29, sp
     mov x0, sp
     bl irq_handler
 
-    ldp x30, x1, [sp], #16
-    msr SP_EL0, x1
-
+    ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16
     ldp x26, x27, [sp], #16
     ldp x24, x25, [sp], #16
@@ -130,6 +124,7 @@ _irq_stub:
     ldp x2, x3, [sp], #16
     ldp x0, x1, [sp], #16
 
+    mov sp, x16
     eret
 
 .globl _evt

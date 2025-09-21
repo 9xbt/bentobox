@@ -77,6 +77,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
 
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
+    ctx->regs.x16 = ctx->stack;
     if (user) {
         uintptr_t *pm = mmu_get_pm();
         mmu_switch_pm(tcb->parent->pm);
@@ -109,7 +110,6 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
 
         mmu_switch_pm(pm);
     }
-    ctx->regs.sp = user ? ctx->user_stack : ctx->stack;
 }
 
 void arch_context_free(struct thread *tcb) {
@@ -137,12 +137,11 @@ void arch_save_context(void) {
 }
 
 void arch_restore_context(void) {
-    aarch64_restore_fp(this->ctx.fp);
-
     uint64_t fpsr = this->ctx.fpsr, fpcr = this->ctx.fpcr;
     asm volatile("msr fpsr, %0" :: "r"(fpsr));
     asm volatile("msr fpcr, %0" :: "r"(fpcr));
 
+    aarch64_restore_fp(this->ctx.fp);
     mmu_switch_pm(this_proc->pm);
 
     asm volatile("msr TPIDR_EL0, %0" :: "r"(this->ctx.tpidr_el0));

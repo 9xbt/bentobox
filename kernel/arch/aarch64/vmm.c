@@ -49,8 +49,12 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
 }
 
 static inline void tlb_invalidate(void *va) {
-    asm volatile("tlbi vae1, %0" : : "r"((uintptr_t)va >> 12) : "memory");
-    asm volatile("dsb ish; isb");
+    // asm volatile("tlbi vae1, %0" : : "r"((uintptr_t)va >> 12) : "memory");
+    // asm volatile("dsb ish; isb");
+    asm volatile("dsb ishst" ::: "memory");
+    asm volatile("tlbi vae1, %0" :: "r"((uintptr_t)va >> 12));
+    asm volatile("dsb ish" ::: "memory");
+    asm volatile("isb");
 }
 
 void mmu_switch_pm(uintptr_t *pm) {

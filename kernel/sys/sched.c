@@ -102,8 +102,8 @@ void sched_kill(struct process *proc) {
     cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {
         this->state = THREAD_PAUSED;
-        for (;;);
         sched_yield();
+        for (;;) {}
     }
 }
 
