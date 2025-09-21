@@ -17,6 +17,10 @@
 #define O_NOFOLLOW	00400000
 #define O_CLOEXEC	02000000
 
+#define SEEK_SET    0
+#define SEEK_CUR    1
+#define SEEK_END    2
+
 typedef enum vfs_node_type {
     VFS_NONE,
     VFS_FILE,

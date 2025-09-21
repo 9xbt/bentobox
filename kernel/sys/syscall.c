@@ -8,6 +8,12 @@
 #include <kernel/file.h>
 #include <kernel/mmu.h>
 
+long sys_exit(int status) {
+    (void)status;
+    sched_kill(this_proc);
+    __builtin_unreachable();
+}
+
 static long sys_read_write(int fd, void *buffer, size_t len, bool write) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
@@ -32,10 +38,37 @@ long sys_write(int fd, void *buffer, size_t len) {
     return sys_read_write(fd, buffer, len, true);
 }
 
-long sys_exit(int status) {
-    (void)status;
-    sched_kill(this_proc);
-    __builtin_unreachable();
+long sys_seek(int fd, long offset, int whence) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (file->node->type == VFS_CHARDEVICE)
+        return -ESPIPE;
+
+    switch (whence) {
+        case SEEK_SET:
+            file->offset = offset;
+            break;
+        case SEEK_CUR:
+            file->offset += offset;
+            break;
+        case SEEK_END:
+            file->offset = file->node->size + offset;
+            break;
+    }
+
+    return file->offset;
+}
+
+long sys_ioctl(int fd, int op, void *arg) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (!file->node->tty_ops || !file->node->tty_ops->ioctl)
+        return -ENOTTY;
+    if (!arg)
+        return -EFAULT;
+    return file->node->tty_ops->ioctl(fd, op, arg);
 }
 
 #define MAP_ANON  0x1000
@@ -80,13 +113,10 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     return -ENOSYS;
 }
 
-long sys_set_tls(uint64_t fs) {
-    #ifdef __x86_64__
-    write_fs(fs);
-    this->ctx.fs = fs;
-    #elif __aarch64__
-    asm volatile("msr TPIDR_EL0, %0" :: "r"(fs));
-    #endif
+extern void arch_set_tls(uint64_t base);
+
+long sys_set_tls(uint64_t base) {
+    arch_set_tls(base);
     return 0;
 }
 
@@ -95,7 +125,9 @@ typedef long (*syscall_func)(long, long, long, long, long, long);
 syscall_func syscalls[] = {
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
     [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
+    [SYS_seek]      = (syscall_func)(uintptr_t)sys_seek,
     [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
+    [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls
 };

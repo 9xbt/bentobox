@@ -2,7 +2,6 @@
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/context.h>
 #include <kernel/syscall.h>
-#include <kernel/errno.h>
 
 extern void syscall_entry(void);
 

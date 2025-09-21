@@ -147,7 +147,7 @@ void sched_cleaner(void) {
             if (proc->state != PROCESS_ZOMBIE)
                 continue;
 
-            dprintf(LOG_INFO, "\033[93msched:\033[0m cleaning %s\n", proc->name);
+            dprintf(LOG_DEBUG, "\033[93msched:\033[0m cleaning %s\n", proc->name);
 
             for (int i = 0; i < proc->max_files; i++) {
                 struct file *file = &proc->files[i];

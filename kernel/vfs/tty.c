@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <kernel/spinlock.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -127,9 +128,9 @@ long tty_ioctl(int fd, int op, void *arg) {
         case TCSETSW:
             memcpy(&file->tio, arg, sizeof(struct termios));
             return 0;
-        // case TIOCGWINSZ:
-        //     framebuffer_get_winsize((struct winsize *)arg);
-        //     return 0;
+        case TIOCGWINSZ:
+            framebuffer_get_winsize((struct winsize *)arg);
+            return 0;
         case TIOCSWINSZ:
             return 0;
         // case TIOCGPGRP:
@@ -167,7 +168,7 @@ long tty_ioctl(int fd, int op, void *arg) {
         case PIO_UNIMAPCLR:
             return 0;
         default:
-            dprintf(LOG_INFO, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(LOG_INFO, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }

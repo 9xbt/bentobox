@@ -162,6 +162,10 @@ void arch_yield(struct cpu *cpu) {
     gic_send_sgi(0, (1 << cpu->logical_id));
 }
 
+void arch_set_tls(uint64_t base) {
+    asm volatile("msr TPIDR_EL0, %0" :: "r"(base));
+}
+
 void arch_jumpstart(void) {
     node_t *idle_proc = sched_add_process(sched_new_process("idle angel", false));
     

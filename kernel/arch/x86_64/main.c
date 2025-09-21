@@ -125,6 +125,9 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
     ctx->regs.cs = user ? 0x23 : 0x08;
     ctx->regs.ss = user ? 0x1b : 0x10;
     ctx->regs.rflags = 0x202;
+    uint32_t *mxcsr = (uint32_t *)(ctx->fxsave + 24);
+    *mxcsr = 0x1920;
+    *mxcsr |= 0x8040;
 }
 
 void arch_context_free(struct thread *tcb) {
@@ -157,6 +160,11 @@ void arch_yield(struct cpu *cpu) {
         asm volatile ("int $0x80");
     else
         lapic_ipi(cpu->logical_id, 0x80);
+}
+
+void arch_set_tls(uint64_t base) {
+    write_fs(base);
+    this->ctx.fs = base;
 }
 
 void arch_jumpstart(void) {

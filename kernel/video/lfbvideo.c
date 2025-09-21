@@ -1,9 +1,13 @@
 #include <limine.h>
 #include <stddef.h>
 #include <stddef.h>
-#include <flanterm.h>
+#include <kernel/termios.h>
 #include <flanterm_backends/fb.h>
+#define FLANTERM_IN_FLANTERM
+#include <flanterm_private.h>
+#include <flanterm.h>
 
+struct limine_framebuffer *framebuffer;
 struct flanterm_context *ft_ctx;
 
 __attribute__((used, section(".limine_requests")))
@@ -18,7 +22,7 @@ void framebuffer_initialize(void) {
         return;
     }
 
-    struct limine_framebuffer *framebuffer = framebuffer_request.response->framebuffers[0];
+    framebuffer = framebuffer_request.response->framebuffers[0];
 
     ft_ctx = flanterm_fb_init(
         NULL,
@@ -41,4 +45,13 @@ void framebuffer_initialize(void) {
         0, 0,
         0
     );
+}
+
+void framebuffer_get_winsize(struct winsize *ws) {
+    if (!ws) return;
+
+    ws->ws_row = ft_ctx->rows;
+    ws->ws_col = ft_ctx->cols;
+    ws->ws_xpixel = framebuffer->width;
+    ws->ws_ypixel = framebuffer->height;
 }
