@@ -1,0 +1,3 @@
+#!/bin/bash
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+aarch64-linux-gnu-gcc -nostdlib -static -L$(pwd)/mlibc/x86_64/lib -I$(pwd)/mlibc/x86_64/include $(pwd)/mlibc/x86_64/lib/crt0.o -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group "$@"

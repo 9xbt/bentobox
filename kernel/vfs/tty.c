@@ -39,7 +39,7 @@ void tty_enqueue_string(char *str) {
 
 long tty_dequeue(bool block) {
     int c = 0;
-    while (fifo_dequeue(tty_fifo, &c) != 0) {
+    while (fifo_dequeue(tty_fifo, &c) > 0) {
         if (!block) {
             return -EAGAIN;
         }
