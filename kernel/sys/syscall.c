@@ -1,11 +1,12 @@
 #include <stddef.h>
 #include <stdint.h>
-#include <kernel/arch/x86_64/user.h>
 #include <kernel/syscall.h>
+#include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/file.h>
+#include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
 long sys_exit(int status) {
@@ -60,6 +61,73 @@ long sys_seek(int fd, long offset, int whence) {
     return file->offset;
 }
 
+long sys_open(const char *pathname, int flags) {
+    return file_open(pathname, flags);
+}
+
+long sys_close(int fd) {
+    return file_close(fd);
+}
+
+long sys_fstatat(int dirfd, const char *path, struct stat *statbuf, int flags) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    if (!node)
+        return -ENOENT;
+
+    memset(statbuf, 0, sizeof(struct stat));
+    switch (node->type) {
+        case VFS_FILE:
+            statbuf->st_mode |= S_IFREG;
+            break;
+        case VFS_DIRECTORY:
+            statbuf->st_mode |= S_IFDIR;
+            break;
+        case VFS_CHARDEVICE:
+            statbuf->st_mode |= S_IFCHR;
+            break;
+        case VFS_BLOCKDEVICE:
+            statbuf->st_mode |= S_IFBLK;
+            break;
+        case VFS_SYMLINK:
+            statbuf->st_mode |= S_IFLNK;
+            break;
+        default:
+            statbuf->st_mode |= S_IFREG;
+            break;
+    }
+    statbuf->st_mode |= (node->perms & 07777);
+
+    statbuf->st_nlink = 1;
+    statbuf->st_uid = 0;
+    statbuf->st_gid = 0;
+    statbuf->st_ino = node->inode;
+    statbuf->st_atim.tv_sec = node->atime;
+    statbuf->st_ctim.tv_sec = node->ctime;
+    statbuf->st_mtim.tv_sec = node->mtime;
+    
+    switch (node->type) {
+        case VFS_FILE:
+        case VFS_DIRECTORY:
+            statbuf->st_size = node->size;
+            statbuf->st_blocks = node->blocks;
+            break;
+        case VFS_SYMLINK:
+            statbuf->st_size = node->symlink ? ((flags & AT_SYMLINK_NOFOLLOW) ? strlen(node->symlink->name) : node->symlink->size) : 0;
+            break;
+        default:
+            statbuf->st_size = 0;
+            break;
+    }
+    return 0;
+}
+
 long sys_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     if (!file)
@@ -69,6 +137,18 @@ long sys_ioctl(int fd, int op, void *arg) {
     if (!arg)
         return -EFAULT;
     return file->node->tty_ops->ioctl(fd, op, arg);
+}
+
+long sys_getpid(void) {
+    return this_proc->pid;
+}
+
+long sys_gettid(void) {
+    return this->tid;
+}
+
+long sys_getppid(void) {
+    return this->parent ? this->parent->pid : 1;
 }
 
 #define MAP_ANON  0x1000
@@ -124,10 +204,16 @@ typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
     [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
     [SYS_seek]      = (syscall_func)(uintptr_t)sys_seek,
-    [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
+    [SYS_open]      = (syscall_func)(uintptr_t)sys_open,
+    [SYS_close]     = (syscall_func)(uintptr_t)sys_close,
+    [SYS_fstatat]   = (syscall_func)(uintptr_t)sys_fstatat,
     [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
+    [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
+    [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
+    [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls
 };

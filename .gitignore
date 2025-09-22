@@ -7,6 +7,8 @@
 /build/mlibc
 /build/ovmf
 /build/kernel-deps
+/ports/src
+/base/bin
 compile_commands.json
 .cache
 .vscode

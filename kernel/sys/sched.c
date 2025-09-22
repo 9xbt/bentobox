@@ -88,8 +88,9 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/console", 0), 0);
+    proc->cwd = NULL;
 
-    dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s'\n", name);
+    dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s' with pid %d\n", name, proc->pid);
     return proc;
 }
 

@@ -5,6 +5,7 @@
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
+#include <kernel/vfs.h>
 
 #define SCHED_BITMAP_SIZE   4096
 
@@ -38,6 +39,7 @@ struct process {
     struct vma *vma;
     struct file *files;
     int max_files;
+    struct vfs_node *cwd;
 
     struct process *parent;
     list_t *children;

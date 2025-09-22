@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/list.h>
+#include <kernel/time.h>
 
 #define MAX_PATH    256
 
@@ -20,6 +21,39 @@
 #define SEEK_SET    0
 #define SEEK_CUR    1
 #define SEEK_END    2
+
+#define S_IFMT      0xF000
+#define S_IFIFO     0x1000
+#define S_IFCHR     0x2000
+#define S_IFDIR     0x4000
+#define S_IFBLK     0x6000
+#define S_IFREG     0x8000
+#define S_IFLNK     0xA000
+#define S_IFSOCK    0xC000
+#define S_IFWHT     0xE000
+
+struct stat {
+	uint64_t st_dev;
+	uint64_t st_ino;
+	uint64_t st_nlink;
+
+	uint32_t st_mode;
+	uint32_t st_uid;
+	uint32_t st_gid;
+	unsigned int __pad0;
+	uint64_t st_rdev;
+	int64_t st_size;
+	int64_t st_blksize;
+	int64_t st_blocks;
+
+	struct timespec st_atim;
+	struct timespec st_mtim;
+	struct timespec st_ctim;
+	long __unused[3];
+};
+
+#define AT_FDCWD            -100
+#define AT_SYMLINK_NOFOLLOW 0x100
 
 typedef enum vfs_node_type {
     VFS_NONE,
