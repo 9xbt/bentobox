@@ -108,12 +108,16 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
         }
     }
 
-    size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;
-    for (size_t i = 0; i < page_count; i++) {
-        void *vaddr = ptr + (i * PAGE_SIZE);
-        mmu_free((void *)mmu_get_physical(pm, vaddr));
-        mmu_unmap(pm, vaddr);
-        bitmap_clear(vma->bitmap, page + i);
+    if ((uintptr_t)ptr >= vma->base && (uintptr_t)ptr < vma->base + vma->pages * PAGE_SIZE) {
+        size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;
+        for (size_t i = 0; i < page_count; i++) {
+            void *vaddr = ptr + (i * PAGE_SIZE);
+            mmu_free((void *)mmu_get_physical(pm, vaddr));
+            mmu_unmap(pm, vaddr);
+            bitmap_clear(vma->bitmap, page + i);
+        }
+        vma->used_pages -= page_count;
     }
-    vma->used_pages -= page_count;
+
+    dprintf(LOG_WARNING, "\033[93mvma:\033[0m couldn't free region at 0x%p\n", ptr);
 }

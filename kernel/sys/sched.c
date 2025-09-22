@@ -168,6 +168,7 @@ void sched_cleaner(void) {
                     }
                 }
                 arch_context_free(tcb);
+                kfree(tcb);
             }
             list_free(proc->threads);
 
