@@ -34,7 +34,7 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
     list_free(vma->regions);
 
     for (uint64_t page = 0; page < vma->pages; page++) {
-        if (!bitmap_get(vma->bitmap, page)) {
+        if (bitmap_get(vma->bitmap, page)) {
             void *vaddr = (void *)(vma->base + page * PAGE_SIZE);
             mmu_free((void *)mmu_get_physical(pm, vaddr));
             mmu_unmap(pm, vaddr);

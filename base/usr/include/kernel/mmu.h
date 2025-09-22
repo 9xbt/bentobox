@@ -21,13 +21,19 @@
 
 #define DIV_CEILING(x, y) (x + (y - 1)) / y
 #define ALIGN_UP(x, y) (DIV_CEILING(x, y) * y)
-#define ALIGN_DOWN(x, y) ((x / y) * y)
+#define ALIGN_DOWN(x, y) (((x) / y) * y)
+
+#define LOW(x)  ((uint32_t)(x))
+#define HIGH(x) ((uint32_t)((x) >> 32))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 extern uintptr_t hhdm_offset;
 extern uintptr_t  *kernel_pd;
 extern struct vma *kernel_vma;
 
 void  mmu_initialize(void);
+void  mmu_print_memory(void);
 void *mmu_alloc(void);
 void  mmu_free(void *ptr);
 void  mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags);

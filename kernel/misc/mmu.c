@@ -91,7 +91,7 @@ void mmu_initialize(void) {
     bitmap_entry->base -= bitmap_size;
     bitmap_entry->length += bitmap_size;
 
-    dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024 - mmu_used_pages * 4);
+    dprintf(LOG_INFO, "\033[93mmmu:\033[0m usable memory: %luK\n", mmu_usable_mem / 1024);
 
     kernel_pd = VIRTUAL_HHDM(mmu_alloc());
     memset(kernel_pd, 0, PAGE_SIZE);
@@ -168,6 +168,12 @@ void *mmu_alloc(void) {
 
 void mmu_free(void *ptr) {
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
+
+    if (!bitmap_get(mmu_bitmap, page)) {
+        dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m potential double free at 0x%p\n", ptr);
+        return; 
+    }
+
     bitmap_clear(mmu_bitmap, page);
     mmu_used_pages--;
 
@@ -209,4 +215,8 @@ void *mmu_map_module_bss(size_t pages) {
 
     module_base += length;
     return (void *)(module_base - length);
+}
+
+void mmu_print_memory(void) {
+    dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m %luK/%luK\n", mmu_used_pages * 4, mmu_usable_mem / 1024);
 }

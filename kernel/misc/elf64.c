@@ -169,10 +169,6 @@ int elf64_module(struct limine_file *mod) {
 static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
-            uintptr_t page_start = ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE);
-            uintptr_t page_end = ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE);
-            size_t pages = (page_end - page_start) / PAGE_SIZE;
-            
             #ifdef __x86_64__
             uint64_t flags = PTE_PRESENT | PTE_USER;
             if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
@@ -182,37 +178,31 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
             flags |= (phdr[i].p_flags & PF_W) ? PTE_RW : PTE_RO;
             if (!(phdr[i].p_flags & PF_X)) flags |= PTE_UXN;
             #endif
-
-            for (size_t page = 0; page < pages; page++) {
-                void *vaddr = (void *)(page_start + page * PAGE_SIZE);
-                void *paddr = mmu_alloc();
-
-                mmu_map(kernel_pd, vaddr, paddr, 
-                #ifdef __x86_64__
-                    PTE_PRESENT | PTE_WRITABLE
-                #elif __aarch64__
-                    PTE_VALID | PTE_AF | PTE_RW | PTE_PXN
-                #endif
-                );
-            }
+            
+            vmalloc(proc->vma, proc->pm, ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE),
+                (ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE) - ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
 
             if (phdr[i].p_filesz > 0) {
-                uintptr_t src = (uintptr_t)(uintptr_t)ehdr + phdr[i].p_offset;
+                uintptr_t src = (uintptr_t)ehdr + phdr[i].p_offset;
                 uintptr_t dest = phdr[i].p_vaddr;
 
-                memcpy((void *)dest, (void *)src, phdr[i].p_filesz);
+                for (size_t j = 0; j < ALIGN_UP(phdr[i].p_filesz, PAGE_SIZE) / PAGE_SIZE; j++) {
+                    void *vaddr = (void *)(dest + j * PAGE_SIZE);
+                    void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
+
+                    memcpy(VIRTUAL_HHDM(paddr), (void *)src + j * PAGE_SIZE, PAGE_SIZE);
+                }
             }
 
             if (phdr[i].p_memsz > phdr[i].p_filesz) {
-                memset((void *)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
-            }
+                uintptr_t dest = ALIGN_DOWN(phdr[i].p_vaddr + phdr[i].p_filesz, PAGE_SIZE);
 
-            for (size_t page = 0; page < pages; page++) {
-                void *vaddr = (void *)(page_start + page * PAGE_SIZE);
-                void *paddr = (void *)mmu_get_physical(kernel_pd, vaddr);
+                for (size_t j = 0; j < ALIGN_UP(phdr[i].p_memsz - phdr[i].p_filesz, PAGE_SIZE) / PAGE_SIZE; j++) {
+                    void *vaddr = (void *)(dest + j * PAGE_SIZE);
+                    void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
 
-                mmu_map(proc->pm, vaddr, paddr, flags);
-                mmu_unmap(kernel_pd, vaddr);
+                    memset(VIRTUAL_HHDM(paddr), 0, PAGE_SIZE);
+                }
             }
         }
     }
