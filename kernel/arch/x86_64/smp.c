@@ -83,7 +83,7 @@ void smp_initialize(void) {
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
         core->tlb_va = NULL;
-        //core->tlb_lock = 0;
+        core->tlb_lock = 0;
         release(&core->tlb_lock);
         cpu_list[i] = core;
     }

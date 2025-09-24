@@ -67,3 +67,13 @@ struct vma *vma_create(uintptr_t base, size_t size);
 void  vma_destroy(struct vma *vma, uintptr_t *pm);
 void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, uint64_t flags);
 void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);
+
+#define MAP_ANON  0x1000
+#define MAP_FIXED   0x10
+#define MAP_PRIVATE 0x02
+#define MAP_SHARED  0x01
+
+#define PROT_NONE   0x0
+#define PROT_READ   0x1
+#define PROT_WRITE  0x2
+#define PROT_EXEC   0x4

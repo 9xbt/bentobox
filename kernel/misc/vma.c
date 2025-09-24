@@ -117,6 +117,7 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
             bitmap_clear(vma->bitmap, page + i);
         }
         vma->used_pages -= page_count;
+        return;
     }
 
     dprintf(LOG_WARNING, "\033[93mvma:\033[0m couldn't free region at 0x%p\n", ptr);

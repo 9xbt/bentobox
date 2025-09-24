@@ -211,7 +211,7 @@ void kmain(void) {
     //spawn("/bin/main", 0, NULL, NULL);
 
     mmu_print_memory();
-    spawn("/bin/hello", 0, NULL, NULL);
+    spawn("/bin/bash", 0, NULL, NULL);
 
     generic_main();    
 }

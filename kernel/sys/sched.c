@@ -150,8 +150,8 @@ void sched_cleaner(void) {
 
             dprintf(LOG_DEBUG, "\033[93msched:\033[0m cleaning %s\n", proc->name);
 
-            for (int i = 0; i < proc->max_files; i++) {
-                struct file *file = &proc->files[i];
+            for (int j = 0; j < proc->max_files; j++) {
+                struct file *file = &proc->files[j];
                 if (file->open)
                     vfs_close(file->node);
             }

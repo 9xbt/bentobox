@@ -7,9 +7,9 @@
 #define MSPACES 0
 #define ONLY_MSPACES 0
 #define FOOTERS 0
-#define HAVE_MMAP 0
+#define HAVE_MMAP 1
 #define HAVE_MREMAP 0
-#define HAVE_MUNMAP 0
+#define HAVE_MUNMAP 1
 #define HAVE_MORECORE 1
 #define LACKS_TIME_H 1
 #define LACKS_SYS_PARAM_H 1
@@ -25,11 +25,14 @@
 #define USE_LOCKS 0
 #define NO_MALLOC_STATS 1
 #define LACKS_STDIO_H 1
+#define MMAP_CLEARS 1
 #define MALLOC_FAILURE_ACTION
+
+#define MAP_ANONYMOUS 1
 
 static uintptr_t brk = HEAP_BASE;
 
-void *sbrk(intptr_t increment) {
+static void *sbrk(intptr_t increment) {
     if (!increment)
         return (void *)brk;
     
@@ -60,6 +63,34 @@ void *sbrk(intptr_t increment) {
 }
 
 #define MORECORE sbrk
+
+static void *mmap(void *addr, size_t length, int prot, int flags, int fd, long offset) {
+    (void)addr;
+    (void)prot;
+    (void)flags;
+    (void)fd;
+    (void)offset;
+    if (!length)
+        return (void *)-1;
+
+    #ifdef __x86_64__
+    uintptr_t mmu_flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uintptr_t mmu_flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
+
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+    return vmalloc(kernel_vma, kernel_pd, 0, pages, mmu_flags);
+}
+
+static int munmap(void *addr, size_t length) {
+    if (!addr || !length)
+        return -EINVAL;
+
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+    vfree(kernel_vma, kernel_pd, addr, pages);
+    return 0;
+}
 
 #include "../../lib/dlmalloc.c"
 
