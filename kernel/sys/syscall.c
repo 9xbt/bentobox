@@ -9,12 +9,6 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
-long sys_exit(int status) {
-    (void)status;
-    sched_kill(this_proc);
-    __builtin_unreachable();
-}
-
 static long sys_read_write(int fd, void *buffer, size_t len, bool write) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
@@ -139,6 +133,16 @@ long sys_ioctl(int fd, int op, void *arg) {
     return file->node->tty_ops->ioctl(fd, op, arg);
 }
 
+long sys_exit(int status) {
+    (void)status;
+    sched_kill(this_proc);
+    __builtin_unreachable();
+}
+
+long sys_fork(void) {
+    return sched_fork();
+}
+
 long sys_getpid(void) {
     return this_proc->pid;
 }
@@ -193,7 +197,6 @@ long sys_set_tls(uint64_t base) {
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
-    [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
     [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
     [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
     [SYS_seek]      = (syscall_func)(uintptr_t)sys_seek,
@@ -201,9 +204,14 @@ syscall_func syscalls[] = {
     [SYS_close]     = (syscall_func)(uintptr_t)sys_close,
     [SYS_fstatat]   = (syscall_func)(uintptr_t)sys_fstatat,
     [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
+
+    [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
+    
     [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
     [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
+
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls
 };

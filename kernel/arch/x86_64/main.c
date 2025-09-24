@@ -78,7 +78,6 @@ void idle(void) {
 void arch_context_init(struct thread *tcb, void *entry, bool user) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
-    memset(&ctx->regs, 0, sizeof(struct registers));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
     
     int argc = 0;
@@ -134,6 +133,25 @@ void arch_context_free(struct thread *tcb) {
     struct context *ctx = &tcb->ctx;
     kfree((void *)ctx->stack_bottom);
     vfree(tcb->parent->vma, tcb->parent->pm, (void *)ctx->user_stack_bottom, 4);
+}
+
+void arch_context_fork(struct thread *tcb) {
+    struct context *ctx = &tcb->ctx;
+    memset(ctx, 0, sizeof(struct context));
+    memcpy(ctx, &this->ctx, 7 * sizeof(uint64_t));
+    memcpy(&ctx->regs, this->syscall_regs, 15 * sizeof(uint64_t));
+    asm volatile ("fxsave %0 " : : "m"(tcb->ctx.fxsave));
+
+    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
+    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
+    memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, 4 * PAGE_SIZE);
+
+    ctx->regs.rsp = this->ctx.user_stack;
+    ctx->regs.rip = ctx->regs.rcx;
+    ctx->regs.rax = 0;
+    ctx->regs.cs = 0x23;
+    ctx->regs.ss = 0x1b;
+    ctx->regs.rflags = 0x202;
 }
 
 void arch_save_context(void) {
@@ -209,9 +227,9 @@ void kmain(void) {
     
     ps2_hid_install();
     //spawn("/bin/main", 0, NULL, NULL);
+    spawn("/bin/fork", 0, NULL, NULL);
 
-    mmu_print_memory();
-    spawn("/bin/bash", 0, NULL, NULL);
+    //spawn("/bin/bash", 0, NULL, NULL);
 
     generic_main();    
 }

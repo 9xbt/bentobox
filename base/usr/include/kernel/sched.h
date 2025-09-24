@@ -26,8 +26,8 @@ struct thread {
     enum thread_state state;
     struct context ctx;
     struct process *parent;
-    bool new;
     struct cpu *cpu;
+    struct registers *syscall_regs;
 };
 
 struct process {
@@ -53,6 +53,7 @@ struct process {
 node_t *sched_add_process(struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
 struct process *sched_new_process(const char *name, bool user);
+long sched_fork(void);
 void sched_yield(void);
 void sched_kill(struct process *proc);
 void sched_schedule(struct registers *r);

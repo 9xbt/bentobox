@@ -2,6 +2,7 @@
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/context.h>
 #include <kernel/syscall.h>
+#include <kernel/sched.h>
 
 extern void syscall_entry(void);
 
@@ -44,6 +45,7 @@ void user_initialize(void) {
 }
 
 void do_syscall(struct registers *r) {
+    this->syscall_regs = r;
     size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
     r->rax = syscall_handler(args);
 }

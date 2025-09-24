@@ -10,6 +10,7 @@
 
 extern void arch_context_init(struct thread *tcb, void *entry, bool user);
 extern void arch_context_free(struct thread *tcb);
+extern void arch_context_fork(struct thread *tcb);
 extern void arch_save_context(void);
 extern void arch_restore_context(void);
 extern void arch_jumpstart(void);
@@ -66,7 +67,6 @@ struct thread *sched_new_thread(struct process *parent, void *entry) {
     tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_RUNNING;
     tcb->parent = parent;
-    tcb->new = true;
     tcb->cpu = NULL;
     arch_context_init(tcb, entry, parent->user);
     
@@ -92,6 +92,36 @@ struct process *sched_new_process(const char *name, bool user) {
 
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s' with pid %d\n", name, proc->pid);
     return proc;
+}
+
+long sched_fork(void) {
+    struct process *proc = kmalloc(sizeof(struct process));
+    proc->name = strdup(this_proc->name);
+    proc->pm = mmu_create_pagemap();
+    proc->pid = sched_allocate_pid();
+    proc->user = true;
+    proc->state = PROCESS_ALIVE;
+    proc->parent = this_proc;
+    proc->children = list_create();
+    proc->threads = list_create();
+    proc->vma = vma_clone(this_proc->vma, proc->pm);
+
+    proc->max_files = this_proc->max_files;
+    proc->files = kmalloc(sizeof(struct file) * proc->max_files);
+    memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
+    proc->cwd = this_proc->cwd;
+
+    struct thread *tcb = kmalloc(sizeof(struct thread));
+    tcb->tid = sched_allocate_tid();
+    tcb->state = THREAD_RUNNING;
+    tcb->parent = proc;
+    tcb->cpu = NULL;
+    arch_context_fork(tcb);
+    
+    list_insert(proc->threads, tcb);
+
+    sched_add_process(proc);
+    return proc->pid;
 }
 
 void sched_yield(void) {
@@ -126,16 +156,13 @@ void sched_schedule(struct registers *r) {
         if (this->state == THREAD_ZOMBIE)
             __atomic_store_n(&this->state, THREAD_ZOMBIE_ACK, __ATOMIC_SEQ_CST);
 
-        if (!this->new) {
-            memcpy(&(this->ctx.regs), r, sizeof(struct registers));
-            arch_save_context();
-        }
+        memcpy(&(this->ctx.regs), r, sizeof(struct registers));
+        arch_save_context();
 
         this_cpu->current_tcb = sched_find_next();
     } else {
         this_cpu->current_tcb = sched_find_next();
     }
-    this->new = false;
     this->cpu = this_cpu;
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();
@@ -182,6 +209,7 @@ void sched_cleaner(void) {
             mmu_destroy_pagemap(proc->pm);
             kfree(proc->files);
             kfree(proc->name);
+            // TODO: free PID and TID
 
             list_remove(processes, i);
             kfree(proc);

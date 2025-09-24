@@ -3,6 +3,7 @@
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/sched.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 
@@ -43,6 +44,41 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
 
     kfree(vma->bitmap);
     kfree(vma);
+}
+
+struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
+	if (!src || !pm)
+		return NULL;
+	
+	struct vma *vma = vma_create(src->base, src->pages * PAGE_SIZE);
+	memcpy(vma->bitmap, src->bitmap, ALIGN_UP(src->pages, 8) / 8);
+	vma->used_pages = src->used_pages;
+
+    for (uint64_t page = 0; page < src->pages; page++) {
+        if (bitmap_get(src->bitmap, page)) {
+            void *vaddr = (void *)(src->base + page * PAGE_SIZE);
+            void *phys = mmu_alloc();
+
+            mmu_map(pm, vaddr, phys, mmu_get_flags(this_proc->pm, vaddr));
+            memcpy(VIRTUAL_HHDM(phys), vaddr, PAGE_SIZE);
+        }
+    }
+
+    foreach(i, src->regions) {
+        struct vma_region *region = kmalloc(sizeof(struct vma_region));
+        memcpy(region, i->value, sizeof(struct vma_region));
+        list_insert(vma->regions, region);
+
+        for (size_t j = 0; j < region->pages; j++) {
+            void *vaddr = (void *)region->va + (j * PAGE_SIZE);
+            void *phys = mmu_alloc();
+            
+            mmu_map(pm, vaddr, phys, mmu_get_flags(this_proc->pm, vaddr));
+            memcpy(VIRTUAL_HHDM(phys), vaddr, PAGE_SIZE);
+        }
+    }
+	
+	return vma;
 }
 
 static size_t vma_find_pages(struct vma *vma, size_t page_count) {

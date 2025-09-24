@@ -122,7 +122,7 @@ void isr_handler(struct registers *r) {
             r->error_code & 0x02 ? "write operation," : "read operation,",
             r->error_code & 0x04 ? "user mode" : "kernel mode");
     }
-    arch_do_backtrace();
+    //arch_do_backtrace();
 
     arch_fatal();
 }

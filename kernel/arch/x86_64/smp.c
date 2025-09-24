@@ -48,6 +48,9 @@ void smp_tlb_invalidate() {
 }
 
 void smp_bootstrap(void) {
+    dprintf(LOG_INFO, "\033[93mx86/cpu:\033[0m enabled SSE\n");
+    enable_sse();
+
     if (args_contains("nosmp")) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;
@@ -60,9 +63,6 @@ void smp_bootstrap(void) {
     bspid >>= 24;
 
     irq_register(0x81 - 32, smp_tlb_invalidate);
-
-    dprintf(LOG_INFO, "\033[93mx86/cpu:\033[0m enabled SSE\n");
-    enable_sse();
 
     for (size_t i = 0; i < cpu_count; i++) {
         if (madt_lapic_list[i]->id != bspid)

@@ -183,27 +183,36 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
                 (ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE) - ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
 
             if (phdr[i].p_filesz > 0) {
-                uintptr_t src = (uintptr_t)ehdr + phdr[i].p_offset;
-                uintptr_t dest = phdr[i].p_vaddr;
+				uintptr_t src = (uintptr_t)ehdr + phdr[i].p_offset;
+				uintptr_t dest = phdr[i].p_vaddr;
+				size_t remaining = phdr[i].p_filesz;
+				
+				while (remaining > 0) {
+					void *vaddr = (void *)ALIGN_DOWN(dest, PAGE_SIZE);
+					void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
+					uintptr_t offset = dest - ALIGN_DOWN(dest, PAGE_SIZE);
+					size_t len = (remaining > PAGE_SIZE - offset) ? PAGE_SIZE - offset : remaining;
 
-                for (size_t j = 0; j < ALIGN_UP(phdr[i].p_filesz, PAGE_SIZE) / PAGE_SIZE; j++) {
-                    void *vaddr = (void *)(dest + j * PAGE_SIZE);
-                    void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
+					memcpy(VIRTUAL_HHDM(paddr) + offset, (void *)src, len);
+					src += len, dest += len, remaining -= len;
+				}
+			}
 
-                    memcpy(VIRTUAL_HHDM(paddr), (void *)src + j * PAGE_SIZE, PAGE_SIZE);
-                }
-            }
+			if (phdr[i].p_memsz > phdr[i].p_filesz) {
+				uintptr_t dest = phdr[i].p_vaddr + phdr[i].p_filesz;
+				size_t remaining = phdr[i].p_memsz - phdr[i].p_filesz;
 
-            if (phdr[i].p_memsz > phdr[i].p_filesz) {
-                uintptr_t dest = ALIGN_DOWN(phdr[i].p_vaddr + phdr[i].p_filesz, PAGE_SIZE);
+				while (remaining > 0) {
+					void *vaddr = (void *)ALIGN_DOWN(dest, PAGE_SIZE);
+					void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
+                    
+					uintptr_t offset = dest - ALIGN_DOWN(dest, PAGE_SIZE);
+					size_t len = (remaining > PAGE_SIZE - offset) ? PAGE_SIZE - offset : remaining;
 
-                for (size_t j = 0; j < ALIGN_UP(phdr[i].p_memsz - phdr[i].p_filesz, PAGE_SIZE) / PAGE_SIZE; j++) {
-                    void *vaddr = (void *)(dest + j * PAGE_SIZE);
-                    void *paddr = (void *)mmu_get_physical(proc->pm, vaddr);
-
-                    memset(VIRTUAL_HHDM(paddr), 0, PAGE_SIZE);
-                }
-            }
+					memset(VIRTUAL_HHDM(paddr) + offset, 0, len);
+					dest += len, remaining -= len;
+				}
+			}
         }
     }
 }

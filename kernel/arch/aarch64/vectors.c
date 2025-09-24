@@ -75,6 +75,7 @@ void el0_fault_handler(struct registers *r) {
     asm volatile("msr SPSR_EL1, %0" :: "r"(0x345));
     
     if (((esr_el1 >> 26) & 0x3F) == 0x15) {
+        this->syscall_regs = r;
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
 
         asm ("msr daifclr, #2");
