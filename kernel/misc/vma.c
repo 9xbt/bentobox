@@ -23,8 +23,8 @@ struct vma *vma_create(uintptr_t base, size_t size) {
 void vma_destroy(struct vma *vma, uintptr_t *pm) {
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
-        for (size_t i = 0; i < region->pages; i++) {
-            void *vaddr = (void *)region->va + (i * PAGE_SIZE);
+        for (size_t j = 0; j < region->pages; j++) {
+            void *vaddr = (void *)region->va + (j * PAGE_SIZE);
             mmu_free((void *)mmu_get_physical(pm, vaddr));
             mmu_unmap(pm, vaddr);
         }
@@ -97,8 +97,8 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
         if (region->va == (uintptr_t)ptr) {
-            for (size_t i = 0; i < region->pages; i++) {
-                void *vaddr = (void *)region->va + (i * PAGE_SIZE);
+            for (size_t j = 0; j < region->pages; j++) {
+                void *vaddr = (void *)region->va + (j * PAGE_SIZE);
                 mmu_free((void *)mmu_get_physical(pm, vaddr));
                 mmu_unmap(pm, vaddr);
             }
