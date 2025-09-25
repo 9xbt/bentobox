@@ -217,11 +217,7 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
     }
 }
 
-int spawn(const char *file, int argc, char *argv[], char *env[]) {
-    (void)argc;
-    (void)argv;
-    (void)env;
-
+int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(NULL, file, 0);
     if (!node) {
         dprintf(LOG_ERR, "\033[93melf:\033[0m %s: no such file or directory\n", file);
@@ -229,6 +225,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     }
     if (node->type == VFS_DIRECTORY) {
         dprintf(LOG_ERR, "\033[93melf:\033[0m %s: is a directory\n", file);
+        vfs_close(node);
         return -EISDIR;
     }
 
@@ -264,7 +261,7 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
     }
 
     struct process *proc = sched_new_process(file, true);
-    sched_new_thread(proc, (void *)ehdr->e_entry);
+    sched_new_thread(proc, (void *)ehdr->e_entry, argc, argv, envp);
     
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     elf64_load_sections(proc, ehdr, phdr);
@@ -274,4 +271,96 @@ int spawn(const char *file, int argc, char *argv[], char *env[]) {
 
     sched_add_process(proc);
     return 0;
+}
+
+int exec(const char *file, int argc, char *argv[], char *envp[]) {
+    vfs_node_t *node = vfs_open(NULL, file, 0);
+    if (!node) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: no such file or directory\n", file);
+        return -ENOENT;
+    }
+    if (node->type == VFS_DIRECTORY) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: is a directory\n", file);
+        vfs_close(node);
+        return -EISDIR;
+    }
+
+    void *buffer = kmalloc(node->size);
+    if (vfs_read(node, buffer, 0, node->size) < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m I/O error\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -EIO;
+    }
+
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
+
+    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m invalid elf file\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf class\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    if (ehdr->e_type != ET_EXEC) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf type\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    foreach(i, this_proc->threads) {
+        struct thread *tcb = i->value;
+        if (tcb != this) {
+            tcb->state = THREAD_ZOMBIE;
+            while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
+                #ifdef __x86_64__
+                __builtin_ia32_pause();
+                #endif
+            }
+        }
+    }
+
+    int envc = 0;
+    if (envp) for (; envp[envc]; envc++);
+
+    char **_argv = kmalloc(argc ? (sizeof(char *) * argc) : sizeof(char *));
+    char **_envp = kmalloc(envc ? sizeof(char *) * envc : sizeof(char *));
+    _argv[argc] = NULL;
+    _envp[envc] = NULL;
+
+    int i;
+    for (i = 0; i < argc; i++) {
+        _argv[i] = strdup(argv[i]);
+    }
+    for (i = 0; i < envc; i++) {
+        _envp[i] = strdup(envp[i]);
+    }
+
+    kfree(this_proc->name);
+    this_proc->name = kmalloc(strlen(file + 1));
+    strcpy(this_proc->name, file);
+    
+    vma_destroy(this_proc->vma, this_proc->pm);
+    this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
+
+    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp);    
+
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
+    elf64_load_sections(this_proc, ehdr, phdr);
+
+    kfree(buffer);
+    vfs_close(node);
+
+    list_insert(sched_find_cpu()->threads, tcb);
+
+    sched_kill(this);
+    return -1;
 }

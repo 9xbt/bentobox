@@ -8,6 +8,8 @@
 #include <kernel/vfs.h>
 
 #define SCHED_BITMAP_SIZE   4096
+#define SCHED_VMA_BASE      0x555555554000
+#define SCHED_VMA_SIZE      256 * 1024 * 1024
 
 enum thread_state {
     THREAD_RUNNING,
@@ -51,12 +53,16 @@ struct process {
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
 #define this_proc ((struct process *)(this_core()->current_tcb ? ((struct thread *)this_core()->current_tcb->value)->parent : NULL))
 
+extern struct process *init_proc;
+extern struct thread  *cleaner_tcb;
+
+struct cpu *sched_find_cpu(void);
 node_t *sched_add_process(struct process *proc);
-struct thread  *sched_new_thread(struct process *parent, void *entry);
+struct thread  *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[]);
 struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);
-void sched_kill(struct process *proc);
+void sched_kill(struct thread *tcb);
 void sched_kill_group(struct process *proc);
 void sched_schedule(struct registers *r);
 void sched_install(void);

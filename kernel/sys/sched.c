@@ -8,7 +8,7 @@
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 
-extern void arch_context_init(struct thread *tcb, void *entry, bool user);
+extern void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]);
 extern void arch_context_free(struct thread *tcb);
 extern void arch_context_fork(struct thread *tcb);
 extern void arch_save_context(void);
@@ -72,13 +72,15 @@ node_t *sched_add_process(struct process *proc) {
     return list_insert(processes, proc);
 }
 
-struct thread *sched_new_thread(struct process *parent, void *entry) {
+struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[]) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_RUNNING;
     tcb->parent = parent;
     tcb->cpu = NULL;
-    arch_context_init(tcb, entry, parent->user);
+
+    static char *empty_argv_envp[] = { NULL };
+    arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);
     
     list_insert(parent->threads, tcb);
     return tcb;
@@ -94,11 +96,14 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->parent = NULL;
     proc->children = list_create();
     proc->threads = list_create();
-    proc->vma = vma_create(0x555555554000, 256 * 1024 * 1024);
+    proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/console", 0), 0);
     proc->cwd = NULL;
+
+    if (proc->pid == 1)
+        init_proc = proc;
 
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m created process '%s' with pid %d\n", name, proc->pid);
     return proc;
@@ -138,10 +143,10 @@ void sched_yield(void) {
     arch_yield(this_cpu);
 }
 
-void sched_kill(struct process *proc) {
-    proc->state = PROCESS_ZOMBIE;
+void sched_kill(struct thread *tcb) {
+    tcb->parent->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
-    if (proc == this_proc) {
+    if (tcb == this) {
         this->state = THREAD_ZOMBIE;
         sched_yield();
         for (;;) {}
@@ -214,6 +219,9 @@ void sched_cleaner(void) {
                     continue;
             }
 
+            if (init_proc == proc)
+                init_proc = NULL;
+
             foreach(j, proc->threads) {
                 struct thread *tcb = j->value;
                 if (tcb->cpu->current_tcb->value == tcb) {
@@ -268,7 +276,7 @@ void sched_install(void) {
     memset(tid_bitmap, 0, SCHED_BITMAP_SIZE);
 
     struct process *cleaner = sched_new_process("psycho killer", false);
-    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner);
+    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL);
     cleaner_tcb->state = THREAD_PAUSED;
     sched_add_process(cleaner);
 

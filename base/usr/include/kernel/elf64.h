@@ -191,4 +191,5 @@ typedef struct {
 } Elf64_Rela;
 
 int elf64_module(struct limine_file *mod);
-int spawn(const char *file, int argc, char *argv[], char *env[]);
+int spawn(const char *file, int argc, char *argv[], char *envp[]);
+int exec(const char *file, int argc, char *argv[], char *envp[]);

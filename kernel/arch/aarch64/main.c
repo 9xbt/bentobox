@@ -116,6 +116,10 @@ void arch_context_free(struct thread *tcb) {
     (void)tcb;
 }
 
+void arch_context_fork(struct thread *tcb) {
+    (void)tcb;
+}
+
 void arch_save_context(void) {
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(0));
     

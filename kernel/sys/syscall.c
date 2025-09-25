@@ -4,6 +4,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/errno.h>
+#include <kernel/elf64.h>
 #include <kernel/sched.h>
 #include <kernel/file.h>
 #include <kernel/vfs.h>
@@ -135,12 +136,18 @@ long sys_ioctl(int fd, int op, void *arg) {
 
 long sys_exit(int status) {
     (void)status;
-    sched_kill(this_proc);
+    sched_kill(this);
     __builtin_unreachable();
 }
 
 long sys_fork(void) {
     return fork();
+}
+
+long sys_exec(const char *filename, char *argv[], char *envp[]) {
+    int argc = 0;
+    if (argv) for (; argv[argc]; argc++);
+    return exec(filename, argc, argv, envp);
 }
 
 long sys_getpid(void) {
@@ -207,6 +214,7 @@ syscall_func syscalls[] = {
 
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
     [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
+    [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
     
     [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
