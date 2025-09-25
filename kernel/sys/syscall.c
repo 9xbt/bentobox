@@ -140,7 +140,7 @@ long sys_exit(int status) {
 }
 
 long sys_fork(void) {
-    return sched_fork();
+    return fork();
 }
 
 long sys_getpid(void) {

@@ -46,6 +46,16 @@ int sched_allocate_tid(void) {
     return -1;
 }
 
+void sched_free_pid(int pid) {
+    bitmap_clear(pid_bitmap, pid);
+    last_pid_bit = pid;
+}
+
+void sched_free_tid(int tid) {
+    bitmap_clear(tid_bitmap, tid);
+    last_pid_bit = tid;
+}
+
 struct cpu *sched_find_cpu(void) {
     static size_t id = 0;
     struct cpu *c = cpu_list[id];
@@ -94,7 +104,7 @@ struct process *sched_new_process(const char *name, bool user) {
     return proc;
 }
 
-long sched_fork(void) {
+long fork(void) {
     struct process *proc = kmalloc(sizeof(struct process));
     proc->name = strdup(this_proc->name);
     proc->pm = mmu_create_pagemap();
@@ -177,6 +187,8 @@ void sched_cleaner(void) {
 
             dprintf(LOG_DEBUG, "\033[93msched:\033[0m cleaning %s\n", proc->name);
 
+            // TODO: don't kill the whole process, only required threads
+
             for (int j = 0; j < proc->max_files; j++) {
                 struct file *file = &proc->files[j];
                 if (file->open)
@@ -195,6 +207,7 @@ void sched_cleaner(void) {
                     }
                 }
                 arch_context_free(tcb);
+                sched_free_pid(tcb->tid);
                 kfree(tcb);
             }
             list_free(proc->threads);
@@ -209,7 +222,7 @@ void sched_cleaner(void) {
             mmu_destroy_pagemap(proc->pm);
             kfree(proc->files);
             kfree(proc->name);
-            // TODO: free PID and TID
+            sched_free_pid(proc->pid);
 
             list_remove(processes, i);
             kfree(proc);

@@ -18,7 +18,8 @@ enum thread_state {
 
 enum process_state {
     PROCESS_ALIVE,
-    PROCESS_ZOMBIE
+    PROCESS_ZOMBIE,
+    PROCESS_FULLY_ZOMBIE
 };
 
 struct thread {
@@ -53,8 +54,9 @@ struct process {
 node_t *sched_add_process(struct process *proc);
 struct thread  *sched_new_thread(struct process *parent, void *entry);
 struct process *sched_new_process(const char *name, bool user);
-long sched_fork(void);
+long fork(void);
 void sched_yield(void);
 void sched_kill(struct process *proc);
+void sched_kill_group(struct process *proc);
 void sched_schedule(struct registers *r);
 void sched_install(void);

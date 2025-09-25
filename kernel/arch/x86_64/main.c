@@ -140,7 +140,7 @@ void arch_context_fork(struct thread *tcb) {
     memset(ctx, 0, sizeof(struct context));
     memcpy(ctx, &this->ctx, 7 * sizeof(uint64_t));
     memcpy(&ctx->regs, this->syscall_regs, 15 * sizeof(uint64_t));
-    asm volatile ("fxsave %0 " : : "m"(tcb->ctx.fxsave));
+    asm volatile ("fxsave %0" :: "m"(tcb->ctx.fxsave));
 
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
@@ -157,7 +157,7 @@ void arch_context_fork(struct thread *tcb) {
 void arch_save_context(void) {
     this->ctx.gs = read_kernel_gs();
     this->ctx.user_gs = read_gs();
-    asm volatile ("fxsave %0 " : : "m"(this->ctx.fxsave));
+    asm volatile ("fxsave %0" :: "m"(this->ctx.fxsave));
 }
 
 void arch_restore_context(void) {
@@ -165,7 +165,7 @@ void arch_restore_context(void) {
     write_kernel_gs((uint64_t)this);
     write_gs(this->ctx.user_gs);
     set_kernel_stack(this->ctx.stack);
-    asm volatile ("fxrstor %0 " : : "m"(this->ctx.fxsave));
+    asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
     lapic_eoi();
     lapic_oneshot(0x80, 5);
