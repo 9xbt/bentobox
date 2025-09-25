@@ -142,7 +142,17 @@ void sched_kill(struct process *proc) {
     proc->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {
-        this->state = THREAD_PAUSED;
+        this->state = THREAD_ZOMBIE;
+        sched_yield();
+        for (;;) {}
+    }
+}
+
+void sched_killall(struct process *proc) {
+    proc->state = PROCESS_ZOMBIE_ALL;
+    cleaner_tcb->state = THREAD_RUNNING;
+    if (proc == this_proc) {
+        this->state = THREAD_ZOMBIE;
         sched_yield();
         for (;;) {}
     }
@@ -182,17 +192,26 @@ void sched_cleaner(void) {
     for (;;) {
         foreach_safe(i, processes) {
             struct process *proc = i->value;
-            if (proc->state != PROCESS_ZOMBIE)
+            if (proc->state != PROCESS_ZOMBIE && proc->state != PROCESS_ZOMBIE_ALL)
                 continue;
 
             dprintf(LOG_DEBUG, "\033[93msched:\033[0m cleaning %s\n", proc->name);
+            
+            if (proc->state == PROCESS_ZOMBIE) {
+                foreach_safe(j, proc->threads) {
+                    struct thread *tcb = j->value;
+                    if (tcb->state == THREAD_ZOMBIE ||
+                        tcb->state == THREAD_ZOMBIE_ACK) {
 
-            // TODO: don't kill the whole process, only required threads
+                        arch_context_free(tcb);
+                        sched_free_tid(tcb->tid);
+                        kfree(tcb);
+                        list_remove(proc->threads, j);
+                    }
+                }
 
-            for (int j = 0; j < proc->max_files; j++) {
-                struct file *file = &proc->files[j];
-                if (file->open)
-                    vfs_close(file->node);
+                if (proc->threads->length > 0)
+                    continue;
             }
 
             foreach(j, proc->threads) {
@@ -207,7 +226,7 @@ void sched_cleaner(void) {
                     }
                 }
                 arch_context_free(tcb);
-                sched_free_pid(tcb->tid);
+                sched_free_tid(tcb->tid);
                 kfree(tcb);
             }
             list_free(proc->threads);
@@ -217,6 +236,12 @@ void sched_cleaner(void) {
                 child->parent = init_proc;
             }
             list_free(proc->children);
+
+            for (int j = 0; j < proc->max_files; j++) {
+                struct file *file = &proc->files[j];
+                if (file->open)
+                    vfs_close(file->node);
+            }
 
             vma_destroy(proc->vma, proc->pm);
             mmu_destroy_pagemap(proc->pm);

@@ -19,7 +19,7 @@ enum thread_state {
 enum process_state {
     PROCESS_ALIVE,
     PROCESS_ZOMBIE,
-    PROCESS_FULLY_ZOMBIE
+    PROCESS_ZOMBIE_ALL
 };
 
 struct thread {
