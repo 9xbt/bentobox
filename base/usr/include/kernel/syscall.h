@@ -10,7 +10,7 @@
 #define SYS_ioctl   6
 
 #define SYS_exit    10
-#define SYS_wait    11
+#define SYS_wait4   11
 #define SYS_kill    12
 #define SYS_fork    13
 #define SYS_exec    14
