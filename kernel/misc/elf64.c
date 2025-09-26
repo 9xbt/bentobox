@@ -361,6 +361,6 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
 
     list_insert(sched_find_cpu()->threads, tcb);
 
-    sched_kill(this);
+    sched_exit(this);
     return -1;
 }
