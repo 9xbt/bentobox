@@ -9,7 +9,7 @@ extern void tty_initialize(void);
 vfs_node_t *vfs_root = NULL;
 
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
-    vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(struct vfs_node));
+    vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
     strcpy(node->name, name);
     node->open = false;
     node->type = type;
@@ -60,10 +60,10 @@ long vfs_remove_node(vfs_node_t *node) {
     return 0;
 }
 
-struct vfs_node *vfs_find_child(struct vfs_node *parent, const char *name, bool follow_symlinks) {
+vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow_symlinks) {
     (void)follow_symlinks;
     foreach(item, parent->children) {
-        struct vfs_node *child = item->value;
+        vfs_node_t *child = item->value;
         if (!strcmp(child->name, name)) {
             return child;
         }

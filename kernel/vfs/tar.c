@@ -6,7 +6,7 @@
 #include <limine.h>
 
 vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
-long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len);
+long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 
 vfs_ops_t tar_ops = {
     .create = tar_create,
@@ -19,7 +19,7 @@ vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type 
     return vfs_add_node(parent, node);
 }
 
-long tar_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct tar *tar = (struct tar *)node->device;
     if (memcmp(tar->ustar, "ustar", 5)) {
         dprintf(LOG_ERR, "\033[93mtar:\033[0m invalid signature at 0x%p\n", tar);

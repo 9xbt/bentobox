@@ -5,7 +5,7 @@
 #include <kernel/file.h>
 #include <kernel/vfs.h>
 
-struct file file_new(struct vfs_node *node, int flags) {
+struct file file_new(vfs_node_t *node, int flags) {
     struct file file;
     file.node = node;
     file.flags = flags;
@@ -29,7 +29,7 @@ struct file file_new(struct vfs_node *node, int flags) {
     return file;
 }
 
-int file_create(struct vfs_node *node, int flags) {
+int file_create(vfs_node_t *node, int flags) {
     if (!node)
         return -ENOENT;
     int i;
@@ -51,7 +51,7 @@ int file_create(struct vfs_node *node, int flags) {
 }
 
 int file_open(const char *path, int flags) {
-    struct vfs_node *node = vfs_open(NULL /*this->cwd*/, path, flags);
+    vfs_node_t *node = vfs_open(NULL /*this->cwd*/, path, flags);
     if (!node) return -ENOENT;
 
     int file = file_create(node, flags);
@@ -101,7 +101,7 @@ struct file *file_get(int file) {
     return &this_proc->files[file];
 }
 
-struct file *file_get_from_node(struct vfs_node *node) {
+struct file *file_get_from_node(vfs_node_t *node) {
     for (int i = 0; i < this_proc->max_files; i++) {
         if (this_proc->files[i].open && this_proc->files[i].node == node) {
             return &this_proc->files[i];

@@ -22,4 +22,6 @@
 #define SYS_munmap  21
 #define SYS_set_tls 22
 
+#define SYS_uname   30
+
 long syscall_handler(size_t *args);

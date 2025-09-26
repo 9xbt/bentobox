@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/syscall.h>
+#include <kernel/version.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/errno.h>
@@ -201,6 +202,27 @@ long sys_set_tls(uint64_t base) {
     return 0;
 }
 
+struct utsname {
+	char sysname[65];
+	char nodename[65];
+	char release[65];
+	char version[65];
+	char machine[65];
+	char domainname[65];
+};
+
+long sys_uname(struct utsname *utsname) {
+    if (!utsname)
+        return -EFAULT;
+
+    strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
+    strncpy(utsname->nodename, "localhost", sizeof utsname->nodename);
+    sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
+    sprintf(utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    sprintf(utsname->machine, "%s", __kernel_arch);
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -221,7 +243,9 @@ syscall_func syscalls[] = {
     [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
 
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
-    [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls
+    [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls,
+
+    [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname
 };
 
 long syscall_handler(size_t *args) {

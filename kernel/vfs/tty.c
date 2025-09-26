@@ -11,7 +11,6 @@
 #include <kernel/vfs.h>
 
 static struct fifo *tty_fifo;
-static vfs_node_t *tty;
 // static int tty_pgid = 1;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
@@ -173,12 +172,21 @@ long tty_ioctl(int fd, int op, void *arg) {
     }
 }
 
+long console_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
+    dprintf(LOG_INFO, "");
+    return tty_write(node, buffer, offset, len);
+}
+
 vfs_ops_t console_ops = {
+    .write = console_write
+};
+
+vfs_ops_t tty_ops = {
     .read = tty_read,
     .write = tty_write
 };
 
-vfs_tty_ops_t console_tty_ops = {
+vfs_tty_ops_t tty_tty_ops = {
     .ioctl = tty_ioctl,
     .enqueue = tty_enqueue,
     .dequeue = tty_dequeue,
@@ -188,9 +196,15 @@ vfs_tty_ops_t console_tty_ops = {
 void tty_initialize(void) {
     tty_fifo = fifo_create(1024, int);
 
-    tty = vfs_create_node("console", VFS_CHARDEVICE);
+    vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
+    console->perms = 0600;
+    console->ops = &console_ops;
+    console->tty_ops = &tty_tty_ops;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
+
+    vfs_node_t *tty = vfs_create_node("tty1", VFS_CHARDEVICE);
     tty->perms = 0600;
-    tty->ops = &console_ops;
-    tty->tty_ops = &console_tty_ops;
+    tty->ops = &tty_ops;
+    tty->tty_ops = &tty_tty_ops;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty);
 }

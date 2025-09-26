@@ -99,7 +99,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
-    proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/console", 0), 0);
+    proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
 
     if (proc->pid == 1)
