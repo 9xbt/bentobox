@@ -427,13 +427,13 @@ void ps2_hid_install(void) {
     if (port1_works || port2_works) ps2_config_write(config);
 
     if (port1_works) {
-        kb_fifo = fifo_create(64, int);
-        irq_register(1, irq1_handler);
-        ioapic_redirect_irq(0, 33, 1, false);
-        
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
         kb->ops = &keyboard_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev/input", true, VFS_DIRECTORY), kb);
+
+        kb_fifo = fifo_create(64, int);
+        irq_register(1, irq1_handler);
+        ioapic_redirect_irq(0, 33, 1, false);
     }
 
     if (port2_works) {
@@ -446,10 +446,12 @@ void ps2_hid_install(void) {
         ps2_read_data();
         
         mouse_fifo = fifo_create(64, int);
-        irq_register(12, irq12_handler);
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->ops = &mouse_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev/input", true, VFS_DIRECTORY), mouse);
+
+        irq_register(12, irq12_handler);
+        ioapic_redirect_irq(0, 44, 12, false);
     }
 
     dprintf(LOG_INFO, "\033[93mps2hid:\033[0m initialized PS/2 controller\n");

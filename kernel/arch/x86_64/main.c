@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <kernel/arch/x86_64/ioapic.h>
+#include <kernel/arch/x86_64/serial.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/hpet.h>
 #include <kernel/arch/x86_64/user.h>
@@ -217,6 +218,7 @@ void kmain(void) {
         arch_fatal();
     }
 
+    serial_install();
     framebuffer_initialize();
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",

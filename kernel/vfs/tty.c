@@ -8,6 +8,7 @@
 #include <kernel/fifo.h>
 #include <kernel/list.h>
 #include <kernel/file.h>
+#include <kernel/tty.h>
 #include <kernel/vfs.h>
 
 static struct fifo *tty_fifo;

@@ -163,6 +163,11 @@ int dprintf(int level, const char *fmt, ...) {
 
     int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
 
+    #ifdef __x86_64__
+    extern void serial_puts(const char *str);
+    serial_puts(buf);
+    #endif
+    
     if (level <= loglevel) {
         puts(buf);
     }
