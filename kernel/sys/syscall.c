@@ -136,7 +136,7 @@ long sys_ioctl(int fd, int op, void *arg) {
 
 long sys_exit(int status) {
     (void)status;
-    sched_kill(this);
+    sched_exit(this);
     __builtin_unreachable();
 }
 

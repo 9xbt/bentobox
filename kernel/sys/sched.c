@@ -143,7 +143,7 @@ void sched_yield(void) {
     arch_yield(this_cpu);
 }
 
-void sched_kill(struct thread *tcb) {
+void sched_exit(struct thread *tcb) {
     tcb->parent->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
     if (tcb == this) {
@@ -153,7 +153,7 @@ void sched_kill(struct thread *tcb) {
     }
 }
 
-void sched_killall(struct process *proc) {
+void sched_exit_group(struct process *proc) {
     proc->state = PROCESS_ZOMBIE_ALL;
     cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {

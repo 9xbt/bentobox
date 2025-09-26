@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <kernel/context.h>
+#include <kernel/signal.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
@@ -31,6 +32,7 @@ struct thread {
     struct process *parent;
     struct cpu *cpu;
     struct registers *syscall_regs;
+    sigset_t psig;
 };
 
 struct process {
@@ -62,7 +64,7 @@ struct thread  *sched_new_thread(struct process *parent, void *entry, int argc, 
 struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);
-void sched_kill(struct thread *tcb);
-void sched_kill_group(struct process *proc);
+void sched_exit(struct thread *tcb);
+void sched_exit_group(struct process *proc);
 void sched_schedule(struct registers *r);
 void sched_install(void);
