@@ -1,9 +1,9 @@
 .SUFFIXES:
 
-USER_QEMUFLAGS :=
+QEMUFLAGS :=
 
 ARCH := aarch64
-QEMUFLAGS := -m 2G -smp 2 #-S -s
+DEFAULT_QEMUFLAGS := -m 2G -smp 2
 IMAGE_NAME := bin/$(ARCH)/image
 
 CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only
@@ -24,7 +24,7 @@ APPS_LDFLAGS += -m aarch64elf
 all: $(IMAGE_NAME).iso
 
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device usb-mouse -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(QEMUFLAGS) $(USER_QEMUFLAGS)
+	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device usb-mouse -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(DEFAULT_QEMUFLAGS) $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
