@@ -6,7 +6,7 @@
 #include <kernel/string.h>
 #include <kernel/time.h>
 
-int loglevel = LOG_DEBUG;
+int loglevel = LOG_INFO;
 spinlock_t flanterm_lock = 0;
 
 void putchar(char c) {

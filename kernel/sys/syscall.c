@@ -141,6 +141,17 @@ long sys_exit(int status) {
     __builtin_unreachable();
 }
 
+long sys_wait4(int pid, int *wstatus, int options) {
+    (void)pid;
+    (void)wstatus;
+    (void)options;
+
+    if (this_proc->children->length == 0)
+        return -ECHILD;
+    *wstatus = 0;
+    return 0;
+}
+
 long sys_fork(void) {
     return fork();
 }
@@ -235,6 +246,7 @@ syscall_func syscalls[] = {
     [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
 
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_wait4]     = (syscall_func)(uintptr_t)sys_wait4,
     [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
     [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
     
