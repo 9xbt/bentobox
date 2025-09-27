@@ -78,3 +78,15 @@ void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);
 #define PROT_READ   0x1
 #define PROT_WRITE  0x2
 #define PROT_EXEC   0x4
+
+long check_user_address(const void *addr);
+long copy_from_user(void *restrict dest, const void *restrict src, size_t n);
+long copy_to_user(void *restrict dest, const void *restrict src, size_t n);
+long strnlen_user(const char *s, size_t maxlen);
+
+#define COPY_USER_STRING(name, user_ptr, max_len) \
+    long name##_len = strnlen_user(user_ptr, max_len); \
+    if (name##_len < 0) \
+        return name##_len; \
+    char *name = kmalloc(name##_len); \
+    copy_from_user(name, user_ptr, name##_len);

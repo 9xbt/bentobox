@@ -62,7 +62,7 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 }
 
 size_t strlen(const char* s) {
-    int i = 0;
+    size_t i = 0;
     while (*s != '\0') {
         i++;
         s++;
@@ -70,8 +70,17 @@ size_t strlen(const char* s) {
     return i;
 }
 
+size_t strnlen(const char* s, size_t maxlen) {
+    size_t i = 0;
+    while (i < maxlen && *s != '\0') {
+        i++;
+        s++;
+    }
+    return i;
+}
+
 size_t wcslen(const short* s) {
-    int i = 0;
+    size_t i = 0;
     while (*s != L'\0') {
         i++;
         s++;

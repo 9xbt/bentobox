@@ -7,6 +7,7 @@
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
+#include <stddef.h>
 
 extern void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]);
 extern void arch_context_free(struct thread *tcb);
@@ -78,6 +79,9 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->state = THREAD_RUNNING;
     tcb->parent = parent;
     tcb->cpu = NULL;
+    tcb->syscall_regs = NULL;
+    tcb->doing_user_copy = false;
+    tcb->user_copy_status = 0;
 
     static char *empty_argv_envp[] = { NULL };
     arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);

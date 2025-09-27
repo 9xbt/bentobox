@@ -2,7 +2,10 @@
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/context.h>
 #include <kernel/syscall.h>
+#include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/sched.h>
+#include <kernel/mmu.h>
 
 extern void syscall_entry(void);
 
@@ -37,6 +40,17 @@ void write_fs(uint64_t value) {
 }
 
 void user_initialize(void) {
+    asm volatile (
+        "mov %%cr0, %%rax\n"
+        "and $0xFFFB, %%ax\n"
+        "or $0x2, %%ax\n"
+        "mov %%rax, %%cr0\n"
+        "mov %%cr4, %%rax\n"
+        "or $0x600, %%ax\n"
+        "mov %%rax, %%cr4"
+        ::: "rax", "memory"
+    );
+
     wrmsr(IA32_EFER, rdmsr(IA32_EFER) | (1 << 0) | (1ULL << 11));
     wrmsr(IA32_STAR, ((uint64_t)0x08 << 32) | ((uint64_t)0x13 << 48));
     wrmsr(IA32_LSTAR, (uint64_t)syscall_entry);
@@ -50,15 +64,39 @@ void do_syscall(struct registers *r) {
     r->rax = syscall_handler(args);
 }
 
-void enable_sse(void) {
-    asm volatile (
-        "mov %%cr0, %%rax\n"
-        "and $0xFFFB, %%ax\n"
-        "or $0x2, %%ax\n"
-        "mov %%rax, %%cr0\n"
-        "mov %%cr4, %%rax\n"
-        "or $0x600, %%ax\n"
-        "mov %%rax, %%cr4"
-        ::: "rax", "memory"
-    );
+static long __user_copy(void *restrict dest, const void *restrict src, size_t n) {
+    this->user_copy_status = 0;
+    this->doing_user_copy = true;
+    memcpy(dest, src, n);
+    this->doing_user_copy = false;
+    return this->user_copy_status;
+}
+
+long check_user_address(const void *addr) {
+    if (!addr || (uintptr_t)addr >= hhdm_offset || !mmu_get_physical(this_proc->pm, (void *)addr))
+        return -EFAULT;
+    return 0;
+}
+
+long copy_from_user(void *restrict dest, const void *restrict src, size_t n) {
+    if (check_user_address(src) < 0)
+        return -EFAULT;
+    return __user_copy(dest, src, n);
+}
+
+long copy_to_user(void *restrict dest, const void *restrict src, size_t n) {
+    if (check_user_address(dest) < 0)
+        return -EFAULT;
+    return __user_copy(dest, src, n);
+}
+
+long strnlen_user(const char *s, size_t maxlen) {
+    this->user_copy_status = 0;
+    this->doing_user_copy = true;
+    size_t len = strnlen(s, maxlen);
+    this->doing_user_copy = false;
+
+    if (this->user_copy_status != 0)
+        return this->user_copy_status;
+    return len;
 }

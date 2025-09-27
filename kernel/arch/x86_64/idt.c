@@ -5,6 +5,8 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
+#include <kernel/errno.h>
+#include <kernel/sched.h>
 #include <kernel/witty.h>
 
 extern void arch_fatal(void);
@@ -91,6 +93,8 @@ void irq_unregister(uint8_t vector) {
     irq_handlers[vector] = (void *)0;
 }
 
+extern void user_copy_fail();
+
 void isr_handler(struct registers *r) {
     if (r->int_no == 15 || r->int_no == 255) {
         return;
@@ -102,6 +106,14 @@ void isr_handler(struct registers *r) {
 
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
+
+    if (r->int_no == 14) {
+        if (this && this->doing_user_copy && cr2 < hhdm_offset) {
+            this->user_copy_status = -EFAULT;
+            r->rip = (uint64_t)user_copy_fail;
+            return;
+        }
+    }
 
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
@@ -122,7 +134,7 @@ void isr_handler(struct registers *r) {
             r->error_code & 0x02 ? "write operation," : "read operation,",
             r->error_code & 0x04 ? "user mode" : "kernel mode");
     }
-    //arch_do_backtrace();
+    arch_do_backtrace();
 
     arch_fatal();
 }

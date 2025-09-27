@@ -4,6 +4,7 @@
 #include <kernel/version.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/malloc.h>
 #include <kernel/errno.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
@@ -11,7 +12,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
-static long sys_read_write(int fd, void *buffer, size_t len, bool write) {
+static long sys_read_write(int fd, void *buf, size_t len, bool write) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
         return -EBADFD;
@@ -20,10 +21,15 @@ static long sys_read_write(int fd, void *buffer, size_t len, bool write) {
     if (!file->node->ops || (!file->node->ops->write && write) || (!file->node->ops->read && !write))
         return 0;
 
+    void *buffer = kmalloc(len);
+    copy_from_user(buffer, buf, len);
+
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
     file->offset += ret;
+
+    kfree(buffer);
     return ret;
 }
 
@@ -58,14 +64,17 @@ long sys_seek(int fd, long offset, int whence) {
 }
 
 long sys_open(const char *pathname, int flags) {
-    return file_open(pathname, flags);
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+    long fd = file_open(path, flags);
+    kfree(path);
+    return fd;
 }
 
 long sys_close(int fd) {
     return file_close(fd);
 }
 
-long sys_fstatat(int dirfd, const char *path, struct stat *statbuf, int flags) {
+long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
     vfs_node_t *dir = this_proc->cwd;
     if (dirfd != AT_FDCWD) {
         struct file *file = file_get(dirfd);
@@ -73,6 +82,9 @@ long sys_fstatat(int dirfd, const char *path, struct stat *statbuf, int flags) {
             return -EBADF;
         dir = file->node;
     }
+
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+
     vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
     if (!node)
         return -ENOENT;
@@ -121,6 +133,8 @@ long sys_fstatat(int dirfd, const char *path, struct stat *statbuf, int flags) {
             statbuf->st_size = 0;
             break;
     }
+    
+    kfree(path);
     return 0;
 }
 
@@ -130,7 +144,7 @@ long sys_ioctl(int fd, int op, void *arg) {
         return -EBADF;
     if (!file->node->tty_ops || !file->node->tty_ops->ioctl)
         return -ENOTTY;
-    if (!arg)
+    if (check_user_address(arg) < 0)
         return -EFAULT;
     return file->node->tty_ops->ioctl(fd, op, arg);
 }
@@ -226,12 +240,13 @@ long sys_uname(struct utsname *utsname) {
     if (!utsname)
         return -EFAULT;
 
-    strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
-    strncpy(utsname->nodename, "localhost", sizeof utsname->nodename);
-    snprintf(utsname->release, sizeof utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
-    snprintf(utsname->version, sizeof utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
-    snprintf(utsname->machine, sizeof utsname->machine, "%s", __kernel_arch);
-    return 0;
+    struct utsname buf;
+    strncpy(buf.sysname, __kernel_name, sizeof buf.sysname);
+    strncpy(buf.nodename, "localhost", sizeof buf.nodename);
+    snprintf(buf.release, sizeof buf.release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
+    snprintf(buf.version, sizeof buf.version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    snprintf(buf.machine, sizeof buf.machine, "%s", __kernel_arch);
+    return copy_to_user(utsname, &buf, sizeof buf);
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);

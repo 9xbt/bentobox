@@ -55,5 +55,5 @@ void hpet_install(void) {
     hpet_write(HPET_REG_MAIN_COUNTER, 0);
     hpet_write(HPET_REG_CONFIG, 0x1);
 
-    dprintf(LOG_INFO, "\033[93mhpet:\033[0m enabled HPET with period=%luns\n", hpet_period / 1000000);
+    dprintf(LOG_INFO, "\033[93mhpet:\033[0m enabled HPET with %luns period\n", hpet_period / 1000000);
 }

@@ -17,4 +17,3 @@ uint64_t read_kernel_gs(void);
 uint64_t read_gs(void);
 void write_fs(uint64_t value);
 void user_initialize(void);
-void enable_sse(void);

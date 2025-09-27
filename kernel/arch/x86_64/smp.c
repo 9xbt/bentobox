@@ -1,4 +1,3 @@
-#include "kernel/spinlock.h"
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/gdt.h>
@@ -28,10 +27,7 @@ struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
 size_t cpu_count = 1;
 
-extern void enable_sse();
-
 void ap_startup() {
-    enable_sse();
     idt_reinstall();
     mmu_switch_pm(kernel_pd);
     gdt_flush();
@@ -49,9 +45,6 @@ void smp_tlb_invalidate() {
 }
 
 void smp_bootstrap(void) {
-    dprintf(LOG_INFO, "\033[93mx86/cpu:\033[0m enabled SSE\n");
-    enable_sse();
-
     if (args_contains("nosmp")) {
         dprintf(LOG_INFO, "\033[93msmp:\033[0m SMP disabled by command line\n");
         return;

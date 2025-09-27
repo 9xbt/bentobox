@@ -1,5 +1,6 @@
 section .text
     global syscall_entry
+    global user_copy_fail
     extern do_syscall
 
 syscall_entry:
@@ -52,3 +53,7 @@ syscall_entry:
     mov rsp, [gs:24]
     swapgs
     o64 sysret
+
+user_copy_fail:
+    leave
+    ret
