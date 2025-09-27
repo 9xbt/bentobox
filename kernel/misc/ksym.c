@@ -39,7 +39,7 @@ const char *ksym_name(uintptr_t addr) {
             return best->name;
         } else {
             static char buf[256] = {0};
-            sprintf(buf, "%s+%lu", best->name, (unsigned long)offset);
+            snprintf(buf, sizeof buf, "%s+%lu", best->name, (unsigned long)offset);
             return buf;
         }
     }

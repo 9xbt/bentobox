@@ -134,22 +134,22 @@ int vsprintf(char *s, const char *fmt, va_list args) {
     return ptr;
 }
 
+int snprintf(char *str, size_t n, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char buf[1024] = {0};
+    int ret = vsprintf(buf, fmt, args);
+    strncpy(str, buf, n);
+    va_end(args);
+
+    return ret;
+}
+
 int vprintf(const char *fmt, va_list args) {
     char buf[1024] = {-1};
     int ret = vsprintf(buf, fmt, args);
     
     puts(buf);
-    return ret;
-}
-
-int sprintf(char *str, const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    char buf[1024] = {0};
-    int ret = vsprintf(buf, fmt, args);
-    strcpy(str, buf);
-    va_end(args);
-
     return ret;
 }
 
@@ -161,7 +161,7 @@ int dprintf(int level, const char *fmt, ...) {
     long secs = 0, nanos = 0;
     uptime(&secs, &nanos);
 
-    int ret = vsprintf(buf + sprintf(buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
+    int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
 
     #ifdef __x86_64__
     extern void serial_puts(const char *str);

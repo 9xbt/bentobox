@@ -228,9 +228,9 @@ long sys_uname(struct utsname *utsname) {
 
     strncpy(utsname->sysname, __kernel_name, sizeof utsname->sysname);
     strncpy(utsname->nodename, "localhost", sizeof utsname->nodename);
-    sprintf(utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
-    sprintf(utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
-    sprintf(utsname->machine, "%s", __kernel_arch);
+    snprintf(utsname->release, sizeof utsname->release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
+    snprintf(utsname->version, sizeof utsname->version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
+    snprintf(utsname->machine, sizeof utsname->machine, "%s", __kernel_arch);
     return 0;
 }
 

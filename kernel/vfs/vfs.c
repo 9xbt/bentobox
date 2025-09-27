@@ -176,7 +176,7 @@ char *vfs_resolve_path(vfs_node_t *node) {
     vfs_node_t *current = node;
 
     while (current != NULL) {
-        sprintf(path, "%s%s%s", current == vfs_root ? "" : "/", current->name, path);
+        snprintf(path, sizeof path, "%s%s%s", current == vfs_root ? "" : "/", current->name, path);
         current = current->parent;
     }
 
