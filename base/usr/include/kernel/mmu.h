@@ -89,4 +89,4 @@ long strnlen_user(const char *s, size_t maxlen);
     if (name##_len < 0) \
         return name##_len; \
     char *name = kmalloc(name##_len); \
-    copy_from_user(name, user_ptr, name##_len);
+    copy_from_user(name, user_ptr, name##_len + 1);
