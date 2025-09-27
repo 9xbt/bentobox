@@ -22,13 +22,14 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return 0;
 
     void *buffer = kmalloc(len);
-    copy_from_user(buffer, buf, len);
+    if (write) copy_from_user(buffer, buf, len);
 
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
     file->offset += ret;
 
+    if (!write) copy_to_user(buf, buffer, ret);
     kfree(buffer);
     return ret;
 }

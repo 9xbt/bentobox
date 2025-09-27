@@ -21,7 +21,7 @@
 #define LACKS_STDLIB_H 1
 #define LACKS_STDIO_H 1
 #define LACKS_SYS_TYPES_H 1
-#define ABORT dprintf(LOG_INFO, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__);
+#define ABORT { dprintf(LOG_INFO, "%s:%d: %s: aborted\n", __FILE__, __LINE__, __func__); arch_do_backtrace(); }
 #define USE_LOCKS 0
 #define NO_MALLOC_STATS 1
 #define LACKS_STDIO_H 1
@@ -29,6 +29,8 @@
 #define MALLOC_FAILURE_ACTION
 
 #define MAP_ANONYMOUS 1
+
+extern void arch_do_backtrace(void);
 
 static uintptr_t brk = HEAP_BASE;
 
