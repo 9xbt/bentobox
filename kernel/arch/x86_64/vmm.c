@@ -1,4 +1,3 @@
-#include "kernel/spinlock.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <kernel/arch/x86_64/lapic.h>
