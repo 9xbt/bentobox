@@ -53,7 +53,7 @@ void sched_free_pid(int pid) {
 
 void sched_free_tid(int tid) {
     bitmap_clear(tid_bitmap, tid);
-    last_pid_bit = tid;
+    last_tid_bit = tid;
 }
 
 struct cpu *sched_find_cpu(void) {
@@ -210,8 +210,9 @@ void sched_cleaner(void) {
 
                         arch_context_free(tcb);
                         sched_free_tid(tcb->tid);
-                        kfree(tcb);
+                        list_remove_value(tcb->cpu->threads, tcb);
                         list_remove(proc->threads, j);
+                        kfree(tcb);
                     }
                 }
 
@@ -235,6 +236,7 @@ void sched_cleaner(void) {
                 }
                 arch_context_free(tcb);
                 sched_free_tid(tcb->tid);
+                list_remove_value(tcb->cpu->threads, tcb);
                 kfree(tcb);
             }
             list_free(proc->threads);

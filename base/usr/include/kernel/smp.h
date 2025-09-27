@@ -16,7 +16,6 @@ struct cpu {
     node_t *idle_tcb;
 
     void *tlb_va;
-    spinlock_t tlb_lock;
 
     struct madt_gicc *gicc;
 };

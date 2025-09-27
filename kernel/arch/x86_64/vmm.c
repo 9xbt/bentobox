@@ -62,8 +62,9 @@ static inline void tlb_invalidate(void *va) {
         if (core != this_cpu && core->current_tcb) {
             core->tlb_va = va;
             lapic_ipi(core->logical_id, 0x81);
-            acquire(&core->tlb_lock);
-            release(&core->tlb_lock);
+            while (__atomic_load_n(&core->tlb_va, __ATOMIC_ACQUIRE) != 0) {
+                __builtin_ia32_pause();
+            }
         }
     }
 }

@@ -44,7 +44,8 @@ void ap_startup() {
 
 void smp_tlb_invalidate() {
     asm volatile ("invlpg (%0)" ::"r"(this_cpu->tlb_va) : "memory");
-    release(&this_cpu->tlb_lock);
+    this_cpu->tlb_va = 0;
+    lapic_eoi();
 }
 
 void smp_bootstrap(void) {
@@ -83,8 +84,6 @@ void smp_initialize(void) {
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
         core->tlb_va = NULL;
-        core->tlb_lock = 0;
-        release(&core->tlb_lock);
         cpu_list[i] = core;
     }
     
