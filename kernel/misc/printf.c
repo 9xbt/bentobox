@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdint.h>
+#include <kernel/arch/x86_64/serial.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>
@@ -8,6 +9,16 @@
 
 int loglevel = LOG_INFO;
 spinlock_t flanterm_lock = 0;
+
+void write(const char *s, size_t len) {
+    #ifdef __x86_64__
+    serial_write(s, len);
+    #endif
+
+    acquire(&flanterm_lock);
+    flanterm_write(ft_ctx, s, len);
+    release(&flanterm_lock);
+}
 
 void putchar(char c) {
     acquire(&flanterm_lock);
@@ -164,7 +175,6 @@ int dprintf(int level, const char *fmt, ...) {
     int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
 
     #ifdef __x86_64__
-    extern void serial_puts(const char *str);
     serial_puts(buf);
     #endif
     

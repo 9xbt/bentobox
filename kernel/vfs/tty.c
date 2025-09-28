@@ -122,15 +122,18 @@ long tty_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     switch (op) {
         case TCGETS:
-            memcpy(arg, &file->tio, sizeof(struct termios));
+            copy_to_user(arg, &file->tio, sizeof(struct termios));
             return 0;
         case TCSETS:
         case TCSETSW:
-            memcpy(&file->tio, arg, sizeof(struct termios));
+            copy_from_user(&file->tio, arg, sizeof(struct termios));
             return 0;
-        case TIOCGWINSZ:
-            framebuffer_get_winsize((struct winsize *)arg);
+        case TIOCGWINSZ: {
+            struct winsize ws;
+            framebuffer_get_winsize(&ws);
+            copy_to_user(arg, &ws, sizeof ws);
             return 0;
+        }
         case TIOCSWINSZ:
             return 0;
         // case TIOCGPGRP:
@@ -168,19 +171,24 @@ long tty_ioctl(int fd, int op, void *arg) {
         case PIO_UNIMAPCLR:
             return 0;
         default:
-            dprintf(LOG_INFO, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }
 
 long console_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
+    (void)node;
+    (void)offset;
     dprintf(LOG_INFO, "");
-    return tty_write(node, buffer, offset, len);
+    write(buffer, len);
+    return len;
 }
 
 vfs_ops_t console_ops = {
     .write = console_write
 };
+
+vfs_tty_ops_t console_tty_ops = {};
 
 vfs_ops_t tty_ops = {
     .read = tty_read,
@@ -200,7 +208,7 @@ void tty_initialize(void) {
     vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;
     console->ops = &console_ops;
-    console->tty_ops = &tty_tty_ops;
+    console->tty_ops = &console_tty_ops;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
 
     vfs_node_t *tty = vfs_create_node("tty1", VFS_CHARDEVICE);

@@ -331,8 +331,8 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     int envc = 0;
     if (envp) for (; envp[envc]; envc++);
 
-    char **_argv = kmalloc(argc ? (sizeof(char *) * argc) : sizeof(char *));
-    char **_envp = kmalloc(envc ? sizeof(char *) * envc : sizeof(char *));
+    char **_argv = kmalloc((argc + 1) * sizeof(char *));
+    char **_envp = kmalloc((envc + 1) * sizeof(char *));
     _argv[argc] = NULL;
     _envp[envc] = NULL;
 

@@ -8,9 +8,11 @@
 #define SYS_close   4
 #define SYS_fstatat 5
 #define SYS_ioctl   6
+#define SYS_dup     7
+#define SYS_fcntl   8
 
 #define SYS_exit    10
-#define SYS_wait4   11
+#define SYS_waitpid 11
 #define SYS_kill    12
 #define SYS_fork    13
 #define SYS_exec    14

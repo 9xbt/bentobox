@@ -12,6 +12,7 @@
 #include <kernel/fifo.h>
 #include <kernel/file.h>
 #include <kernel/tty.h>
+#include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
 static uint16_t serial_base = COM1;
@@ -53,30 +54,34 @@ void serial_putchar(char c) {
     outb(COM1, c);
 }
 
-void serial_puts(const char *str) {
+void serial_write(const char *s, size_t len) {
     acquire(&serial_lock);
-    while (*str) {
-        serial_putchar(*str++);
+    for (size_t i = 0; i < len; i++) {
+        serial_putchar(s[i]);
     }
     release(&serial_lock);
+}
+
+void serial_puts(const char *str) {
+    serial_write(str, strlen(str));
 }
 
 long serial_tty_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     switch (op) {
         case TCGETS:
-            memcpy(arg, &file->tio, sizeof(struct termios));
+            copy_to_user(arg, &file->tio, sizeof(struct termios));
             return 0;
         case TCSETS:
         case TCSETSW:
-            memcpy(&file->tio, arg, sizeof(struct termios));
+            copy_from_user(&file->tio, arg, sizeof(struct termios));
             return 0;
         case TIOCGWINSZ: {
-            struct winsize *ws = (struct winsize *)arg;
-            ws->ws_row = 25;
-            ws->ws_col = 80;
-            ws->ws_xpixel = 0;
-            ws->ws_ypixel = 0;
+            struct winsize ws = {
+                .ws_row = 25,
+                .ws_col = 80
+            };
+            copy_to_user(arg, &ws, sizeof ws);
             return 0;
         }
         case TIOCSWINSZ:

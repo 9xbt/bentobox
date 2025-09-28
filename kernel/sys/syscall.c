@@ -150,13 +150,17 @@ long sys_ioctl(int fd, int op, void *arg) {
     return file->node->tty_ops->ioctl(fd, op, arg);
 }
 
+long sys_dup(int oldfd, int newfd, int flags) {
+    return file_dup(oldfd, newfd, flags);
+}
+
 long sys_exit(int status) {
     (void)status;
     sched_exit(this);
     __builtin_unreachable();
 }
 
-long sys_wait4(int pid, int *wstatus, int options) {
+long sys_waitpid(int pid, int *wstatus, int options) {
     (void)pid;
     (void)wstatus;
     (void)options;
@@ -260,9 +264,10 @@ syscall_func syscalls[] = {
     [SYS_close]     = (syscall_func)(uintptr_t)sys_close,
     [SYS_fstatat]   = (syscall_func)(uintptr_t)sys_fstatat,
     [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
+    [SYS_dup]       = (syscall_func)(uintptr_t)sys_dup,
 
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
-    [SYS_wait4]     = (syscall_func)(uintptr_t)sys_wait4,
+    [SYS_waitpid]   = (syscall_func)(uintptr_t)sys_waitpid,
     [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
     [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
     

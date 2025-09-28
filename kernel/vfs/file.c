@@ -29,30 +29,42 @@ struct file file_new(vfs_node_t *node, int flags) {
     return file;
 }
 
+static int fd_table_expand(int min_size) {
+    int new_size = min_size + 1;
+    struct file *new_files = krealloc(this_proc->files, new_size * sizeof(struct file));
+    if (!new_files) return -ENOMEM;
+    
+    memset(&new_files[this_proc->max_files], 0, (new_size - this_proc->max_files) * sizeof(struct file));
+    this_proc->files = new_files;
+    this_proc->max_files = new_size;
+    return 0;
+}
+
 int file_create(vfs_node_t *node, int flags) {
     if (!node)
         return -ENOENT;
     int i;
     for (i = 0; i < this_proc->max_files; i++) {
-        if (!this_proc->files[i].node && !this_proc->files[i].open) {
+        if (!this_proc->files[i].open) {
             this_proc->files[i] = file_new(node, flags);
-            if (flags & O_APPEND) {
+            if (flags & O_APPEND)
                 this_proc->files[i].offset = node->size;
-            }
             return i;
         }
     }
-    this_proc->files = krealloc(this_proc->files, ++this_proc->max_files * sizeof(struct file));
+
+    if (fd_table_expand(this_proc->max_files) < 0)
+        return -EMFILE;
     this_proc->files[i] = file_new(node, flags);
-    if (flags & O_APPEND) {
+    if (flags & O_APPEND)
         this_proc->files[i].offset = node->size;
-    }
     return -EMFILE;
 }
 
 int file_open(const char *path, int flags) {
-    vfs_node_t *node = vfs_open(NULL /*this->cwd*/, path, flags);
-    if (!node) return -ENOENT;
+    vfs_node_t *node = vfs_open(this_proc->cwd, path, flags);
+    if (!node)
+        return -ENOENT;
 
     int file = file_create(node, flags);
     if (file < 0) {
@@ -63,34 +75,15 @@ int file_open(const char *path, int flags) {
 }
 
 int file_close(int fd) {
-    if (fd < 0 || fd >= this_proc->max_files) {
+    if (fd < 0 || fd >= this_proc->max_files)
         return -EBADF;
-    }
 
     struct file *file = &this_proc->files[fd];
-    if (!file->node)
+    if (!file->open)
         return -EBADF;
     vfs_close(file->node);
     memset(file, 0, sizeof(struct file));
     return 0;
-}
-
-int file_dup(int oldfd_num, int newfd_num) {
-    if (oldfd_num == newfd_num)
-        return -EINVAL;
-    if (newfd_num >= this_proc->max_files) {
-        this_proc->files = krealloc(this_proc->files, ++this_proc->max_files * sizeof(struct file));
-    }
-
-    struct file *oldfd = &this_proc->files[oldfd_num];
-    struct file *newfd = &this_proc->files[newfd_num];
-
-    if (!oldfd->node)
-        return -EBADF;
-    if (newfd->node)
-        file_close(newfd_num);
-    memcpy(newfd, oldfd, sizeof(struct file));
-    return newfd_num;
 }
 
 struct file *file_get(int file) {
@@ -108,4 +101,37 @@ struct file *file_get_from_node(vfs_node_t *node) {
         }
     }
     return NULL;
+}
+
+int file_dup(int oldfd, int newfd, int flags) {
+    struct file *oldfile = file_get(oldfd);
+    if (!oldfile)
+        return -EBADF;
+    
+    if (newfd == -1) {
+        for (int i = 0; i < this_proc->max_files; i++) {
+            if (!this_proc->files[i].open) {
+                newfd = i;
+                break;
+            }
+        }
+        if (newfd == -1) {
+            if (fd_table_expand(this_proc->max_files) < 0)
+                return -EMFILE;
+            newfd = this_proc->max_files - 1;
+        }
+    } else {
+        if (oldfd == newfd)
+            return newfd;
+        if (newfd < 0)
+            return -EBADF;
+        if (newfd >= this_proc->max_files && fd_table_expand(newfd) < 0)
+            return -EMFILE;
+        if (this_proc->files[newfd].open)
+            file_close(newfd);
+    }
+    
+    this_proc->files[newfd] = *oldfile;
+    this_proc->files[newfd].flags = flags;
+    return newfd;
 }
