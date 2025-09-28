@@ -28,13 +28,29 @@ void tty_flush(void) {
 long tty_enqueue(int c) {
     if (c <= 0)
         return 0;
-    return fifo_enqueue(tty_fifo, c);
+    switch (c) {
+        case 0x03:
+            signal_send(this_proc, SIGINT);
+            puts("^C");
+            break;
+        case 0x1A:
+            signal_send(this_proc, SIGTSTP);
+            puts("^Z");
+            break;
+        case 0x1C:
+            signal_send(this_proc, SIGQUIT);
+            puts("^\\");
+            break;
+        default:
+            return fifo_enqueue(tty_fifo, c);
+    }
+    return 0;
 }
 
 void tty_enqueue_string(char *str) {
-    do {
-        tty_enqueue(*str);
-    } while (*str++);
+    while (*str) {
+        tty_enqueue(*str++);
+    }
 }
 
 long tty_dequeue(bool block) {

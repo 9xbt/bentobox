@@ -1,6 +1,7 @@
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
+#include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/file.h>
@@ -80,6 +81,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->parent = parent;
     tcb->cpu = NULL;
     tcb->syscall_regs = NULL;
+    memset(&tcb->psig, 0, sizeof tcb->psig);
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
 
@@ -105,6 +107,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
+    memset(&proc->psig, 0, sizeof proc->psig);
 
     if (proc->pid == 1)
         init_proc = proc;
@@ -129,6 +132,9 @@ long fork(void) {
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
     proc->cwd = this_proc->cwd;
+    memset(&proc->psig, 0, sizeof proc->psig);
+
+    list_insert(this_proc->children, proc);
 
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
@@ -167,6 +173,21 @@ void sched_exit_group(struct process *proc) {
     }
 }
 
+void sched_deliver_signals(struct thread *tcb) {
+    tcb->psig = this_proc->psig;
+    memset(&this_proc->psig, 0, sizeof this_proc->psig);
+    for (int sig = 1; sig < _NSIG; sig++) {
+        int word = (sig - 1) / LONG_BIT;
+        int bit  = (sig - 1) % LONG_BIT;
+
+        if (tcb->psig.sig[word] & (1ul << bit)) {
+            tcb->psig.sig[word] &= ~(1ul << bit);
+
+            signal_handle(tcb, sig);
+        }
+    }
+}
+
 node_t *sched_find_next(void) {
     node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
@@ -192,7 +213,10 @@ void sched_schedule(struct registers *r) {
     } else {
         this_cpu->current_tcb = sched_find_next();
     }
+
     this->cpu = this_cpu;
+    sched_deliver_signals(this);
+
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();
 }
@@ -226,6 +250,11 @@ void sched_cleaner(void) {
 
             if (init_proc == proc)
                 init_proc = NULL;
+
+            if (proc->parent) {
+                signal_send(proc->parent, SIGCHLD);
+                list_remove_value(proc->parent->children, proc);
+            }
 
             foreach(j, proc->threads) {
                 struct thread *tcb = j->value;

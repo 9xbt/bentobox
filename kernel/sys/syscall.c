@@ -162,11 +162,24 @@ long sys_exit(int status) {
 
 long sys_waitpid(int pid, int *wstatus, int options) {
     (void)pid;
-    (void)wstatus;
     (void)options;
 
     if (this_proc->children->length == 0)
         return -ECHILD;
+    
+    foreach_safe(i, this_proc->children) {
+        struct process *proc = i->value;
+        if (proc->state == PROCESS_ZOMBIE ||
+            proc->state == PROCESS_ZOMBIE_ALL)
+        {
+            *wstatus = 0;
+            return 0;
+        }
+    }
+
+    this->state = THREAD_PAUSED;
+    sched_yield();
+
     *wstatus = 0;
     return 0;
 }
