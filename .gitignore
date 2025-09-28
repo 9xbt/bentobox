@@ -9,6 +9,8 @@
 /build/kernel-deps
 /ports/src
 /base/bin
+/base/usr/bin
+/base/usr/share
 compile_commands.json
 .cache
 .vscode

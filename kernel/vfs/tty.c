@@ -37,6 +37,9 @@ long tty_enqueue(int c) {
             signal_send(this_proc, SIGTSTP);
             puts("^Z");
             break;
+        case 0x0C:
+            puts("\033[H\033[J");
+            break;
         case 0x1C:
             signal_send(this_proc, SIGQUIT);
             puts("^\\");
