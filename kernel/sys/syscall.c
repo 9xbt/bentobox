@@ -238,6 +238,15 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     return -ENOSYS;
 }
 
+long sys_munmap(void *addr, size_t length) {
+    if (!addr || !length)
+        return -EINVAL;
+    
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+    vfree(this_proc->vma, this_proc->pm, addr, pages);
+    return 0;
+}
+
 extern void arch_set_tls(uint64_t base);
 
 long sys_set_tls(uint64_t base) {
@@ -289,6 +298,7 @@ syscall_func syscalls[] = {
     [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
 
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
+    [SYS_munmap]    = (syscall_func)(uintptr_t)sys_munmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls,
 
     [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname

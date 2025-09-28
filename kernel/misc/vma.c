@@ -132,7 +132,7 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, u
 void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
-        if (region->va == (uintptr_t)ptr) {
+        if ((uintptr_t)ptr >= region->va && (uintptr_t)ptr < region->va + region->pages * PAGE_SIZE) {
             for (size_t j = 0; j < region->pages; j++) {
                 void *vaddr = (void *)region->va + (j * PAGE_SIZE);
                 mmu_free((void *)mmu_get_physical(pm, vaddr));
