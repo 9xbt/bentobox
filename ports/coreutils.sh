@@ -3,7 +3,7 @@ WD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MLIBC="$WD/../build/mlibc/x86_64"
 
 export CC="gcc"
-export CFLAGS="-I$MLIBC/include -g -std=gnu17 -D__bentobox__ -Wno-error -Wno-error=format-overflow"
+export CFLAGS="-I$MLIBC/include -g -std=gnu17 -D__bentobox__ -Wno-error -Wno-error=format-overflow -DHOST_OPERATING_SYSTEM="\"bentobox\"""
 export LDFLAGS="-L$MLIBC/lib -nostdlib -static $MLIBC/lib/crt0.o"
 export LIBS="-Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group"
 
@@ -20,10 +20,13 @@ if [ ! -d "coreutils" ]; then
 fi
 cd coreutils
 git apply ../../coreutils.diff
+cd gnulib
+git apply ../../../gnulib.diff
+cd ..
 
 make clean
 make distclean
-sed -i 's|url = https://git.savannah.gnu.org/git/gnulib.git|url = https://github.com/coreutils/gnulib.git|' .gitmodules
+#sed -i 's|url = https://git.savannah.gnu.org/git/gnulib.git|url = https://github.com/coreutils/gnulib.git|' .gitmodules
 ./bootstrap
 set -e
 ./configure --host=x86_64-linux-gnu \
