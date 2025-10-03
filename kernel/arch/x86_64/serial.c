@@ -91,7 +91,7 @@ long serial_tty_ioctl(int fd, int op, void *arg) {
         // case TIOCSPGRP:
         //     return 0;
         default:
-            dprintf(LOG_INFO, "%s:%d: %s: function 0x%lx not implemented\n", __FILE__, __LINE__, __func__, op);
+            dprintf(LOG_DEBUG, "\033[93m%s\033[0m: function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }
