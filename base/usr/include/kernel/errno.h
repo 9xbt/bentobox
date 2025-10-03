@@ -139,3 +139,5 @@
 
 #define ERFKILL     132
 #define EHWPOISON   133
+
+const char *strerror(int errno);

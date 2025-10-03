@@ -12,6 +12,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
     strcpy(node->name, name);
     node->open = false;
+    node->busy = false;
     node->type = type;
     node->size = 0;
     node->blocks = 0;
@@ -151,6 +152,8 @@ long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -ENOENT;
     if (node->busy)
         return -EBUSY;
+    if (node->type == VFS_DIRECTORY)
+        return -EISDIR;
     if (node->ops && node->ops->read)
         return node->ops->read(node, buffer, offset, len);
     return -EPERM;
@@ -163,6 +166,8 @@ long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -ENOENT;
     if (node->busy)
         return -EBUSY;
+    if (node->type == VFS_DIRECTORY)
+        return -EISDIR;
     if (node->ops && node->ops->write)
         return node->ops->write(node, buffer, offset, len);
     return -EPERM;

@@ -20,14 +20,14 @@ if [ ! -d "coreutils" ]; then
 fi
 cd coreutils
 git apply ../../coreutils.diff
-cd gnulib
-git apply ../../../gnulib.diff
-cd ..
 
 make clean
 make distclean
 #sed -i 's|url = https://git.savannah.gnu.org/git/gnulib.git|url = https://github.com/coreutils/gnulib.git|' .gitmodules
 ./bootstrap
+cd gnulib
+git apply ../../../gnulib.diff
+cd ..
 set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \

@@ -276,21 +276,17 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(NULL, file, 0);
     if (!node) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: no such file or directory\n", file);
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
         return -ENOENT;
-    }
-    if (node->type == VFS_DIRECTORY) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: is a directory\n", file);
-        vfs_close(node);
-        return -EISDIR;
     }
 
     void *buffer = kmalloc(node->size);
-    if (vfs_read(node, buffer, 0, node->size) < 0) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m I/O error\n");
+    long len = vfs_read(node, buffer, 0, node->size);
+    if (len < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(len));
         kfree(buffer);
         vfs_close(node);
-        return -EIO;
+        return len;
     }
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
