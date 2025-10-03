@@ -169,14 +169,14 @@ void irq12_handler(struct registers *r) {
     static int pi = 0;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
-        dprintf(LOG_INFO, "%s:%d: not a mouse packet\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "\033[93mi8042:\033[0m not a mouse packet\n");
         lapic_eoi();
         return;
     }
 
     uint8_t data = inb(PS2_DATA);
     if (pi == 0 && !(data & (1 << 3))) {
-        dprintf(LOG_INFO, "%s:%d: corrupted mouse packet\n", __FILE__, __LINE__);
+        dprintf(LOG_INFO, "\033[93mi8042:\033[0m corrupted mouse packet\n");
         lapic_eoi();
         return;
     }
@@ -398,7 +398,7 @@ void ps2_hid_install(void) {
 
     ps2_send_command(0xAA);
     if (ps2_read_data() != 0x55) {
-        dprintf(LOG_INFO, "\033[93mps2hid:\033[0m: self test failed\n");
+        dprintf(LOG_INFO, "\033[93mi8042:\033[0m self test failed\n");
         return;
     }
 
@@ -429,7 +429,7 @@ void ps2_hid_install(void) {
     if (port1_works) {
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
         kb->ops = &keyboard_ops;
-        vfs_add_node(vfs_lookup(NULL, "/dev/input", true, VFS_DIRECTORY), kb);
+        vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
 
         kb_fifo = fifo_create(64, int);
         irq_register(1, irq1_handler);
@@ -448,11 +448,11 @@ void ps2_hid_install(void) {
         mouse_fifo = fifo_create(64, int);
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->ops = &mouse_ops;
-        vfs_add_node(vfs_lookup(NULL, "/dev/input", true, VFS_DIRECTORY), mouse);
+        vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
 
         irq_register(12, irq12_handler);
         ioapic_redirect_irq(0, 44, 12, false);
     }
 
-    dprintf(LOG_INFO, "\033[93mps2hid:\033[0m initialized PS/2 controller\n");
+    dprintf(LOG_INFO, "\033[93mi8042:\033[0m initialized PS/2 controller\n");
 }

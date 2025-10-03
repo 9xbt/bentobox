@@ -227,8 +227,6 @@ void sched_cleaner(void) {
             struct process *proc = i->value;
             if (proc->state != PROCESS_ZOMBIE && proc->state != PROCESS_ZOMBIE_ALL)
                 continue;
-
-            dprintf(LOG_DEBUG, "\033[93msched:\033[0m cleaning %s\n", proc->name);
             
             if (proc->state == PROCESS_ZOMBIE) {
                 foreach_safe(j, proc->threads) {
@@ -247,6 +245,8 @@ void sched_cleaner(void) {
                 if (proc->threads->length > 0)
                     continue;
             }
+
+            dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
 
             if (init_proc == proc)
                 init_proc = NULL;

@@ -11,7 +11,7 @@ export CC_FOR_BUILD="gcc"
 export CFLAGS_FOR_BUILD="-std=gnu17"
 export LDFLAGS_FOR_BUILD=""
 
-mkdir -p base/bin
+mkdir -p base/usr/bin
 mkdir -p ports/src
 cd ports/src
 if [ ! -d "bash" ]; then
@@ -20,7 +20,7 @@ fi
 cd bash
 
 make clean
-make distclean
+#make distclean
 set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \
@@ -38,4 +38,4 @@ set -e
     ac_cv_func_unsetenv=yes \
     ac_cv_func_strchrnul=yes
 make -j$(nproc)
-cp bash ../../../base/bin/
+cp bash ../../../base/usr/bin/

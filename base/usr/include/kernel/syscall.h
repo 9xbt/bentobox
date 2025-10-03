@@ -4,12 +4,13 @@
 #define SYS_read    0
 #define SYS_write   1
 #define SYS_seek    2
-#define SYS_open    3
+#define SYS_openat  3
 #define SYS_close   4
 #define SYS_fstatat 5
 #define SYS_ioctl   6
 #define SYS_dup     7
 #define SYS_fcntl   8
+#define SYS_readdir 9
 
 #define SYS_exit    10
 #define SYS_waitpid 11

@@ -207,7 +207,9 @@ vfs_ops_t console_ops = {
     .write = console_write
 };
 
-vfs_tty_ops_t console_tty_ops = {};
+vfs_tty_ops_t console_tty_ops = {
+    .ioctl = tty_ioctl
+};
 
 vfs_ops_t tty_ops = {
     .read = tty_read,

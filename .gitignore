@@ -11,6 +11,7 @@
 /base/bin
 /base/usr/bin
 /base/usr/share
+/base/etc/localtime
 compile_commands.json
 .cache
 .vscode

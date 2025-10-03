@@ -11,7 +11,6 @@ vfs_node_t *vfs_root = NULL;
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
     strcpy(node->name, name);
-    node->open = false;
     node->busy = false;
     node->type = type;
     node->size = 0;
@@ -35,13 +34,14 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     if (parent->type != VFS_DIRECTORY)
         return NULL;
     node->parent = parent;
+    //node->ops = parent->ops;
     return list_insert(parent->children, node)->value;
 }
 
 long vfs_remove_node(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
-    if (node->open)
+    if (node->busy)
         return -EBUSY;
     if (node->type == VFS_DIRECTORY && node->children->length)
         return -ENOTEMPTY;
@@ -85,13 +85,13 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
     vfs_node_t *node = cwd;
     
     while (token) {
-        if (strcmp(token, ".") == 0) {
+        if (!strcmp(token, ".")) {
             token = next;
             next = strtok(NULL, "/");
             continue;
         }
 
-        if (strcmp(token, "..") == 0) {
+        if (!strcmp(token, "..")) {
             if (node->parent) node = node->parent;
             token = next;
             next = strtok(NULL, "/");
@@ -104,6 +104,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
         if (!child) {
             if (create_type != VFS_NONE && !next) {
+                node->ops = vfs_root->ops;
                 child = vfs_touch(node, token, create_type);
                 if (!child) {
                     kfree(copy);
@@ -128,8 +129,6 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
     vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
     if (!node)
         return NULL;
-    if (node->open)
-        return NULL;
     if (node->ops && node->ops->open)
         node->ops->open(node, flags);
     return node;
@@ -138,8 +137,6 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
 long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
-    if (node->open)
-        return -EBUSY;
     if (node->ops && node->ops->close)
         return node->ops->close(node);
     return 0;
@@ -214,7 +211,6 @@ void vfs_print_tree(vfs_node_t *node) {
 
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
-    vfs_root->open = true;
 
     vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
 

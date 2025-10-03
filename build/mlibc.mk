@@ -8,6 +8,7 @@ setup:
 		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
 		--prefix=$(CURDIR)/build/mlibc/$(ARCH)/
+	cp /etc/localtime base/etc/localtime
 
 resetup:
 	cd lib/mlibc && \
@@ -15,6 +16,7 @@ resetup:
 		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
 		--prefix=$(CURDIR)/build/mlibc/$(ARCH)/ --wipe
+	cp /etc/localtime base/etc/localtime
 
 build:
 	cd lib/mlibc && ninja -C build-$(ARCH)

@@ -238,12 +238,9 @@ void kmain(void) {
     user_initialize();
 
     generic_startup();
+    
+    serial_initialize();
     ps2_hid_install();
-
-    //spawn("/bin/main", 0, NULL, NULL);
-    //spawn("/bin/fork", 0, NULL, NULL);
-    //spawn("/bin/init", 0, NULL, NULL);
-    spawn("/bin/bash", 0, NULL, NULL);
 
     generic_main();    
 }

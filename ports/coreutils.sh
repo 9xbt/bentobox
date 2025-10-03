@@ -22,8 +22,7 @@ cd coreutils
 git apply ../../coreutils.diff
 
 make clean
-make distclean
-#sed -i 's|url = https://git.savannah.gnu.org/git/gnulib.git|url = https://github.com/coreutils/gnulib.git|' .gitmodules
+#make distclean
 ./bootstrap
 cd gnulib
 git apply ../../../gnulib.diff

@@ -41,6 +41,7 @@ int oct2bin(char *oct, int size) {
 }
 
 void tar_module(struct limine_file *mod) {
+    dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting %s\n", mod->path);
     vfs_get_root()->ops = &tar_ops;
 
     struct tar *tar = (struct tar *)mod->address;

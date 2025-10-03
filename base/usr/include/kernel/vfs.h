@@ -18,10 +18,6 @@
 #define O_NOFOLLOW	00400000
 #define O_CLOEXEC	02000000
 
-#define SEEK_SET    0
-#define SEEK_CUR    1
-#define SEEK_END    2
-
 #define S_IFMT      0xF000
 #define S_IFIFO     0x1000
 #define S_IFCHR     0x2000
@@ -31,6 +27,9 @@
 #define S_IFLNK     0xA000
 #define S_IFSOCK    0xC000
 #define S_IFWHT     0xE000
+
+#define AT_FDCWD            -100
+#define AT_SYMLINK_NOFOLLOW 0x100
 
 struct stat {
 	uint64_t st_dev;
@@ -51,9 +50,6 @@ struct stat {
 	struct timespec st_ctim;
 	long __unused[3];
 };
-
-#define AT_FDCWD            -100
-#define AT_SYMLINK_NOFOLLOW 0x100
 
 typedef enum vfs_node_type {
     VFS_NONE,
@@ -87,7 +83,7 @@ typedef struct vfs_tty_ops {
 
 typedef struct vfs_node {
     char name[MAX_PATH];
-    bool open, busy;
+    bool busy;
     enum vfs_node_type type;
     size_t size;
     size_t blocks;

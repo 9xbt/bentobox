@@ -61,8 +61,8 @@ int file_create(vfs_node_t *node, int flags) {
     return -EMFILE;
 }
 
-int file_open(const char *path, int flags) {
-    vfs_node_t *node = vfs_open(this_proc->cwd, path, flags);
+int file_open(vfs_node_t *cwd, const char *path, int flags) {
+    vfs_node_t *node = vfs_open(cwd, path, flags);
     if (!node)
         return -ENOENT;
 

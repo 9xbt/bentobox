@@ -98,7 +98,7 @@ long serial_tty_ioctl(int fd, int op, void *arg) {
 
 void serial_tty_flush(void) {
     int c;
-    while (fifo_dequeue(serial_fifo, &c)) {
+    while (fifo_dequeue(serial_fifo, &c) > 0) {
         if (c > 0) serial_putchar(c);
     }
 }
@@ -113,14 +113,14 @@ long serial_tty_enqueue(int c) {
 }
 
 void serial_tty_enqueue_string(char *str) {
-    do {
-        serial_tty_enqueue(*str);
-    } while (*str++);
+    while (*str) {
+        serial_tty_enqueue(*str++);
+    }
 }
 
 long serial_tty_dequeue(bool block) {
     int c = 0;
-    while (!fifo_dequeue(serial_fifo, &c)) {
+    while (fifo_dequeue(serial_fifo, &c) > 0) {
         if (!block) {
             return -EAGAIN;
         }
@@ -150,9 +150,9 @@ void serial_initialize(void) {
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 
-    vfs_node_t *console = vfs_create_node("ttyS0", VFS_CHARDEVICE);
-    console->perms = 0600;
-    console->ops = &tty_ops;
-    console->tty_ops = &serial_tty_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
+    vfs_node_t *ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    ttyS0->perms = 0600;
+    ttyS0->ops = &tty_ops;
+    ttyS0->tty_ops = &serial_tty_ops;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
 }

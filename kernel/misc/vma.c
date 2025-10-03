@@ -17,7 +17,7 @@ struct vma *vma_create(uintptr_t base, size_t size) {
     vma->regions = list_create();
     memset(vma->bitmap, 0, ALIGN_UP(vma->pages, 8) / 8);
 
-    dprintf(LOG_DEBUG, "\033[93mvma:\033[0m created %ld MB pool\n", vma->pages / 256);
+    //dprintf(LOG_DEBUG, "\033[93mvma:\033[0m created %ld MB pool\n", vma->pages / 256);
     return vma;
 }
 

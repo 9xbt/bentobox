@@ -14,7 +14,7 @@ typedef struct file {
 
 struct file file_new(struct vfs_node *node, int flags);
 int file_create(struct vfs_node *node, int flags);
-int file_open(const char *path, int flags);
+int file_open(vfs_node_t *cwd, const char *path, int flags);
 int file_close(int fd);
 int file_dup(int oldfd, int newfd, int flags);
 struct file *file_get(int fd);

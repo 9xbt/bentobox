@@ -18,6 +18,8 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return -EBADFD;
     if (!file->node)
         return -ENOENT;
+    if (!len)
+        return 0;
     if (!file->node->ops || (!file->node->ops->write && write) || (!file->node->ops->read && !write))
         return 0;
 
@@ -42,6 +44,10 @@ long sys_write(int fd, void *buffer, size_t len) {
     return sys_read_write(fd, buffer, len, true);
 }
 
+#define SEEK_SET    0
+#define SEEK_CUR    1
+#define SEEK_END    2
+
 long sys_seek(int fd, long offset, int whence) {
     struct file *file = file_get(fd);
     if (!file)
@@ -64,9 +70,17 @@ long sys_seek(int fd, long offset, int whence) {
     return file->offset;
 }
 
-long sys_open(const char *pathname, int flags) {
+long sys_openat(int dirfd, const char *pathname, int flags) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    long fd = file_open(path, flags);
+    long fd = file_open(dir, path, flags);
     kfree(path);
     return fd;
 }
@@ -152,6 +166,133 @@ long sys_ioctl(int fd, int op, void *arg) {
 
 long sys_dup(int oldfd, int newfd, int flags) {
     return file_dup(oldfd, newfd, flags);
+}
+
+#define F_DUPFD     0
+#define F_GETFD     1
+#define F_SETFD     2
+#define F_GETFL     3
+#define F_SETFL     4
+#define F_GETLK     5
+#define F_SETLK     6
+#define F_SETLKW    7
+
+#define F_DUPFD_CLOEXEC 1030
+
+#define FD_CLOEXEC  1
+
+long sys_fcntl(int fd, int op, long arg) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+
+    switch (op) {
+        case F_DUPFD:
+            return file_dup(fd, -1, 0);
+        case F_DUPFD_CLOEXEC:
+            return file_dup(fd, -1, O_CLOEXEC);
+        case F_GETFD:
+            return file->flags & O_CLOEXEC;
+        case F_SETFD:
+            if (arg & FD_CLOEXEC)
+                file->flags |= O_CLOEXEC;
+            else
+                file->flags &= ~O_CLOEXEC;
+            return 0;
+        case F_GETFL:
+            return file->flags;
+        case F_SETFL:
+            file->flags = arg;
+            return 0;
+        default:
+            dprintf(LOG_DEBUG, "%s: function %d not implemented\n", __func__, op);
+            return -EINVAL;
+    }
+}
+
+struct dirent {
+    long           d_ino;
+    long           d_off;
+    unsigned short d_reclen;
+    unsigned char  d_type;
+    char           d_name[];
+};
+
+#define DT_UNKNOWN  0
+#define DT_CHR      2
+#define DT_DIR      4
+#define DT_BLK      6
+#define DT_REG      8
+#define DT_LNK      10
+
+long sys_readdir(int fd, struct dirent *buf, size_t count) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    
+    vfs_node_t *dir = file->node;
+    if (dir->type != VFS_DIRECTORY)
+        return -ENOTDIR;
+    
+    if (!count)
+        return -EINVAL;
+    
+    size_t size = count < PAGE_SIZE ? count : PAGE_SIZE;
+    struct dirent *dirent = kmalloc(size);
+    
+    size_t offset = 0;
+    int skip = file->offset;
+    
+    foreach(j, dir->children) {
+        if (skip > 0) {
+            skip--;
+            continue;
+        }
+        
+        vfs_node_t *node = j->value;
+        
+        size_t reclen = ALIGN_UP(sizeof(struct dirent) + strlen(node->name) + 1, 8);
+        if (offset + reclen > size)
+            break;
+        
+        struct dirent *entry = (struct dirent *)((char *)dirent + offset);
+        entry->d_ino = node->inode;
+        entry->d_off = file->offset + 1;
+        entry->d_reclen = reclen;
+        switch (node->type) {
+            case VFS_DIRECTORY:
+                entry->d_type = DT_DIR;
+                break;
+            case VFS_FILE:
+                entry->d_type = DT_REG;
+                break;
+            case VFS_CHARDEVICE:
+                entry->d_type = DT_CHR;
+                break;
+            case VFS_BLOCKDEVICE:
+                entry->d_type = DT_BLK;
+                break;
+            case VFS_SYMLINK:
+                entry->d_type = DT_LNK;
+                break;
+            default:
+                entry->d_type = DT_UNKNOWN;
+                break;
+        }
+        
+        strcpy(entry->d_name, node->name);
+        
+        offset += reclen;
+        file->offset++;
+    }
+    
+    if (copy_to_user(buf, dirent, offset) < 0) {
+        kfree(dirent);
+        return -EFAULT;
+    }
+    
+    kfree(dirent);
+    return offset;
 }
 
 long sys_exit(int status) {
@@ -282,11 +423,13 @@ syscall_func syscalls[] = {
     [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
     [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
     [SYS_seek]      = (syscall_func)(uintptr_t)sys_seek,
-    [SYS_open]      = (syscall_func)(uintptr_t)sys_open,
+    [SYS_openat]    = (syscall_func)(uintptr_t)sys_openat,
     [SYS_close]     = (syscall_func)(uintptr_t)sys_close,
     [SYS_fstatat]   = (syscall_func)(uintptr_t)sys_fstatat,
     [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
     [SYS_dup]       = (syscall_func)(uintptr_t)sys_dup,
+    [SYS_fcntl]     = (syscall_func)(uintptr_t)sys_fcntl,
+    [SYS_readdir]   = (syscall_func)(uintptr_t)sys_readdir,
 
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
     [SYS_waitpid]   = (syscall_func)(uintptr_t)sys_waitpid,
