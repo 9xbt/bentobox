@@ -74,6 +74,7 @@ void tar_module(struct limine_file *mod) {
             // node->device = (void *)((unsigned char *)tar + 512);
             node->device = tar;
             node->size = filesize;
+            node->perms = oct2bin(tar->mode + 4, 3);
         }
 
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
