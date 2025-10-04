@@ -72,3 +72,16 @@ index 348e337..e161564 100644
  #else
    switch (statfsbuf->f_type)
      {
+diff --git a/src/uname.c b/src/uname.c
+index 96c532b..50d46ed 100644
+--- a/src/uname.c
++++ b/src/uname.c
+@@ -371,7 +371,7 @@ main (int argc, char **argv)
+     }
+ 
+   if (toprint & PRINT_OPERATING_SYSTEM)
+-    print_element (HOST_OPERATING_SYSTEM);
++    print_element ("bentobox");
+ 
+   putchar ('\n');
+ 

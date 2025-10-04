@@ -31,18 +31,18 @@ long tty_enqueue(int c) {
     switch (c) {
         case 0x03:
             signal_send(sched_find_in_group(tty_group), SIGINT);
-            puts("^C");
+            puts("^C\n");
             break;
         case 0x1A:
             signal_send(sched_find_in_group(tty_group), SIGTSTP);
-            puts("^Z");
+            puts("^Z\n");
             break;
         case 0x0C:
             puts("\033[H\033[J");
             break;
         case 0x1C:
             signal_send(this_proc, SIGQUIT);
-            puts("^\\");
+            puts("^\\\n");
             break;
         default:
             return fifo_enqueue(tty_fifo, c);

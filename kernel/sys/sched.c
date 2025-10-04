@@ -24,14 +24,12 @@ list_t *processes = NULL;
 
 uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
-size_t last_pid_bit = 0;
-size_t last_tid_bit = 0;
 
 struct process *init_proc = NULL;
 struct thread  *cleaner_tcb = NULL;
 
 int sched_allocate_pid(void) {
-    for (int pid = last_pid_bit; pid < SCHED_BITMAP_SIZE * 8; pid++) {
+    for (int pid = 0; pid < SCHED_BITMAP_SIZE * 8; pid++) {
         if (!bitmap_get(pid_bitmap, pid)) {
             bitmap_set(pid_bitmap, pid);
             return pid;
@@ -41,7 +39,7 @@ int sched_allocate_pid(void) {
 }
 
 int sched_allocate_tid(void) {
-    for (int tid = last_tid_bit; tid < SCHED_BITMAP_SIZE * 8; tid++) {
+    for (int tid = 0; tid < SCHED_BITMAP_SIZE * 8; tid++) {
         if (!bitmap_get(tid_bitmap, tid)) {
             bitmap_set(tid_bitmap, tid);
             return tid;
@@ -52,12 +50,10 @@ int sched_allocate_tid(void) {
 
 void sched_free_pid(int pid) {
     bitmap_clear(pid_bitmap, pid);
-    last_pid_bit = pid;
 }
 
 void sched_free_tid(int tid) {
     bitmap_clear(tid_bitmap, tid);
-    last_tid_bit = tid;
 }
 
 struct cpu *sched_find_cpu(void) {
