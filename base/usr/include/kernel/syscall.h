@@ -26,5 +26,7 @@
 #define SYS_set_tls 22
 
 #define SYS_uname   30
+#define SYS_getcwd  31
+#define SYS_chdir   32
 
 long syscall_handler(size_t *args);

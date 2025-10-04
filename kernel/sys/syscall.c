@@ -417,6 +417,26 @@ long sys_uname(struct utsname *utsname) {
     return copy_to_user(utsname, &buf, sizeof buf);
 }
 
+long sys_getcwd(char *buf, size_t bufsiz) {
+    char *path = vfs_resolve_path(this_proc->cwd);
+    size_t len = strlen(path) + 1;
+    if (bufsiz < len)
+        return -ENAMETOOLONG;
+    copy_to_user(buf, path, len);
+    kfree(path);
+    return 0;
+}
+
+long sys_chdir(const char *pathname) {
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+    vfs_node_t *dir = vfs_open(this_proc->cwd, path, 0);
+    if (!dir)
+        return -ENOENT;
+    this_proc->cwd = dir;
+    kfree(path);
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -435,7 +455,6 @@ syscall_func syscalls[] = {
     [SYS_waitpid]   = (syscall_func)(uintptr_t)sys_waitpid,
     [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
     [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
-    
     [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
     [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
@@ -444,7 +463,9 @@ syscall_func syscalls[] = {
     [SYS_munmap]    = (syscall_func)(uintptr_t)sys_munmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls,
 
-    [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname
+    [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname,
+    [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
+    [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir
 };
 
 long syscall_handler(size_t *args) {

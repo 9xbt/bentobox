@@ -8,6 +8,10 @@ extern void tty_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 
+vfs_node_t *vfs_get_root(void) {
+    return vfs_root;
+}
+
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
     strcpy(node->name, name);
@@ -30,7 +34,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
 
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     if (!parent)
-        parent = vfs_root;
+        parent = vfs_get_root();
     if (parent->type != VFS_DIRECTORY)
         return NULL;
     node->parent = parent;
@@ -78,7 +82,7 @@ vfs_node_t *vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type t
 
 vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type) {
     if (!path) return NULL;
-    if (!cwd) cwd = vfs_root;
+    if (!cwd || path[0] == '/') cwd = vfs_get_root();
 
     char *copy = strdup(path);
     char *token = strtok(copy, "/"), *next = strtok(NULL, "/");
@@ -104,7 +108,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
         if (!child) {
             if (create_type != VFS_NONE && !next) {
-                node->ops = vfs_root->ops;
+                node->ops = vfs_get_root()->ops;
                 child = vfs_touch(node, token, create_type);
                 if (!child) {
                     kfree(copy);
@@ -171,28 +175,24 @@ long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {
-    if (!node) node = vfs_root;
-    if (node == vfs_root) return strdup("/");
+    if (!node) node = vfs_get_root();
+    if (node == vfs_get_root()) return strdup("/");
 
     char path[MAX_PATH] = "";
     vfs_node_t *current = node;
 
     while (current != NULL) {
-        snprintf(path, sizeof path, "%s%s%s", current == vfs_root ? "" : "/", current->name, path);
+        snprintf(path, sizeof path, "%s%s%s", current == vfs_get_root() ? "" : "/", current->name, path);
         current = current->parent;
     }
 
     return strdup(path);
 }
 
-vfs_node_t *vfs_get_root(void) {
-    return vfs_root;
-}
-
 void vfs_print_tree(vfs_node_t *node) {
     if (!node)
-        node = vfs_root;
-    if (node == vfs_root)
+        node = vfs_get_root();
+    if (node == vfs_get_root())
         dprintf(LOG_DEBUG, "/\n");
 
     foreach(i, node->children) {

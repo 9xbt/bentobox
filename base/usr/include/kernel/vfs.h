@@ -102,6 +102,7 @@ typedef struct vfs_node {
 } vfs_node_t;
 
 void vfs_install(void);
+vfs_node_t *vfs_get_root(void);
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
 long vfs_remove_node(vfs_node_t *node);
@@ -111,5 +112,5 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
 long vfs_close(vfs_node_t *node);
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len);
-vfs_node_t *vfs_get_root(void);
+char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
