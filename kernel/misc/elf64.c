@@ -372,6 +372,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
 
     list_insert(sched_find_cpu()->threads, tcb);
 
+    dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
     sched_exit(this);
     return -1;
 }

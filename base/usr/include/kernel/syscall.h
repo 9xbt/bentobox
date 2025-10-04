@@ -20,6 +20,8 @@
 #define SYS_getpid  15
 #define SYS_gettid  16
 #define SYS_getppid 17
+#define SYS_getpgid 18
+#define SYS_setpgid 19
 
 #define SYS_mmap    20
 #define SYS_munmap  21
@@ -28,5 +30,6 @@
 #define SYS_uname   30
 #define SYS_getcwd  31
 #define SYS_chdir   32
+#define SYS_pipe    33
 
 long syscall_handler(size_t *args);

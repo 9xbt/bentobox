@@ -7,6 +7,9 @@
 
 void signal_handle(struct thread *tcb, int sig) {
     switch (sig) {
+        case SIGINT:
+            sched_exit(tcb);
+            break;
         case SIGILL:
             dprintf(LOG_ERR, "\033[93m%s:\033[0m Illegal instruction\n", tcb->parent->name);
             sched_exit(tcb);

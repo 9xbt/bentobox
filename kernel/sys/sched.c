@@ -1,3 +1,4 @@
+#include <kernel/unixpipe.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
@@ -7,6 +8,7 @@
 #include <kernel/file.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
+#include <kernel/vfs.h>
 #include <kernel/smp.h>
 #include <stddef.h>
 
@@ -74,6 +76,24 @@ node_t *sched_add_process(struct process *proc) {
     return list_insert(processes, proc);
 }
 
+struct process *sched_find_process(long pid) {
+    foreach(i, processes) {
+        struct process *proc = i->value;
+        if (proc->pid == pid)
+            return proc;
+    }
+    return NULL;
+}
+
+struct process *sched_find_in_group(long pgid) {
+    foreach(i, processes) {
+        struct process *proc = i->value;
+        if (proc->pgid == pgid)
+            return proc;
+    }
+    return NULL;
+}
+
 struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[]) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
@@ -97,6 +117,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->name = strdup(name);
     proc->pm = mmu_create_pagemap();
     proc->pid = sched_allocate_pid();
+    proc->pgid = 0;
     proc->user = user;
     proc->state = PROCESS_ALIVE;
     proc->parent = NULL;
@@ -121,6 +142,7 @@ long fork(void) {
     proc->name = strdup(this_proc->name);
     proc->pm = mmu_create_pagemap();
     proc->pid = sched_allocate_pid();
+    proc->pgid = this_proc->pgid;
     proc->user = true;
     proc->state = PROCESS_ALIVE;
     proc->parent = this_proc;
@@ -131,6 +153,16 @@ long fork(void) {
     proc->max_files = this_proc->max_files;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
+    for (int i = 0; i < proc->max_files; i++) {
+        struct file *file = &proc->files[i];
+        if (!file->open || file->node->type != VFS_UNIXPIPE)
+            continue;
+        struct unix_pipe *pipe = file->node->device;
+        if (!strcmp(file->node->name, "[pipe::read]"))
+            pipe->read_refs++;
+        else if (!strcmp(file->node->name, "[pipe::write]"))
+            pipe->write_refs++;
+    }
     proc->cwd = this_proc->cwd;
     memset(&proc->psig, 0, sizeof proc->psig);
 
@@ -145,6 +177,7 @@ long fork(void) {
     
     list_insert(proc->threads, tcb);
 
+    dprintf(LOG_DEBUG, "\033[93msched:\033[0m forked process '%s' with pid %d\n", proc->name, proc->pid);
     sched_add_process(proc);
     return proc->pid;
 }

@@ -25,7 +25,6 @@ set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \
     --without-bash-malloc \
-    --without-job-control \
     --disable-readline \
     --enable-static-link \
     bash_cv_getcwd_malloc=yes \

@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/unixpipe.h>
 #include <kernel/syscall.h>
 #include <kernel/version.h>
 #include <kernel/string.h>
@@ -24,14 +25,16 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return 0;
 
     void *buffer = kmalloc(len);
-    if (write) copy_from_user(buffer, buf, len);
+    if (write && copy_from_user(buffer, buf, len) < 0)
+        return -EFAULT;
 
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
     file->offset += ret;
 
-    if (!write) copy_to_user(buf, buffer, ret);
+    if (!write && copy_to_user(buf, buffer, ret) < 0)
+        return -EFAULT;
     kfree(buffer);
     return ret;
 }
@@ -347,6 +350,21 @@ long sys_getppid(void) {
     return this->parent ? this->parent->pid : 1;
 }
 
+long sys_getpgid(long pid) {
+    struct process *proc = pid ? sched_find_process(pid) : this_proc;
+    if (!proc)
+        return -ESRCH;
+    return proc->pgid;
+}
+
+long sys_setpgid(long pid, long pgid) {
+    struct process *proc = pid ? sched_find_process(pid) : this_proc;
+    if (!proc)
+        return -ESRCH;
+    proc->pgid = pgid;
+    return 0;
+}
+
 long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offset) {
     (void)addr;
     if (!length)
@@ -422,7 +440,8 @@ long sys_getcwd(char *buf, size_t bufsiz) {
     size_t len = strlen(path) + 1;
     if (bufsiz < len)
         return -ENAMETOOLONG;
-    copy_to_user(buf, path, len);
+    if (copy_to_user(buf, path, len) < 0)
+        return -EFAULT;
     kfree(path);
     return 0;
 }
@@ -434,6 +453,16 @@ long sys_chdir(const char *pathname) {
         return -ENOENT;
     this_proc->cwd = dir;
     kfree(path);
+    return 0;
+}
+
+long sys_pipe(int *pipefd, int flags) {
+    int fds[2];
+    if (copy_from_user(fds, pipefd, 2 * sizeof(int)) < 0)
+        return -EFAULT;
+    unixpipe_new(fds, flags);
+    if (copy_to_user(pipefd, fds, 2 * sizeof(int)) < 0)
+        return -EFAULT;
     return 0;
 }
 
@@ -458,6 +487,8 @@ syscall_func syscalls[] = {
     [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
     [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
     [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
+    [SYS_getpgid]   = (syscall_func)(uintptr_t)sys_getpgid,
+    [SYS_setpgid]   = (syscall_func)(uintptr_t)sys_setpgid,
 
     [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_munmap]    = (syscall_func)(uintptr_t)sys_munmap,
@@ -465,7 +496,8 @@ syscall_func syscalls[] = {
 
     [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname,
     [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
-    [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir
+    [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir,
+    [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe
 };
 
 long syscall_handler(size_t *args) {

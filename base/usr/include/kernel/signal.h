@@ -12,6 +12,7 @@ typedef struct {
 #define SIGQUIT 3
 #define SIGILL  4
 #define SIGSEGV 11
+#define SIGPIPE 13
 #define SIGCHLD 17
 #define SIGTSTP 20
 

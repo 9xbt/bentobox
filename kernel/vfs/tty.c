@@ -12,7 +12,7 @@
 #include <kernel/vfs.h>
 
 static struct fifo *tty_fifo;
-// static int tty_pgid = 1;
+static int tty_group = 1;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
 extern long ps2_ioctl(int fd_num, int op, void *arg);
@@ -30,11 +30,11 @@ long tty_enqueue(int c) {
         return 0;
     switch (c) {
         case 0x03:
-            signal_send(this_proc, SIGINT);
+            signal_send(sched_find_in_group(tty_group), SIGINT);
             puts("^C");
             break;
         case 0x1A:
-            signal_send(this_proc, SIGTSTP);
+            signal_send(sched_find_in_group(tty_group), SIGTSTP);
             puts("^Z");
             break;
         case 0x0C:
@@ -141,27 +141,21 @@ long tty_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     switch (op) {
         case TCGETS:
-            copy_to_user(arg, &file->tio, sizeof(struct termios));
-            return 0;
+            return copy_to_user(arg, &file->tio, sizeof(struct termios));
         case TCSETS:
         case TCSETSW:
-            copy_from_user(&file->tio, arg, sizeof(struct termios));
-            return 0;
+            return copy_from_user(&file->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws;
             framebuffer_get_winsize(&ws);
-            copy_to_user(arg, &ws, sizeof ws);
-            return 0;
+            return copy_to_user(arg, &ws, sizeof ws);
         }
         case TIOCSWINSZ:
             return 0;
-        // case TIOCGPGRP:
-        //     *(int *)arg = tty_pgid;
-        //     return 0;
-        // case TIOCSPGRP:
-        //     tty_pgid = *(int *)arg;
-        //     //dprintf(LOG_INFO, "%s (%d): set tty pgid to %d\n", this->name, this->pid, tty_pgid);
-        //     return 0;
+        case TIOCGPGRP:
+            return copy_to_user(arg, &tty_group, sizeof(int));
+        case TIOCSPGRP:
+            return copy_from_user(&tty_group, arg, sizeof(int));
         // case KDFONTOP: {
         //     struct console_font_op *fop = (struct console_font_op *)arg;
         //     switch (fop->op) {
