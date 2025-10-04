@@ -27,6 +27,8 @@ void signal_handle(struct thread *tcb, int sig) {
 }
 
 long signal_send(struct process *proc, int sig) {
+    if (!proc)
+        return -ESRCH;
     if (sig < 1 || sig >= _NSIG)
         return -EINVAL;
 

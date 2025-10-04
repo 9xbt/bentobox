@@ -1,3 +1,4 @@
+#include <kernel/unixpipe.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -133,5 +134,13 @@ int file_dup(int oldfd, int newfd, int flags) {
     
     this_proc->files[newfd] = *oldfile;
     this_proc->files[newfd].flags = flags;
+
+    if (oldfile->node->type == VFS_UNIXPIPE) {
+        struct unix_pipe *pipe = oldfile->node->device;
+        if (!strcmp(oldfile->node->name, "[pipe::read]"))
+            pipe->read_refs++;
+        else if (!strcmp(oldfile->node->name, "[pipe::write]"))
+            pipe->write_refs++;
+    }
     return newfd;
 }
