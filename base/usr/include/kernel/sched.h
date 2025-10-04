@@ -4,6 +4,7 @@
 #include <kernel/context.h>
 #include <kernel/signal.h>
 #include <kernel/list.h>
+#include <kernel/file.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <kernel/vfs.h>

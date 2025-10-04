@@ -107,11 +107,23 @@ void isr_handler(struct registers *r) {
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
 
-    if (r->int_no == 14) {
-        if (this && this->doing_user_copy && cr2 < hhdm_offset) {
-            this->user_copy_status = -EFAULT;
-            r->rip = (uint64_t)user_copy_fail;
-            return;
+    if (r->int_no == 14 && this && this->doing_user_copy && cr2 < hhdm_offset) {
+        this->user_copy_status = -EFAULT;
+        r->rip = (uint64_t)user_copy_fail;
+        return;
+    }
+    
+    if (r->cs == 0x23) {
+        switch (r->int_no) {
+            case 6:
+                signal_send(this_proc, SIGILL);
+                sched_yield();
+                break;
+            case 14:
+            default:
+                signal_send(this_proc, SIGSEGV);
+                sched_yield();
+                break;
         }
     }
 
