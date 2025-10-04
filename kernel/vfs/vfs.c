@@ -4,6 +4,7 @@
 #include <kernel/errno.h>
 #include <kernel/vfs.h>
 
+extern void zero_initialize(void);
 extern void tty_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
@@ -214,6 +215,7 @@ void vfs_install(void) {
 
     vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
 
+    zero_initialize();
     tty_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
