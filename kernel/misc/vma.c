@@ -14,6 +14,7 @@ struct vma *vma_create(uintptr_t base, size_t size) {
     vma->bitmap = kmalloc(ALIGN_UP(vma->pages, 8) / 8);
     vma->base = base;
     vma->used_pages = 0;
+    vma->last_page = 0;
     vma->regions = list_create();
     memset(vma->bitmap, 0, ALIGN_UP(vma->pages, 8) / 8);
 
@@ -81,11 +82,11 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
 	return vma;
 }
 
-static size_t vma_find_pages(struct vma *vma, size_t page_count) {
+static size_t vma_find_pages(struct vma *vma, size_t start, size_t page_count) {
     size_t pages = 0;
     size_t first_page = 0;
 
-    for (size_t i = 0; i < vma->pages; i++) {
+    for (size_t i = start; i < vma->pages; i++) {
         if (!bitmap_get(vma->bitmap, i)) {
             if (pages == 0) {
                 first_page = i;
@@ -95,8 +96,8 @@ static size_t vma_find_pages(struct vma *vma, size_t page_count) {
                 for (size_t j = 0; j < page_count; j++) {
                     bitmap_set(vma->bitmap, first_page + j);
                 }
-
                 vma->used_pages += page_count;
+                vma->last_page = first_page + page_count;
                 return first_page;
             }
         } else {
@@ -109,7 +110,9 @@ static size_t vma_find_pages(struct vma *vma, size_t page_count) {
 void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, uint64_t flags) {
     void *ptr;
     if (!va) {
-        size_t pages = vma_find_pages(vma, page_count);
+        size_t pages = vma_find_pages(vma, vma->last_page, page_count);
+        if (pages == (size_t)-1)
+            pages = vma_find_pages(vma, 0, page_count);
         if (pages == (size_t)-1)
             return NULL;
         ptr = (void *)(pages * PAGE_SIZE + vma->base);
@@ -153,6 +156,8 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
             bitmap_clear(vma->bitmap, page + i);
         }
         vma->used_pages -= page_count;
+        if (page < vma->last_page)
+            vma->last_page = page;
         return;
     }
 

@@ -155,15 +155,25 @@ void mmu_initialize(void) {
 
 static uint64_t last_page = 0;
 
-void *mmu_alloc(void) {
-    for (uint64_t page = last_page; page < mmu_page_count; page++) {
+uint64_t mmu_find_page(uint64_t start) {
+    for (uint64_t page = start; page < mmu_page_count; page++) {
         if (!bitmap_get(mmu_bitmap, page)) {
             bitmap_set(mmu_bitmap, page);
             mmu_used_pages++;
-            return (void *)(page * PAGE_SIZE);
+            last_page = page + 1;
+            return page;
         }
     }
-    return NULL;
+    return (uint64_t)-1;
+}
+
+void *mmu_alloc(void) {
+    uint64_t page = mmu_find_page(last_page);
+    if (page == (uint64_t)-1)
+        page = mmu_find_page(0);
+    if (page == (uint64_t)-1)
+        return NULL;
+    return (void *)(page * PAGE_SIZE);
 }
 
 void mmu_free(void *ptr) {

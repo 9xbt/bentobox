@@ -53,6 +53,7 @@ struct vma {
     uint8_t *bitmap;
     size_t pages;
     size_t used_pages;
+    size_t last_page;
     uintptr_t base;
     list_t *regions;
 };
