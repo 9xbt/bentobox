@@ -16,19 +16,26 @@ void write(const char *s, size_t len) {
     #endif
 
     acquire(&flanterm_lock);
+    // Should use a mutex here instead, but we don't have those yet.
+    asm ("cli" ::: "memory");
     flanterm_write(ft_ctx, s, len);
+    asm ("sti" ::: "memory");
     release(&flanterm_lock);
 }
 
 void putchar(char c) {
     acquire(&flanterm_lock);
+    asm ("cli" ::: "memory");
     flanterm_write(ft_ctx, &c, 1);
+    asm ("sti" ::: "memory");
     release(&flanterm_lock);
 }
 
 void puts(char *s) {
     acquire(&flanterm_lock);
+    asm ("cli" ::: "memory");
 	flanterm_write(ft_ctx, s, strlen(s));
+    asm ("sti" ::: "memory");
     release(&flanterm_lock);
 }
 
