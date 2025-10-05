@@ -324,7 +324,7 @@ void sched_cleaner(void) {
             list_remove(processes, i);
             kfree(proc);
 
-            mmu_print_memory();
+            // mmu_print_memory();
         }
 
         this->state = THREAD_PAUSED;
