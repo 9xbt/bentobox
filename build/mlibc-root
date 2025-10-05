@@ -1,0 +1,6 @@
+#!/bin/bash
+ARCH="${ARCH:-x86_64}"
+export MLIBC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/mlibc/$ARCH
+set -x
+echo $MLIBC_ROOT
+{ set +x; } 2>/dev/null
