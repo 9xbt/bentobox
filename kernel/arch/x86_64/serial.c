@@ -18,6 +18,7 @@
 static uint16_t serial_base = COM1;
 static spinlock_t serial_lock = 0;
 static struct fifo *serial_fifo;
+static int serial_tty_group = 1;
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
@@ -83,10 +84,10 @@ long serial_tty_ioctl(int fd, int op, void *arg) {
         }
         case TIOCSWINSZ:
             return 0;
-        // case TIOCGPGRP:
-        //     return 0;
-        // case TIOCSPGRP:
-        //     return 0;
+        case TIOCGPGRP:
+            return copy_to_user(arg, &serial_tty_group, sizeof(int));
+        case TIOCSPGRP:
+            return copy_from_user(&serial_tty_group, arg, sizeof(int));
         default:
             dprintf(LOG_DEBUG, "\033[93m%s\033[0m: function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
