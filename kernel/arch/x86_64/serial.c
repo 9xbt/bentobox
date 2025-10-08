@@ -71,10 +71,10 @@ long serial_tty_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     switch (op) {
         case TCGETS:
-            return copy_to_user(arg, &file->tio, sizeof(struct termios));
+            return copy_to_user(arg, &file->node->tio, sizeof(struct termios));
         case TCSETS:
         case TCSETSW:
-            return copy_from_user(&file->tio, arg, sizeof(struct termios));
+            return copy_from_user(&file->node->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws = {
                 .ws_row = 25,

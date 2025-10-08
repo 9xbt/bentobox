@@ -12,21 +12,6 @@ struct file file_new(vfs_node_t *node, int flags) {
     file.flags = flags;
     file.offset = 0;
     file.open = true;
-
-    file.tio.c_iflag = BRKINT | ICRNL | IXON;
-    file.tio.c_oflag = OPOST | ONLCR;
-    file.tio.c_cflag = CS8 | CREAD;
-    file.tio.c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN;
-    file.tio.c_cc[VINTR] = 3;
-    file.tio.c_cc[VQUIT] = 28;
-    file.tio.c_cc[VERASE] = 127;
-    file.tio.c_cc[VKILL] = 21;
-    file.tio.c_cc[VEOF] = 4;
-    file.tio.c_cc[VTIME] = 0;
-    file.tio.c_cc[VMIN] = 1;
-    file.tio.c_cc[VSTART] = 17;
-    file.tio.c_cc[VSTOP] = 19;
-    file.tio.c_cc[VSUSP] = 26;
     return file;
 }
 

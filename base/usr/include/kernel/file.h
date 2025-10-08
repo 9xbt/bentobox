@@ -9,7 +9,6 @@ typedef struct file {
     bool open;
     int flags;
     size_t offset;
-    struct termios tio;
 } file_t;
 
 struct file file_new(struct vfs_node *node, int flags);

@@ -104,11 +104,11 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
     char *str = buffer;
     size_t i = 0;
-    struct termios *tio = &file_get_from_node(node)->tio;
+    struct termios *tio = &node->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
         while ((str[i] = node->tty_ops->dequeue(tio->c_cc[VMIN] != 0)) < 0) {}
-
+        
         if (tio->c_lflag & ECHO)
             vfs_write(node, &str[i], 0, 1);
         return 1;
@@ -157,10 +157,10 @@ long tty_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     switch (op) {
         case TCGETS:
-            return copy_to_user(arg, &file->tio, sizeof(struct termios));
+            return copy_to_user(arg, &file->node->tio, sizeof(struct termios));
         case TCSETS:
         case TCSETSW:
-            return copy_from_user(&file->tio, arg, sizeof(struct termios));
+            return copy_from_user(&file->node->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws;
             framebuffer_get_winsize(&ws);

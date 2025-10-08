@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/termios.h>
 #include <kernel/list.h>
 #include <kernel/time.h>
 
@@ -89,6 +90,7 @@ typedef struct vfs_node {
     char name[MAX_PATH];
     bool busy;
     enum vfs_node_type type;
+    struct termios tio;
     size_t size;
     size_t blocks;
     uint16_t perms;
