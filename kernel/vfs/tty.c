@@ -12,6 +12,7 @@
 #include <kernel/vfs.h>
 
 static struct fifo *tty_fifo;
+static vfs_node_t *tty;
 static int tty_group = 1;
 
 extern long console_ioctl(int fd_num, int op, void *arg);
@@ -23,6 +24,18 @@ void tty_flush(void) {
     while (fifo_dequeue(tty_fifo, &c) > 0) {
         if (c > 0) putchar(c);
     }
+}
+
+long tty_poll(vfs_node_t *node, long events) {
+    (void)node;
+    if (events & POLLIN) {
+        if (!fifo_is_empty(tty_fifo))
+            return POLLIN;
+    }
+    if (events & POLLOUT) {
+        return POLLOUT;
+    }
+    return 0;
 }
 
 long tty_enqueue(int c) {
@@ -44,8 +57,11 @@ long tty_enqueue(int c) {
             signal_send(this_proc, SIGQUIT);
             puts("^\\\n");
             break;
-        default:
-            return fifo_enqueue(tty_fifo, c);
+        default: {
+            long n = fifo_enqueue(tty_fifo, c);
+            vfs_wake_waiters(tty);
+            return n;
+        }
     }
     return 0;
 }
@@ -91,7 +107,7 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct termios *tio = &file_get_from_node(node)->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        str[i] = node->tty_ops->dequeue(tio->c_cc[VMIN] != 0);
+        while ((str[i] = node->tty_ops->dequeue(tio->c_cc[VMIN] != 0)) < 0) {}
 
         if (tio->c_lflag & ECHO)
             vfs_write(node, &str[i], 0, 1);
@@ -207,7 +223,8 @@ vfs_tty_ops_t console_tty_ops = {
 
 vfs_ops_t tty_ops = {
     .read = tty_read,
-    .write = tty_write
+    .write = tty_write,
+    .poll = tty_poll
 };
 
 vfs_tty_ops_t tty_tty_ops = {
@@ -226,7 +243,7 @@ void tty_initialize(void) {
     console->tty_ops = &console_tty_ops;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
 
-    vfs_node_t *tty = vfs_create_node("tty1", VFS_CHARDEVICE);
+    tty = vfs_create_node("tty1", VFS_CHARDEVICE);
     tty->perms = 0600;
     tty->ops = &tty_ops;
     tty->tty_ops = &tty_tty_ops;

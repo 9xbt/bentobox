@@ -2,6 +2,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
+#include <kernel/sched.h>
 #include <kernel/vfs.h>
 
 extern void zero_initialize(void);
@@ -25,6 +26,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->flags = 0;
     node->atime = node->ctime = node->mtime = 0;
     node->children = list_create();
+    node->waiters = list_create();
     node->parent = NULL;
     node->symlink = NULL;
     node->ops = NULL;
@@ -173,6 +175,38 @@ long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
     if (node->ops && node->ops->write)
         return node->ops->write(node, buffer, offset, len);
     return -EPERM;
+}
+
+long vfs_poll(vfs_node_t *node, long events, long timeout) {
+    if (!node)
+        return -ENOENT;
+    if (!node->ops || !node->ops->poll || !node->waiters) {
+        dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m cannot poll on '%s'\n", node->name);
+        return -1UL;
+    }
+    long poll = node->ops->poll(node, events);
+    if (poll)
+        return poll;
+    if (timeout == 0)
+        return 0;
+    list_insert(node->waiters, this);
+    if (timeout == -1) {
+        this->state = THREAD_PAUSED;
+        sched_yield();
+    } else {
+        dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m poll timeout is unimplemented\n");
+    }
+    return node->ops->poll(node, events);
+}
+
+void vfs_wake_waiters(vfs_node_t *node) {
+    if (!node)
+        return;
+    foreach(i, node->waiters) {
+        struct thread *tcb = i->value;
+        tcb->state = THREAD_RUNNING;
+    }
+    list_clear(node->waiters);
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {

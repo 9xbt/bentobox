@@ -466,6 +466,37 @@ long sys_pipe(int *pipefd, int flags) {
     return 0;
 }
 
+struct pollfd {
+	int fd;
+	short events;
+	short revents;
+};
+
+long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, const sigset_t *sigmask, size_t sigmask_size) {
+    (void)sigmask;
+    (void)sigmask_size;
+
+    struct timespec to;
+    if (timeout && copy_from_user(&to, timeout, sizeof to) < 0)
+        return -EFAULT;
+
+    int ready = 0;
+    for (int fd = 0; fd < nfds; fd++) {
+        struct pollfd *pfd = &fds[fd];
+        pfd->revents = 0;
+
+        struct file *file = file_get(pfd->fd);
+        if (!file) {
+            pfd->revents = POLLNVAL;
+            continue;
+        }
+
+        if ((pfd->revents = vfs_poll(file->node, pfd->events, timeout ? to.tv_sec * 1000000000 + to.tv_nsec : -1)))
+            ready++;
+    }
+    return ready;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -497,7 +528,8 @@ syscall_func syscalls[] = {
     [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname,
     [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
     [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir,
-    [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe
+    [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe,
+    [SYS_ppoll]     = (syscall_func)(uintptr_t)sys_ppoll
 };
 
 long syscall_handler(size_t *args) {

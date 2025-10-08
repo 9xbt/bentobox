@@ -31,6 +31,10 @@
 #define AT_FDCWD            -100
 #define AT_SYMLINK_NOFOLLOW 0x100
 
+#define POLLIN      0x001
+#define POLLOUT     0x004
+#define POLLNVAL    0x020
+
 struct stat {
 	uint64_t st_dev;
 	uint64_t st_ino;
@@ -94,6 +98,7 @@ typedef struct vfs_node {
     uint64_t ctime;
     uint64_t mtime;
     list_t *children;
+    list_t *waiters;
     struct vfs_node *parent;
     struct vfs_node *symlink;
     struct vfs_ops *ops;
@@ -112,5 +117,7 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
 long vfs_close(vfs_node_t *node);
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len);
+long vfs_poll(vfs_node_t *node, long events, long timeout);
+void vfs_wake_waiters(vfs_node_t *node);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
