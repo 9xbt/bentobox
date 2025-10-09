@@ -82,12 +82,12 @@ enum {
 
 static bool kb_caps = false, kb_ctrl = false, kb_shift = false;
 static struct fifo *kb_fifo, *mouse_fifo;
-static vfs_node_t *kb, *mouse;
+static vfs_node_t *tty, *kb, *mouse;
 
 void irq1_handler(struct registers *r) {
     (void)r;
     
-    int c = 0;
+    unsigned char c = 0;
     uint8_t key = inb(0x60);
     static uint8_t last_key = 0;
     if (last_key == 0xf0) {
@@ -106,16 +106,24 @@ void irq1_handler(struct registers *r) {
     } else if (last_key == 0xe0) {
         switch (key) {
             case 0x75: // up
-                tty_enqueue_string("\033[A");
+                tty->tty_ops->enqueue(tty, '\033');
+                tty->tty_ops->enqueue(tty, '[');
+                tty->tty_ops->enqueue(tty, 'A');
                 break;
             case 0x72: // down
-                tty_enqueue_string("\033[B");
+                tty->tty_ops->enqueue(tty, '\033');
+                tty->tty_ops->enqueue(tty, '[');
+                tty->tty_ops->enqueue(tty, 'B');
                 break;
             case 0x74: // right
-                tty_enqueue_string("\033[C");
+                tty->tty_ops->enqueue(tty, '\033');
+                tty->tty_ops->enqueue(tty, '[');
+                tty->tty_ops->enqueue(tty, 'C');
                 break;
             case 0x6b: // left
-                tty_enqueue_string("\033[D");
+                tty->tty_ops->enqueue(tty, '\033');
+                tty->tty_ops->enqueue(tty, '[');
+                tty->tty_ops->enqueue(tty, 'D');
                 break;
         }
         fifo_enqueue(kb_fifo, key);
@@ -144,7 +152,7 @@ void irq1_handler(struct registers *r) {
                     c = kb_map_keys[key];
                 }
 
-                tty_enqueue(c);
+                tty->tty_ops->enqueue(tty, c);
                 break;
         }
         fifo_enqueue(kb_fifo, key);
@@ -427,6 +435,7 @@ void ps2_hid_install(void) {
     if (port1_works || port2_works) ps2_config_write(config);
 
     if (port1_works) {
+        tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
         kb->ops = &keyboard_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);

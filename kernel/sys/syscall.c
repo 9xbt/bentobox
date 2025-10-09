@@ -164,7 +164,7 @@ long sys_ioctl(int fd, int op, void *arg) {
         return -ENOTTY;
     if (check_user_address(arg) < 0)
         return -EFAULT;
-    return file->node->tty_ops->ioctl(fd, op, arg);
+    return file->node->tty_ops->ioctl(file->node, op, arg);
 }
 
 long sys_dup(int oldfd, int newfd, int flags) {

@@ -17,8 +17,7 @@
 
 static uint16_t serial_base = COM1;
 static spinlock_t serial_lock = 0;
-static struct fifo *serial_fifo;
-static int serial_tty_group = 1;
+static vfs_node_t *ttyS0;
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
@@ -67,14 +66,25 @@ void serial_puts(const char *str) {
     serial_write(str, strlen(str));
 }
 
-long serial_tty_ioctl(int fd, int op, void *arg) {
-    struct file *file = file_get(fd);
+static void serial_tty_flush(vfs_node_t *node) {
+    acquire(&serial_lock);
+    tty_t *tty = node->device;
+    int c;
+    while (fifo_dequeue(tty->fifo, &c) > 0) {
+        if (c > 0)
+            serial_putchar(c);
+    }
+    release(&serial_lock);
+}
+
+static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
+    tty_t *tty = node->device;
     switch (op) {
         case TCGETS:
-            return copy_to_user(arg, &file->node->tio, sizeof(struct termios));
+            return copy_to_user(arg, &tty->tio, sizeof(struct termios));
         case TCSETS:
         case TCSETSW:
-            return copy_from_user(&file->node->tio, arg, sizeof(struct termios));
+            return copy_from_user(&tty->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws = {
                 .ws_row = 25,
@@ -85,72 +95,33 @@ long serial_tty_ioctl(int fd, int op, void *arg) {
         case TIOCSWINSZ:
             return 0;
         case TIOCGPGRP:
-            return copy_to_user(arg, &serial_tty_group, sizeof(int));
+            return copy_to_user(arg, &tty->pgid, sizeof(int));
         case TIOCSPGRP:
-            return copy_from_user(&serial_tty_group, arg, sizeof(int));
+            return copy_from_user(&tty->pgid, arg, sizeof(int));
         default:
             dprintf(LOG_DEBUG, "\033[93m%s\033[0m: function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }
 
-void serial_tty_flush(void) {
-    int c;
-    while (fifo_dequeue(serial_fifo, &c) > 0) {
-        if (c > 0) serial_putchar(c);
-    }
-}
-
-long serial_tty_enqueue(int c) {
-    switch (c) {
-        case 12:
-            serial_puts("\033[H\033[J");
-            return 0;
-    }
-    return fifo_enqueue(serial_fifo, c);
-}
-
-void serial_tty_enqueue_string(char *str) {
-    while (*str) {
-        serial_tty_enqueue(*str++);
-    }
-}
-
-long serial_tty_dequeue(bool block) {
-    int c = 0;
-    while (fifo_dequeue(serial_fifo, &c) > 0) {
-        if (!block) {
-            return -EAGAIN;
-        }
-    }
-    return c;
-}
-
 void irq4_handler(struct registers *r) {
     (void)r;
     uint8_t iir = inb(COM1 + 2);
     if ((iir & 0x06) == 0x04) {
-        serial_tty_enqueue(inb(COM1));
+        ttyS0->tty_ops->enqueue(ttyS0, inb(COM1));
     }
     lapic_eoi();
 }
 
-vfs_tty_ops_t serial_tty_ops = {
-    .ioctl = serial_tty_ioctl,
-    .enqueue = serial_tty_enqueue,
-    .dequeue = serial_tty_dequeue,
-    .flush = serial_tty_flush
-};
-
 void serial_initialize(void) {
-    serial_fifo = fifo_create(64, int);
+    ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    ttyS0->perms = 0600;
+    ttyS0->device = tty_create(ttyS0);
+    ttyS0->tty_ops->ioctl = serial_tty_ioctl;
+    ttyS0->tty_ops->flush = serial_tty_flush;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
+    
     irq_register(4, irq4_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
-
-    vfs_node_t *ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
-    ttyS0->perms = 0600;
-    ttyS0->ops = &tty_ops;
-    ttyS0->tty_ops = &serial_tty_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
 }

@@ -1,9 +1,15 @@
 #pragma once
-#include <stdbool.h>
+#include <kernel/termios.h>
+#include <kernel/fifo.h>
+#include <kernel/tty.h>
 #include <kernel/vfs.h>
 
-extern vfs_ops_t tty_ops;
+typedef struct tty {
+    fifo_t *fifo;
+    vfs_node_t *node;
+    int pgid;
+    struct termios tio;
+} tty_t;
 
-long tty_enqueue(int c);
-long tty_dequeue(bool block);
-void tty_enqueue_string(char *str);
+tty_t *tty_create(vfs_node_t *node);
+void tty_destroy(vfs_node_t *node);

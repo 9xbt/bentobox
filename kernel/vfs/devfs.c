@@ -17,5 +17,5 @@ struct vfs_node *devfs_create(struct vfs_node *parent, const char *name, vfs_nod
 void devfs_initialize(void) {
     vfs_node_t *dev = vfs_create_node("dev", VFS_DIRECTORY);
     dev->ops = &devfs_ops;
-    vfs_add_node(vfs_get_root(), dev);
+    vfs_add_node(NULL, dev);
 }

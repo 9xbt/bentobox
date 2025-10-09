@@ -81,5 +81,5 @@ void tmpfs_initialize(void) {
     vfs_node_t *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
     tmp->perms = 0777;
     tmp->ops = &tmpfs_ops;
-    vfs_add_node(vfs_get_root(), tmp);
+    vfs_add_node(NULL, tmp);
 }

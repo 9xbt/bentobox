@@ -1,7 +1,7 @@
 #pragma once
 #include <kernel/spinlock.h>
 
-struct fifo {
+typedef struct fifo {
     void *data;
     long head;
     long tail;
@@ -9,14 +9,14 @@ struct fifo {
     long size;
     long object_size;
     spinlock_t lock;
-};
+} fifo_t;
 
-struct fifo *__fifo_create(long size, long object_size);
-long fifo_is_full(struct fifo *fifo);
-long fifo_is_empty(struct fifo *fifo);
-long __fifo_enqueue(struct fifo *fifo, const void *value);
-long __fifo_dequeue(struct fifo *fifo, void *value);
-void fifo_destroy(struct fifo *fifo);
+fifo_t *__fifo_create(long size, long object_size);
+long fifo_is_full(fifo_t *fifo);
+long fifo_is_empty(fifo_t *fifo);
+long __fifo_enqueue(fifo_t *fifo, const void *value);
+long __fifo_dequeue(fifo_t *fifo, void *value);
+void fifo_destroy(fifo_t *fifo);
 
 #define fifo_create(size, type) __fifo_create(size, sizeof(type))
 

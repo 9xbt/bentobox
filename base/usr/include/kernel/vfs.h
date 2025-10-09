@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/termios.h>
 #include <kernel/list.h>
 #include <kernel/time.h>
 
@@ -80,17 +79,16 @@ typedef struct vfs_ops {
 } vfs_ops_t;
 
 typedef struct vfs_tty_ops {
-    long(*ioctl)(int fd, int op, void *arg);
-    long(*enqueue)(int c);
-    long(*dequeue)(bool block);
-    void(*flush)(void);
+    long (*ioctl)(struct vfs_node *node, int op, void *arg);
+    long (*enqueue)(struct vfs_node *node, unsigned char c);
+    long (*dequeue)(struct vfs_node *node, bool block);
+    void (*flush)(struct vfs_node *node);
 } vfs_tty_ops_t;
 
 typedef struct vfs_node {
     char name[MAX_PATH];
     bool busy;
     enum vfs_node_type type;
-    struct termios tio;
     size_t size;
     size_t blocks;
     uint16_t perms;

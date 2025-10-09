@@ -3,8 +3,8 @@
 #include <kernel/string.h>
 #include <kernel/fifo.h>
 
-struct fifo *__fifo_create(long size, long object_size) {
-    struct fifo *fifo = kmalloc(sizeof(struct fifo));
+fifo_t *__fifo_create(long size, long object_size) {
+    fifo_t *fifo = kmalloc(sizeof(fifo_t));
     fifo->data = kmalloc(sizeof(int) * size);
     fifo->size = size;
     fifo->head = 0;
@@ -15,15 +15,15 @@ struct fifo *__fifo_create(long size, long object_size) {
     return fifo;
 }
 
-long fifo_is_full(struct fifo *fifo) {
+long fifo_is_full(fifo_t *fifo) {
     return fifo->count == fifo->size;
 }
 
-long fifo_is_empty(struct fifo *fifo) {
+long fifo_is_empty(fifo_t *fifo) {
     return fifo->count == 0;
 }
 
-long __fifo_enqueue(struct fifo *fifo, const void *value) {
+long __fifo_enqueue(fifo_t *fifo, const void *value) {
     if (fifo_is_full(fifo))
         return -1;
 
@@ -37,7 +37,7 @@ long __fifo_enqueue(struct fifo *fifo, const void *value) {
     return fifo->object_size;
 }
 
-long __fifo_dequeue(struct fifo *fifo, void *value) {
+long __fifo_dequeue(fifo_t *fifo, void *value) {
     if (fifo_is_empty(fifo))
         return -1;
     
@@ -51,7 +51,7 @@ long __fifo_dequeue(struct fifo *fifo, void *value) {
     return fifo->object_size;
 }
 
-void fifo_destroy(struct fifo *fifo) {
+void fifo_destroy(fifo_t *fifo) {
     if (fifo) {
         kfree(fifo->data);
         kfree(fifo);

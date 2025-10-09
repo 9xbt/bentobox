@@ -1,35 +1,26 @@
 #include <stddef.h>
-#include <kernel/spinlock.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
-#include <kernel/string.h>
+#include <kernel/malloc.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/fifo.h>
-#include <kernel/list.h>
-#include <kernel/file.h>
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
 
-static struct fifo *tty_fifo;
-static vfs_node_t *tty;
-static int tty_group = 1;
-
-extern long console_ioctl(int fd_num, int op, void *arg);
-extern long ps2_ioctl(int fd_num, int op, void *arg);
-extern long serial_ioctl(int fd_num, int op, void *arg);
-
-void tty_flush(void) {
+static void tty_flush(vfs_node_t *node) {
+    tty_t *tty = node->device;
     int c;
-    while (fifo_dequeue(tty_fifo, &c) > 0) {
-        if (c > 0) putchar(c);
+    while (fifo_dequeue(tty->fifo, &c) > 0) {
+        if (c > 0)
+            putchar(c);
     }
 }
 
 long tty_poll(vfs_node_t *node, long events) {
-    (void)node;
+    tty_t *tty = node->device;
     if (events & POLLIN) {
-        if (!fifo_is_empty(tty_fifo))
+        if (!fifo_is_empty(tty->fifo))
             return POLLIN;
     }
     if (events & POLLOUT) {
@@ -38,16 +29,17 @@ long tty_poll(vfs_node_t *node, long events) {
     return 0;
 }
 
-long tty_enqueue(int c) {
-    if (c <= 0)
+long tty_enqueue(vfs_node_t *node, unsigned char c) {
+    if (!c)
         return 0;
+    tty_t *tty = node->device;
     switch (c) {
         case 0x03:
-            signal_send(sched_find_in_group(tty_group), SIGINT);
+            signal_send(sched_find_in_group(tty->pgid), SIGINT);
             puts("^C\n");
             break;
         case 0x1A:
-            signal_send(sched_find_in_group(tty_group), SIGTSTP);
+            signal_send(sched_find_in_group(tty->pgid), SIGTSTP);
             puts("^Z\n");
             break;
         case 0x0C:
@@ -57,28 +49,21 @@ long tty_enqueue(int c) {
             signal_send(this_proc, SIGQUIT);
             puts("^\\\n");
             break;
-        default: {
-            long n = fifo_enqueue(tty_fifo, c);
-            vfs_wake_waiters(tty);
-            return n;
-        }
+        default:
+            return ({ long n = fifo_enqueue(tty->fifo, c); vfs_wake_waiters(node); n; });
     }
     return 0;
 }
 
-void tty_enqueue_string(char *str) {
-    while (*str) {
-        tty_enqueue(*str++);
-    }
-}
-
-long tty_dequeue(bool block) {
-    int c = 0;
-    while (fifo_dequeue(tty_fifo, &c) > 0) {
-        if (!block) {
+long tty_dequeue(vfs_node_t *node, bool block) {
+    tty_t *tty = node->device;
+    while (fifo_is_empty(tty->fifo)) {
+        if (!block)
             return -EAGAIN;
-        }
     }
+    int c = 0;
+    if (fifo_dequeue(tty->fifo, &c) <= 0)
+        return -EAGAIN;
     return c;
 }
 
@@ -86,14 +71,16 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     (void)offset;
     if (!node->tty_ops)
         return -ENOTTY;
+    if (!node->tty_ops->enqueue || !node->tty_ops->flush)
+        return -EINVAL;
 
     char *buf = (char *)buffer;
     long i;
     for (i = 0; (unsigned)i < len; i++) {
-        if (node->tty_ops->enqueue(buf[i]) < 0)
+        if (node->tty_ops->enqueue(node, buf[i]) < 0)
             break;
     }
-    node->tty_ops->flush();
+    node->tty_ops->flush(node);
     return i;
 }
 
@@ -104,10 +91,11 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
     char *str = buffer;
     size_t i = 0;
-    struct termios *tio = &node->tio;
+    tty_t *tty = node->device;
+    struct termios *tio = &tty->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        while ((str[i] = node->tty_ops->dequeue(tio->c_cc[VMIN] != 0)) < 0) {}
+        while ((str[i] = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0)) < 0) {}
         
         if (tio->c_lflag & ECHO)
             vfs_write(node, &str[i], 0, 1);
@@ -115,13 +103,13 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     }
 
     while (i < len) {
-        int c = node->tty_ops->dequeue(true);
+        int c = node->tty_ops->dequeue(node, true);
         if (c > 0) str[i] = c;
         else continue;
         
         switch (c) {
             case '\033':
-                while (node->tty_ops->dequeue(true) != '\0') {}
+                while (node->tty_ops->dequeue(node, true) != '\0') {}
                 break;
             case '\0':
             case '\t':
@@ -153,14 +141,14 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     return i;
 }
 
-long tty_ioctl(int fd, int op, void *arg) {
-    struct file *file = file_get(fd);
+static long tty_ioctl(vfs_node_t *node, int op, void *arg) {
+    tty_t *tty = node->device;
     switch (op) {
         case TCGETS:
-            return copy_to_user(arg, &file->node->tio, sizeof(struct termios));
+            return copy_to_user(arg, &tty->tio, sizeof(struct termios));
         case TCSETS:
         case TCSETSW:
-            return copy_from_user(&file->node->tio, arg, sizeof(struct termios));
+            return copy_from_user(&tty->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws;
             framebuffer_get_winsize(&ws);
@@ -169,36 +157,9 @@ long tty_ioctl(int fd, int op, void *arg) {
         case TIOCSWINSZ:
             return 0;
         case TIOCGPGRP:
-            return copy_to_user(arg, &tty_group, sizeof(int));
+            return copy_to_user(arg, &tty->pgid, sizeof tty->pgid);
         case TIOCSPGRP:
-            return copy_from_user(&tty_group, arg, sizeof(int));
-        // case KDFONTOP: {
-        //     struct console_font_op *fop = (struct console_font_op *)arg;
-        //     switch (fop->op) {
-        //         case KD_FONT_OP_SET: {
-        //             unsigned int vpitch = 32;
-        //             unsigned int bpc = fop->height;
-
-        //             size_t fontlen = fop->charcount * bpc;
-        //             char *fontdata = kmalloc(fontlen);
-
-        //             size_t off = 0;
-        //             for (unsigned int i = 0; i < fop->charcount; i++) {
-        //                 memcpy(fontdata + off, (void *)fop->data + (i * vpitch), bpc);
-        //                 off += bpc;
-        //             }
-        //             framebuffer_setfont(fontdata, fontlen);
-        //             kfree(fontdata);
-        //             return 0;
-        //         }
-        //         default:
-        //             return -EINVAL;
-        //     }
-        // }
-        case PIO_UNIMAP:
-            return 0;
-        case PIO_UNIMAPCLR:
-            return 0;
+            return copy_from_user(&tty->pgid, arg, sizeof tty->pgid);
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
@@ -227,25 +188,55 @@ vfs_ops_t tty_ops = {
     .poll = tty_poll
 };
 
-vfs_tty_ops_t tty_tty_ops = {
-    .ioctl = tty_ioctl,
-    .enqueue = tty_enqueue,
-    .dequeue = tty_dequeue,
-    .flush = tty_flush
-};
+tty_t *tty_create(vfs_node_t *node) {
+    tty_t *tty = kmalloc(sizeof(tty_t));
+    tty->fifo = fifo_create(1024, char);
+    tty->node = node;
+    tty->pgid = 0;
+    tty->tio.c_iflag = BRKINT | ICRNL | IXON;
+    tty->tio.c_oflag = OPOST | ONLCR;
+    tty->tio.c_cflag = CS8 | CREAD;
+    tty->tio.c_lflag = ISIG | ICANON | ECHO | ECHOE | ECHOK | IEXTEN;
+    tty->tio.c_cc[VINTR] = 3;
+    tty->tio.c_cc[VQUIT] = 28;
+    tty->tio.c_cc[VERASE] = 127;
+    tty->tio.c_cc[VKILL] = 21;
+    tty->tio.c_cc[VEOF] = 4;
+    tty->tio.c_cc[VTIME] = 0;
+    tty->tio.c_cc[VMIN] = 1;
+    tty->tio.c_cc[VSTART] = 17;
+    tty->tio.c_cc[VSTOP] = 19;
+    tty->tio.c_cc[VSUSP] = 26;
+    node->ops = &tty_ops;
+    node->tty_ops = kmalloc(sizeof(vfs_tty_ops_t));
+    node->tty_ops->ioctl = NULL;
+    node->tty_ops->enqueue = tty_enqueue;
+    node->tty_ops->dequeue = tty_dequeue;
+    node->tty_ops->flush = NULL;
+    return tty;
+}
+
+void tty_destroy(vfs_node_t *node) {
+    tty_t *tty = node->device;
+    fifo_destroy(tty->fifo);
+    kfree(node->tty_ops);
+    node->tty_ops = NULL;
+    kfree(node->device);
+    node->device = NULL;
+    return;
+}
 
 void tty_initialize(void) {
-    tty_fifo = fifo_create(1024, int);
-
     vfs_node_t *console = vfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;
     console->ops = &console_ops;
     console->tty_ops = &console_tty_ops;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
 
-    tty = vfs_create_node("tty1", VFS_CHARDEVICE);
-    tty->perms = 0600;
-    tty->ops = &tty_ops;
-    tty->tty_ops = &tty_tty_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty);
+    vfs_node_t *tty1 = vfs_create_node("tty1", VFS_CHARDEVICE);
+    tty1->perms = 0600;
+    tty1->device = tty_create(tty1);
+    tty1->tty_ops->ioctl = tty_ioctl;
+    tty1->tty_ops->flush = tty_flush;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty1);
 }
