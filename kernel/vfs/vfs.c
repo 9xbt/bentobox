@@ -263,8 +263,6 @@ void vfs_print_tree(vfs_node_t *node) {
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
 
-    vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
-
     devfs_initialize();
     zero_initialize();
     tty_initialize();
