@@ -151,7 +151,7 @@ long fork(void) {
     memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
     for (int i = 0; i < proc->max_files; i++) {
         struct file *file = &proc->files[i];
-        if (!file->open || file->node->type != VFS_UNIXPIPE)
+        if (!file || !file->open || !file->node || file->node->type != VFS_UNIXPIPE)
             continue;
         struct unix_pipe *pipe = file->node->device;
         if (!strcmp(file->node->name, "[pipe::read]"))

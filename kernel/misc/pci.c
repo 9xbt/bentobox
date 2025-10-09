@@ -1,0 +1,148 @@
+#include <stddef.h>
+#include <stdint.h>
+#include <kernel/arch/x86_64/io.h>
+#include <kernel/assert.h>
+#include <kernel/printf.h>
+#include <kernel/malloc.h>
+#include <kernel/list.h>
+#include <kernel/pci.h>
+
+list_t *pci_devices = NULL;
+
+/**
+ * @brief Read from PCI device config space.
+ */
+uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+#ifdef __x86_64__
+    outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
+    return inl(PCI_CONFIG_DATA);
+#endif
+    return 0;
+}
+
+/**
+ * @brief Write to PCI device config space.
+ */
+void pci_write(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
+#ifdef __x86_64__
+    outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
+    outl(PCI_CONFIG_DATA, value);
+#endif
+}
+
+/**
+ * @brief Read a word from PCI device config space.
+ */
+uint16_t pci_config_read_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    return pci_read(bus, device, function, offset) >> ((offset & 2) * 8);
+}
+
+/**
+ * @brief Search for a capability in a PCI device.
+ */
+uint8_t pci_find_cap(pci_device_t *dev, uint8_t cap_id) {
+    uint8_t status = pci_config_read_word(dev->bus, dev->device, dev->function, 0x06);
+    if (!(status & (1 << 4))) return 0;
+
+    uint8_t offset = pci_read(dev->bus, dev->device, 0x00, 0x34) & 0xFF;
+    while (offset) {
+        uint32_t cap = pci_read(dev->bus, dev->device, 0x00, offset);
+        if ((cap & 0xFF) == cap_id) return offset;
+        offset = (cap >> 8) & 0xFF;
+    }
+    return 0;
+}
+
+/**
+ * @brief Checks a PCI device function and adds it to pci_devices.
+ */
+void pci_check_function(uint8_t bus, uint8_t device, uint8_t function) {
+    uint16_t vendor_id = pci_config_read_word(bus, device, function, 0x00);
+    if (vendor_id == 0xFFFF) return;
+    
+    pci_device_t *dev = kmalloc(sizeof(pci_device_t));
+    dev->bus = bus;
+    dev->device = device;
+    dev->function = function;
+    dev->class = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A) >> 8);
+    dev->subclass = (uint8_t)(pci_config_read_word(bus, device, function, 0x0A));
+    dev->vendor_id = vendor_id;
+    dev->device_id = pci_config_read_word(bus, device, function, 0x02);
+    list_insert(pci_devices, dev);
+
+    dprintf(LOG_DEBUG, "\033[93mpci:\033[0m %02x:%02x.%u: %04x:%04x [%02x:%02x]\n", bus, device, function, vendor_id, dev->device_id, dev->class, dev->subclass);
+}
+
+/**
+ * @brief Calls pci_check_function for each function of the PCI device.
+ */
+void pci_check_device(uint8_t bus, uint8_t device) {
+    uint16_t vendor_id = pci_config_read_word(bus, device, 0, 0x00);
+    if (vendor_id == 0xFFFF) return;
+    
+    pci_check_function(bus, device, 0);
+    
+    uint8_t header_type = pci_config_read_word(bus, device, 0, 0x0E) & 0xFF;
+    if (header_type & 0x80) {
+        for (uint8_t function = 1; function < 8; function++) {
+            pci_check_function(bus, device, function);
+        }
+    }
+}
+
+/**
+ * @brief Scans a PCI bus.
+ */
+void pci_check_bus(uint8_t bus) {
+    for (uint8_t device = 0; device < 32; device++) {
+        pci_check_device(bus, device);
+    }
+}
+
+/**
+ * @brief Searches for a PCI device by class and subclass.
+ */
+pci_device_t *pci_get_device(uint8_t class, uint8_t subclass) {
+    foreach(i, pci_devices) {
+        pci_device_t *dev = i->value;
+        if (dev->class == class && dev->subclass == subclass) {
+            return dev;
+        }
+    }
+    return NULL;
+}
+/**
+ * @brief Searches for a PCI device by vendor ID and device ID.
+ */
+pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t device) {
+    foreach(i, pci_devices) {
+        pci_device_t *dev = i->value;
+        if (dev->vendor_id == vendor && dev->device_id == device) {
+            return dev;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Scans all PCI buses.
+ */
+void pci_scan(void) {
+    pci_devices = list_create();
+
+    dprintf(LOG_INFO, "\033[93mpci:\033[0m finding PCI devices\n");
+
+    uint8_t function, bus;
+    uint16_t header_type = (uint8_t)(pci_config_read_word(0, 0, 0, 0x0E));
+    if ((header_type & 0x80) == 0) {
+        // single PCI host controller
+        pci_check_bus(0);
+    } else {
+        // multiple PCI host controllers
+        for (function = 0; function < 8; function++) {
+            if (pci_config_read_word(0, 0, function, 0x02) != 0xFFFF) break;
+            bus = function;
+            pci_check_bus(bus);
+        }
+    }
+}

@@ -1,12 +1,14 @@
 #include <kernel/module.h>
 #include <kernel/sched.h>
 #include <kernel/elf64.h>
+#include <kernel/pci.h>
 #include <kernel/vfs.h>
 
 extern void arch_jumpstart(void);
 
 void generic_startup(void) {
     vfs_install();
+    pci_scan();
     modules_install();
     sched_install();
 }
