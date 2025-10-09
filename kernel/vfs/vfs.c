@@ -5,8 +5,10 @@
 #include <kernel/sched.h>
 #include <kernel/vfs.h>
 
+extern void devfs_initialize(void);
 extern void zero_initialize(void);
 extern void tty_initialize(void);
+extern void tmpfs_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 
@@ -125,7 +127,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
         if (!child) {
             if (create_type != VFS_NONE && !next) {
-                node->ops = vfs_get_root()->ops;
+                //node->ops = vfs_get_root()->ops;
                 child = vfs_touch(node, token, create_type);
                 if (!child) {
                     kfree(copy);
@@ -263,8 +265,10 @@ void vfs_install(void) {
 
     vfs_add_node(NULL, vfs_create_node("dev", VFS_DIRECTORY));
 
+    devfs_initialize();
     zero_initialize();
     tty_initialize();
+    tmpfs_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

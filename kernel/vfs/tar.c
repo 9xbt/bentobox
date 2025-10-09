@@ -81,4 +81,5 @@ void tar_module(struct limine_file *mod) {
     }
 
     //vfs_print_tree(NULL);
+    vfs_get_root()->ops = NULL;
 }
