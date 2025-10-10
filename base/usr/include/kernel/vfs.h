@@ -66,8 +66,10 @@ typedef enum vfs_node_type {
     VFS_SOCKET
 } vfs_node_type_t;
 
+struct vfs_node;
+
 typedef struct vfs_ops {
-    struct vfs_node *(*open)(struct vfs_node *node, int flags);
+    long(*open)(struct vfs_node *node, int flags);
     long(*close)(struct vfs_node *node);
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);

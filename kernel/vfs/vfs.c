@@ -138,8 +138,8 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
     vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
     if (!node)
         return NULL;
-    if (node->ops && node->ops->open)
-        node->ops->open(node, flags);
+    if (node->ops && node->ops->open && node->ops->open(node, flags) < 0)
+        return NULL;
     return node;
 }
 
