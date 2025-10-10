@@ -90,18 +90,20 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -ENOTTY;
 
     char *str = buffer;
-    size_t i = 0;
     tty_t *tty = node->device;
     struct termios *tio = &tty->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        while ((str[i] = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0)) < 0) {}
-        
+        long c;
+        while ((c = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0)) < 0) {}
+        str[0] = c;
+
         if (tio->c_lflag & ECHO)
-            vfs_write(node, &str[i], 0, 1);
+            vfs_write(node, &str[0], 0, 1);
         return 1;
     }
 
+    size_t i = 0;
     while (i < len) {
         int c = node->tty_ops->dequeue(node, true);
         if (c > 0) str[i] = c;

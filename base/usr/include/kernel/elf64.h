@@ -178,6 +178,7 @@ typedef struct {
 #define R_AARCH64_ADR_PREL_PG_HI21 275
 #define R_AARCH64_ADD_ABS_LO12_NC 277
 #define R_AARCH64_CALL26	283
+#define R_AARCH64_LDST64_ABS_LO12_NC 286
 
 typedef struct {
 	Elf64_Addr r_offset;

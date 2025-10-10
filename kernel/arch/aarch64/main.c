@@ -60,20 +60,20 @@ void arch_do_backtrace(void) {
 
 void idle(void) {
     for (;;) {
-        dprintf(LOG_INFO, "a\n");
+        //dprintf(LOG_INFO, "a\n");
         asm ("wfi");
     }
 }
 
-void arch_context_init(struct thread *tcb, void *entry, bool user) {
+void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
     ctx->spsr_elx = user ? 0x0 : 0x345;
 
-    int argc = 0;
-    char *argv[] = { NULL };
+    int envc = 0;
+    if (envp) for (; envp[envc]; envc++);
 
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
@@ -82,15 +82,22 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
         uintptr_t *pm = mmu_get_pm();
         mmu_switch_pm(tcb->parent->pm);
 
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (4 * PAGE_SIZE), 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (4 * PAGE_SIZE), 0, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
         ctx->user_stack = 0x7ffffffff000;
 
-        long depth = ((argc) % 2 == 0) ? 24 : 16;
+        long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 
         uint64_t argv_ptrs[argc + 1];
+        uint64_t env_ptrs[envc + 1];
         argv_ptrs[argc] = 0;
+        env_ptrs[envc] = 0;
 
         int i = 0;
+        for (i = 0; i < envc; i++) {
+            depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
+            env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+            strcpy((char *)ctx->user_stack - depth, envp[i]);
+        }
         for (i = 0; i < argc; i++) {
             depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
             argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
@@ -98,6 +105,11 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
         }
 
         #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
+
+        PUSH(0);
+        for (i = envc - 1; i >= 0; i--) {
+            PUSH(env_ptrs[i]);
+        }
 
         PUSH(0);
         for (i = argc - 1; i >= 0; i--) {
@@ -113,11 +125,32 @@ void arch_context_init(struct thread *tcb, void *entry, bool user) {
 }
 
 void arch_context_free(struct thread *tcb) {
-    (void)tcb;
+    struct context *ctx = &tcb->ctx;
+    kfree((void *)ctx->stack_bottom);
 }
 
 void arch_context_fork(struct thread *tcb) {
-    (void)tcb;
+    struct context *ctx = &tcb->ctx;
+    memset(ctx, 0, sizeof(struct context));
+    asm volatile("mrs %0, SP_EL0" : "=r"(ctx->user_stack));
+    ctx->user_stack_bottom = this->ctx.user_stack_bottom;
+    memcpy(&ctx->regs, this->syscall_regs, sizeof ctx->regs);
+    ctx->elr_elx = this->ctx.elr_el0;
+    ctx->spsr_elx = this->ctx.spsr_el0;
+    asm volatile("mrs %0, TPIDR_EL0" : "=r"(ctx->tpidr_el0));
+    uint64_t fpsr, fpcr;
+    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+    ctx->fpsr = (uint32_t)fpsr;
+    ctx->fpcr = (uint32_t)fpcr;
+    aarch64_save_fp(tcb->ctx.fp);
+
+    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
+    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
+    memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, 4 * PAGE_SIZE);
+
+    ctx->regs.x0 = 0;
+    ctx->regs.x16 = ctx->stack;
 }
 
 void arch_save_context(void) {
@@ -159,7 +192,7 @@ void arch_restore_context(void) {
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
-    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 250));
+    asm volatile("msr CNTP_TVAL_EL0, %0" :: "r"(cntfrq_el0 / 1000 * 5));
 }
 
 void arch_yield(struct cpu *cpu) {
@@ -175,7 +208,7 @@ void arch_jumpstart(void) {
     
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        struct thread *tcb = sched_new_thread(idle_proc->value, idle);
+        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL);
         tcb->state = THREAD_PAUSED;
         core->idle_tcb = list_insert(core->threads, tcb);
     }
@@ -212,6 +245,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
-    spawn("/bin/main", 0, NULL, NULL);
+    //spawn("/bin/main", 0, NULL, NULL);
     generic_main();
 }

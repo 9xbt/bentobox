@@ -16,8 +16,13 @@ uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset)
 #ifdef __x86_64__
     outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
     return inl(PCI_CONFIG_DATA);
+#else
+    (void)bus;
+    (void)device;
+    (void)function;
+    (void)offset;
+    return 0xFFFFFFFF;
 #endif
-    return 0;
 }
 
 /**
@@ -27,6 +32,12 @@ void pci_write(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, ui
 #ifdef __x86_64__
     outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
     outl(PCI_CONFIG_DATA, value);
+#else
+    (void)bus;
+    (void)device;
+    (void)function;
+    (void)offset;
+    (void)value;
 #endif
 }
 

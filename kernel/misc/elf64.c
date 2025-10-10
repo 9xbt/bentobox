@@ -150,6 +150,9 @@ int elf64_module(struct limine_file *mod) {
                 case R_AARCH64_CALL26:
 					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
 					break;
+                case R_AARCH64_LDST64_ABS_LO12_NC:
+                    T32 = T32 | aarch64_imm_12(((S + A) >> 3) & 0x1FF);
+                    break;
                 default:
                     dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
                     break;
