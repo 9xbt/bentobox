@@ -1,6 +1,7 @@
 #include <limine.h>
 #include <stddef.h>
 #include <stddef.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
 #include <flanterm_backends/fb.h>
 #define FLANTERM_IN_FLANTERM
@@ -54,4 +55,18 @@ void framebuffer_get_winsize(struct winsize *ws) {
     ws->ws_col = ft_ctx->cols;
     ws->ws_xpixel = framebuffer->width;
     ws->ws_ypixel = framebuffer->height;
+}
+
+void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
+    vinfo->xres = framebuffer->width;
+    vinfo->yres = framebuffer->height;
+    vinfo->xres_virtual = framebuffer->width;
+    vinfo->yres_virtual = framebuffer->height;
+    vinfo->bits_per_pixel = framebuffer->bpp;
+    vinfo->red.offset = framebuffer->red_mask_shift;
+    vinfo->red.length = framebuffer->red_mask_size;
+    vinfo->green.offset = framebuffer->green_mask_shift;
+    vinfo->green.length = framebuffer->green_mask_size;
+    vinfo->blue.offset = framebuffer->blue_mask_shift;
+    vinfo->blue.length = framebuffer->blue_mask_size;
 }

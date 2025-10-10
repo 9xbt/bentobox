@@ -369,32 +369,35 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     (void)addr;
     if (!length)
         return -EINVAL;
+
+    uint64_t mmu_flags = 0;
+    if (prot != PROT_NONE) {
+        mmu_flags = PTE_USER;
+        #ifdef __x86_64__
+        if (prot & PROT_READ) mmu_flags |= PTE_PRESENT;
+        if (prot & PROT_WRITE) mmu_flags |= PTE_WRITABLE;
+        if (!(prot & PROT_EXEC)) mmu_flags |= PTE_NX;
+        #elif __aarch64__
+        if ((prot & PROT_READ) || (prot & PROT_WRITE)) mmu_flags |= PTE_VALID | PTE_AF;
+        if (prot & PROT_READ) mmu_flags |= PTE_RO;
+        if (prot & PROT_WRITE) mmu_flags |= PTE_RW;
+        if (!(prot & PROT_EXEC)) mmu_flags |= PTE_UXN;
+        #endif
+    }
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
     
     if (fd == -1) {
         if (offset != 0)
             return -EINVAL;
 
-        uint64_t vma_flags = 0;
-        if (prot != PROT_NONE) {
-            vma_flags = PTE_USER;
-            #ifdef __x86_64__
-            if (prot & PROT_READ) vma_flags |= PTE_PRESENT;
-            if (prot & PROT_WRITE) vma_flags |= PTE_WRITABLE;
-            if (!(prot & PROT_EXEC)) vma_flags |= PTE_NX;
-            #elif __aarch64__
-            if ((prot & PROT_READ) || (prot & PROT_WRITE)) vma_flags |= PTE_VALID | PTE_AF;
-            if (prot & PROT_READ) vma_flags |= PTE_RO;
-            if (prot & PROT_WRITE) vma_flags |= PTE_RW;
-            if (!(prot & PROT_EXEC)) vma_flags |= PTE_UXN;
-            #endif
-        }
-
-        size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
-        void *ptr = vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, pages, vma_flags);
-
-        return (long)ptr;
+        return (long)vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, 0, pages, mmu_flags);
     }
-    return -ENOSYS;
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (!file->node->ops || !file->node->ops->mmap)
+        return -EINVAL;
+    return file->node->ops->mmap(file->node, addr, pages, mmu_flags, flags, offset);
 }
 
 long sys_munmap(void *addr, size_t length) {

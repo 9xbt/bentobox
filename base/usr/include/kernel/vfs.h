@@ -76,7 +76,7 @@ typedef struct vfs_ops {
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name, enum vfs_node_type type);
     long(*remove)(struct vfs_node *node);
     long(*rename)(struct vfs_node *node, const char *name);
-    long(*mmap)(struct vfs_node *node, void *addr, size_t length, int prot, int flags, long offset);
+    long(*mmap)(struct vfs_node *node, void *addr, size_t pages, uint64_t prot, int flags, long offset);
     long(*poll)(struct vfs_node *node, long events);
 } vfs_ops_t;
 

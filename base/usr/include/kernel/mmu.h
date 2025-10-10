@@ -61,13 +61,14 @@ struct vma {
 struct vma_region {
     size_t pages;
     uintptr_t va;
+    uintptr_t pa;
     uint64_t flags;
 };
 
 struct vma *vma_create(uintptr_t base, size_t size);
 struct vma *vma_clone(struct vma *src, uintptr_t *pm);
 void  vma_destroy(struct vma *vma, uintptr_t *pm);
-void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, size_t page_count, uint64_t flags);
+void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t page_count, uint64_t flags);
 void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);
 
 #define MAP_ANON  0x1000

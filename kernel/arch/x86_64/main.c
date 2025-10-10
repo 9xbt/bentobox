@@ -92,7 +92,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         mmu_switch_pm(tcb->parent->pm);
         
         // TODO: multithreaded userspace tasks can't have the stack at the same address!
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (256 * PAGE_SIZE), 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (256 * PAGE_SIZE), 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
         ctx->user_stack = 0x7ffffffff000;
 
         long depth = ((argc + envc) % 2 == 0) ? 24 : 16;

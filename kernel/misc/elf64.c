@@ -180,7 +180,8 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
             #endif
             
             vmalloc(proc->vma, proc->pm, ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE),
-                (ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE) - ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
+                0, (ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE) -
+                ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
 
             if (phdr[i].p_filesz > 0) {
 				uintptr_t src = (uintptr_t)ehdr + phdr[i].p_offset;

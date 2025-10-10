@@ -8,10 +8,10 @@ typedef struct tmpfs {
     void *data;
 } tmpfs_t;
 
-struct vfs_node *tmpfs_create(struct vfs_node *parent, const char *name, vfs_node_type_t type);
-long tmpfs_read(struct vfs_node *node, void *buffer, long offset, size_t len);
-long tmpfs_write(struct vfs_node *node, const void *buffer, long offset, size_t len);
-long tmpfs_remove(struct vfs_node *node);
+vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
+long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
+long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
+long tmpfs_remove(vfs_node_t *node);
 
 vfs_ops_t tmpfs_ops = {
     .read   = tmpfs_read,
@@ -20,7 +20,7 @@ vfs_ops_t tmpfs_ops = {
     .remove = tmpfs_remove
 };
 
-long tmpfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
     if (!file->data)
         return 0;
@@ -29,7 +29,7 @@ long tmpfs_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return count;
 }
 
-long tmpfs_write(struct vfs_node *node, const void *buffer, long offset, size_t len) {
+long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
     if (offset == -1) {
         offset = node->size;
@@ -47,8 +47,8 @@ long tmpfs_write(struct vfs_node *node, const void *buffer, long offset, size_t 
     return len;
 }
 
-struct vfs_node *tmpfs_create(struct vfs_node *parent, const char *name, vfs_node_type_t type) {
-    struct vfs_node *node = vfs_create_node(name, type);
+vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
+    vfs_node_t *node = vfs_create_node(name, type);
     if (!node)
         return NULL;
     if (type == VFS_DIRECTORY) {
@@ -65,7 +65,7 @@ struct vfs_node *tmpfs_create(struct vfs_node *parent, const char *name, vfs_nod
     return node;
 }
 
-long tmpfs_remove(struct vfs_node *node) {
+long tmpfs_remove(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
     if (node->device) {
