@@ -185,10 +185,8 @@ long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
 long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (!node)
         return -ENOENT;
-    if (!node->ops || !node->ops->poll || !node->waiters) {
-        dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m cannot poll on '%s'\n", node->name);
+    if (!node->ops || !node->ops->poll || !node->waiters)
         return -1UL;
-    }
     long poll = node->ops->poll(node, events);
     if (poll)
         return poll;
