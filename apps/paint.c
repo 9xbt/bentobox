@@ -16,7 +16,7 @@
 
 struct fb_var_screeninfo vinfo;
 size_t fb_size;
-uint32_t *back_fb, *front_fb;
+uint32_t *back_fb;
 
 void _rectangle(uint32_t *cv, long x, long y, long width, long height, uint32_t color) {
     for (long yy = y; yy < y + height; yy++) {
@@ -37,11 +37,10 @@ int main() {
     }
 
     fb_size = vinfo.xres * vinfo.yres * vinfo.bits_per_pixel / 8;
-    if ((front_fb = mmap(0, fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb, 0)) == MAP_FAILED) {
+    if ((back_fb = mmap(0, fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb, 0)) == MAP_FAILED) {
         perror("mmap");
         exit(EXIT_FAILURE);
     }
-    back_fb = malloc(fb_size);
 
     int mouse = open("/dev/event1", O_RDONLY);
     if (mouse == -1) {
@@ -71,13 +70,11 @@ int main() {
             if (y >= vinfo.yres) y = vinfo.yres - 1;
         } else if (ev.type == EV_KEY) {
             if (ev.code == BTN_LEFT) left = ev.value;
-            if (ev.code == BTN_RIGHT) exit(EXIT_SUCCESS);
         }
 
         if (!left)
             rectangle(back_fb, last_x, last_y, 10, 10, 0xFF000000);
         rectangle(back_fb, x, y, 10, 10, 0xFFFFFFFF);
-        swap(back_fb, front_fb);
 
         last_x = x, last_y = y;
     }
