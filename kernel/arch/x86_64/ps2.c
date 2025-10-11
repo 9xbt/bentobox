@@ -153,6 +153,7 @@ void irq1_handler(struct registers *r) {
                 break;
         }
         fifo_enqueue(kb_fifo, -key);
+        vfs_wake_waiters(kb);
     } else if (last_key == 0xe0) {
         switch (key) {
             case 0x75: // up
@@ -177,6 +178,7 @@ void irq1_handler(struct registers *r) {
                 break;
         }
         fifo_enqueue(kb_fifo, key);
+        vfs_wake_waiters(kb);
     } else {
         switch (key) {
             case 0xe0:
@@ -206,6 +208,7 @@ void irq1_handler(struct registers *r) {
                 break;
         }
         fifo_enqueue(kb_fifo, key);
+        vfs_wake_waiters(kb);
     }
 
     last_key = key;
@@ -301,7 +304,7 @@ void irq12_handler(struct registers *r) {
         memset(&state, 0, sizeof state);
         pi = 0;
 
-        // vfs_unblock_polling(mouse);
+        vfs_wake_waiters(mouse);
     }
 
     lapic_eoi();
@@ -345,6 +348,24 @@ long ps2_mouse_read_event(vfs_node_t *node, void *buffer, long offset, size_t le
         return -EAGAIN;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
+}
+
+long ps2_keyboard_poll(vfs_node_t *node, long events) {
+    (void)node;
+    if (events & POLLIN) {
+        if (!fifo_is_empty(kb_fifo))
+            return POLLIN;
+    }
+    return 0;
+}
+
+long ps2_mouse_poll(vfs_node_t *node, long events) {
+    (void)node;
+    if (events & POLLIN) {
+        if (!fifo_is_empty(mouse_fifo))
+            return POLLIN;
+    }
+    return 0;
 }
 
 static void ps2_wait_write(void) {
@@ -391,11 +412,13 @@ static void ps2_config_write(uint8_t config) {
 }
 
 vfs_ops_t keyboard_ops = {
-    .read = ps2_keyboard_read_event
+    .read = ps2_keyboard_read_event,
+    .poll = ps2_keyboard_poll
 };
 
 vfs_ops_t mouse_ops = {
-    .read = ps2_mouse_read_event
+    .read = ps2_mouse_read_event,
+    .poll = ps2_mouse_poll
 };
 
 static bool ps2_test_port(uint8_t port_cmd) {
