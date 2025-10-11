@@ -1,17 +1,20 @@
 #include <kernel/spinlock.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/assert.h>
 #include <kernel/fifo.h>
 
 fifo_t *__fifo_create(long size, long object_size) {
     fifo_t *fifo = kmalloc(sizeof(fifo_t));
-    fifo->data = kmalloc(sizeof(int) * size);
+    fifo->data = kmalloc(object_size * size);
     fifo->size = size;
     fifo->head = 0;
     fifo->tail = 0;
     fifo->count = 0;
     fifo->object_size = object_size;
     fifo->lock = 0;
+
+    assert(fifo->object_size > 0 && fifo->size > 0);
     return fifo;
 }
 

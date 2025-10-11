@@ -14,6 +14,32 @@
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
 
+#define PS2_STATUS_OUTPUT_FULL      0x01
+#define PS2_STATUS_INPUT_FULL       0x02
+
+#define PS2_CMD_READ_CONFIG         0x20
+#define PS2_CMD_WRITE_CONFIG        0x60
+#define PS2_CMD_DISABLE_PORT2       0xA7
+#define PS2_CMD_ENABLE_PORT2        0xA8
+#define PS2_CMD_TEST_PORT2          0xA9
+#define PS2_CMD_SELF_TEST           0xAA
+#define PS2_CMD_TEST_PORT1          0xAB
+#define PS2_CMD_DISABLE_PORT1       0xAD
+#define PS2_CMD_ENABLE_PORT1        0xAE
+#define PS2_CMD_WRITE_TO_PORT2      0xD4
+
+#define PS2_CONFIG_PORT1_IRQ        0x01
+#define PS2_CONFIG_PORT2_IRQ        0x02
+#define PS2_CONFIG_PORT1_CLOCK      0x10
+#define PS2_CONFIG_PORT2_CLOCK      0x20
+#define PS2_CONFIG_PORT1_TRANSLATE  0x40
+
+#define PS2_SELF_TEST_PASSED        0x55
+#define PS2_PORT_TEST_PASSED        0x00
+
+#define PS2_MOUSE_SET_SAMPLE_RATE   0xF3
+#define PS2_MOUSE_ENABLE_REPORTING  0xF4
+
 static const int kb_map_keys[256] = {
     [0x15] = 'q', [0x1D] = 'w', [0x24] = 'e', [0x2D] = 'r', [0x2C] = 't',
     [0x35] = 'y', [0x3C] = 'u', [0x43] = 'i', [0x44] = 'o', [0x4D] = 'p',
@@ -72,6 +98,30 @@ static const int kb_map_keys_caps[256] = {
     
     [0x0D] = '\t', [0x29] = ' ', [0x76] = 27,
     [0x5D] = '\\', [0x7C] = '*', [0x7B] = '-', [0x79] = '+',
+};
+
+static const int16_t keycode_map[128] = {
+    [0x0D] = KEY_TAB,       [0x0E] = KEY_GRAVE,
+    [0x12] = KEY_LEFTSHIFT, [0x14] = KEY_LEFTCTRL,
+    [0x15] = KEY_Q,         [0x16] = KEY_1,         [0x1A] = KEY_Z,
+    [0x1B] = KEY_S,         [0x1C] = KEY_A,         [0x1D] = KEY_W,
+    [0x1E] = KEY_2,         [0x21] = KEY_C,         [0x22] = KEY_X,
+    [0x23] = KEY_D,         [0x24] = KEY_E,         [0x25] = KEY_4,
+    [0x26] = KEY_3,         [0x29] = KEY_SPACE,     [0x2A] = KEY_V,
+    [0x2B] = KEY_F,         [0x2C] = KEY_T,         [0x2D] = KEY_R,
+    [0x2E] = KEY_5,         [0x31] = KEY_N,         [0x32] = KEY_B,
+    [0x33] = KEY_H,         [0x34] = KEY_G,         [0x35] = KEY_Y,
+    [0x36] = KEY_6,         [0x3A] = KEY_M,         [0x3B] = KEY_J,
+    [0x3C] = KEY_U,         [0x3D] = KEY_7,         [0x3E] = KEY_8,
+    [0x41] = KEY_COMMA,     [0x42] = KEY_K,         [0x43] = KEY_I,
+    [0x44] = KEY_O,         [0x45] = KEY_0,         [0x46] = KEY_9,
+    [0x49] = KEY_DOT,       [0x4A] = KEY_SLASH,     [0x4B] = KEY_L,
+    [0x4C] = KEY_SEMICOLON, [0x4D] = KEY_P,         [0x4E] = KEY_MINUS,
+    [0x52] = KEY_APOSTROPHE,[0x54] = KEY_LEFTBRACE,
+    [0x55] = KEY_EQUAL,     [0x59] = KEY_RIGHTSHIFT,[0x5A] = KEY_ENTER,
+    [0x5B] = KEY_RIGHTBRACE,[0x5D] = KEY_BACKSLASH,
+    [0x66] = KEY_BACKSPACE, [0x6B] = KEY_LEFT,      [0x72] = KEY_DOWN,
+    [0x74] = KEY_RIGHT,     [0x75] = KEY_UP,        [0x76] = KEY_ESC,
 };
 
 enum {
@@ -173,18 +223,18 @@ void irq12_handler(struct registers *r) {
         bool ys;
         short delta_x;
         short delta_y;
-    } state, last_state = {0};
+    } state = {0}, last_state = {0};
     static int pi = 0;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
-        dprintf(LOG_INFO, "\033[93mi8042:\033[0m not a mouse packet\n");
+        dprintf(LOG_ERR, "\033[93mi8042:\033[0m not a mouse packet\n");
         lapic_eoi();
         return;
     }
 
     uint8_t data = inb(PS2_DATA);
     if (pi == 0 && !(data & (1 << 3))) {
-        dprintf(LOG_INFO, "\033[93mi8042:\033[0m corrupted mouse packet\n");
+        dprintf(LOG_ERR, "\033[93mi8042:\033[0m corrupted mouse packet\n");
         lapic_eoi();
         return;
     }
@@ -206,31 +256,45 @@ void irq12_handler(struct registers *r) {
     }
 
     if (++pi >= 3) {
-        #define PUSH(x) fifo_enqueue(mouse_fifo, x);
         if (state.delta_x) {
-            PUSH(EV_REL);
-            PUSH(REL_X);
-            PUSH(state.delta_x);
+            struct input_event iev = {
+                .type = EV_REL,
+                .code = REL_X,
+                .value = state.delta_x
+            };
+            fifo_enqueue(mouse_fifo, iev);
         }
         if (state.delta_y) {
-            PUSH(EV_REL);
-            PUSH(REL_Y);
-            PUSH(state.delta_y);
+            struct input_event iev = {
+                .type = EV_REL,
+                .code = REL_Y,
+                .value = state.delta_y
+            };
+            fifo_enqueue(mouse_fifo, iev);
         }
         if (state.left != last_state.left) {
-            PUSH(EV_KEY);
-            PUSH(BTN_LEFT);
-            PUSH(state.left);
+            struct input_event iev = {
+                .type = EV_KEY,
+                .code = BTN_LEFT,
+                .value = state.left
+            };
+            fifo_enqueue(mouse_fifo, iev);
         }
         if (state.right != last_state.right) {
-            PUSH(EV_KEY);
-            PUSH(BTN_RIGHT);
-            PUSH(state.right);
+            struct input_event iev = {
+                .type = EV_KEY,
+                .code = BTN_RIGHT,
+                .value = state.right
+            };
+            fifo_enqueue(mouse_fifo, iev);
         }
         if (state.middle != last_state.middle) {
-            PUSH(EV_KEY);
-            PUSH(BTN_MIDDLE);
-            PUSH(state.middle);
+            struct input_event iev = {
+                .type = EV_KEY,
+                .code = BTN_MIDDLE,
+                .value = state.middle
+            };
+            fifo_enqueue(mouse_fifo, iev);
         }
 
         memcpy(&last_state, &state, sizeof state);
@@ -243,88 +307,27 @@ void irq12_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static int scancode_linux_keycode(uint8_t scancode) {
-    switch (scancode) {
-        case 0x1C: return KEY_A;
-        case 0x32: return KEY_B;
-        case 0x21: return KEY_C;
-        case 0x23: return KEY_D;
-        case 0x24: return KEY_E;
-        case 0x2B: return KEY_F;
-        case 0x34: return KEY_G;
-        case 0x33: return KEY_H;
-        case 0x43: return KEY_I;
-        case 0x3B: return KEY_J;
-        case 0x42: return KEY_K;
-        case 0x4B: return KEY_L;
-        case 0x3A: return KEY_M;
-        case 0x31: return KEY_N;
-        case 0x44: return KEY_O;
-        case 0x4D: return KEY_P;
-        case 0x15: return KEY_Q;
-        case 0x2D: return KEY_R;
-        case 0x1B: return KEY_S;
-        case 0x2C: return KEY_T;
-        case 0x3C: return KEY_U;
-        case 0x2A: return KEY_V;
-        case 0x1D: return KEY_W;
-        case 0x22: return KEY_X;
-        case 0x35: return KEY_Y;
-        case 0x1A: return KEY_Z;
-
-        case 0x16: return KEY_1;
-        case 0x1E: return KEY_2;
-        case 0x26: return KEY_3;
-        case 0x25: return KEY_4;
-        case 0x2E: return KEY_5;
-        case 0x36: return KEY_6;
-        case 0x3D: return KEY_7;
-        case 0x3E: return KEY_8;
-        case 0x46: return KEY_9;
-        case 0x45: return KEY_0;
-
-        case 0x29: return KEY_SPACE;
-        case 0x0D: return KEY_TAB;
-        case 0x5A: return KEY_ENTER;
-        case 0x66: return KEY_BACKSPACE;
-        case 0x76: return KEY_ESC;
-
-        case 0x4E: return KEY_MINUS;
-        case 0x55: return KEY_EQUAL;
-        case 0x54: return KEY_LEFTBRACE;
-        case 0x5B: return KEY_RIGHTBRACE;
-        case 0x5D: return KEY_BACKSLASH;
-        case 0x4C: return KEY_SEMICOLON;
-        case 0x52: return KEY_APOSTROPHE;
-        case 0x0E: return KEY_GRAVE;
-        case 0x41: return KEY_COMMA;
-        case 0x49: return KEY_DOT;
-        case 0x4A: return KEY_SLASH;
-
-        case 0x14: return KEY_LEFTCTRL;
-        case 0x12: return KEY_LEFTSHIFT;
-        case 0x59: return KEY_RIGHTSHIFT;
-
-        case 0x75: return KEY_UP;
-        case 0x72: return KEY_DOWN;
-        case 0x6b: return KEY_LEFT;
-        case 0x74: return KEY_RIGHT;
-
-        default: return -1;
-    }
+static int scancode_to_keycode(uint8_t scancode) {
+    if (scancode >= sizeof(keycode_map) / sizeof(int16_t))
+        return -1;
+    return keycode_map[scancode] ? keycode_map[scancode] : -1;
 }
 
 long ps2_keyboard_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
     (void)offset;
-    (void)len;
 
-    int c;
-    if (!fifo_dequeue(kb_fifo, &c)) return -EAGAIN;
+    if (len < sizeof(struct input_event))
+        return -EINVAL;
+    int c, sc;
+    if (fifo_dequeue(kb_fifo, &c) < (long)sizeof(int))
+        return -EAGAIN;
+    if ((sc = scancode_to_keycode(c > 0 ? c : -c)) < 0)
+        return -EAGAIN;
 
-    struct input_event iev;
+    struct input_event iev = {0};
     iev.type = EV_KEY;
-    iev.code = scancode_linux_keycode(c > 0 ? c : -c);
+    iev.code = sc;
     iev.value = c > 0;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
@@ -333,53 +336,53 @@ long ps2_keyboard_read_event(vfs_node_t *node, void *buffer, long offset, size_t
 long ps2_mouse_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
     (void)offset;
-    (void)len;
-
-    if (fifo_is_empty(mouse_fifo)) return -EAGAIN;
-
-    int packet[3] = {0};
-    fifo_dequeue(mouse_fifo, &packet[0]);
-    fifo_dequeue(mouse_fifo, &packet[1]);
-    fifo_dequeue(mouse_fifo, &packet[2]);
-
+    
+    if (len < sizeof(struct input_event))
+        return -EINVAL;
+    
     struct input_event iev;
-    iev.type = packet[0];
-    iev.code = packet[1];
-    iev.value = packet[2];
+    if (fifo_dequeue(mouse_fifo, &iev) < (long)sizeof(struct input_event))
+        return -EAGAIN;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
 }
 
 static void ps2_wait_write(void) {
-    while (inb(PS2_STATUS) & 2);
+    while (inb(PS2_STATUS) & PS2_STATUS_INPUT_FULL) {}
 }
 
 static void ps2_wait_read(void) {
-    while (!(inb(PS2_STATUS) & 1));
+    while (!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT_FULL)) {}
 }
 
-void ps2_send_command(uint8_t cmd) {
+static void ps2_send_command(uint8_t cmd) {
     ps2_wait_write();
     outb(PS2_COMMAND, cmd);
 }
 
-void ps2_write_data(uint8_t data) {
+static void ps2_write_data(uint8_t data) {
     ps2_wait_write();
     outb(PS2_DATA, data);
 }
 
-uint8_t ps2_read_data(void) {
+static uint8_t ps2_read_data(void) {
     ps2_wait_read();
     return inb(PS2_DATA);
 }
 
-void ps2_send_mouse_command(uint8_t cmd) {
-    ps2_send_command(0xD4);
+static void ps2_send_mouse_command(uint8_t cmd) {
+    ps2_send_command(PS2_CMD_WRITE_TO_PORT2);
     ps2_write_data(cmd);
 }
 
 static void ps2_flush_buffer(void) {
-    while (inb(PS2_STATUS) & 1) inb(PS2_DATA);
+    while (inb(PS2_STATUS) & PS2_STATUS_OUTPUT_FULL) {
+        inb(PS2_DATA);
+    }
+}
+static uint8_t ps2_config_read(void) {
+    ps2_send_command(PS2_CMD_READ_CONFIG);
+    return ps2_read_data();
 }
 
 static void ps2_config_write(uint8_t config) {
@@ -395,73 +398,74 @@ vfs_ops_t mouse_ops = {
     .read = ps2_mouse_read_event
 };
 
+static bool ps2_test_port(uint8_t port_cmd) {
+    ps2_send_command(port_cmd);
+    return ps2_read_data() == PS2_PORT_TEST_PASSED;
+}
+
 void ps2_hid_install(void) {
-    ps2_send_command(0xAD);
-    ps2_send_command(0xA7);
+    ps2_send_command(PS2_CMD_DISABLE_PORT1);
+    ps2_send_command(PS2_CMD_DISABLE_PORT2);
     ps2_flush_buffer();
-
-    ps2_send_command(0x20);
-    uint8_t config = ps2_read_data() & ~0x51;
+    
+    uint8_t config = ps2_config_read();
+    config &= ~(PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT1_CLOCK | PS2_CONFIG_PORT1_TRANSLATE);
     ps2_config_write(config);
-
-    ps2_send_command(0xAA);
-    if (ps2_read_data() != 0x55) {
-        dprintf(LOG_INFO, "\033[93mi8042:\033[0m self test failed\n");
+    
+    ps2_send_command(PS2_CMD_SELF_TEST);
+    if (ps2_read_data() != PS2_SELF_TEST_PASSED) {
+        dprintf(LOG_ERR, "\033[93mi8042:\033[0m self test failed\n");
         return;
     }
-
-    ps2_send_command(0xA8);
-    ps2_send_command(0x20);
-    bool dual_channel = !(ps2_read_data() & 0x20);
+    
+    ps2_send_command(PS2_CMD_ENABLE_PORT2);
+    config = ps2_config_read();
+    bool dual_channel = !(config & PS2_CONFIG_PORT2_CLOCK);
     if (dual_channel) {
-        ps2_send_command(0xA7);
-        config &= ~0x22;
+        ps2_send_command(PS2_CMD_DISABLE_PORT2);
+        config = ps2_config_read();
+        config &= ~(PS2_CONFIG_PORT2_IRQ | PS2_CONFIG_PORT2_CLOCK);
         ps2_config_write(config);
     }
-
-    ps2_send_command(0xAB);
-    bool port1_works = (ps2_read_data() == 0x00);
-    bool port2_works = dual_channel && (ps2_send_command(0xA9), ps2_read_data() == 0x00);
-
-    if (port1_works) {
-        ps2_send_command(0xAE);
-        config |= 1;
-    }
-    if (port2_works) {
-        ps2_send_command(0xA8);
-        config |= 2;
-    }
     
-    if (port1_works || port2_works) ps2_config_write(config);
-
+    bool port1_works = ps2_test_port(PS2_CMD_TEST_PORT1);
+    bool port2_works = dual_channel && ps2_test_port(PS2_CMD_TEST_PORT2);
+    
     if (port1_works) {
+        ps2_send_command(PS2_CMD_ENABLE_PORT1);
+        config |= PS2_CONFIG_PORT1_IRQ;
+        ps2_config_write(config);
+
         tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
         kb->ops = &keyboard_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
-
         kb_fifo = fifo_create(64, int);
         irq_register(1, irq1_handler);
         ioapic_redirect_irq(0, 33, 1, false);
     }
-
+    
     if (port2_works) {
-        ps2_send_mouse_command(0xF4);
+        ps2_send_command(PS2_CMD_ENABLE_PORT2);
+        config |= PS2_CONFIG_PORT2_IRQ;
+        ps2_config_write(config);
+        
+        ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
         ps2_read_data();
         ps2_flush_buffer();
-        ps2_send_mouse_command(0xF3);
+        
+        ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
         ps2_read_data();
         ps2_send_mouse_command(100);
         ps2_read_data();
         
-        mouse_fifo = fifo_create(64, int);
+        mouse_fifo = fifo_create(64, struct input_event);
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->ops = &mouse_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
-
         irq_register(12, irq12_handler);
         ioapic_redirect_irq(0, 44, 12, false);
     }
-
+    
     dprintf(LOG_INFO, "\033[93mi8042:\033[0m initialized PS/2 controller\n");
 }

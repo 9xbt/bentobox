@@ -25,16 +25,24 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return 0;
 
     void *buffer = kmalloc(len);
-    if (write && copy_from_user(buffer, buf, len) < 0)
+    if (write && copy_from_user(buffer, buf, len) < 0) {
+        kfree(buffer);
         return -EFAULT;
+    }
 
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
+    if (ret < 0) {
+        kfree(buffer);
+        return ret;
+    }
     file->offset += ret;
 
-    if (!write && copy_to_user(buf, buffer, ret) < 0)
+    if (!write && copy_to_user(buf, buffer, ret) < 0) {
+        kfree(buffer);
         return -EFAULT;
+    }
     kfree(buffer);
     return ret;
 }

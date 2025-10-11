@@ -34,7 +34,7 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
-APPS_CFLAGS := -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o
+APPS_CFLAGS := -g -O2 -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o
 APPS_LDFLAGS := -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group
 APPS_SOURCES := $(shell find apps -type f)
 
