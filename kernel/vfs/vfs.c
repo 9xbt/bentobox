@@ -1,3 +1,4 @@
+#include "kernel/list.h"
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -187,12 +188,20 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
         return -ENOENT;
     if (!node->ops || !node->ops->poll || !node->waiters)
         return -1UL;
+
     long poll = node->ops->poll(node, events);
     if (poll)
         return poll;
     if (timeout == 0)
         return 0;
+
     list_insert(node->waiters, this);
+    poll = node->ops->poll(node, events);
+    if (poll) {
+        list_remove_value(node->waiters, this);
+        return poll;
+    }
+    
     if (timeout == -1) {
         this->state = THREAD_PAUSED;
         sched_yield();
