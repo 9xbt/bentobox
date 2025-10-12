@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 #include <kernel/time.h>
 
@@ -101,6 +102,7 @@ typedef struct vfs_node {
     uint64_t mtime;
     list_t *children;
     list_t *waiters;
+    spinlock_t waiters_lock;
     struct vfs_node *parent;
     struct vfs_node *symlink;
     struct vfs_ops *ops;

@@ -1,4 +1,5 @@
 #include "kernel/list.h"
+#include "kernel/spinlock.h"
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -31,6 +32,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->atime = node->ctime = node->mtime = 0;
     node->children = list_create();
     node->waiters = list_create();
+    node->waiters_lock = 0;
     node->parent = NULL;
     node->symlink = NULL;
     node->ops = NULL;
@@ -195,18 +197,22 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (timeout == 0)
         return 0;
 
+    acquire(&node->waiters_lock);
     list_insert(node->waiters, this);
     poll = node->ops->poll(node, events);
     if (poll) {
         list_remove_value(node->waiters, this);
+        release(&node->waiters_lock);
         return poll;
     }
     
     if (timeout == -1) {
         this->state = THREAD_PAUSED;
+        release(&node->waiters_lock);
         sched_yield();
     } else {
         dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m poll timeout is unimplemented\n");
+        release(&node->waiters_lock);
     }
     return node->ops->poll(node, events);
 }
@@ -214,11 +220,13 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
 void vfs_wake_waiters(vfs_node_t *node) {
     if (!node)
         return;
+    acquire(&node->waiters_lock);
     foreach(i, node->waiters) {
         struct thread *tcb = i->value;
         tcb->state = THREAD_RUNNING;
     }
     list_clear(node->waiters);
+    release(&node->waiters_lock);
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {
