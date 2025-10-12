@@ -3,7 +3,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 
 The kernel features a modular, portable monolithic design with a syscall set consisting of only the essentials.
 
-The userspace is built on [mlibc](https://example.com), a portable standard library that provides a clean abstraction layer bentobox plugs into.
+The userspace is built on [mlibc](https://github.com/managarm/mlibc/), a portable standard library that provides a clean abstraction layer bentobox plugs into.
 
 ## Tested build environments
 - Debian Trixie
