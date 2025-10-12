@@ -15,8 +15,6 @@ HOST_CPPFLAGS :=
 HOST_LDFLAGS :=
 HOST_LIBS :=
 
-ARCH_ASFLAGS += -march=armv8-a
-
 APPS_CC := aarch64-linux-gnu-gcc
 APPS_LDFLAGS += -m aarch64elf
 

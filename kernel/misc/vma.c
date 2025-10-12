@@ -16,6 +16,7 @@ struct vma *vma_create(uintptr_t base, size_t size) {
     vma->used_pages = 0;
     vma->last_page = 0;
     vma->regions = list_create();
+    vma->lock = 0;
     memset(vma->bitmap, 0, ALIGN_UP(vma->pages, 8) / 8);
 
     //dprintf(LOG_DEBUG, "\033[93mvma:\033[0m created %ld MB pool\n", vma->pages / 256);
@@ -23,6 +24,8 @@ struct vma *vma_create(uintptr_t base, size_t size) {
 }
 
 void vma_destroy(struct vma *vma, uintptr_t *pm) {
+    acquire(&vma->lock);
+
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
         for (size_t j = 0; j < region->pages; j++) {
@@ -51,6 +54,8 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
         }
     }
 
+    release(&vma->lock);
+
     kfree(vma->bitmap);
     kfree(vma);
 }
@@ -58,7 +63,9 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
 struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
 	if (!src || !pm)
 		return NULL;
-	
+
+	acquire(&src->lock);
+
 	struct vma *vma = vma_create(src->base, src->pages * PAGE_SIZE);
 	memcpy(vma->bitmap, src->bitmap, ALIGN_UP(src->pages, 8) / 8);
 	vma->used_pages = src->used_pages;
@@ -94,6 +101,7 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
         }
     }
 	
+    release(&src->lock);
 	return vma;
 }
 
@@ -123,13 +131,17 @@ static size_t vma_find_pages(struct vma *vma, size_t start, size_t page_count) {
 }
 
 void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t page_count, uint64_t flags) {
+    acquire(&vma->lock);
+    
     void *ptr;
     if (!va) {
         size_t pages = vma_find_pages(vma, vma->last_page, page_count);
         if (pages == (size_t)-1)
             pages = vma_find_pages(vma, 0, page_count);
-        if (pages == (size_t)-1)
+        if (pages == (size_t)-1) {
+            release(&vma->lock);
             return NULL;
+        }
         ptr = (void *)(pages * PAGE_SIZE + vma->base);
 
         if (pa) {
@@ -154,10 +166,14 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
         mmu_map(pm, ptr + i, phys, flags);
         if (!pa) memset(VIRTUAL_HHDM(phys), 0, PAGE_SIZE);
     }
+    
+    release(&vma->lock);
     return ptr;
 }
 
 void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
+    acquire(&vma->lock);
+    
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
         if ((uintptr_t)ptr >= region->va && (uintptr_t)ptr < region->va + region->pages * PAGE_SIZE) {
@@ -178,6 +194,7 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
             }
 
             list_remove(vma->regions, i);
+            release(&vma->lock);
             kfree(region);
             return;
         }
@@ -194,8 +211,10 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
         vma->used_pages -= page_count;
         if (page < vma->last_page)
             vma->last_page = page;
+        release(&vma->lock);
         return;
     }
 
+    release(&vma->lock);
     dprintf(LOG_WARNING, "\033[93mvma:\033[0m couldn't free region at 0x%p\n", ptr);
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 
 #ifdef __x86_64__
@@ -56,6 +57,7 @@ struct vma {
     size_t last_page;
     uintptr_t base;
     list_t *regions;
+    spinlock_t lock;
 };
 
 struct vma_region {

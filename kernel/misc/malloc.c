@@ -1,3 +1,4 @@
+#include <kernel/spinlock.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -32,6 +33,7 @@
 
 extern void arch_do_backtrace(void);
 
+static spinlock_t lock = 0;
 static uintptr_t brk = HEAP_BASE;
 
 static void *sbrk(intptr_t increment) {
@@ -102,15 +104,23 @@ static int munmap(void *addr, size_t length) {
 
 void *kmalloc(size_t n) {
     assert(n);
-    return dlmalloc(n);
+    acquire(&lock);
+    void *ptr = dlmalloc(n);
+    release(&lock);
+    return ptr;
 }
 
 void kfree(void *ptr) {
     assert(ptr);
+    acquire(&lock);
     dlfree(ptr);
+    release(&lock);
 }
 
 void *krealloc(void *ptr, size_t size) {
     assert(size);
-    return dlrealloc(ptr, size);
+    acquire(&lock);
+    void *p = dlrealloc(ptr, size);
+    release(&lock);
+    return p;
 }

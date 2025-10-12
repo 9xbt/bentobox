@@ -105,7 +105,7 @@ ifeq ($(ARCH),aarch64)
 obj/$(ARCH)/apps/%.o: apps/%.S
 	@echo " AS $<"
 	@mkdir -p "$$(dirname $@)"
-	@$(CC) $(APPS_ASFLAGS) -c $< -o $@
+	@$(CC) -march=armv8-a -c $< -o $@
 endif
 
 ifeq ($(ARCH),x86_64)
