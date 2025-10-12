@@ -230,12 +230,6 @@ void kmain(void) {
 
     asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
 
-    uint64_t cpacr;
-    asm volatile("mrs %0, cpacr_el1" : "=r"(cpacr));
-    cpacr |= (0b11 << 20);
-    asm volatile("msr cpacr_el1, %0" : : "r"(cpacr));
-    asm volatile("isb");
-
     vectors_install();
     mmu_initialize();
     elf64_module(ksym_request.response->executable_file);

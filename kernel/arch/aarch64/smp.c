@@ -32,11 +32,8 @@ void ap_startup(void) {
     gicc_write(this_cpu->gicc, GICC_PMR, 0xFF);
     gicc_write(this_cpu->gicc, GICC_CTLR, 1);
 
-    uint64_t cpacr;
-    asm volatile("mrs %0, cpacr_el1" : "=r"(cpacr));
-    cpacr |= (0b11 << 20);
-    asm volatile("msr cpacr_el1, %0" : : "r"(cpacr));
-    asm volatile("isb");
+    struct madt_gicd *gicd = madt_gicd_list[0];
+    gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
 
     asm volatile ("msr daifclr, #2");
     for (;;) asm ("wfi");

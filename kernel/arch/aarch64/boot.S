@@ -3,6 +3,12 @@ _start:
     mov x20, sp
     msr spsel, #1
     mov sp, x20
+
+    mrs x0, cpacr_el1
+    orr x0, x0, #(0b11 << 20)
+    msr cpacr_el1, x0
+    isb
+
     bl kmain
     b .
 
@@ -11,6 +17,12 @@ _ap_trampoline:
     mov x20, sp
     msr spsel, #1
     mov sp, x20
+
+    mrs x0, cpacr_el1
+    orr x0, x0, #(0b11 << 20)
+    msr cpacr_el1, x0
+    isb
+
     bl ap_startup
     b .
 
