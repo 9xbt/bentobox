@@ -324,6 +324,17 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
         return -ENOEXEC;
     }
 
+    #ifdef __x86_64__
+    if (ehdr->e_machine != EM_X86_64) {
+    #elif __aarch64__
+    if (ehdr->e_machine != EM_AARCH64) {
+    #endif
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m wrong architecture\n");
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
     if (ehdr->e_type != ET_EXEC) {
         dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf type\n");
         kfree(buffer);

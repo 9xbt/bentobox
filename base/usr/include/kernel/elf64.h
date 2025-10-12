@@ -17,6 +17,9 @@ typedef int64_t  Elf64_Sxword;
 #define ELFDATA2LSB 1
 #define ELFDATA2MSB 2
 
+#define EM_X86_64 	0x3E
+#define EM_AARCH64  0xB7
+
 #define EI_CLASS       4
 #define EI_DATA        5
 #define EI_VERSION     6
