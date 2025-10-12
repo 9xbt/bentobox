@@ -7,6 +7,8 @@
 #include <kernel/file.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
+#define FLANTERM_IN_FLANTERM
+#include <flanterm_private.h>
 
 long fbdev_mmap(vfs_node_t *node, void *addr, size_t pages, uint64_t prot, int flags, long offset) {
     (void)node;
@@ -37,7 +39,14 @@ long fbdev_ioctl(vfs_node_t *node, int op, void *arg) {
     return 0;
 }
 
+long fbdev_close(vfs_node_t *node) {
+    (void)node;
+    ft_ctx->full_refresh(ft_ctx);
+    return 0;
+}
+
 vfs_ops_t fbdev_ops = {
+    .close = fbdev_close,
     .write = fbdev_write,
     .mmap = fbdev_mmap
 };
