@@ -12,7 +12,7 @@ mkdir -p base/usr/bin
 mkdir -p ports/src
 cd ports/src
 if [ ! -d "bash" ]; then
-    git clone https://github.com/bminor/bash
+    git clone https://github.com/bminor/bash --depth=1
 fi
 cd bash
 
