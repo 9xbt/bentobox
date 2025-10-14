@@ -75,7 +75,7 @@ int file_close(int fd) {
 struct file *file_get(int file) {
     if (file < 0 || file >= this_proc->max_files)
         return NULL;
-    if (!this_proc->files[file].node)
+    if (!this_proc->files[file].node || !this_proc->files[file].open)
         return NULL;
     return &this_proc->files[file];
 }

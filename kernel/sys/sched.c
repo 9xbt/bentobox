@@ -24,36 +24,48 @@ list_t *processes = NULL;
 
 uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
+spinlock_t pid_lock = 0;
+spinlock_t tid_lock = 0;
 
 struct process *init_proc = NULL;
 struct thread  *cleaner_tcb = NULL;
 
 int sched_allocate_pid(void) {
+    acquire(&pid_lock);
     for (int pid = 0; pid < SCHED_BITMAP_SIZE * 8; pid++) {
         if (!bitmap_get(pid_bitmap, pid)) {
             bitmap_set(pid_bitmap, pid);
+            release(&pid_lock);
             return pid;
         }
     }
+    release(&pid_lock);
     return -1;
 }
 
 int sched_allocate_tid(void) {
+    acquire(&tid_lock);
     for (int tid = 0; tid < SCHED_BITMAP_SIZE * 8; tid++) {
         if (!bitmap_get(tid_bitmap, tid)) {
             bitmap_set(tid_bitmap, tid);
+            release(&tid_lock);
             return tid;
         }
     }
+    release(&tid_lock);
     return -1;
 }
 
 void sched_free_pid(int pid) {
+    acquire(&pid_lock);
     bitmap_clear(pid_bitmap, pid);
+    release(&pid_lock);
 }
 
 void sched_free_tid(int tid) {
+    acquire(&tid_lock);
     bitmap_clear(tid_bitmap, tid);
+    release(&tid_lock);
 }
 
 struct cpu *sched_find_cpu(void) {

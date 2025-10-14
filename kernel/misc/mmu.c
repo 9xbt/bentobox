@@ -1,8 +1,10 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/spinlock.h>
 #include <kernel/bitmap.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 #include <kernel/mmu.h>
 #include <limine.h>
 
@@ -154,6 +156,7 @@ void mmu_initialize(void) {
 }
 
 static uint64_t last_page = 0;
+static spinlock_t lock = 0;
 
 uint64_t mmu_find_page(uint64_t start) {
     for (uint64_t page = start; page < mmu_page_count; page++) {
@@ -168,17 +171,20 @@ uint64_t mmu_find_page(uint64_t start) {
 }
 
 void *mmu_alloc(void) {
+    acquire(&lock);
     uint64_t page = mmu_find_page(last_page);
     if (page == (uint64_t)-1)
         page = mmu_find_page(0);
     if (page == (uint64_t)-1)
-        return NULL;
+        panic("Out of memory");
+    release(&lock);
     return (void *)(page * PAGE_SIZE);
 }
 
 void mmu_free(void *ptr) {
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
+    acquire(&lock);
     if (!bitmap_get(mmu_bitmap, page)) {
         dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m potential double free at 0x%p\n", ptr);
         return; 
@@ -189,6 +195,7 @@ void mmu_free(void *ptr) {
 
     if (page < last_page)
         last_page = (uint64_t)ptr / PAGE_SIZE;
+    release(&lock);
 }
 
 void *mmu_map_module(uintptr_t base, size_t len) {

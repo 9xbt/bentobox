@@ -88,7 +88,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     if (user) {
         uintptr_t *pm = mmu_get_pm();
-        asm volatile ("cli" ::: "memory");
+        //asm volatile ("cli" ::: "memory");
         mmu_switch_pm(tcb->parent->pm);
         
         // TODO: multithreaded userspace tasks can't have the stack at the same address!
@@ -131,7 +131,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         ctx->user_stack -= depth;
 
         mmu_switch_pm(pm);
-        asm volatile ("sti" ::: "memory");
+        //asm volatile ("sti" ::: "memory");
     }
     ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
