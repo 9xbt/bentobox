@@ -3,7 +3,6 @@
 QEMUFLAGS :=
 
 ARCH := x86_64
-DEFAULT_QEMUFLAGS := -m 2G -smp 2
 IMAGE_NAME := bin/$(ARCH)/image
 
 CFLAGS += -m64 -march=x86-64 -mabi=sysv -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel
@@ -23,11 +22,11 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(DEFAULT_QEMUFLAGS) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -drive file=$(IMAGE_NAME).hdd,format=raw $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d $(DEFAULT_QEMUFLAGS) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -drive file=$(IMAGE_NAME).hdd,format=raw $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf

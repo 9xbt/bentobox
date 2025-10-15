@@ -25,6 +25,7 @@ static inline uint32_t pci_config_addr(uint8_t bus, uint8_t device, uint8_t func
 uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
 void     pci_write(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value);
 uint16_t pci_config_read_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
+void     pci_config_write_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t value);
 uint8_t  pci_find_cap(pci_device_t *dev, uint8_t cap_id);
 pci_device_t *pci_get_device(uint8_t class, uint8_t subclass);
 pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t device);

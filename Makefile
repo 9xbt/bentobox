@@ -15,7 +15,7 @@ CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
 CFLAGS += -g -O2 -fno-omit-frame-pointer -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\"
 CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
-LDFLAGS += -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/arch/$(ARCH)/linker.ld
+LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
 include build/${ARCH}.mk
 
@@ -62,7 +62,7 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar $(IMAGE_NAME).hdd
 
 -include $(HEADER_DEPS)
 
@@ -122,6 +122,11 @@ bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(
 	@cp -r base/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf $@ .
+
+$(IMAGE_NAME).hdd:
+	@echo " HD $@"
+	@truncate -s 1000M $@
+	@dd if=/dev/urandom of=$@ bs=512 count=1 conv=notrunc,sparse status=none
 
 .PHONY: clean
 clean:

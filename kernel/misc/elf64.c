@@ -79,6 +79,7 @@ int elf64_module(struct limine_file *mod) {
     }
 
     uintptr_t base = (uintptr_t)mmu_map_module((uintptr_t)mod->address, mod->size);
+    dprintf(LOG_DEBUG, "\033[93melf:\033[0m loading module '%s' at base 0x%p\n", mod->path, base);
 
     for (int i = 0; i < ehdr->e_shnum; i++) {
         if (shdr[i].sh_type == SHT_NOBITS && shdr[i].sh_size > 0) {

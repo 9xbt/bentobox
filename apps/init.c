@@ -6,9 +6,9 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-    FILE *console = fopen("/dev/console", "w");
+    // FILE *console = fopen("/dev/console", "w");
 
-    fprintf(console, "\033[93minit:\033[0m Hello, world!\n");
+    // fprintf(console, "\033[93minit:\033[0m Hello, world!\n");
 
     printf("\nWelcome to \033[96mbentobox\033[0m!\n");
 
