@@ -41,6 +41,9 @@ Run `./ports/coreutils.sh`.
 ### lua
 Run `./ports/lua.sh`.
 
+### doomgeneric
+Run `./ports/doomgeneric.sh`. Doom needs a [WAD file](https://archive.org/details/theultimatedoom_doom2_doom.wad).
+
 ## Building the kernel (x86_64)
 Packages required:
 - git

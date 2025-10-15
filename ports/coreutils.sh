@@ -1,4 +1,6 @@
 #!/bin/bash
+[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+
 export CC="gcc"
 export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17 -D__bentobox__ -Wno-error -Wno-error=format-overflow"
 export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"

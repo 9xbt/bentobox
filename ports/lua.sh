@@ -1,4 +1,6 @@
 #!/bin/bash
+[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+
 mkdir -p ports/src
 cd ports/src
 git clone https://github.com/lua/lua --depth=1

@@ -1,4 +1,6 @@
 #!/bin/bash
+[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+
 mkdir -p ports/src
 mkdir -p base/usr/local/share/figlet
 cd ports/src/
