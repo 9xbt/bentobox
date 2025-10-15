@@ -164,7 +164,6 @@ long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EBUSY;
     if (node->type == VFS_DIRECTORY)
         return -EISDIR;
-    while (!(vfs_poll(node, POLLIN, -1) & POLLIN)) {}
     if (node->ops && node->ops->read)
         return node->ops->read(node, buffer, offset, len);
     return -EPERM;
@@ -179,7 +178,6 @@ long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EBUSY;
     if (node->type == VFS_DIRECTORY)
         return -EISDIR;
-    while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT)) {}
     if (node->ops && node->ops->write)
         return node->ops->write(node, buffer, offset, len);
     return -EPERM;

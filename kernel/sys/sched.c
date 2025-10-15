@@ -112,6 +112,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     memset(&tcb->psig, 0, sizeof tcb->psig);
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
+    tcb->sleep_end = 0;
 
     static char *empty_argv_envp[] = { NULL };
     arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);
@@ -194,6 +195,14 @@ void sched_yield(void) {
     arch_yield(this_cpu);
 }
 
+void sched_sleep(size_t ns) {
+    size_t sec, nsec;
+    uptime(&sec, &nsec);
+    this->sleep_end = sec * 1000000000UL + nsec + ns;
+    this->state = THREAD_SLEEPING;
+    sched_yield();
+}
+
 void sched_exit(struct thread *tcb) {
     tcb->parent->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
@@ -230,9 +239,15 @@ void sched_deliver_signals(struct thread *tcb) {
 }
 
 node_t *sched_find_next(void) {
+    size_t sec, nsec;
+    uptime(&sec, &nsec);
+    size_t now = sec * 1000000000UL + nsec;
+
     node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
+        if (t->state == THREAD_SLEEPING && now >= t->sleep_end)
+            t->state = THREAD_RUNNING;
         if (t->state == THREAD_RUNNING)
             return node;
 

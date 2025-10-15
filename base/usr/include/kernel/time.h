@@ -13,4 +13,4 @@ struct timeval {
 };
 
 void arch_sleep(size_t ns);
-void uptime(long *sec, long *nsec);
+void uptime(size_t *sec, size_t *nsec);

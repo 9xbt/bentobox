@@ -19,7 +19,7 @@ const char *witty_comments[] = {
 };
 
 const char *witty(void) {
-    long nsec;
+    size_t nsec;
     uptime(NULL, &nsec);
     size_t count = sizeof(witty_comments) / sizeof(*witty_comments);
     return witty_comments[nsec % count];

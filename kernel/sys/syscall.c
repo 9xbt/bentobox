@@ -30,6 +30,8 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return -EFAULT;
     }
 
+    if (!(file->flags & O_NONBLOCK))
+        while (!(vfs_poll(file->node, write ? POLLOUT : POLLIN, -1) & (write ? POLLOUT : POLLIN)));
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
@@ -508,6 +510,23 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
     return ready;
 }
 
+long sys_sleep(struct timespec *ts) {
+    struct timespec tv;
+    copy_from_user(&tv, ts, sizeof tv);
+
+    sched_sleep(tv.tv_sec * 1000000000UL + tv.tv_nsec);
+    return 0;
+}
+
+long sys_gettime(int clock, struct timespec *ts) {
+    (void)clock;
+
+    struct timespec tv;
+    uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
+    copy_to_user(ts, &tv, sizeof tv);
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -540,7 +559,9 @@ syscall_func syscalls[] = {
     [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
     [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir,
     [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe,
-    [SYS_ppoll]     = (syscall_func)(uintptr_t)sys_ppoll
+    [SYS_ppoll]     = (syscall_func)(uintptr_t)sys_ppoll,
+    [SYS_sleep]     = (syscall_func)(uintptr_t)sys_sleep,
+    [SYS_gettime]   = (syscall_func)(uintptr_t)sys_gettime
 };
 
 long syscall_handler(size_t *args) {

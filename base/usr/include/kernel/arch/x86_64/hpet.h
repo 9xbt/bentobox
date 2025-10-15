@@ -14,5 +14,5 @@ extern struct acpi_hpet *hpet;
 
 void hpet_install(void);
 void hpet_sleep(size_t ns);
-void hpet_read_time(long *sec, long *nsec);
+void hpet_read_time(size_t *sec, size_t *nsec);
 size_t hpet_get_ticks(void);

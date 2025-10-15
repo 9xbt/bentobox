@@ -169,7 +169,7 @@ int dprintf(int level, const char *fmt, ...) {
     va_start(args, fmt);
     char buf[1024] = {0};
 
-    long secs = 0, nanos = 0;
+    size_t secs = 0, nanos = 0;
     uptime(&secs, &nanos);
 
     int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);

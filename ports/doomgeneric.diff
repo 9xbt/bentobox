@@ -23,7 +23,7 @@ index 0000000..7f5a2ac
 +################################################################
 +
 +CC=gcc
-+CFLAGS=-static -std=c99 -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE -DDOOMGENERIC_RESX=1280 -DDOOMGENERIC_RESY=800 -I$(MLIBC_ROOT)/include
++CFLAGS=-static -std=c99 -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE -I$(MLIBC_ROOT)/include
 +LDFLAGS=-Wl,--gc-sections -L$(MLIBC_ROOT)/lib -nostdlib -static $(MLIBC_ROOT)/lib/crt0.o
 +LIBS=-Wl,--allow-multiple-definition -Wl,--start-group -lc -lm -lgcc -lgcc_eh -Wl,--end-group
 +
