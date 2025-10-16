@@ -1,5 +1,6 @@
 #!/bin/bash
 [ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ ! -d "ports/src/gnulib" ] && echo "Please build gnulib before building coreutils!" && exit 1
 
 export CC="gcc"
 export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17 -D__bentobox__ -Wno-error -Wno-error=format-overflow"
@@ -14,18 +15,13 @@ mkdir -p base/usr/bin
 mkdir -p ports/src
 cd ports/src
 
-if [ ! -d "coreutils" ]; then
-    git clone https://github.com/coreutils/coreutils --depth=1
-fi
+git clone https://github.com/coreutils/coreutils --depth=1
 cd coreutils
 git apply ../../coreutils.diff
 
 make clean
 #make distclean
-./bootstrap
-cd gnulib
-git apply ../../../gnulib.diff
-cd ..
+./bootstrap --gnulib-srcdir=../gnulib
 set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \

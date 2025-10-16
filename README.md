@@ -24,17 +24,25 @@ Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 ### bash
 Run `./ports/bash.sh`.
 
-### coreutils
+### gnulib
 Packages required:
 - autoconf
 - automake
 - gettext
+- autopoint
+- m4
+- wget
+
+Run `./ports/gnulib.sh`.
+
+### coreutils
+Packages required:
 - bison
 - gperf
-- m4
 - texinfo
-- wget
-- autopoint
+
+Dependencies:
+- gnulib
 
 Run `./ports/coreutils.sh`.
 
