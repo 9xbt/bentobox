@@ -133,6 +133,7 @@ enum {
 static bool kb_caps = false, kb_ctrl = false, kb_shift = false;
 static struct fifo *kb_fifo, *mouse_fifo;
 static vfs_node_t *tty, *kb, *mouse;
+static int kb_refcount = 0, mouse_refcount = 0;
 
 void irq1_handler(struct registers *r) {
     (void)r;
@@ -152,7 +153,8 @@ void irq1_handler(struct registers *r) {
                 kb_ctrl = false;
                 break;
         }
-        fifo_enqueue(kb_fifo, -key);
+        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
+            fifo_enqueue(kb_fifo, -key);
         vfs_wake_waiters(kb);
     } else if (last_key == 0xe0) {
         switch (key) {
@@ -177,7 +179,8 @@ void irq1_handler(struct registers *r) {
                 tty->tty_ops->enqueue(tty, 'D');
                 break;
         }
-        fifo_enqueue(kb_fifo, key);
+        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
+            fifo_enqueue(kb_fifo, key);
         vfs_wake_waiters(kb);
     } else {
         switch (key) {
@@ -207,7 +210,8 @@ void irq1_handler(struct registers *r) {
                 tty->tty_ops->enqueue(tty, c);
                 break;
         }
-        fifo_enqueue(kb_fifo, key);
+        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
+            fifo_enqueue(kb_fifo, key);
         vfs_wake_waiters(kb);
     }
 
@@ -217,6 +221,14 @@ void irq1_handler(struct registers *r) {
 
 void irq12_handler(struct registers *r) {
     (void)r;
+    static int pi = 0;
+    
+    if (!__atomic_load_n(&mouse_refcount, __ATOMIC_SEQ_CST)) {
+        inb(PS2_STATUS);
+        inb(PS2_DATA);
+        lapic_eoi();
+        return;
+    }
 
     static struct {
         bool left;
@@ -227,7 +239,6 @@ void irq12_handler(struct registers *r) {
         short delta_x;
         short delta_y;
     } state = {0}, last_state = {0};
-    static int pi = 0;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
         dprintf(LOG_ERR, "\033[93mi8042:\033[0m not a mouse packet\n");
@@ -368,26 +379,44 @@ long ps2_mouse_poll(vfs_node_t *node, long events) {
     return 0;
 }
 
-static void ps2_wait_write(void) {
-    while (inb(PS2_STATUS) & PS2_STATUS_INPUT_FULL) {}
+long ps2_keyboard_open(vfs_node_t *node, int flags) {
+    (void)node;
+    (void)flags;
+    __atomic_add_fetch(&kb_refcount, 1, __ATOMIC_SEQ_CST);
+    return 0;
 }
 
-static void ps2_wait_read(void) {
-    while (!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT_FULL)) {}
+long ps2_mouse_open(vfs_node_t *node, int flags) {
+    (void)node;
+    (void)flags;
+    __atomic_add_fetch(&mouse_refcount, 1, __ATOMIC_SEQ_CST);
+    return 0;
+}
+
+long ps2_keyboard_close(vfs_node_t *node) {
+    (void)node;
+    __atomic_sub_fetch(&kb_refcount, 1, __ATOMIC_SEQ_CST);
+    return 0;
+}
+
+long ps2_mouse_close(vfs_node_t *node) {
+    (void)node;
+    __atomic_sub_fetch(&mouse_refcount, 1, __ATOMIC_SEQ_CST);
+    return 0;
 }
 
 static void ps2_send_command(uint8_t cmd) {
-    ps2_wait_write();
+    while (inb(PS2_STATUS) & PS2_STATUS_INPUT_FULL) {}
     outb(PS2_COMMAND, cmd);
 }
 
 static void ps2_write_data(uint8_t data) {
-    ps2_wait_write();
+    while (inb(PS2_STATUS) & PS2_STATUS_INPUT_FULL) {}
     outb(PS2_DATA, data);
 }
 
 static uint8_t ps2_read_data(void) {
-    ps2_wait_read();
+    while (!(inb(PS2_STATUS) & PS2_STATUS_OUTPUT_FULL)) {}
     return inb(PS2_DATA);
 }
 
@@ -412,11 +441,15 @@ static void ps2_config_write(uint8_t config) {
 }
 
 vfs_ops_t keyboard_ops = {
+    .open = ps2_keyboard_open,
+    .close = ps2_keyboard_close,
     .read = ps2_keyboard_read_event,
     .poll = ps2_keyboard_poll
 };
 
 vfs_ops_t mouse_ops = {
+    .open = ps2_mouse_open,
+    .close = ps2_mouse_close,
     .read = ps2_mouse_read_event,
     .poll = ps2_mouse_poll
 };

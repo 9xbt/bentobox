@@ -14,7 +14,7 @@ void __panic(char *file, int line, char *fmt, ...) {
     va_end(args);
 
     dprintf(LOG_EMERG, "%s:%d: Kernel panic: %s\n", file, line, buf);
-    printf("// %s\n", witty());
+    dprintf(LOG_EMERG, "// %s\n", witty());
     arch_do_backtrace();
 
     arch_fatal();

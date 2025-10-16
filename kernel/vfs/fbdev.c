@@ -19,9 +19,9 @@ long fbdev_mmap(vfs_node_t *node, void *addr, size_t pages, uint64_t prot, int f
 }
 
 long fbdev_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
-    (void)node;
-    memcpy((void *)(framebuffer->address + (uintptr_t)offset), buffer, len);
-    return len;
+    size_t count = len < node->size - offset ? len : node->size - offset;
+    memcpy((void *)(framebuffer->address + (uintptr_t)offset), buffer, count);
+    return count;
 }
 
 long fbdev_ioctl(vfs_node_t *node, int op, void *arg) {
@@ -57,6 +57,7 @@ vfs_tty_ops_t fbdev_tty_ops = {
 
 void fbdev_initialize(void) {
     vfs_node_t *fb0 = vfs_create_node("fb0", VFS_CHARDEVICE);
+    fb0->size = framebuffer->pitch * framebuffer->height;
     fb0->perms = 0660;
     fb0->ops = &fbdev_ops;
     fb0->tty_ops = &fbdev_tty_ops;

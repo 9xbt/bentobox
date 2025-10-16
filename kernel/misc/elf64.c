@@ -36,6 +36,34 @@ static uint32_t aarch64_imm_12(uint32_t val) {
 	return (val & 0xFFF) << 10;
 }
 
+static bool elf64_is_executable(Elf64_Ehdr *ehdr) {
+    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m invalid elf file\n");
+        return false;
+    }
+
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf class\n");
+        return false;
+    }
+
+    #ifdef __x86_64__
+    if (ehdr->e_machine != EM_X86_64) {
+    #elif __aarch64__
+    if (ehdr->e_machine != EM_AARCH64) {
+    #endif
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m wrong architecture\n");
+        return false;
+    }
+
+    if (ehdr->e_type != ET_EXEC) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf type\n");
+        return false;
+    }
+
+    return true;
+}
+
 __attribute__((no_sanitize("alignment")))
 int elf64_module(struct limine_file *mod) {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->address;
@@ -235,31 +263,17 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     }
 
     void *buffer = kmalloc(node->size);
-    if (vfs_read(node, buffer, 0, node->size) < 0) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m I/O error\n");
+    long len = vfs_read(node, buffer, 0, node->size);
+    if (len < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(len));
         kfree(buffer);
         vfs_close(node);
-        return -EIO;
+        return len;
     }
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 
-    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m invalid elf file\n");
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf class\n");
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    if (ehdr->e_type != ET_EXEC) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported elf type\n");
+    if (!elf64_is_executable(ehdr)) {
         kfree(buffer);
         vfs_close(node);
         return -ENOEXEC;
@@ -283,6 +297,11 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     if (!node) {
         dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
         return -ENOENT;
+    }
+    if (node->type == VFS_DIRECTORY) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: is a directory\n", file);
+        vfs_close(node);
+        return -EISDIR;
     }
 
     void *buffer = kmalloc(node->size);
@@ -311,33 +330,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
         return exec(_argv[0], argc + 1, _argv, envp);
     }
 
-    if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m invalid elf file\n");
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf class\n");
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    #ifdef __x86_64__
-    if (ehdr->e_machine != EM_X86_64) {
-    #elif __aarch64__
-    if (ehdr->e_machine != EM_AARCH64) {
-    #endif
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m wrong architecture\n");
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    if (ehdr->e_type != ET_EXEC) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf type\n");
+    if (!elf64_is_executable(ehdr)) {
         kfree(buffer);
         vfs_close(node);
         return -ENOEXEC;
