@@ -820,6 +820,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, v
         vfs_node_t *node = type == VFS_SYMLINK ? ext2_create_symlink_node(fs, name, &child) : vfs_create_node(name, type);
         if (node) {
             node->size = child.size;
+            node->perms = ext2_get_perms(child.type_perms);
             node->inode = entry->inode;
             node->ops = &ext2_ops;
             node->atime = child.last_access_time;
@@ -875,14 +876,20 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
     fs->sb = (ext2_sb *)kmalloc(ALIGN_UP(sizeof(ext2_sb), 512));
     vfs_read(sda, fs->sb, 1024, ALIGN_UP(sizeof(ext2_sb), 512));
 
+    char *sda_path = vfs_resolve_path(sda), *target_path = vfs_resolve_path(target);
     if (fs->sb->signature != 0xef53) {
-        char *path = vfs_resolve_path(sda);
-        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: not an ext2 partition\n", path);
-        kfree(path);
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: not an ext2 partition\n", sda_path);
+        kfree(sda_path);
+        kfree(target_path);
+        kfree(fs->sb);
+        kfree(fs);
         return -EINVAL;
     }
+    dprintf(LOG_INFO, "\033[93mext2:\033[0m mounting %s to %s\n", sda_path, target_path);
     if (fs->sb->req_features) {
-        dprintf(LOG_ERR, "\033[93mext2:\033[0m unsupported features 0x%x\n", fs->sb->req_features);
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: unsupported features 0x%x\n", sda_path, fs->sb->req_features);
+        kfree(sda_path);
+        kfree(target_path);
         kfree(fs->sb);
         kfree(fs);
         return -EOPNOTSUPP;
@@ -898,11 +905,12 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
     target->device = fs;
     target->ops = &ext2_ops;
     
+    kfree(sda_path);
+    kfree(target_path);
     return 0;
 }
 
 int init() {
-    dprintf(LOG_INFO, "\033[93mext2:\033[0m starting ext2 driver\n");
     if (!args_contains("root")) {
         panic("root partition not specified in command line");
     }
