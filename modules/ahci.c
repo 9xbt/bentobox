@@ -130,7 +130,7 @@ typedef struct hba_cmd_tbl {
 	uint8_t  rsv[48];	// Reserved
 
 	// 0x80
-	hba_prdt_entry_t	prdt_entry[1];	// Physical region descriptor table entries, 0 ~ 65535
+	hba_prdt_entry_t	prdt_entry[0];	// Physical region descriptor table entries, 0 ~ 65535
 } hba_cmd_tbl_t;
 
 typedef struct ahci_port {
@@ -191,6 +191,7 @@ ahci_port_t *ahci_init_drive(int port_num) {
     ahci_write(PORT_BASE(port_num) + PORT_FBU, HIGH(port->fb_phys));
     memset(port->fb, 0, PAGE_SIZE);
 
+    // TODO: set up more tables!
     hba_cmd_header_t *cmd_hdr = (hba_cmd_header_t *)port->clb;
     for (i = 0; i < 32; i++) {
         cmd_hdr[i].prdtl = 8;
@@ -254,37 +255,38 @@ int ahci_find_slot(int port) {
     return -1;
 }
 
-int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer, bool write) {
+int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool write) {
     ahci_write(PORT_BASE(port->port_num) + PORT_IS, 0xFFFFFFFF);
-    
     int slot = ahci_find_slot(port->port_num);
     if (slot < 0)
         return 1;
     
-    hba_cmd_header_t *cmd_hdr = (hba_cmd_header_t*)port->clb;
+    hba_cmd_header_t *cmd_hdr = port->clb;
     cmd_hdr += slot;
     cmd_hdr->cfl = sizeof(fis_reg_h2d_t) / sizeof(uint32_t);
     cmd_hdr->w = write;
-    cmd_hdr->prdtl = DIV_CEILING(count * 512, PAGE_SIZE);
+    cmd_hdr->prdtl = DIV_CEILING(count, 8);
     
-    hba_cmd_tbl_t *cmd_tbl = (hba_cmd_tbl_t*)port->cmd_tbls[slot];
+    hba_cmd_tbl_t *cmd_tbl = port->cmd_tbls[slot];
     memset(cmd_tbl, 0, sizeof(hba_cmd_tbl_t) + (cmd_hdr->prdtl - 1) * sizeof(hba_prdt_entry_t));
     
-    int32_t remaining_sectors = (int32_t)count;
-    for (int i = 0; remaining_sectors > 0; remaining_sectors -= PAGE_SIZE / 512, i++) {
-        uint64_t buffer_virt = (uint64_t)buffer + (i * PAGE_SIZE);
-        uint64_t page_phys = (uint64_t)PHYSICAL_HHDM((void*)buffer_virt);
-        
-        cmd_tbl->prdt_entry[i].dba = LOW(page_phys);
-        cmd_tbl->prdt_entry[i].dbau = HIGH(page_phys);
-        cmd_tbl->prdt_entry[i].dbc = MIN(remaining_sectors * 512, PAGE_SIZE) - 1;
+    uint32_t num_pages = ALIGN_UP(count, 8) / 8;
+    uintptr_t *pages = kmalloc(sizeof(uintptr_t) * num_pages);
+    for (uint32_t i = 0; i < num_pages; i++) {
+        pages[i] = (uintptr_t)mmu_alloc();
     }
     
-    fis_reg_h2d_t *fis_cmd = (fis_reg_h2d_t*)(&cmd_tbl->cfis);
+    for (int i = 0, j = count; j > 0; j -= 8, i++) {
+        uintptr_t phys = pages[i];
+        cmd_tbl->prdt_entry[i].dba = LOW(phys);
+        cmd_tbl->prdt_entry[i].dbau = HIGH(phys);
+        cmd_tbl->prdt_entry[i].dbc = MIN(j * 512, PAGE_SIZE) - 1;
+    }
+    
+    fis_reg_h2d_t *fis_cmd = (fis_reg_h2d_t *)(&cmd_tbl->cfis);
     fis_cmd->fis_type = FIS_TYPE_REG_H2D;
     fis_cmd->c = 1;
     fis_cmd->command = write ? 0x35 : 0x25;
-    
     fis_cmd->lba0 = (uint8_t)lba;
     fis_cmd->lba1 = (uint8_t)(lba >> 8);
     fis_cmd->lba2 = (uint8_t)(lba >> 16);
@@ -292,13 +294,20 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer, bool 
     fis_cmd->lba4 = (uint8_t)(lba >> 32);
     fis_cmd->lba5 = (uint8_t)(lba >> 40);
     fis_cmd->device = 0x40;
-    
     fis_cmd->countl = (uint8_t)count;
     fis_cmd->counth = (uint8_t)(count >> 8);
     
     ahci_send_cmd(port->port_num, slot);
     
-    return !!(ahci_read(PORT_BASE(port->port_num) + PORT_IS) & (1 << 30));
+    if (ahci_read(PORT_BASE(port->port_num) + PORT_IS) & (1 << 30))
+        return 1;
+    
+    for (uint32_t i = 0; i < num_pages; i++) {
+        memcpy(buffer + i * PAGE_SIZE, VIRTUAL_HHDM(pages[i]), MIN((count - i * 8) * 512, PAGE_SIZE));
+        mmu_free((void *)pages[i]);
+    }
+    kfree(pages);
+    return 0;
 }
 
 inline int ahci_op_read(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer) {
@@ -367,7 +376,7 @@ int init() {
         dprintf(LOG_ERR, "\033[93mahci:\033[0m failed to reset controller: timed out\n");
         return 1;
     }
-    dprintf(LOG_DEBUG, "\033[93mahci:\033[0m controller reset\n");
+    dprintf(LOG_DEBUG, "\033[93mahci:\033[0m reset controller\n");
 
     // Enable AHCI mode and interrupts in global host control register.
     if (!(ahci_read(AHCI_GHC) & GHC_AHCI_ENABLE)) {
@@ -385,12 +394,7 @@ int init() {
     uint32_t cap = ahci_read(AHCI_CAP);
     command_slots = ((cap >> 8) & 0x1F) + 1;
     dprintf(LOG_DEBUG, "\033[93mahci:\033[0m %d command slots available\n", command_slots);
-
-    if (cap & (1u << 31)) {
-        dprintf(LOG_DEBUG, "\033[93mahci:\033[0m 64-bit DMA supported\n");
-    } else {
-        dprintf(LOG_DEBUG, "\033[93mahci:\033[0m 64-bit DMA NOT supported, need memory below 4GB\n");
-    }
+    dprintf(LOG_DEBUG, "\033[93mahci:\033[0m 64-bit DMA %s supported\n", cap & (1u << 31) ? "is" : "is not");
 
     arch_sleep(5000000UL);
     ahci_write(AHCI_IS, 0xFFFFFFFF);
@@ -402,13 +406,13 @@ int init() {
                 case SATA_SIG_ATA: {
                     ahci_port_t *port = ahci_init_drive(i);
                     // TODO: PMM DMA pool or more PRDT entries
-                    char *buffer = VIRTUAL_HHDM((uintptr_t)mmu_alloc());
+                    char *buffer = kmalloc(512);
                     int ret = ahci_op_read(port, 0, 1, buffer);
                     dprintf(LOG_INFO, "AHCI op returned %d. Buffer contents:\n", ret);
                     for (int j = 0; j < 512; j++) {
                         printf("%02x  ", buffer[j]);
                     }
-                    mmu_free(PHYSICAL_HHDM(buffer));
+                    kfree(buffer);
                     break;
                 }
             }
