@@ -14,3 +14,4 @@ struct timeval {
 
 void arch_sleep(size_t ns);
 void uptime(size_t *sec, size_t *nsec);
+uint64_t now(void);
