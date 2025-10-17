@@ -116,7 +116,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         
         vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
         if (!child) {
-            if (create_type != VFS_NONE && !next) {
+            if (create_type != VFS_NONE && !next && node->type == VFS_DIRECTORY) {
                 //node->ops = vfs_get_root()->ops;
                 child = vfs_touch(node, token, create_type);
                 if (!child) {

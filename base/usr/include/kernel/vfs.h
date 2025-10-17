@@ -36,6 +36,23 @@
 #define POLLOUT     0x004
 #define POLLNVAL    0x020
 
+#define S_IRUSR 0x100
+#define S_IWUSR 0x80
+#define S_IXUSR 0x40
+
+#define S_IRGRP 0x20
+#define S_IWGRP 0x10
+#define S_IXGRP 0x8
+
+#define S_IROTH 0x4
+#define S_IWOTH 0x2
+#define S_IXOTH 0x1
+
+#define F_OK 0
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+
 struct stat {
 	uint64_t st_dev;
 	uint64_t st_ino;

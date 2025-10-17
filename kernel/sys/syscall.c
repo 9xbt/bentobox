@@ -527,6 +527,71 @@ long sys_gettime(int clock, struct timespec *ts) {
     return 0;
 }
 
+long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    if (!node)
+        return -ENOENT;
+
+    if (mode == F_OK)
+        return 0;
+    if (mode & R_OK && !(node->perms & (S_IRUSR | S_IRGRP | S_IROTH)))
+        return -EACCES;
+    if (mode & W_OK && !(node->perms & (S_IWUSR | S_IWGRP | S_IWOTH)))
+        return -EACCES;
+    if (mode & X_OK && !(node->perms & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        return -EACCES;
+
+    kfree(path);
+    return 0;
+}
+
+long sys_unlinkat(int dirfd, const char *pathname, int flags) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    if (!node)
+        return -ENOENT;
+    kfree(path);
+
+    return vfs_remove_node(node);
+}
+
+long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
+    (void)mode;
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(dir, path, true, VFS_DIRECTORY);
+    if (!node)
+        return -EPERM;
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -561,7 +626,10 @@ syscall_func syscalls[] = {
     [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe,
     [SYS_ppoll]     = (syscall_func)(uintptr_t)sys_ppoll,
     [SYS_sleep]     = (syscall_func)(uintptr_t)sys_sleep,
-    [SYS_gettime]   = (syscall_func)(uintptr_t)sys_gettime
+    [SYS_gettime]   = (syscall_func)(uintptr_t)sys_gettime,
+    [SYS_faccessat] = (syscall_func)(uintptr_t)sys_faccessat,
+    [SYS_unlinkat]  = (syscall_func)(uintptr_t)sys_unlinkat,
+    [SYS_mkdirat]   = (syscall_func)(uintptr_t)sys_mkdirat
 };
 
 long syscall_handler(size_t *args) {
