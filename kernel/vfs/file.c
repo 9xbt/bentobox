@@ -47,10 +47,11 @@ int file_create(vfs_node_t *node, int flags) {
     return -EMFILE;
 }
 
-int file_open(vfs_node_t *cwd, const char *path, int flags) {
+int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {
     vfs_node_t *node = vfs_open(cwd, path, flags);
     if (!node)
         return -ENOENT;
+    node->perms = mode;
 
     int file = file_create(node, flags);
     if (file < 0) {

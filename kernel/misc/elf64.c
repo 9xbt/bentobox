@@ -295,7 +295,7 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 }
 
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
-    vfs_node_t *node = vfs_open(NULL, file, 0);
+    vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node) {
         dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
         return -ENOENT;

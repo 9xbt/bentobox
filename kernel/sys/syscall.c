@@ -98,7 +98,7 @@ long sys_seek(int fd, long offset, int whence) {
     return file->offset;
 }
 
-long sys_openat(int dirfd, const char *pathname, int flags) {
+long sys_openat(int dirfd, const char *pathname, int flags, unsigned int mode) {
     vfs_node_t *dir = this_proc->cwd;
     if (dirfd != AT_FDCWD) {
         struct file *file = file_get(dirfd);
@@ -108,7 +108,7 @@ long sys_openat(int dirfd, const char *pathname, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    long fd = file_open(dir, path, flags);
+    long fd = file_open(dir, path, flags, mode);
     kfree(path);
     return fd;
 }
