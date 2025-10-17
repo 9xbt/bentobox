@@ -60,6 +60,8 @@ long sys_write(int fd, void *buffer, size_t len) {
 #define SEEK_SET    0
 #define SEEK_CUR    1
 #define SEEK_END    2
+#define SEEK_DATA   3
+#define SEEK_HOLE   4
 
 long sys_seek(int fd, long offset, int whence) {
     struct file *file = file_get(fd);
@@ -78,6 +80,19 @@ long sys_seek(int fd, long offset, int whence) {
         case SEEK_END:
             file->offset = file->node->size + offset;
             break;
+        case SEEK_DATA:
+            if (offset >= (long)file->node->size)
+                return -ENXIO;
+            file->offset = offset;
+            break;
+        case SEEK_HOLE:
+            if (offset >= (long)file->node->size)
+                return -ENXIO;
+            file->offset = file->node->size;
+            break;
+        default:
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m: invalid whence %d\n", __func__, whence);
+            return -EINVAL;
     }
 
     return file->offset;
