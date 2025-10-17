@@ -1,10 +1,14 @@
+#include <stdbool.h>
+#include <stddef.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
 #include <kernel/time.h>
 #include <kernel/pci.h>
+#include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
 #define AHCI_CAP        0x00        // Host Capabilities
@@ -46,6 +50,7 @@
 #define FIS_TYPE_REG_H2D 0x27
 
 #define PORT_BASE(port) (0x100 + (port * 0x80))
+#define PRDT_ENTRIES    248
 
 typedef struct hba_cmd_header {
 	// DW0
@@ -114,8 +119,8 @@ typedef struct hba_prdt_entry
 	uint32_t rsv0;		// Reserved
 
 	// DW3
-	uint32_t dbc:22;		// Byte count, 4M max
-	uint32_t rsv1:9;		// Reserved
+	uint32_t dbc:22;	// Byte count, 4M max
+	uint32_t rsv1:9;	// Reserved
 	uint32_t i:1;		// Interrupt on completion
 } hba_prdt_entry_t;
 
@@ -174,15 +179,14 @@ ahci_port_t *ahci_init_drive(int port_num) {
 
     // Allocate physical memory for its command list
     port->clb_phys = (uint64_t)mmu_alloc();
-    // TODO: Memory map these as uncacheable.
-    port->clb = VIRTUAL_HHDM(port->clb_phys);
+    port->clb = VIRTUAL_HHDM(port->clb_phys);   // TODO: Memory map these as uncacheable.
 
     // Set command list registers (and upper registers, if supported).
     ahci_write(PORT_BASE(port_num) + PORT_CLB, LOW(port->clb_phys));
     ahci_write(PORT_BASE(port_num) + PORT_CLBU, HIGH(port->clb_phys));
     memset(port->clb, 0, PAGE_SIZE);
 
-    // the received FIS
+    // Allocate physical memory for the received FIS
     port->fb_phys = (uint64_t)mmu_alloc();
     port->fb = VIRTUAL_HHDM(port->fb_phys);
     
@@ -191,20 +195,18 @@ ahci_port_t *ahci_init_drive(int port_num) {
     ahci_write(PORT_BASE(port_num) + PORT_FBU, HIGH(port->fb_phys));
     memset(port->fb, 0, PAGE_SIZE);
 
-    // TODO: set up more tables!
     hba_cmd_header_t *cmd_hdr = (hba_cmd_header_t *)port->clb;
     for (i = 0; i < 32; i++) {
-        cmd_hdr[i].prdtl = 8;
+        cmd_hdr[i].prdtl = PRDT_ENTRIES; // ~992KB
 
-        // and its command tables
-        uintptr_t cmd_tbl_phys = (uintptr_t)mmu_alloc();
-        void *cmd_tbl = VIRTUAL_HHDM(cmd_tbl_phys);
-        cmd_hdr[i].ctba = LOW(cmd_tbl_phys);
-        cmd_hdr[i].ctbau = HIGH(cmd_tbl_phys);
-        memset(cmd_tbl, 0, PAGE_SIZE);
+        // Allocate physical memory for its command tables
+        uintptr_t phys = (uintptr_t)mmu_alloc();
+        cmd_hdr[i].ctba = LOW(phys);
+        cmd_hdr[i].ctbau = HIGH(phys);
+        memset(VIRTUAL_HHDM(phys), 0, PAGE_SIZE);
 
         // Setup command list entries to point to the corresponding command table.
-        port->cmd_tbls[i] = cmd_tbl;
+        port->cmd_tbls[i] = VIRTUAL_HHDM(phys);
     }
 
     ahci_write(PORT_BASE(port_num) + PORT_SERR, 0xFFFFFFFF);
@@ -256,6 +258,11 @@ int ahci_find_slot(int port) {
 }
 
 int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool write) {
+    if (DIV_CEILING(count, 8) > PRDT_ENTRIES) {
+        dprintf(LOG_ERR, "\033[93mahci:\033[0m transfer too large (%u)\n", count);
+        return 1;
+    }
+
     ahci_write(PORT_BASE(port->port_num) + PORT_IS, 0xFFFFFFFF);
     int slot = ahci_find_slot(port->port_num);
     if (slot < 0)
@@ -270,10 +277,11 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     hba_cmd_tbl_t *cmd_tbl = port->cmd_tbls[slot];
     memset(cmd_tbl, 0, sizeof(hba_cmd_tbl_t) + (cmd_hdr->prdtl - 1) * sizeof(hba_prdt_entry_t));
     
-    uint32_t num_pages = ALIGN_UP(count, 8) / 8;
-    uintptr_t *pages = kmalloc(sizeof(uintptr_t) * num_pages);
-    for (uint32_t i = 0; i < num_pages; i++) {
+    uintptr_t *pages = kmalloc(sizeof(uintptr_t) * ALIGN_UP(count, 8) / 8);
+    for (uint32_t i = 0; i < ALIGN_UP(count, 8) / 8; i++) {
         pages[i] = (uintptr_t)mmu_alloc();
+        if (write)
+            memcpy(VIRTUAL_HHDM(pages[i]), buffer + i * PAGE_SIZE, MIN((count - i * 8) * 512, PAGE_SIZE));
     }
     
     for (int i = 0, j = count; j > 0; j -= 8, i++) {
@@ -302,8 +310,9 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     if (ahci_read(PORT_BASE(port->port_num) + PORT_IS) & (1 << 30))
         return 1;
     
-    for (uint32_t i = 0; i < num_pages; i++) {
-        memcpy(buffer + i * PAGE_SIZE, VIRTUAL_HHDM(pages[i]), MIN((count - i * 8) * 512, PAGE_SIZE));
+    for (uint32_t i = 0; i < ALIGN_UP(count, 8) / 8; i++) {
+        if (!write)
+            memcpy(buffer + i * PAGE_SIZE, VIRTUAL_HHDM(pages[i]), MIN((count - i * 8) * 512, PAGE_SIZE));
         mmu_free((void *)pages[i]);
     }
     kfree(pages);
@@ -314,8 +323,8 @@ inline int ahci_op_read(ahci_port_t *port, uint64_t lba, uint32_t count, char *b
     return ahci_op(port, lba, count, buffer, false);
 }
 
-inline int ahci_op_write(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer) {
-    return ahci_op(port, lba, count, buffer, true);
+inline int ahci_op_write(ahci_port_t *port, uint64_t lba, uint32_t count, const char *buffer) {
+    return ahci_op(port, lba, count, (char *)buffer, true);
 }
 
 uint32_t ahci_get_type(int port) {
@@ -335,6 +344,35 @@ uint32_t ahci_get_type(int port) {
     
     return ahci_read(PORT_BASE(port) + PORT_SIG);
 }
+
+long ahci_vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
+    if (!len)
+        return 0;
+
+    size_t lba = offset / 512;
+    size_t count = ALIGN_UP(len, 512) / 512;
+
+    if (ahci_op_read(node->device, lba, count, buffer) < 0)
+        return -EIO;
+    return len;
+}
+
+long ahci_vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
+    if (!len)
+        return 0;
+
+    size_t lba = offset / 512;
+    size_t count = ALIGN_UP(len, 512) / 512;
+
+    if (ahci_op_write(node->device, lba, count, buffer) < 0)
+        return -EIO;
+    return len;
+}
+
+vfs_ops_t ops = {
+    .read = ahci_vfs_read,
+    .write = ahci_vfs_write
+};
 
 int init() {
     pci_device_t *ahci = pci_get_device(0x01, 0x06);
@@ -400,19 +438,18 @@ int init() {
     ahci_write(AHCI_IS, 0xFFFFFFFF);
 
     uint32_t pi = ahci_read(AHCI_PI);
+    int sata_drive = 0;
     for (i = 0; i < 32; i++) {
         if (bitmap_get((uint8_t *)&pi, i)) {
             switch (ahci_get_type(i)) {
                 case SATA_SIG_ATA: {
-                    ahci_port_t *port = ahci_init_drive(i);
-                    // TODO: PMM DMA pool or more PRDT entries
-                    char *buffer = kmalloc(512);
-                    int ret = ahci_op_read(port, 0, 1, buffer);
-                    dprintf(LOG_INFO, "AHCI op returned %d. Buffer contents:\n", ret);
-                    for (int j = 0; j < 512; j++) {
-                        printf("%02x  ", buffer[j]);
-                    }
-                    kfree(buffer);
+                    char mountpoint[32];
+                    snprintf(mountpoint, sizeof mountpoint, "/dev/sd%c", 'a' + sata_drive++);
+
+                    vfs_node_t *node = vfs_lookup(NULL, mountpoint, false, VFS_BLOCKDEVICE);
+                    node->perms = 0660;
+                    node->ops = &ops;
+                    node->device = ahci_init_drive(i);
                     break;
                 }
             }

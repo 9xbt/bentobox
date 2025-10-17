@@ -186,7 +186,7 @@ long fork(void) {
     
     list_insert(proc->threads, tcb);
 
-    dprintf(LOG_DEBUG, "\033[93msched:\033[0m forked process '%s' with pid %d\n", proc->name, proc->pid);
+    // dprintf(LOG_DEBUG, "\033[93msched:\033[0m forked process '%s' with pid %d\n", proc->name, proc->pid);
     sched_add_process(proc);
     return proc->pid;
 }
@@ -302,7 +302,7 @@ void sched_cleaner(void) {
                     continue;
             }
 
-            dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
+            // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
 
             if (init_proc == proc)
                 init_proc = NULL;
