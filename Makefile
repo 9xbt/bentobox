@@ -126,7 +126,7 @@ bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(
 $(IMAGE_NAME).hdd:
 	@echo " HD $@"
 	@truncate -s 1000M $@
-	@dd if=/dev/urandom of=$@ bs=512 count=1 conv=notrunc,sparse status=none
+	@genext2fs -b 1048576 -L bentobox -N 10000 $@ 2>&1 >/dev/null | grep -v copying | cat
 
 .PHONY: clean
 clean:

@@ -120,11 +120,6 @@ int elf64_module(struct limine_file *mod) {
             symtab = (Elf64_Sym *)(mod->address + shdr[i].sh_offset);
             symbol_count = shdr[i].sh_size / sizeof(Elf64_Sym);
             strtab = (char *)(mod->address + shdr[shdr[i].sh_link].sh_offset);
-
-            ksym_expand(symbol_count);
-            for (size_t j = 0; j < symbol_count; j++) {
-                real_symbol_count += ksym_register(&strtab[symtab[j].st_name], base + symtab[j].st_value);
-            }
         }
     }
 
@@ -136,6 +131,19 @@ int elf64_module(struct limine_file *mod) {
                 dprintf(LOG_ERR, "\033[93melf:\033[0m failed to resolve symbol: %s\n", &strtab[symtab[sym].st_name]);
             }
         }
+    }
+
+    ksym_expand(symbol_count);
+    for (size_t j = 0; j < symbol_count; j++) {
+        if (symtab[j].st_value == 0 || symtab[j].st_name == 0)
+            continue;
+        real_symbol_count += ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
+    }
+
+    struct Module *metadata = (struct Module *)(elf64_find_symbol(symtab, strtab, symbol_count, "metadata"));
+    if (!metadata) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m module metadata not found for \"%s\"\n", mod->string);
+        return -1;
     }
 
     for (int i = 0; i < ehdr->e_shnum; i++) {
@@ -187,12 +195,6 @@ int elf64_module(struct limine_file *mod) {
                     break;
             }
         }
-    }
-
-    struct Module *metadata = (struct Module *)(elf64_find_symbol(symtab, strtab, symbol_count, "metadata"));
-    if (!metadata) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m module metadata not found for \"%s\"\n", mod->string);
-        return -1;
     }
 
     return metadata->init();

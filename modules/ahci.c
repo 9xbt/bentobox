@@ -319,11 +319,11 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     return 0;
 }
 
-inline int ahci_op_read(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer) {
+int ahci_op_read(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer) {
     return ahci_op(port, lba, count, buffer, false);
 }
 
-inline int ahci_op_write(ahci_port_t *port, uint64_t lba, uint32_t count, const char *buffer) {
+int ahci_op_write(ahci_port_t *port, uint64_t lba, uint32_t count, const char *buffer) {
     return ahci_op(port, lba, count, (char *)buffer, true);
 }
 

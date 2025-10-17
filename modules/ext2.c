@@ -193,7 +193,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
     for (uint32_t group = 0; group < fs->bgd_count; group++) {
         uint8_t *bitmap = kmalloc(fs->block_size);
         ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
-
+        
         for (uint32_t i = 0; i < fs->sb->blocks_per_group; i++) {
             if (!bitmap_get(bitmap, i)) {
                 bitmap_set(bitmap, i);
@@ -204,7 +204,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
                 fs->bgd_table[group].free_blocks--;
                 ext2_write_sb(fs);
                 ext2_write_bgd(fs, group, fs->bgd_table[group]);
-                return group * fs->sb->blocks_per_group + i;
+                return fs->sb->block_num + (group * fs->sb->blocks_per_group) + i;
             }
         }
         kfree(bitmap);
@@ -872,14 +872,20 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
 
     ext2_fs *fs = kmalloc(sizeof(ext2_fs));
     fs->sda = sda;
-    fs->sb = (ext2_sb *)kmalloc(sizeof(ext2_sb));
-    vfs_read(sda, fs->sb, 1024, sizeof(ext2_sb));
+    fs->sb = (ext2_sb *)kmalloc(ALIGN_UP(sizeof(ext2_sb), 512));
+    vfs_read(sda, fs->sb, 1024, ALIGN_UP(sizeof(ext2_sb), 512));
 
     if (fs->sb->signature != 0xef53) {
         char *path = vfs_resolve_path(sda);
-        dprintf(LOG_ERR, "%s:%d: %s: not an ext2 partition\n", __FILE__, __LINE__, path);
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: not an ext2 partition\n", path);
         kfree(path);
         return -EINVAL;
+    }
+    if (fs->sb->req_features) {
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m unsupported features 0x%x\n", fs->sb->req_features);
+        kfree(fs->sb);
+        kfree(fs);
+        return -EOPNOTSUPP;
     }
     fs->block_size = 1024 << fs->sb->log2_block;
     fs->bgd_count = (fs->sb->blocks_count / fs->sb->blocks_per_group) ?: 1;
@@ -896,7 +902,7 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
 }
 
 int init() {
-    dprintf(LOG_INFO, "%s:%d: starting ext2 driver\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "\033[93mext2:\033[0m starting ext2 driver\n");
     if (!args_contains("root")) {
         panic("root partition not specified in command line");
     }
@@ -904,12 +910,12 @@ int init() {
     // vfs_register("ext2", mount, false);
     // return vfs_mount(vfs_open(NULL, args_value("root"), false, false), vfs_root, "ext2", 0);
 
-    mount(vfs_lookup(NULL, args_value("root"), false, VFS_NONE), vfs_get_root());
+    mount(vfs_lookup(NULL, args_value("root"), false, VFS_NONE), vfs_add_node(vfs_get_root(), vfs_create_node("mnt", VFS_DIRECTORY)));
     return 0;
 }
 
 int fini() {
-    dprintf(LOG_INFO, "%s:%d: Goodbye!\n", __FILE__, __LINE__);
+    dprintf(LOG_INFO, "\033[93mext2:\033[0m Goodbye!\n");
     return 0;
 }
 
