@@ -235,11 +235,15 @@ ahci_port_t *ahci_init_drive(int port_num) {
 
 void ahci_send_cmd(int port, uint32_t slot) {
     while (ahci_read(PORT_BASE(port) + PORT_TFD) & 0x88) {
-        __asm__ volatile ("pause");
+        #ifdef __x86_64__
+        asm volatile ("pause");
+        #endif
     }
     ahci_write(PORT_BASE(port) + PORT_CI, 1 << slot);
     while (ahci_read(PORT_BASE(port) + PORT_CI) & (1 << slot)) {
-        __asm__ volatile ("pause");
+        #ifdef __x86_64__
+        asm volatile ("pause");
+        #endif
     }
 }
 
@@ -395,8 +399,13 @@ int init() {
 
     // Memory map BAR 5 register as uncacheable.
     ahci_base = VIRTUAL_HHDM(phys_base);
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
     for (size_t i = 0; i < 2 * PAGE_SIZE; i += PAGE_SIZE) {
-        mmu_map(kernel_pd, (void *)(ahci_base + i), (void *)(phys_base + i), PTE_PRESENT | PTE_WRITABLE);
+        mmu_map(kernel_pd, (void *)(ahci_base + i), (void *)(phys_base + i), flags);
     }
 
     // TODO: Perform BIOS/OS handoff (if the bit in the extended capabilities is set)

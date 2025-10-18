@@ -19,12 +19,19 @@ bool acpi_use_xsdt = false;
 void *acpi_rsdt;
 
 void *acpi_find_table(const char *signature) {
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
+
     if (!acpi_use_xsdt) {
         struct acpi_rsdt *rsdt = (struct acpi_rsdt *)acpi_rsdt;
         uint32_t entries = (rsdt->sdt.length - sizeof(rsdt->sdt)) / 4;
 
         for (uint32_t i = 0; i < entries; i++) {
             struct acpi_sdt *sdt = VIRTUAL_HHDM(*((uint32_t *)rsdt->table + i));
+            mmu_map(kernel_pd, sdt, PHYSICAL_HHDM(sdt), flags);
             if (!memcmp(sdt->signature, signature, 4)) {
                 dprintf(LOG_DEBUG, "\033[93macpi:\033[0m found table '%s' at 0x%p\n", signature, sdt);
                 return sdt;
@@ -40,6 +47,7 @@ void *acpi_find_table(const char *signature) {
         
     for (uint32_t i = 0; i < entries; i++) {
         struct acpi_sdt *sdt = VIRTUAL_HHDM(*((uint64_t *)rsdt->table + i));
+        mmu_map(kernel_pd, sdt, PHYSICAL_HHDM(sdt), flags);
         if (!memcmp(sdt->signature, signature, 4)) {
             dprintf(LOG_DEBUG, "\033[93macpi:\033[0m found table '%s' at 0x%p\n", signature, sdt);
             return sdt;
