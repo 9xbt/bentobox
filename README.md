@@ -30,7 +30,7 @@ Packages required:
 
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
 
-Now you can build the ports. Run `. build/mlibc-root aarch64` to source the environment.
+Now you can build the ports. Run `. build/mlibc-root aarch64` and `TOOLCHAIN_PREFIX=aarch64-linux-gnu-` to source the environment.
 
 ## Ports
 
