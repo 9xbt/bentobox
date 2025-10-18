@@ -1,5 +1,35 @@
 #include <kernel/arch/x86_64/hpet.h>
+#include <kernel/arch/x86_64/io.h>
 #include <kernel/printf.h>
+
+#define from_bcd(value) ((value >> 4) * 10 + (value & 0xf))
+#define is_leap_year(year) (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
+#define leap_years(year) ((year - 1) / 4) - ((year - 1) / 100) + ((year - 1) / 400) - (1969 / 4) + (1969 / 100) - (1969 / 400);
+#define century 20
+
+enum {
+    CMOS_ADDRESS = 0x70,
+    CMOS_DATA    = 0x71
+};
+
+enum {
+	CMOS_SECOND = 0x00,
+	CMOS_MINUTE = 0x02,
+	CMOS_HOUR   = 0x04,
+	CMOS_DAY    = 0x07,
+	CMOS_MONTH  = 0x08,
+	CMOS_YEAR   = 0x09
+};
+
+static const uint16_t days_before_month[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+static uint64_t boot_time = 0;
+
+static void rtc_dump(uint16_t *buffer, uint16_t count) {
+    for (uint16_t i = 0; i < count; ++i) {
+        outb(CMOS_ADDRESS, i);
+        buffer[i] = inb(CMOS_DATA);
+    }
+}
 
 void arch_sleep(size_t ns) {
     if (hpet) hpet_sleep(ns);
@@ -10,6 +40,28 @@ void uptime(size_t *sec, size_t *nsec) {
 }
 
 uint64_t now(void) {
-    dprintf(LOG_DEBUG, "\033[93mrtc:\033[0m now() is a stub\n");
-    return 0;
+    uint64_t sec;
+    hpet_read_time(&sec, NULL);
+    return sec + boot_time;
+}
+
+__attribute__((no_sanitize("alignment")))
+void arch_clock_init(void) {
+    uint16_t dump[10];
+    rtc_dump(dump, 10);
+
+    uint64_t year = century * 100 + from_bcd(dump[CMOS_YEAR]);
+    uint64_t month = from_bcd(dump[CMOS_MONTH]);
+    uint64_t day = from_bcd(dump[CMOS_DAY]);
+    uint64_t hour = from_bcd(dump[CMOS_HOUR]);
+    uint64_t minute = from_bcd(dump[CMOS_MINUTE]);
+    uint64_t second = from_bcd(dump[CMOS_SECOND]);
+
+    uint64_t years_since_epoch = year - 1970;
+    uint64_t leap_years = leap_years(year);
+    uint64_t days_since_epoch = years_since_epoch * 365 + leap_years + days_before_month[month - 1] + (day - 1) + ((is_leap_year(year) && month > 2) ? 1 : 0);
+
+    boot_time = days_since_epoch * 86400 + hour * 3600 + minute * 60 + second;
+
+    dprintf(LOG_INFO, "\033[93mrtc:\033[0m initialized real-time clock\n");
 }

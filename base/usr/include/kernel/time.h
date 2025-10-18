@@ -12,6 +12,7 @@ struct timeval {
 	int64_t tv_usec;
 };
 
+uint64_t now(void);
 void arch_sleep(size_t ns);
 void uptime(size_t *sec, size_t *nsec);
-uint64_t now(void);
+void arch_clock_init(void);

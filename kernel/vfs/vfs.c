@@ -1,10 +1,10 @@
-#include "kernel/list.h"
-#include "kernel/spinlock.h"
+#include <kernel/spinlock.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
+#include <kernel/list.h>
 #include <kernel/vfs.h>
 
 extern void devfs_initialize(void);
@@ -29,7 +29,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->perms = type == VFS_DIRECTORY ? 0755 : 0644;
     node->inode = 0;
     node->flags = 0;
-    node->atime = node->ctime = node->mtime = 0;
+    node->atime = node->ctime = node->mtime = now();
     node->children = list_create();
     node->waiters = list_create();
     node->waiters_lock = 0;

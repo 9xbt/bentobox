@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/unixpipe.h>
@@ -527,19 +528,27 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
 
 long sys_sleep(struct timespec *ts) {
     struct timespec tv;
-    copy_from_user(&tv, ts, sizeof tv);
+    if (copy_from_user(&tv, ts, sizeof tv) < 0)
+        return -EFAULT;
 
     sched_sleep(tv.tv_sec * 1000000000UL + tv.tv_nsec);
     return 0;
 }
 
-long sys_gettime(int clock, struct timespec *ts) {
-    (void)clock;
+#define CLOCK_REALTIME  0
+#define CLOCK_MONOTONIC 1
 
+long sys_gettime(int clock, struct timespec *ts) {
     struct timespec tv;
-    uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
-    copy_to_user(ts, &tv, sizeof tv);
-    return 0;
+    switch (clock) {
+        case CLOCK_REALTIME:
+            tv.tv_sec = now();
+            break;
+        case CLOCK_MONOTONIC:
+            uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
+            break;
+    }
+    return copy_to_user(ts, &tv, sizeof tv);
 }
 
 long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
