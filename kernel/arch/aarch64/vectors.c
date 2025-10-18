@@ -4,7 +4,6 @@
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/syscall.h>
 #include <kernel/printf.h>
-#include <kernel/string.h>
 #include <kernel/sched.h>
 #include <kernel/witty.h>
 #include <kernel/errno.h>
@@ -64,7 +63,21 @@ void do_regdump(const char *msg, struct registers *r) {
     arch_do_backtrace();
 }
 
+extern void user_copy_fail();
+
 void el1_fault_handler(struct registers *r) {
+    uint64_t esr_el1, far_el1;
+    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
+    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
+
+    if (((esr_el1 >> 26) & 0x3F) == 0x24 && this && this->doing_user_copy && far_el1 < hhdm_offset) {
+        this->user_copy_status = -EFAULT;
+        this->doing_user_copy = false;
+
+        asm volatile("msr ELR_EL1, %0" :: "r"((uint64_t)user_copy_fail));
+        return;
+    }
+
     do_regdump("EL1-EL1 fault", r);
     arch_fatal();
 }
@@ -88,6 +101,9 @@ void el0_fault_handler(struct registers *r) {
         asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_el0));
         return;
     }
+    // signal_send(this_proc, SIGSEGV);
+    // sched_yield();
+    // for (;;) {}
 
     do_regdump("EL0-EL1 fault", r);
     arch_fatal();
@@ -108,43 +124,6 @@ void irq_handler(struct registers *r) {
     }
 
     gicc_write(this_cpu->gicc, GICC_EOIR, iar);
-}
-
-static long __user_copy(void *restrict dest, const void *restrict src, size_t n) {
-    this->user_copy_status = 0;
-    this->doing_user_copy = true;
-    memcpy(dest, src, n); // TODO: handle data aborts
-    this->doing_user_copy = false;
-    return this->user_copy_status;
-}
-
-long check_user_address(const void *addr) {
-    if (!addr || (uintptr_t)addr >= hhdm_offset || !mmu_get_physical(this_proc->pm, (void *)ALIGN_DOWN((uintptr_t)addr, PAGE_SIZE)))
-        return -EFAULT;
-    return 0;
-}
-
-long copy_from_user(void *restrict dest, const void *restrict src, size_t n) {
-    if (check_user_address(src) < 0)
-        return -EFAULT;
-    return __user_copy(dest, src, n);
-}
-
-long copy_to_user(void *restrict dest, const void *restrict src, size_t n) {
-    if (check_user_address(dest) < 0)
-        return -EFAULT;
-    return __user_copy(dest, src, n);
-}
-
-long strnlen_user(const char *s, size_t maxlen) {
-    this->user_copy_status = 0;
-    this->doing_user_copy = true;
-    size_t len = strnlen(s, maxlen);
-    this->doing_user_copy = false;
-
-    if (this->user_copy_status != 0)
-        return this->user_copy_status;
-    return len;
 }
 
 void vectors_install(void) {

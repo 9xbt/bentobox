@@ -28,6 +28,7 @@ void gicc_write(struct madt_gicc *gicc, uint32_t offset, uint32_t value) {
 }
 
 void gic_send_sgi(uint8_t sgiid, uint8_t mask) {
+    asm ("msr daifclr, #2");
     gicd_write(madt_gicd_list[0], GICD_SGIR, (sgiid & 0xF) | ((mask & 0xFF) << 16));
 }
 

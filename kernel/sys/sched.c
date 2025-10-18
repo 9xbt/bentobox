@@ -232,7 +232,7 @@ void sched_deliver_signals(struct thread *tcb) {
 
         if (tcb->psig.sig[word] & (1ul << bit)) {
             tcb->psig.sig[word] &= ~(1ul << bit);
-
+            
             signal_handle(tcb, sig);
         }
     }
@@ -302,7 +302,7 @@ void sched_cleaner(void) {
                     continue;
             }
 
-            // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
+            dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
 
             if (init_proc == proc)
                 init_proc = NULL;
