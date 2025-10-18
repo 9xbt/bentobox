@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <kernel/arch/aarch64/vectors.h>
+#include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/arch/aarch64/mmu.h>
@@ -232,6 +233,7 @@ void kmain(void) {
 
     vectors_install();
     mmu_initialize();
+    pl011_install();
     elf64_module(ksym_request.response->executable_file);
     acpi_install();
     smp_initialize();
@@ -239,6 +241,6 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
-    //spawn("/bin/main", 0, NULL, NULL);
+    pl011_initialize();
     generic_main();
 }

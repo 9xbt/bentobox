@@ -1,7 +1,8 @@
 #!/bin/bash
 [ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
-export CC="gcc"
+export CC="${TOOLCHAIN_PREFIX:-}gcc"
+export LD="${TOOLCHAIN_PREFIX:-}ld"
 export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17"
 export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
 export LIBS="-Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group"

@@ -58,4 +58,5 @@ void gic_install(void) {
     asm volatile ("msr daifclr, #2");
 
     gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
+    gicd_write(gicd, GICD_ISENABLER0 + 4, 1 << 1);
 }

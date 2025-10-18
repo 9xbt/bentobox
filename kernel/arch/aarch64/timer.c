@@ -15,7 +15,7 @@ void arch_sleep(size_t ns) {
     } while (cntpct_el0 < end_ticks);
 }
 
-void uptime(long *sec, long *nsec) {
+void uptime(size_t *sec, size_t *nsec) {
     extern uint64_t boot_time;
     if (!boot_time) return;
 
@@ -29,3 +29,11 @@ void uptime(long *sec, long *nsec) {
     if (sec) *sec = ticks / cntfrq_el0;
     if (nsec) *nsec = (ticks % cntfrq_el0) * 1000000000 / cntfrq_el0;
 }
+
+uint64_t now(void) {
+    uint64_t sec = 0;
+    uptime(&sec, NULL);
+    return sec;
+}
+
+void arch_clock_init(void) {}

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/syscall.h>
@@ -93,8 +94,6 @@ void el0_fault_handler(struct registers *r) {
 }
 
 void irq_handler(struct registers *r) {
-    (void)r;
-
     uint32_t iar = gicc_read(this_cpu->gicc, GICC_IAR);
     uint32_t irq = iar & 0x3FF;
     if (irq == 1) {
@@ -103,6 +102,9 @@ void irq_handler(struct registers *r) {
     }
     if (irq == 0 || irq == 30) {
         sched_schedule(r);
+    }
+    if (irq == 33) {
+        pl011_irq_handler(r);
     }
 
     gicc_write(this_cpu->gicc, GICC_EOIR, iar);

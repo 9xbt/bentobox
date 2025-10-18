@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdint.h>
+#include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/spinlock.h>
@@ -13,6 +14,8 @@ spinlock_t flanterm_lock = 0;
 void write(const char *s, size_t len) {
     #ifdef __x86_64__
     serial_write(s, len);
+    #elif __aarch64__
+    uart_write(s, len);
     #endif
 
     acquire(&flanterm_lock);
@@ -176,6 +179,8 @@ int dprintf(int level, const char *fmt, ...) {
 
     #ifdef __x86_64__
     serial_puts(buf);
+    #elif __aarch64__
+    uart_puts(buf);
     #endif
     
     if (level <= loglevel) {
