@@ -11,7 +11,8 @@ The userspace is built on [mlibc](https://github.com/managarm/mlibc/), a portabl
 - Ubuntu 22.04 LTS
 - Ubuntu 25.04
 
-## Building the userspace (x86_64)
+## Building the userspace
+### x86_64
 Packages required:
 - git
 - meson
@@ -20,6 +21,18 @@ Packages required:
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install`.
 
 Now you can build the ports. Run `. build/mlibc-root` to source the environment.
+
+### aarch64
+Packages required:
+- git
+- meson
+- aarch64-linux-gnu-gcc
+
+Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
+
+Now you can build the ports. Run `. build/mlibc-root aarch64` to source the environment.
+
+## Ports
 
 ### bash
 Run `./ports/bash.sh`.
@@ -52,7 +65,8 @@ Run `./ports/lua.sh`.
 ### doomgeneric
 Run `./ports/doomgeneric.sh`. Doom needs a [WAD file](https://archive.org/details/theultimatedoom_doom2_doom.wad).
 
-## Building the kernel (x86_64)
+## Building the kernel
+### x86_64
 Packages required:
 - git
 - make
@@ -63,7 +77,7 @@ Packages required:
 
 Run `make kernel-deps` to get the dependencies, and then you can use `make run -j$(nproc)` to run it in QEMU.
 
-## Building the kernel (aarch64)
+### aarch64
 Packages required:
 - git
 - make
