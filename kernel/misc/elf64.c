@@ -184,6 +184,7 @@ int elf64_module(struct limine_file *mod) {
                 case R_AARCH64_ADD_ABS_LO12_NC:
                     T32 = (T32 & 0xFFC003FF) | aarch64_imm_12(S + A);
                     break;
+                case R_AARCH64_JUMP26:
                 case R_AARCH64_CALL26:
 					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
 					break;
