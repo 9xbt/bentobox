@@ -60,6 +60,7 @@ long tty_dequeue(vfs_node_t *node, bool block) {
     while (fifo_is_empty(tty->fifo)) {
         if (!block)
             return -EAGAIN;
+        while (!(vfs_poll(node, POLLIN, -1) & POLLIN)) {}
     }
     int c = 0;
     if (fifo_dequeue(tty->fifo, &c) <= 0)
@@ -94,8 +95,9 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct termios *tio = &tty->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        long c;
-        while ((c = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0)) < 0) {}
+        long c = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0);
+        if (c < 0)
+            return c;
         str[0] = c;
 
         if (tio->c_lflag & ECHO)
@@ -111,7 +113,8 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         
         switch (c) {
             case '\033':
-                while (node->tty_ops->dequeue(node, true) != '\0') {}
+                for (int j = 0; j < 2; j++)
+                    node->tty_ops->dequeue(node, true);
                 break;
             case '\0':
             case '\t':
