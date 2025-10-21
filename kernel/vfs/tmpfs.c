@@ -54,7 +54,7 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
     if (type == VFS_DIRECTORY) {
         node->ops = &tmpfs_ops;
         vfs_add_node(parent, node);
-    } else {
+    } else if (type == VFS_FILE) {
         tmpfs_t *file = kmalloc(sizeof(tmpfs_t));
         file->data = NULL;
         node->size = 0;
@@ -66,8 +66,6 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
 }
 
 long tmpfs_remove(vfs_node_t *node) {
-    if (!node)
-        return -ENOENT;
     if (node->device) {
         tmpfs_t *file = node->device;
         if (file->data)

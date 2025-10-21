@@ -7,6 +7,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
+#include <kernel/socket.h>
 #include <kernel/errno.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
@@ -14,7 +15,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
-static long sys_read_write(int fd, void *buf, size_t len, bool write) {
+static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
         return -EBADFD;
@@ -31,7 +32,7 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         return -EFAULT;
     }
 
-    if (!(file->flags & O_NONBLOCK))
+    if (!(file->flags & O_NONBLOCK) && poll)
         while (!(vfs_poll(file->node, write ? POLLOUT : POLLIN, -1) & (write ? POLLOUT : POLLIN)));
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
@@ -51,11 +52,11 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
 }
 
 long sys_read(int fd, void *buffer, size_t len) {
-    return sys_read_write(fd, buffer, len, false);
+    return sys_read_write(fd, buffer, len, false, true);
 }
 
 long sys_write(int fd, void *buffer, size_t len) {
-    return sys_read_write(fd, buffer, len, true);
+    return sys_read_write(fd, buffer, len, true, true);
 }
 
 #define SEEK_SET    0
@@ -595,7 +596,7 @@ long sys_unlinkat(int dirfd, const char *pathname, int flags) {
         return -ENOENT;
     kfree(path);
 
-    return vfs_remove_node(node);
+    return vfs_remove(node);
 }
 
 long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
@@ -614,6 +615,40 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     if (!node)
         return -EPERM;
     return 0;
+}
+
+long sys_socket(int domain, int type, int protocol) {
+    return socket_new(domain, type, protocol);
+}
+
+long sys_bind(int fd, const void *addr, uint32_t addrlen) {
+    return socket_bind(fd, addr, addrlen);
+}
+
+long sys_listen(int fd, int backlog) {
+    return socket_listen(fd, backlog);
+}
+
+long sys_connect(int fd, const void *addr, uint32_t addrlen) {
+    return socket_connect(fd, addr, addrlen);
+}
+
+long sys_accept(int fd, const void *addr, uint32_t *addrlen) {
+    return socket_accept(fd, addr, addrlen);
+}
+
+long sys_recvfrom(int fd, void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {
+    (void)flags;
+    (void)addr;
+    (void)addrlen;
+    return sys_read_write(fd, buffer, size, false, true);
+}
+
+long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {
+    (void)flags;
+    (void)addr;
+    (void)addrlen;
+    return sys_read_write(fd, (void *)buffer, size, true, false);
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);
@@ -653,7 +688,15 @@ syscall_func syscalls[] = {
     [SYS_gettime]   = (syscall_func)(uintptr_t)sys_gettime,
     [SYS_faccessat] = (syscall_func)(uintptr_t)sys_faccessat,
     [SYS_unlinkat]  = (syscall_func)(uintptr_t)sys_unlinkat,
-    [SYS_mkdirat]   = (syscall_func)(uintptr_t)sys_mkdirat
+    [SYS_mkdirat]   = (syscall_func)(uintptr_t)sys_mkdirat,
+
+    [SYS_socket]    = (syscall_func)(uintptr_t)sys_socket,
+    [SYS_bind]      = (syscall_func)(uintptr_t)sys_bind,
+    [SYS_listen]    = (syscall_func)(uintptr_t)sys_listen,
+    [SYS_connect]   = (syscall_func)(uintptr_t)sys_connect,
+    [SYS_accept]    = (syscall_func)(uintptr_t)sys_accept,
+    [SYS_recvfrom]  = (syscall_func)(uintptr_t)sys_recvfrom,
+    [SYS_sendto]    = (syscall_func)(uintptr_t)sys_sendto
 };
 
 long syscall_handler(size_t *args) {

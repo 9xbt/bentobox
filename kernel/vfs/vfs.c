@@ -51,18 +51,19 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     return list_insert(parent->children, node)->value;
 }
 
-long vfs_remove_node(vfs_node_t *node) {
+long vfs_remove(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
     if (node->busy)
         return -EBUSY;
     if (node->type == VFS_DIRECTORY && node->children->length)
         return -ENOTEMPTY;
-    if (!node->ops)
-        return -EPERM;
+    if (!node->ops || !node->ops->remove)
+        return -EINVAL;
 
-    long ret = node->ops->remove ? node->ops->remove(node) : -EPERM;
-    if (ret < 0) return ret;
+    long ret = node->ops->remove(node);
+    if (ret < 0)
+        return ret;
     
     if (node->parent)
         list_remove_value(node->parent->children, node);
@@ -71,6 +72,20 @@ long vfs_remove_node(vfs_node_t *node) {
 
     list_free(node->children);
     kfree(node);
+    return 0;
+}
+
+long vfs_rename(vfs_node_t *node, const char *name) {
+    if (!node)
+        return -EINVAL;
+    if (!node->ops || !node->ops->remove)
+        return -EINVAL;
+
+    long ret = node->ops->rename(node, name);
+    if (ret < 0)
+        return ret;
+
+    strcpy(node->name, name);
     return 0;
 }
 
@@ -205,9 +220,19 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     }
     
     if (timeout == -1) {
-        this->state = THREAD_PAUSED;
-        release(&node->waiters_lock);
-        sched_yield();
+        for (;;) {
+            this->state = THREAD_PAUSED;
+            release(&node->waiters_lock);
+            sched_yield();
+            acquire(&node->waiters_lock);
+            
+            poll = node->ops->poll(node, events);
+            if (poll) {
+                list_remove_value(node->waiters, this);
+                release(&node->waiters_lock);
+                return poll;
+            }
+        }
     } else {
         dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m poll timeout is unimplemented\n");
         release(&node->waiters_lock);
