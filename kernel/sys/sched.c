@@ -135,6 +135,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
+    memset(proc->files, 0, sizeof(struct file) * proc->max_files);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
     memset(&proc->psig, 0, sizeof proc->psig);
@@ -302,7 +303,7 @@ void sched_cleaner(void) {
                     continue;
             }
 
-            dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
+            // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
 
             if (init_proc == proc)
                 init_proc = NULL;

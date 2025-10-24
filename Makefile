@@ -34,8 +34,8 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
-APPS_CFLAGS := -g -O2 -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o
-APPS_LDFLAGS := -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group
+APPS_CFLAGS := -g -O2 -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -Ibase/usr/include/ -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o
+APPS_LDFLAGS := -Wl,--start-group -lc -lgcc -lgcc_eh -Lbin/$(ARCH)/lib -l:list.a -Wl,--end-group
 APPS_SOURCES := $(shell find apps -type f)
 
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
@@ -54,6 +54,11 @@ APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_ASFILES:.S=.o))
 APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
 endif
 
+LIB_CFLAGS := -g -O2 -Ibase/usr/include/ -I$(CURDIR)/build/mlibc/$(ARCH)/include
+LIB_CFILES := lib/list.c
+LIB_OBJS = $(addprefix obj/$(ARCH)/,$(LIB_CFILES:.c=.o))
+LIB_LIBS = $(addprefix bin/$(ARCH)/,$(LIB_CFILES:.c=.a))
+
 .PHONY: all
 all: $(IMAGE_NAME).iso
 
@@ -62,7 +67,9 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar $(IMAGE_NAME).hdd
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar $(IMAGE_NAME).hdd
+
+$(APPS_EXECUTABLES): $(LIB_LIBS)
 
 -include $(HEADER_DEPS)
 
@@ -115,8 +122,18 @@ obj/$(ARCH)/apps/%.o: apps/%.asm
 	@nasm -f elf64 -o $@ $<
 endif
 
-bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
+obj/$(ARCH)/lib/%.o: lib/%.c
+	@echo " CC $< "
+	@mkdir -p "$(dir $@)"
+	@$(APPS_CC) $(LIB_CFLAGS) -c $< -o $@
+
+bin/$(ARCH)/lib/%.a: $(LIB_OBJS)
 	@echo " AR $@"
+	@mkdir -p "$(dir $@)"
+	ar rcs $@ $^
+
+bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
+	@echo " HD $@"
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/

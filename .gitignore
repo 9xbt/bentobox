@@ -10,7 +10,8 @@
 /ports/src
 /base/bin
 /base/usr/bin
-/base/usr/share
+/base/usr/share/man
+/base/usr/share/info
 /base/etc/localtime
 compile_commands.json
 .cache

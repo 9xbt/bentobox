@@ -12,6 +12,7 @@
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
+#include <kernel/file.h>
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
@@ -349,6 +350,12 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
                 #endif
             }
         }
+    }
+
+    for (int fd = 0; fd < this_proc->max_files; fd++) {
+        struct file *f = &this_proc->files[fd];
+        if (f->open && (f->flags & O_CLOEXEC))
+            file_close(fd);
     }
 
     int envc = 0;

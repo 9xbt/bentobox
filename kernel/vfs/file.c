@@ -44,7 +44,7 @@ int file_create(vfs_node_t *node, int flags) {
     this_proc->files[i] = file_new(node, flags);
     if (flags & O_APPEND)
         this_proc->files[i].offset = node->size;
-    return -EMFILE;
+    return i;
 }
 
 int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {

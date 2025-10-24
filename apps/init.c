@@ -20,6 +20,8 @@ int main(int argc, char *argv[]) {
         sysinfo.sysname, sysinfo.release, sysinfo.version);
     }
 
+    chdir("/root");
+
     for (;;) {
         pid_t pid = fork();
         if (pid < 0) {

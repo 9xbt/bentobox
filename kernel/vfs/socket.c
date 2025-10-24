@@ -40,7 +40,7 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         return -ENOTCONN;
     
     if (!sock->recv_queue->length)
-        return 0;
+        return -EAGAIN;
     struct socket_buffer *buf = sock->recv_queue->head->value;
     
     size_t n = (buf->len - buf->offset) < len ? (buf->len - buf->offset) : len;
@@ -247,7 +247,7 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
 int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     (void)addr;
     (void)addrlen;
-    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m address is ignored\n", __func__);
+    // dprintf(LOG_DEBUG, "\033[93m%s:\033[0m address is ignored\n", __func__);
 
     struct file *file = file_get(fd);
     if (!file)
@@ -259,7 +259,8 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     if (sock->state != SOCKET_LISTENING)
         return -EINVAL;
 
-    vfs_poll(sock->node, POLLIN, -1);
+    if (!(file->flags & O_NONBLOCK))
+        vfs_poll(sock->node, POLLIN, -1);
 
     struct socket *client_sock = list_pop(sock->pending);
     if (!client_sock)

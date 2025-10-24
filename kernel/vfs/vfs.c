@@ -234,8 +234,8 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
             }
         }
     } else {
-        dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m poll timeout is unimplemented\n");
         release(&node->waiters_lock);
+        sched_sleep(timeout);
     }
     return node->ops->poll(node, events);
 }
