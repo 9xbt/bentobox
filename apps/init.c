@@ -4,11 +4,26 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string.h>
 
 int main(int argc, char *argv[]) {
-    // FILE *console = fopen("/dev/console", "w");
+    FILE *console = fopen("/dev/console", "w");
 
-    // fprintf(console, "\033[93minit:\033[0m Hello, world!\n");
+    FILE *fptr = fopen("/etc/hostname", "r");
+    char hostname[65];
+    if (!fptr ||
+        !fgets(hostname, sizeof hostname, fptr)) {
+    } else {
+        char *newline;
+        if ((newline = strchr(hostname, '\n')))
+            *newline = '\0';
+
+        fprintf(console, "\033[93minit:\033[0m setting hostname to '%s'\n", hostname);
+        if (sethostname(hostname, strlen(hostname))) {
+            perror("sethostname");
+        }
+        fclose(fptr);
+    }
 
     printf("\nWelcome to \033[96mbentobox\033[0m!\n");
 

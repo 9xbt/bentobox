@@ -457,6 +457,14 @@ long sys_set_tls(uint64_t base) {
     return 0;
 }
 
+char hostname[65] = "(none)";
+
+long sys_hostname(char *name, size_t len) {
+    if (len >= sizeof hostname)
+        return -EINVAL;
+    return copy_from_user(hostname, name, len);
+}
+
 struct utsname {
 	char sysname[65];
 	char nodename[65];
@@ -472,7 +480,7 @@ long sys_uname(struct utsname *utsname) {
 
     struct utsname buf;
     strncpy(buf.sysname, __kernel_name, sizeof buf.sysname);
-    strncpy(buf.nodename, "localhost", sizeof buf.nodename);
+    strncpy(buf.nodename, hostname, sizeof buf.nodename);
     snprintf(buf.release, sizeof buf.release, "%d.%d.%d", __kernel_version_major, __kernel_version_minor, __kernel_version_patch);
     snprintf(buf.version, sizeof buf.version, "%s %s %s", __kernel_commit_hash, __kernel_build_date, __kernel_build_time);
     snprintf(buf.machine, sizeof buf.machine, "%s", __kernel_arch);
@@ -694,6 +702,7 @@ syscall_func syscalls[] = {
     [SYS_munmap]    = (syscall_func)(uintptr_t)sys_munmap,
     [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls,
 
+    [SYS_hostname]  = (syscall_func)(uintptr_t)sys_hostname,
     [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname,
     [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
     [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir,

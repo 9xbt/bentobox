@@ -26,7 +26,9 @@
 #define SYS_mmap      20
 #define SYS_munmap    21
 #define SYS_set_tls   22
+#define SYS_mprotect  23
 
+#define SYS_hostname  29
 #define SYS_uname     30
 #define SYS_getcwd    31
 #define SYS_chdir     32
