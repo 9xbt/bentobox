@@ -189,8 +189,6 @@ long sys_ioctl(int fd, int op, void *arg) {
         return -EBADF;
     if (!file->node->tty_ops || !file->node->tty_ops->ioctl)
         return -ENOTTY;
-    if (check_user_address(arg) < 0)
-        return -EFAULT;
     return file->node->tty_ops->ioctl(file->node, op, arg);
 }
 
@@ -362,9 +360,9 @@ long sys_kill(int pid, int sig) {
             return -ESRCH;
         return signal_send(proc, sig);
     } else if (pid == 0) {
-        return signal_send_pgid(this_proc->pgid, sig);
+        return signal_send_pgrp(this_proc->pgid, sig);
     } else if (pid < -1) {
-        return signal_send_pgid(-pid, sig);
+        return signal_send_pgrp(-pid, sig);
     }
     return -EINVAL;
 }
@@ -457,12 +455,84 @@ long sys_set_tls(uint64_t base) {
     return 0;
 }
 
-char hostname[65] = "(none)";
-
-long sys_hostname(char *name, size_t len) {
-    if (len >= sizeof hostname)
+long sys_sigaction(int sig, const struct sigaction *act, struct sigaction *oldact) {
+    if (sig < 1 || sig >= _NSIG || sig == SIGKILL || sig == SIGSTOP)
         return -EINVAL;
-    return copy_from_user(hostname, name, len);
+
+    struct process *proc = this_proc;
+    if (!proc)
+        return -ESRCH;
+
+    if (oldact && copy_to_user(oldact, &proc->sighand[sig], sizeof(*oldact)) != 0)
+        return -EFAULT;
+
+    if (act) {
+        struct sigaction new_act;
+        if (copy_from_user(&new_act, act, sizeof(new_act)) != 0)
+            return -EFAULT;
+
+        if (new_act.sa_handler != SIG_DFL && 
+            new_act.sa_handler != SIG_IGN) {
+
+            if (check_user_address(new_act.sa_handler) < 0)
+                return -EFAULT;
+        }
+
+        proc->sighand[sig] = new_act;
+    }
+
+    return 0;
+}
+
+long sys_sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
+    struct process *proc = this_proc;
+    if (!proc)
+        return -ESRCH;
+
+    if (oldset && copy_to_user(oldset, &proc->blocked, sizeof(*oldset)) != 0)
+        return -EFAULT;
+
+    if (set) {
+        sigset_t new_set;
+        if (copy_from_user(&new_set, set, sizeof(new_set)) != 0)
+            return -EFAULT;
+
+        sigdelset(&new_set, SIGKILL);
+        sigdelset(&new_set, SIGSTOP);
+        
+        switch (how) {
+            case SIG_BLOCK:
+                for (unsigned long i = 0; i < _NSIG_WORDS; i++)
+                    proc->blocked.sig[i] |= new_set.sig[i];
+                break;
+            case SIG_UNBLOCK:
+                for (unsigned long i = 0; i < _NSIG_WORDS; i++)
+                    proc->blocked.sig[i] &= ~new_set.sig[i];
+                break;
+            case SIG_SETMASK:
+                proc->blocked = new_set;
+                break;
+            default:
+                return -EINVAL;
+        }
+    }
+    
+    return 0;
+}
+
+extern void arch_restore_signal_context(struct thread *tcb, struct sigframe *frame);
+
+long sys_sigreturn(void) {
+    if (!this->sigframe)
+        return -EINVAL;
+    
+    struct sigframe *frame = this->sigframe;
+    this->parent->blocked = frame->oldmask;
+    this->ctx = frame->ctx;
+    this->sigframe = NULL;
+
+    arch_restore_signal_context(this, frame);
+    return frame->ctx.regs.rax;
 }
 
 struct utsname {
@@ -473,6 +543,8 @@ struct utsname {
 	char machine[65];
 	char domainname[65];
 };
+
+char hostname[65] = "(none)";
 
 long sys_uname(struct utsname *utsname) {
     if (!utsname)
@@ -639,6 +711,12 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     return 0;
 }
 
+long sys_sethostname(char *name, size_t len) {
+    if (len >= sizeof hostname)
+        return -EINVAL;
+    return copy_from_user(hostname, name, len);
+}
+
 long sys_socket(int domain, int type, int protocol) {
     return socket_new(domain, type, protocol);
 }
@@ -676,51 +754,55 @@ long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
-    [SYS_write]     = (syscall_func)(uintptr_t)sys_write,
-    [SYS_read]      = (syscall_func)(uintptr_t)sys_read,
-    [SYS_seek]      = (syscall_func)(uintptr_t)sys_seek,
-    [SYS_openat]    = (syscall_func)(uintptr_t)sys_openat,
-    [SYS_close]     = (syscall_func)(uintptr_t)sys_close,
-    [SYS_fstatat]   = (syscall_func)(uintptr_t)sys_fstatat,
-    [SYS_ioctl]     = (syscall_func)(uintptr_t)sys_ioctl,
-    [SYS_dup]       = (syscall_func)(uintptr_t)sys_dup,
-    [SYS_fcntl]     = (syscall_func)(uintptr_t)sys_fcntl,
-    [SYS_readdir]   = (syscall_func)(uintptr_t)sys_readdir,
+    [SYS_write]       = (syscall_func)(uintptr_t)sys_write,
+    [SYS_read]        = (syscall_func)(uintptr_t)sys_read,
+    [SYS_seek]        = (syscall_func)(uintptr_t)sys_seek,
+    [SYS_openat]      = (syscall_func)(uintptr_t)sys_openat,
+    [SYS_close]       = (syscall_func)(uintptr_t)sys_close,
+    [SYS_fstatat]     = (syscall_func)(uintptr_t)sys_fstatat,
+    [SYS_ioctl]       = (syscall_func)(uintptr_t)sys_ioctl,
+    [SYS_dup]         = (syscall_func)(uintptr_t)sys_dup,
+    [SYS_fcntl]       = (syscall_func)(uintptr_t)sys_fcntl,
+    [SYS_readdir]     = (syscall_func)(uintptr_t)sys_readdir,
 
-    [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
-    [SYS_waitpid]   = (syscall_func)(uintptr_t)sys_waitpid,
-    [SYS_kill]      = (syscall_func)(uintptr_t)sys_kill,
-    [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
-    [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
-    [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,
-    [SYS_gettid]    = (syscall_func)(uintptr_t)sys_gettid,
-    [SYS_getppid]   = (syscall_func)(uintptr_t)sys_getppid,
-    [SYS_getpgid]   = (syscall_func)(uintptr_t)sys_getpgid,
-    [SYS_setpgid]   = (syscall_func)(uintptr_t)sys_setpgid,
+    [SYS_exit]        = (syscall_func)(uintptr_t)sys_exit,
+    [SYS_waitpid]     = (syscall_func)(uintptr_t)sys_waitpid,
+    [SYS_kill]        = (syscall_func)(uintptr_t)sys_kill,
+    [SYS_fork]        = (syscall_func)(uintptr_t)sys_fork,
+    [SYS_exec]        = (syscall_func)(uintptr_t)sys_exec,
+    [SYS_getpid]      = (syscall_func)(uintptr_t)sys_getpid,
+    [SYS_gettid]      = (syscall_func)(uintptr_t)sys_gettid,
+    [SYS_getppid]     = (syscall_func)(uintptr_t)sys_getppid,
+    [SYS_getpgid]     = (syscall_func)(uintptr_t)sys_getpgid,
+    [SYS_setpgid]     = (syscall_func)(uintptr_t)sys_setpgid,
 
-    [SYS_mmap]      = (syscall_func)(uintptr_t)sys_mmap,
-    [SYS_munmap]    = (syscall_func)(uintptr_t)sys_munmap,
-    [SYS_set_tls]   = (syscall_func)(uintptr_t)sys_set_tls,
+    [SYS_mmap]        = (syscall_func)(uintptr_t)sys_mmap,
+    [SYS_munmap]      = (syscall_func)(uintptr_t)sys_munmap,
+    [SYS_set_tls]     = (syscall_func)(uintptr_t)sys_set_tls,
 
-    [SYS_hostname]  = (syscall_func)(uintptr_t)sys_hostname,
-    [SYS_uname]     = (syscall_func)(uintptr_t)sys_uname,
-    [SYS_getcwd]    = (syscall_func)(uintptr_t)sys_getcwd,
-    [SYS_chdir]     = (syscall_func)(uintptr_t)sys_chdir,
-    [SYS_pipe]      = (syscall_func)(uintptr_t)sys_pipe,
-    [SYS_ppoll]     = (syscall_func)(uintptr_t)sys_ppoll,
-    [SYS_sleep]     = (syscall_func)(uintptr_t)sys_sleep,
-    [SYS_gettime]   = (syscall_func)(uintptr_t)sys_gettime,
-    [SYS_faccessat] = (syscall_func)(uintptr_t)sys_faccessat,
-    [SYS_unlinkat]  = (syscall_func)(uintptr_t)sys_unlinkat,
-    [SYS_mkdirat]   = (syscall_func)(uintptr_t)sys_mkdirat,
+    [SYS_sigaction]   = (syscall_func)(uintptr_t)sys_sigaction,
+    [SYS_sigreturn]   = (syscall_func)(uintptr_t)sys_sigreturn,
+    [SYS_sigprocmask] = (syscall_func)(uintptr_t)sys_sigprocmask,
 
-    [SYS_socket]    = (syscall_func)(uintptr_t)sys_socket,
-    [SYS_bind]      = (syscall_func)(uintptr_t)sys_bind,
-    [SYS_listen]    = (syscall_func)(uintptr_t)sys_listen,
-    [SYS_connect]   = (syscall_func)(uintptr_t)sys_connect,
-    [SYS_accept]    = (syscall_func)(uintptr_t)sys_accept,
-    [SYS_recvfrom]  = (syscall_func)(uintptr_t)sys_recvfrom,
-    [SYS_sendto]    = (syscall_func)(uintptr_t)sys_sendto
+    [SYS_uname]       = (syscall_func)(uintptr_t)sys_uname,
+    [SYS_getcwd]      = (syscall_func)(uintptr_t)sys_getcwd,
+    [SYS_chdir]       = (syscall_func)(uintptr_t)sys_chdir,
+    [SYS_pipe]        = (syscall_func)(uintptr_t)sys_pipe,
+    [SYS_ppoll]       = (syscall_func)(uintptr_t)sys_ppoll,
+    [SYS_sleep]       = (syscall_func)(uintptr_t)sys_sleep,
+    [SYS_gettime]     = (syscall_func)(uintptr_t)sys_gettime,
+    [SYS_faccessat]   = (syscall_func)(uintptr_t)sys_faccessat,
+    [SYS_unlinkat]    = (syscall_func)(uintptr_t)sys_unlinkat,
+    [SYS_mkdirat]     = (syscall_func)(uintptr_t)sys_mkdirat,
+    [SYS_sethostname] = (syscall_func)(uintptr_t)sys_sethostname,
+
+    [SYS_socket]      = (syscall_func)(uintptr_t)sys_socket,
+    [SYS_bind]        = (syscall_func)(uintptr_t)sys_bind,
+    [SYS_listen]      = (syscall_func)(uintptr_t)sys_listen,
+    [SYS_connect]     = (syscall_func)(uintptr_t)sys_connect,
+    [SYS_accept]      = (syscall_func)(uintptr_t)sys_accept,
+    [SYS_recvfrom]    = (syscall_func)(uintptr_t)sys_recvfrom,
+    [SYS_sendto]      = (syscall_func)(uintptr_t)sys_sendto,
 };
 
 long syscall_handler(size_t *args) {

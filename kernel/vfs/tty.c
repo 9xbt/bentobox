@@ -2,6 +2,7 @@
 #include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
+#include <kernel/signal.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/fifo.h>
@@ -35,19 +36,19 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
     tty_t *tty = node->device;
     switch (c) {
         case 0x03:
-            signal_send(sched_find_in_group(tty->pgid), SIGINT);
-            puts("^C\n");
+            signal_send_pgrp(tty->pgid, SIGINT);
+            puts("^C");
             break;
         case 0x1A:
-            signal_send(sched_find_in_group(tty->pgid), SIGTSTP);
-            puts("^Z\n");
+            signal_send_pgrp(tty->pgid, SIGTSTP);
+            puts("^Z");
             break;
         case 0x0C:
             puts("\033[H\033[J");
             break;
         case 0x1C:
-            signal_send(this_proc, SIGQUIT);
-            puts("^\\\n");
+            signal_send_pgrp(tty->pgid, SIGQUIT);
+            puts("^\\");
             break;
         default:
             return ({ long n = fifo_enqueue(tty->fifo, c); vfs_wake_waiters(node); n; });
@@ -165,6 +166,8 @@ static long tty_ioctl(vfs_node_t *node, int op, void *arg) {
             return copy_to_user(arg, &tty->pgid, sizeof tty->pgid);
         case TIOCSPGRP:
             return copy_from_user(&tty->pgid, arg, sizeof tty->pgid);
+        case TCXONC:
+            return 0;
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;

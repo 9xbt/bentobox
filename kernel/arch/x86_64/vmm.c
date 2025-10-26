@@ -5,6 +5,7 @@
 #include <kernel/assert.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/signal.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -47,7 +48,6 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
 
         pt[i] = 0;
     }
-    mmu_free(PHYSICAL_HHDM(pt));
 }
 
 static inline void tlb_invalidate(void *va) {
@@ -210,9 +210,13 @@ uintptr_t *mmu_create_pagemap(void) {
         pm[i] = kernel_pd[i];
     }
 
+    // TODO: make it into a vma region?
+    extern void signal_leave();
+    mmu_map(pm, (void *)SIGNAL_TRAMPOLINE_BASE, (void *)mmu_get_physical(kernel_pd, signal_leave), PTE_PRESENT | PTE_USER);
     return pm;
 }
 
 void mmu_destroy_pagemap(uintptr_t *pm) {
     pt_destroy(pm, 4);
+    mmu_free(PHYSICAL_HHDM(pm));
 }

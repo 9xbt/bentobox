@@ -91,9 +91,8 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         //asm volatile ("cli" ::: "memory");
         mmu_switch_pm(tcb->parent->pm);
         
-        // TODO: multithreaded userspace tasks can't have the stack at the same address!
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (256 * PAGE_SIZE), 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
-        ctx->user_stack = 0x7ffffffff000;
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
 
         long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 
@@ -165,6 +164,29 @@ void arch_context_fork(struct thread *tcb) {
     ctx->regs.cs = 0x23;
     ctx->regs.ss = 0x1b;
     ctx->regs.rflags = 0x202;
+}
+
+void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
+    struct context *ctx = &frame->ctx;
+    memset(ctx, 0, sizeof(struct context));
+    memcpy(ctx, &this->ctx, 7 * sizeof(uint64_t));
+    memcpy(&ctx->regs, this->syscall_regs, 15 * sizeof(uint64_t));
+    asm volatile ("fxsave %0" :: "m"(ctx->fxsave));
+    
+    tcb->ctx.regs.rip = (uint64_t)action->sa_handler;
+    tcb->ctx.regs.rdi = sig;
+    
+    uintptr_t rsp = (uintptr_t)frame;
+    rsp -= 8;
+    *(unsigned long *)rsp = frame->pretcode;
+    
+    tcb->ctx.regs.rsp = rsp;
+    tcb->ctx.user_stack = rsp;
+}
+
+void arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
+    memcpy(tcb->syscall_regs, &frame->ctx.regs, 15 * sizeof(uint64_t));
+    asm volatile ("fxrstor %0" :: "m"(frame->ctx.fxsave));
 }
 
 void arch_save_context(void) {

@@ -45,7 +45,6 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
 
         pt[i] = 0;
     }
-    mmu_free(PHYSICAL_HHDM(pt));
 }
 
 static inline void tlb_invalidate(void *va) {
@@ -208,4 +207,5 @@ uintptr_t *mmu_create_pagemap(void) {
 
 void mmu_destroy_pagemap(uintptr_t *pm) {
     pt_destroy(pm, 4);
+    mmu_free(PHYSICAL_HHDM(pm));
 }

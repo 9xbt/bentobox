@@ -1,6 +1,7 @@
 section .text
     global syscall_entry
     global user_copy_fail
+    global signal_leave
     extern do_syscall
 
 syscall_entry:
@@ -57,3 +58,9 @@ syscall_entry:
 user_copy_fail:
     leave
     ret
+
+align 4096
+signal_leave:
+    mov rax, 25
+    syscall
+    ud2

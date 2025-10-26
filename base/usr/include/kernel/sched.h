@@ -38,6 +38,7 @@ struct thread {
     bool doing_user_copy;
     long user_copy_status;
     size_t sleep_end;
+    struct sigframe *sigframe;
 };
 
 struct process {
@@ -55,8 +56,10 @@ struct process {
 
     struct process *parent;
     list_t *children;
-
     list_t *threads;
+
+    struct sigaction sighand[_NSIG];
+    sigset_t blocked;
 };
 
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
