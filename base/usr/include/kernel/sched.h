@@ -62,6 +62,7 @@ struct process {
 #define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
 #define this_proc ((struct process *)(this_core()->current_tcb ? ((struct thread *)this_core()->current_tcb->value)->parent : NULL))
 
+extern list_t *processes;
 extern struct process *init_proc;
 extern struct thread  *cleaner_tcb;
 

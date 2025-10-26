@@ -15,10 +15,12 @@ typedef struct {
 #define SIGPIPE 13
 #define SIGCHLD 17
 #define SIGTSTP 20
+#define SIGTTIN 21
 
 #define LONG_BIT (sizeof(long) * CHAR_BIT)
 struct thread;
 struct process;
 
 void signal_handle(struct thread *tcb, int sig);
-long signal_send(struct process *proc, int sig);
+int  signal_send(struct process *proc, int sig);
+int  signal_send_pgid(int pgid, int sig);

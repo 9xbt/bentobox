@@ -268,11 +268,15 @@ void sched_schedule(struct registers *r) {
 
         this_cpu->current_tcb = sched_find_next();
     } else {
+    find_next:
         this_cpu->current_tcb = sched_find_next();
     }
 
+    enum thread_state state = this->state;
     this->cpu = this_cpu;
     sched_deliver_signals(this);
+    if (this->state != state)
+        goto find_next;
 
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();

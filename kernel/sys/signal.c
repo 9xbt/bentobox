@@ -20,13 +20,16 @@ void signal_handle(struct thread *tcb, int sig) {
             break;
         case SIGCHLD:
             break;
+        // case SIGTTIN:
+        //     tcb->state = THREAD_PAUSED;
+        //     break;
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m unknown signal %d\n", tcb->parent->name, sig);
             break;
     }
 }
 
-long signal_send(struct process *proc, int sig) {
+int signal_send(struct process *proc, int sig) {
     if (!proc)
         return -ESRCH;
     if (sig < 1 || sig >= _NSIG)
@@ -40,4 +43,16 @@ long signal_send(struct process *proc, int sig) {
     tcb->state = THREAD_RUNNING;
     
     return 0;
+}
+
+int signal_send_pgid(int pgid, int sig) {
+    int err = -ESRCH;
+    foreach_safe(i, processes) {
+        struct process *proc = i->value;
+        if (proc->pgid == pgid) {
+            signal_send(proc, sig);
+            err = 0;
+        }
+    }
+    return err;
 }

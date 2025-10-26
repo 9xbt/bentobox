@@ -218,9 +218,9 @@ long sys_fcntl(int fd, int op, long arg) {
 
     switch (op) {
         case F_DUPFD:
-            return file_dup(fd, -1, 0);
+            return file_dup(fd, arg, 0);
         case F_DUPFD_CLOEXEC:
-            return file_dup(fd, -1, O_CLOEXEC);
+            return file_dup(fd, arg, O_CLOEXEC);
         case F_GETFD:
             return file->flags & O_CLOEXEC;
         case F_SETFD:
@@ -353,6 +353,20 @@ long sys_waitpid(int pid, int *wstatus, int options) {
 
     *wstatus = 0;
     return 0;
+}
+
+long sys_kill(int pid, int sig) {
+    if (pid > 0) {
+        struct process *proc = sched_find_process(pid);
+        if (!proc)
+            return -ESRCH;
+        return signal_send(proc, sig);
+    } else if (pid == 0) {
+        return signal_send_pgid(this_proc->pgid, sig);
+    } else if (pid < -1) {
+        return signal_send_pgid(-pid, sig);
+    }
+    return -EINVAL;
 }
 
 long sys_fork(void) {
@@ -667,6 +681,7 @@ syscall_func syscalls[] = {
 
     [SYS_exit]      = (syscall_func)(uintptr_t)sys_exit,
     [SYS_waitpid]   = (syscall_func)(uintptr_t)sys_waitpid,
+    [SYS_kill]      = (syscall_func)(uintptr_t)sys_kill,
     [SYS_fork]      = (syscall_func)(uintptr_t)sys_fork,
     [SYS_exec]      = (syscall_func)(uintptr_t)sys_exec,
     [SYS_getpid]    = (syscall_func)(uintptr_t)sys_getpid,

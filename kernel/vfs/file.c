@@ -104,7 +104,7 @@ int file_dup(int oldfd, int newfd, int flags) {
         }
         if (newfd == -1) {
             if (fd_table_expand(this_proc->max_files) < 0)
-                return -EMFILE;
+                return  -EMFILE;
             newfd = this_proc->max_files - 1;
         }
     } else {
