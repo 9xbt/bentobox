@@ -37,7 +37,7 @@
 %macro isr_no_err_stub 1
 int_stub%+%1:
     push 0
-    push dword %1
+    push qword %1
     pushaq
 
     mov rdi, rsp
@@ -51,7 +51,7 @@ int_stub%+%1:
 
 %macro isr_err_stub 1
 int_stub%+%1:
-    push dword %1
+    push qword %1
     pushaq
 
     mov rdi, rsp
@@ -66,7 +66,7 @@ int_stub%+%1:
 %macro irq_stub 1
 int_stub%+%1:
     push 0
-    push dword %1
+    push qword %1
     pushaq
 
     mov rdi, rsp

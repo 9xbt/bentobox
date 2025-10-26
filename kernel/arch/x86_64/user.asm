@@ -28,7 +28,7 @@ syscall_entry:
     ;push qword [gs:184]
     ;popf
 
-    push dword 0x10202
+    push qword 0x10202
     popf
 
     mov rdi, rsp
