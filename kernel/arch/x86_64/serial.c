@@ -31,7 +31,6 @@ void serial_install(void) {
     outb(COM1 + 0, 0x55);
 
     if (inb(COM1) != 0x55) {
-        dprintf(LOG_WARNING, "\033[93muart:\033[0m falling back to port 0x%x\n", DEBUGCON);
         serial_base = DEBUGCON;
         return;
     }
