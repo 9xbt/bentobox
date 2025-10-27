@@ -113,6 +113,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
+    tcb->sigframe = NULL;
 
     static char *empty_argv_envp[] = { NULL };
     arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);
@@ -139,6 +140,8 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
     memset(&proc->psig, 0, sizeof proc->psig);
+    memset(&proc->sighand, 0, sizeof proc->sighand);
+    memset(&proc->blocked, 0, sizeof proc->blocked);
 
     if (proc->pid == 1)
         init_proc = proc;
@@ -175,6 +178,8 @@ long fork(void) {
     }
     proc->cwd = this_proc->cwd;
     memset(&proc->psig, 0, sizeof proc->psig);
+    memcpy(&proc->sighand, &this_proc->sighand, sizeof proc->sighand);
+    memcpy(&proc->blocked, &this_proc->blocked, sizeof proc->blocked);
 
     list_insert(this_proc->children, proc);
 
