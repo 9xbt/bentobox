@@ -135,6 +135,23 @@ static struct fifo *kb_fifo, *mouse_fifo;
 static vfs_node_t *tty, *kb, *mouse;
 static int kb_refcount = 0, mouse_refcount = 0;
 
+static int scancode_to_keycode(uint8_t scancode) {
+    if (scancode >= sizeof(keycode_map) / sizeof(int16_t))
+        return -1;
+    return keycode_map[scancode] ? keycode_map[scancode] : -1;
+}
+
+static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
+    if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST)) {
+        struct input_event iev = {
+            .type = EV_KEY,
+            .code = scancode_to_keycode(key),
+            .value = value
+        };
+        fifo_enqueue(kb_fifo, iev);
+    }
+}
+
 void irq1_handler(struct registers *r) {
     (void)r;
     
@@ -153,8 +170,7 @@ void irq1_handler(struct registers *r) {
                 kb_ctrl = false;
                 break;
         }
-        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
-            fifo_enqueue(kb_fifo, -key);
+        ps2_keyboard_enqueue_key(key, 0);
         vfs_wake_waiters(kb);
     } else if (last_key == 0xe0) {
         switch (key) {
@@ -179,8 +195,7 @@ void irq1_handler(struct registers *r) {
                 tty->tty_ops->enqueue(tty, 'D');
                 break;
         }
-        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
-            fifo_enqueue(kb_fifo, key);
+        ps2_keyboard_enqueue_key(key, 1);
         vfs_wake_waiters(kb);
     } else {
         switch (key) {
@@ -210,8 +225,7 @@ void irq1_handler(struct registers *r) {
                 tty->tty_ops->enqueue(tty, c);
                 break;
         }
-        if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST))
-            fifo_enqueue(kb_fifo, key);
+        ps2_keyboard_enqueue_key(key, 1);
         vfs_wake_waiters(kb);
     }
 
@@ -321,30 +335,31 @@ void irq12_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static int scancode_to_keycode(uint8_t scancode) {
-    if (scancode >= sizeof(keycode_map) / sizeof(int16_t))
-        return -1;
-    return keycode_map[scancode] ? keycode_map[scancode] : -1;
-}
-
 long ps2_keyboard_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
     (void)offset;
 
     if (len < sizeof(struct input_event))
         return -EINVAL;
-    int c, sc;
-    if (fifo_dequeue(kb_fifo, &c) < (long)sizeof(int))
-        return -EAGAIN;
-    if ((sc = scancode_to_keycode(c > 0 ? c : -c)) < 0)
-        return -EAGAIN;
 
-    struct input_event iev = {0};
-    iev.type = EV_KEY;
-    iev.code = sc;
-    iev.value = c > 0;
+    struct input_event iev;
+    if (fifo_dequeue(kb_fifo, &iev) < (long)sizeof(struct input_event))
+        return -EAGAIN;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
+        
+    // int c, sc;
+    // if (fifo_dequeue(kb_fifo, &c) < (long)sizeof(int))
+    //     return -EAGAIN;
+    // if ((sc = scancode_to_keycode(c > 0 ? c : -c)) < 0)
+    //     return -EAGAIN;
+
+    // struct input_event iev = {0};
+    // iev.type = EV_KEY;
+    // iev.code = sc;
+    // iev.value = c > 0;
+    // memcpy(buffer, &iev, sizeof iev);
+    // return sizeof iev;
 }
 
 long ps2_mouse_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -496,7 +511,7 @@ void ps2_hid_install(void) {
         kb = vfs_create_node("event0", VFS_CHARDEVICE);
         kb->ops = &keyboard_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
-        kb_fifo = fifo_create(64, int);
+        kb_fifo = fifo_create(256, struct input_event);
         irq_register(1, irq1_handler);
         ioapic_redirect_irq(0, 33, 1, false);
     }
@@ -515,7 +530,7 @@ void ps2_hid_install(void) {
         ps2_send_mouse_command(100);
         ps2_read_data();
         
-        mouse_fifo = fifo_create(64, struct input_event);
+        mouse_fifo = fifo_create(256, struct input_event);
         mouse = vfs_create_node("event1", VFS_CHARDEVICE);
         mouse->ops = &mouse_ops;
         vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
