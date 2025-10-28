@@ -714,6 +714,7 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
 long sys_sethostname(char *name, size_t len) {
     if (len >= sizeof hostname)
         return -EINVAL;
+    memset(hostname, 0, sizeof hostname);
     return copy_from_user(hostname, name, len);
 }
 
