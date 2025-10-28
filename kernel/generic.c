@@ -3,6 +3,7 @@
 #include <kernel/elf64.h>
 #include <kernel/time.h>
 #include <kernel/pci.h>
+#include <kernel/tty.h>
 #include <kernel/vfs.h>
 
 extern void arch_jumpstart(void);
@@ -13,6 +14,7 @@ void generic_startup(void) {
     pci_scan();
     modules_install();
     sched_install();
+    tty_spawn_worker();
 }
 
 void generic_main(void) {

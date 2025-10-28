@@ -65,25 +65,25 @@ void serial_puts(const char *str) {
     serial_write(str, strlen(str));
 }
 
-static void serial_tty_flush(vfs_node_t *node) {
-    acquire(&serial_lock);
-    tty_t *tty = node->device;
+static void serial_tty_worker_thread(void) {
+    tty_t *tty = vfs_open(NULL, "/dev/ttyS0", 0)->device;
     int c;
-    while (fifo_dequeue(tty->fifo, &c) > 0) {
-        if (c > 0)
-            serial_putchar(c);
+    for (;;) {
+        acquire(&serial_lock);
+        while (fifo_dequeue(tty->ofifo, &c) > 0) {
+            if (c > 0)
+                serial_putchar(c);
+        }
+        release(&serial_lock);
+
+        this->state = THREAD_PAUSED;
+        sched_yield();
     }
-    release(&serial_lock);
 }
 
 static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
-    tty_t *tty = node->device;
+    (void)node;
     switch (op) {
-        case TCGETS:
-            return copy_to_user(arg, &tty->tio, sizeof(struct termios));
-        case TCSETS:
-        case TCSETSW:
-            return copy_from_user(&tty->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ: {
             struct winsize ws = {
                 .ws_row = 25,
@@ -91,12 +91,6 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
             };
             return copy_to_user(arg, &ws, sizeof ws);
         }
-        case TIOCSWINSZ:
-            return 0;
-        case TIOCGPGRP:
-            return copy_to_user(arg, &tty->pgid, sizeof(int));
-        case TIOCSPGRP:
-            return copy_from_user(&tty->pgid, arg, sizeof(int));
         default:
             dprintf(LOG_DEBUG, "\033[93m%s\033[0m: function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
@@ -116,11 +110,16 @@ void serial_initialize(void) {
     ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
     ttyS0->perms = 0600;
     ttyS0->device = tty_create(ttyS0);
-    ttyS0->tty_ops->ioctl = serial_tty_ioctl;
-    ttyS0->tty_ops->flush = serial_tty_flush;
+    ((tty_t *)ttyS0->device)->ioctl = serial_tty_ioctl;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
     
     irq_register(4, irq4_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
+
+    tty_t *tty = ttyS0->device;
+
+    struct process *proc = sched_new_process("serial tty", false);
+    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL);
+    sched_add_process(proc);
 }

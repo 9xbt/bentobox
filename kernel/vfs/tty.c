@@ -9,23 +9,47 @@
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
 
-static void tty_flush(vfs_node_t *node) {
-    tty_t *tty = node->device;
+static void tty_worker_thread(void) {
+    tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
     int c;
-    while (fifo_dequeue(tty->fifo, &c) > 0) {
-        if (c > 0)
-            putchar(c);
+    for (;;) {
+        while (fifo_dequeue(tty->ofifo, &c) > 0) {
+            if (c > 0)
+                putchar(c);
+        }
+        this->state = THREAD_PAUSED;
+        sched_yield();
     }
+}
+
+static long tty1_ioctl(vfs_node_t *node, int op, void *arg) {
+    (void)node;
+    switch (op) {
+        case TIOCGWINSZ: {
+            struct winsize ws;
+            framebuffer_get_winsize(&ws);
+            return copy_to_user(arg, &ws, sizeof ws);
+        }
+        default:
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
+            return -EINVAL;
+    }
+}
+
+void tty_flush(vfs_node_t *node) {
+    tty_t *tty = node->device;
+    tty->worker->state = THREAD_RUNNING;
 }
 
 long tty_poll(vfs_node_t *node, long events) {
     tty_t *tty = node->device;
     if (events & POLLIN) {
-        if (!fifo_is_empty(tty->fifo))
+        if (!fifo_is_empty(tty->ififo))
             return POLLIN;
     }
     if (events & POLLOUT) {
-        return POLLOUT;
+        if (!fifo_is_full(tty->ofifo))
+            return POLLOUT;
     }
     return 0;
 }
@@ -51,20 +75,20 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
             puts("^\\");
             break;
         default:
-            return ({ long n = fifo_enqueue(tty->fifo, c); vfs_wake_waiters(node); n; });
+            return ({ long n = fifo_enqueue(tty->ififo, c); vfs_wake_waiters(node); n; });
     }
     return 0;
 }
 
 long tty_dequeue(vfs_node_t *node, bool block) {
     tty_t *tty = node->device;
-    while (fifo_is_empty(tty->fifo)) {
+    while (fifo_is_empty(tty->ififo)) {
         if (!block)
             return -EAGAIN;
         while (!(vfs_poll(node, POLLIN, -1) & POLLIN)) {}
     }
     int c = 0;
-    if (fifo_dequeue(tty->fifo, &c) <= 0)
+    if (fifo_dequeue(tty->ififo, &c) <= 0)
         return -EAGAIN;
     return c;
 }
@@ -76,12 +100,20 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     if (!node->tty_ops->enqueue || !node->tty_ops->flush)
         return -EINVAL;
 
+    tty_t *tty = node->device;
     char *buf = (char *)buffer;
     long i;
     for (i = 0; (unsigned)i < len; i++) {
-        if (node->tty_ops->enqueue(node, buf[i]) < 0)
+        while (fifo_is_full(tty->ofifo)) {
+            if (node->tty_ops && node->tty_ops->flush)
+                node->tty_ops->flush(node);
+            sched_yield();
+        }
+        
+        if (fifo_enqueue(tty->ofifo, buf[i]) < 0)
             break;
     }
+
     node->tty_ops->flush(node);
     return i;
 }
@@ -147,7 +179,7 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     return i;
 }
 
-static long tty_ioctl(vfs_node_t *node, int op, void *arg) {
+long tty_ioctl(vfs_node_t *node, int op, void *arg) {
     tty_t *tty = node->device;
     switch (op) {
         case TCGETS:
@@ -155,11 +187,6 @@ static long tty_ioctl(vfs_node_t *node, int op, void *arg) {
         case TCSETS:
         case TCSETSW:
             return copy_from_user(&tty->tio, arg, sizeof(struct termios));
-        case TIOCGWINSZ: {
-            struct winsize ws;
-            framebuffer_get_winsize(&ws);
-            return copy_to_user(arg, &ws, sizeof ws);
-        }
         case TIOCSWINSZ:
             return 0;
         case TIOCGPGRP:
@@ -169,8 +196,9 @@ static long tty_ioctl(vfs_node_t *node, int op, void *arg) {
         case TCXONC:
             return 0;
         default:
-            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
-            return -EINVAL;
+            if (!tty->ioctl)
+                return -EINVAL;
+            return tty->ioctl(node, op, arg);
     }
 }
 
@@ -182,12 +210,19 @@ long console_write(vfs_node_t *node, const void *buffer, long offset, size_t len
     return len;
 }
 
+long console_ioctl(vfs_node_t *node, int op, void *arg) {
+    (void)node;
+    (void)op;
+    (void)arg;
+    return 0;
+}
+
 vfs_ops_t console_ops = {
     .write = console_write
 };
 
 vfs_tty_ops_t console_tty_ops = {
-    .ioctl = tty_ioctl
+    .ioctl = console_ioctl
 };
 
 vfs_ops_t tty_ops = {
@@ -196,9 +231,17 @@ vfs_ops_t tty_ops = {
     .poll = tty_poll
 };
 
+vfs_tty_ops_t tty_tty_ops = {
+    .ioctl = tty_ioctl,
+    .enqueue = tty_enqueue,
+    .dequeue = tty_dequeue,
+    .flush = tty_flush
+};
+
 tty_t *tty_create(vfs_node_t *node) {
     tty_t *tty = kmalloc(sizeof(tty_t));
-    tty->fifo = fifo_create(1024, char);
+    tty->ififo = fifo_create(512, char);
+    tty->ofifo = fifo_create(4096, char);
     tty->node = node;
     tty->pgid = 0;
     tty->tio.c_iflag = BRKINT | ICRNL | IXON;
@@ -215,23 +258,28 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->tio.c_cc[VSTART] = 17;
     tty->tio.c_cc[VSTOP] = 19;
     tty->tio.c_cc[VSUSP] = 26;
+    tty->worker = NULL;
+    tty->ioctl = NULL;
     node->ops = &tty_ops;
-    node->tty_ops = kmalloc(sizeof(vfs_tty_ops_t));
-    node->tty_ops->ioctl = NULL;
-    node->tty_ops->enqueue = tty_enqueue;
-    node->tty_ops->dequeue = tty_dequeue;
-    node->tty_ops->flush = NULL;
+    node->tty_ops = &tty_tty_ops;
     return tty;
 }
 
 void tty_destroy(vfs_node_t *node) {
     tty_t *tty = node->device;
-    fifo_destroy(tty->fifo);
-    kfree(node->tty_ops);
-    node->tty_ops = NULL;
+    fifo_destroy(tty->ififo);
+    fifo_destroy(tty->ofifo);
     kfree(node->device);
     node->device = NULL;
     return;
+}
+
+void tty_spawn_worker(void) {
+    tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
+
+    struct process *proc = sched_new_process("tty", false);
+    tty->worker = sched_new_thread(proc, tty_worker_thread, 0, NULL, NULL);
+    sched_add_process(proc);
 }
 
 void tty_initialize(void) {
@@ -244,7 +292,6 @@ void tty_initialize(void) {
     vfs_node_t *tty1 = vfs_create_node("tty1", VFS_CHARDEVICE);
     tty1->perms = 0600;
     tty1->device = tty_create(tty1);
-    tty1->tty_ops->ioctl = tty_ioctl;
-    tty1->tty_ops->flush = tty_flush;
+    ((tty_t *)tty1->device)->ioctl = tty1_ioctl;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty1);
 }
