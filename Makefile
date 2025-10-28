@@ -67,7 +67,13 @@ kernel-deps:
 	@touch build/kernel-deps
 
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar $(IMAGE_NAME).hdd
+kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) 
+
+.PHONY: hdd
+hdd: $(LIB_LIBS) $(APPS_EXECUTABLES) $(IMAGE_NAME).hdd
+
+.PHONY: livecd
+livecd: $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar
 
 $(APPS_EXECUTABLES): $(LIB_LIBS)
 
@@ -130,7 +136,7 @@ obj/$(ARCH)/lib/%.o: lib/%.c
 bin/$(ARCH)/lib/%.a: $(LIB_OBJS)
 	@echo " AR $@"
 	@mkdir -p "$(dir $@)"
-	ar rcs $@ $^
+	@ar rcs $@ $^
 
 bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
 	@echo " HD $@"
@@ -140,10 +146,14 @@ bin/$(ARCH)/initrd.tar: $(shell find base -type f) $(shell find apps -type f) $(
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf $@ .
 
-$(IMAGE_NAME).hdd:
+$(IMAGE_NAME).hdd: $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
 	@echo " HD $@"
-	@truncate -s 1000M $@
-	@genext2fs -b 1048576 -L bentobox -N 10000 $@ 2>&1 >/dev/null | grep -v copying | cat
+	@mkdir -p "$(dir $@)"
+	@mkdir -p bin/$(ARCH)/base/bin
+	@cp -r base/* bin/$(ARCH)/base/
+	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
+# 	@truncate -s 1000M $@
+	@genext2fs -d bin/$(ARCH)/base -b 1048576 -L bentobox -N 10000 $@ 2>&1 >/dev/null | grep -v copying | cat
 
 .PHONY: clean
 clean:

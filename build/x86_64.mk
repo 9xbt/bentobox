@@ -22,11 +22,11 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -drive file=$(IMAGE_NAME).hdd,format=raw $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -drive file=$(IMAGE_NAME).hdd,format=raw $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
@@ -46,10 +46,14 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
 	@cp bin/$(ARCH)/kernel iso_root/boot/
-	@cp bin/$(ARCH)/initrd.tar iso_root/boot/
+	@cp bin/$(ARCH)/initrd.tar iso_root/boot/ 2>/dev/null || true
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
-	@cp build/limine.conf iso_root/boot/limine/
+	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
+		{ echo "default_entry: 3"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
+	else \
+		cp build/limine.conf iso_root/boot/limine/; \
+	fi
 	@mkdir -p iso_root/EFI/BOOT
 	@cp build/limine/limine-bios.sys build/limine/limine-bios-cd.bin build/limine/limine-uefi-cd.bin iso_root/boot/limine/
 	@cp build/limine/BOOTX64.EFI iso_root/EFI/BOOT/

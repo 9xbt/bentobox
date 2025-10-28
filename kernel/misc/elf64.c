@@ -257,11 +257,11 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
 int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(NULL, file, 0);
     if (!node) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: no such file or directory\n", file);
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
         return -ENOENT;
     }
     if (node->type == VFS_DIRECTORY) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: is a directory\n", file);
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
         vfs_close(node);
         return -EISDIR;
     }
@@ -303,7 +303,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
         return -ENOENT;
     }
     if (node->type == VFS_DIRECTORY) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: is a directory\n", file);
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
         vfs_close(node);
         return -EISDIR;
     }

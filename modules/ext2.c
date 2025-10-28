@@ -918,7 +918,7 @@ int init() {
     // vfs_register("ext2", mount, false);
     // return vfs_mount(vfs_open(NULL, args_value("root"), false, false), vfs_root, "ext2", 0);
 
-    mount(vfs_lookup(NULL, args_value("root"), false, VFS_NONE), vfs_add_node(vfs_get_root(), vfs_create_node("mnt", VFS_DIRECTORY)));
+    mount(vfs_lookup(NULL, args_value("root"), false, VFS_NONE), vfs_get_root());
     return 0;
 }
 

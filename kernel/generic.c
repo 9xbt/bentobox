@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/sched.h>
 #include <kernel/elf64.h>
+#include <kernel/panic.h>
 #include <kernel/time.h>
 #include <kernel/pci.h>
 #include <kernel/tty.h>
@@ -18,6 +19,7 @@ void generic_startup(void) {
 }
 
 void generic_main(void) {
-    spawn("/bin/init", 0, NULL, NULL);
+    if (spawn("/bin/init", 0, NULL, NULL) < 0)
+        panic("Failed to spawn init process!");
     arch_jumpstart();
 }
