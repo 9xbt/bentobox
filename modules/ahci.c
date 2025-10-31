@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include <kernel/spinlock.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/bitmap.h>
@@ -149,6 +150,7 @@ typedef struct ahci_port {
 
 volatile uint32_t *ahci_base = NULL;
 int command_slots = 0;
+spinlock_t ahci_lock[32] = {0};
 
 uint32_t ahci_read(uint32_t offset) {
     return ahci_base[offset / sizeof(uint32_t)];
@@ -264,13 +266,17 @@ int ahci_find_slot(int port) {
 int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool write) {
     if (DIV_CEILING(count, 8) > PRDT_ENTRIES) {
         dprintf(LOG_ERR, "\033[93mahci:\033[0m transfer too large (%u)\n", count);
+        release(&ahci_lock[port->port_num]);
         return 1;
     }
 
+    acquire(&ahci_lock[port->port_num]);
     ahci_write(PORT_BASE(port->port_num) + PORT_IS, 0xFFFFFFFF);
     int slot = ahci_find_slot(port->port_num);
-    if (slot < 0)
+    if (slot < 0) {
+        release(&ahci_lock[port->port_num]);
         return 1;
+    }
     
     hba_cmd_header_t *cmd_hdr = port->clb;
     cmd_hdr += slot;
@@ -280,6 +286,7 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     
     hba_cmd_tbl_t *cmd_tbl = port->cmd_tbls[slot];
     memset(cmd_tbl, 0, sizeof(hba_cmd_tbl_t) + (cmd_hdr->prdtl - 1) * sizeof(hba_prdt_entry_t));
+    release(&ahci_lock[port->port_num]);
     
     uintptr_t *pages = kmalloc(sizeof(uintptr_t) * ALIGN_UP(count, 8) / 8);
     for (uint32_t i = 0; i < ALIGN_UP(count, 8) / 8; i++) {
@@ -288,6 +295,7 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
             memcpy(VIRTUAL_HHDM(pages[i]), buffer + i * PAGE_SIZE, MIN((count - i * 8) * 512, PAGE_SIZE));
     }
     
+    acquire(&ahci_lock[port->port_num]);
     for (int i = 0, j = count; j > 0; j -= 8, i++) {
         uintptr_t phys = pages[i];
         cmd_tbl->prdt_entry[i].dba = LOW(phys);
@@ -310,17 +318,17 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     fis_cmd->counth = (uint8_t)(count >> 8);
     
     ahci_send_cmd(port->port_num, slot);
-    
-    if (ahci_read(PORT_BASE(port->port_num) + PORT_IS) & (1 << 30))
-        return 1;
+    release(&ahci_lock[port->port_num]);
+
+    int status = ahci_read(PORT_BASE(port->port_num) + PORT_IS) & (1 << 30);
     
     for (uint32_t i = 0; i < ALIGN_UP(count, 8) / 8; i++) {
-        if (!write)
+        if (!write && !status)
             memcpy(buffer + i * PAGE_SIZE, VIRTUAL_HHDM(pages[i]), MIN((count - i * 8) * 512, PAGE_SIZE));
         mmu_free((void *)pages[i]);
     }
     kfree(pages);
-    return 0;
+    return status;
 }
 
 int ahci_op_read(ahci_port_t *port, uint64_t lba, uint32_t count, char *buffer) {
