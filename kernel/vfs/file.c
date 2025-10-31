@@ -90,7 +90,7 @@ struct file *file_get_from_node(vfs_node_t *node) {
     return NULL;
 }
 
-int file_dup(int oldfd, int newfd, int flags) {
+int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
     struct file *oldfile = file_get(oldfd);
     if (!oldfile)
         return -EBADF;
@@ -104,10 +104,10 @@ int file_dup(int oldfd, int newfd, int flags) {
         }
         if (newfd == -1) {
             if (fd_table_expand(this_proc->max_files) < 0)
-                return  -EMFILE;
+                return -EMFILE;
             newfd = this_proc->max_files - 1;
         }
-    } else {
+    } else if (exact_fd) {
         if (oldfd == newfd)
             return newfd;
         if (newfd < 0)
@@ -116,6 +116,21 @@ int file_dup(int oldfd, int newfd, int flags) {
             return -EMFILE;
         if (this_proc->files[newfd].open)
             file_close(newfd);
+    } else {
+        int min_fd = newfd;
+        newfd = -1;
+        for (int i = min_fd; i < this_proc->max_files; i++) {
+            if (!this_proc->files[i].open) {
+                newfd = i;
+                break;
+            }
+        }
+        if (newfd == -1) {
+            int expand_to = (min_fd >= this_proc->max_files) ? min_fd : this_proc->max_files;
+            if (fd_table_expand(expand_to) < 0)
+                return -EMFILE;
+            newfd = this_proc->max_files - 1;
+        }
     }
     
     this_proc->files[newfd] = *oldfile;

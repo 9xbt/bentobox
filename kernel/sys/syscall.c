@@ -193,7 +193,7 @@ long sys_ioctl(int fd, int op, void *arg) {
 }
 
 long sys_dup(int oldfd, int newfd, int flags) {
-    return file_dup(oldfd, newfd, flags);
+    return file_dup(oldfd, newfd, flags, newfd >= 0);
 }
 
 #define F_DUPFD     0
@@ -216,9 +216,9 @@ long sys_fcntl(int fd, int op, long arg) {
 
     switch (op) {
         case F_DUPFD:
-            return file_dup(fd, arg, 0);
+            return file_dup(fd, arg, 0, false);
         case F_DUPFD_CLOEXEC:
-            return file_dup(fd, arg, O_CLOEXEC);
+            return file_dup(fd, arg, O_CLOEXEC, false);
         case F_GETFD:
             return file->flags & O_CLOEXEC;
         case F_SETFD:
