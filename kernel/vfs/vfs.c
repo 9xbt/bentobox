@@ -10,8 +10,9 @@
 extern void devfs_initialize(void);
 extern void zero_initialize(void);
 extern void tty_initialize(void);
-extern void tmpfs_initialize(void);
 extern void fbdev_initialize(void);
+extern void tmpfs_initialize(void);
+extern void procfs_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 
@@ -293,8 +294,9 @@ void vfs_install(void) {
     devfs_initialize();
     zero_initialize();
     tty_initialize();
-    tmpfs_initialize();
     fbdev_initialize();
+    tmpfs_initialize();
+    procfs_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

@@ -33,6 +33,9 @@ extern uintptr_t hhdm_offset;
 extern uintptr_t  *kernel_pd;
 extern struct vma *kernel_vma;
 
+extern size_t mmu_usable_mem;
+extern size_t mmu_used_pages;
+
 void  mmu_initialize(void);
 void  mmu_print_memory(void);
 void *mmu_alloc(void);
