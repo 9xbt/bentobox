@@ -39,8 +39,11 @@ extern void aarch64_restore_fp(__uint128_t *);
 extern void generic_startup(void);
 extern void generic_main(void);
 
-void arch_fatal(void) {
+void arch_fatal_prepare(void) {
     gic_send_sgi(1, 0xff & ~(1 << this_cpu->logical_id));
+}
+
+void arch_fatal(void) {
     asm ("msr daifset, #2");
 	for (;;) asm ("wfi");
 }
@@ -83,8 +86,8 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         uintptr_t *pm = mmu_get_pm();
         mmu_switch_pm(tcb->parent->pm);
 
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0x7ffffffff000 - (4 * PAGE_SIZE), 0, 4, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
-        ctx->user_stack = 0x7ffffffff000;
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
 
         long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 

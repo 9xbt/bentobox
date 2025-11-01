@@ -52,27 +52,29 @@ void signal_handle(struct thread *tcb, int sig) {
                 return;
             case SIGINT:
             case SIGTERM:
-                sched_exit(tcb, 128 + sig);
+            case SIGKILL:
+                sched_exit(tcb, sig);
                 return;
             case SIGILL:
                 dprintf(LOG_ERR, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
-                sched_exit(tcb, 128 + sig);
+                sched_exit(tcb, sig);
                 return;
             case SIGSEGV:
                 dprintf(LOG_ERR, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
-                sched_exit(tcb, 128 + sig);
+                sched_exit(tcb, sig);
                 return;
             case SIGBUS:
             case SIGFPE:
             case SIGABRT:
             case SIGQUIT:
-                sched_exit(tcb, 128 + sig);
+                sched_exit(tcb, sig);
                 return;
             case SIGSTOP:
             case SIGTSTP:
             case SIGTTIN:
             case SIGTTOU:
-                tcb->state = THREAD_PAUSED;
+                if (tcb->parent != init_proc)
+                    tcb->state = THREAD_PAUSED;
                 return;
             case SIGCONT:
                 if (tcb->state == THREAD_PAUSED)
@@ -92,6 +94,8 @@ int signal_send(struct process *proc, int sig) {
         return -ESRCH;
     if (sig < 1 || sig >= _NSIG)
         return -EINVAL;
+    if (!proc->user)
+        return -EPERM;
 
     int word = (sig - 1) / LONG_BIT;
     int bit  = (sig - 1) % LONG_BIT;

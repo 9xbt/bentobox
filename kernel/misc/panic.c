@@ -4,9 +4,12 @@
 #include <kernel/mmu.h>
 
 extern void arch_fatal(void);
+extern void arch_fatal_prepare(void);
 extern void arch_do_backtrace(void);
 
 void __panic(char *file, int line, char *fmt, ...) {
+    arch_fatal_prepare();
+
     va_list args;
     va_start(args, fmt);
     char buf[1024] = {-1};

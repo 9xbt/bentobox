@@ -5,9 +5,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 int main(int argc, char *argv[]) {
     FILE *console = fopen("/dev/console", "w");
+
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+    sigaddset(&set, SIGTSTP);
+    sigprocmask(SIG_BLOCK, &set, NULL);
 
     FILE *fptr = fopen("/etc/hostname", "r");
     char hostname[65];

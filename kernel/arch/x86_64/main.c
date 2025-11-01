@@ -39,18 +39,18 @@ struct limine_executable_file_request ksym_request = {
     .revision = 0
 };
 
-extern void enable_sse(void);
-
 extern void generic_startup(void);
 extern void generic_main(void);
 
-void arch_fatal(void) {
+void arch_fatal_prepare(void) {
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
         if (core != this_cpu)
             lapic_ipi(core->logical_id, 0x02);
     }
+}
 
+void arch_fatal(void) {
 	asm ("cli");
 	for (;;) asm ("hlt");
 }
@@ -91,7 +91,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         //asm volatile ("cli" ::: "memory");
         mmu_switch_pm(tcb->parent->pm);
         
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER | PTE_NX);
         ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
 
         long depth = ((argc + envc) % 2 == 0) ? 24 : 16;

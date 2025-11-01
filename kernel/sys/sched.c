@@ -4,6 +4,7 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/panic.h>
 #include <kernel/sched.h>
 #include <kernel/file.h>
 #include <kernel/list.h>
@@ -211,13 +212,6 @@ void sched_sleep(size_t ns) {
     sched_yield();
 }
 
-// static void sched_push_and_yield(int status) {
-//     struct dead_process *dp = kmalloc(sizeof(struct dead_process));
-//     dp->pid = this_proc->pid;
-//     dp->status = status;
-//     list_insert(this_proc->parent->dead_children, dp);
-// }
-
 void sched_exit(struct thread *tcb, int status) {
     tcb->parent->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
@@ -330,14 +324,13 @@ void sched_cleaner(void) {
             // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
 
             if (init_proc == proc)
-                init_proc = NULL;
+                panic("Tried to kill init!");
 
             if (proc->parent) {
                 struct dead_process *dp = kmalloc(sizeof(struct dead_process));
                 dp->pid = proc->pid;
                 dp->status = status;
                 list_insert(proc->parent->dead_children, dp);
-
                 signal_send(proc->parent, SIGCHLD);
                 list_remove_value(proc->parent->children, proc);
             }
@@ -395,6 +388,7 @@ void sched_install(void) {
     tid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
     memset(pid_bitmap, 0, SCHED_BITMAP_SIZE);
     memset(tid_bitmap, 0, SCHED_BITMAP_SIZE);
+    bitmap_set(pid_bitmap, 1);
 
     struct process *cleaner = sched_new_process("psycho killer", false);
     cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL);

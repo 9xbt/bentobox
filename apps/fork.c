@@ -14,7 +14,7 @@ int main() {
         printf("Parent!\n");
         int status;
         wait(&status);
-        printf("Child exited with status %d.\n", status);
+        printf("Child exited with status %d.\n", WEXITSTATUS(status));
     }
     return 0;
 }
