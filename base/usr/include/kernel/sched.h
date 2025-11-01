@@ -27,6 +27,11 @@ enum process_state {
     PROCESS_ZOMBIE_ALL
 };
 
+struct dead_process {
+    int pid;
+    int status;
+};
+
 struct thread {
     int tid;
     enum thread_state state;
@@ -39,6 +44,7 @@ struct thread {
     long user_copy_status;
     size_t sleep_end;
     struct sigframe *sigframe;
+    int status;
 };
 
 struct process {
@@ -57,6 +63,7 @@ struct process {
     struct process *parent;
     list_t *children;
     list_t *threads;
+    list_t *dead_children;
 
     struct sigaction sighand[_NSIG];
     sigset_t blocked;
@@ -78,7 +85,7 @@ struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);
 void sched_sleep(size_t ns);
-void sched_exit(struct thread *tcb);
-void sched_exit_group(struct process *proc);
+void sched_exit(struct thread *tcb, int status);
+void sched_exit_group(struct process *proc, int status);
 void sched_schedule(struct registers *r);
 void sched_install(void);

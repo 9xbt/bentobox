@@ -324,8 +324,7 @@ long sys_readdir(int fd, struct dirent *buf, size_t count) {
 }
 
 long sys_exit(int status) {
-    (void)status;
-    sched_exit(this);
+    sched_exit(this, status);
     __builtin_unreachable();
 }
 
@@ -341,16 +340,20 @@ long sys_waitpid(int pid, int *wstatus, int options) {
         if (proc->state == PROCESS_ZOMBIE ||
             proc->state == PROCESS_ZOMBIE_ALL)
         {
-            *wstatus = 0;
-            return 0;
+            struct thread *tcb = proc->threads->head->value;
+            *wstatus = tcb->status;
+            return proc->pid;
         }
     }
 
     this->state = THREAD_PAUSED;
     sched_yield();
 
-    *wstatus = 0;
-    return 0;
+    struct dead_process *dp = list_pop(this_proc->dead_children);
+    *wstatus = dp->status;
+    pid = dp->pid;
+    kfree(dp);
+    return pid;
 }
 
 long sys_kill(int pid, int sig) {

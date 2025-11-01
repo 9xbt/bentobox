@@ -133,6 +133,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->parent = NULL;
     proc->children = list_create();
     proc->threads = list_create();
+    proc->dead_children = list_create();
     proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
@@ -161,6 +162,7 @@ long fork(void) {
     proc->parent = this_proc;
     proc->children = list_create();
     proc->threads = list_create();
+    proc->dead_children = list_create();
     proc->vma = vma_clone(this_proc->vma, proc->pm);
 
     proc->max_files = this_proc->max_files;
@@ -209,21 +211,30 @@ void sched_sleep(size_t ns) {
     sched_yield();
 }
 
-void sched_exit(struct thread *tcb) {
+// static void sched_push_and_yield(int status) {
+//     struct dead_process *dp = kmalloc(sizeof(struct dead_process));
+//     dp->pid = this_proc->pid;
+//     dp->status = status;
+//     list_insert(this_proc->parent->dead_children, dp);
+// }
+
+void sched_exit(struct thread *tcb, int status) {
     tcb->parent->state = PROCESS_ZOMBIE;
     cleaner_tcb->state = THREAD_RUNNING;
     if (tcb == this) {
         this->state = THREAD_ZOMBIE;
+        this->status = status;
         sched_yield();
         for (;;) {}
     }
 }
 
-void sched_exit_group(struct process *proc) {
+void sched_exit_group(struct process *proc, int status) {
     proc->state = PROCESS_ZOMBIE_ALL;
     cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {
         this->state = THREAD_ZOMBIE;
+        this->status = status;
         sched_yield();
         for (;;) {}
     }
@@ -294,12 +305,13 @@ void sched_cleaner(void) {
             if (proc->state != PROCESS_ZOMBIE && proc->state != PROCESS_ZOMBIE_ALL)
                 continue;
             
+            int status = 0;
             if (proc->state == PROCESS_ZOMBIE) {
                 foreach_safe(j, proc->threads) {
                     struct thread *tcb = j->value;
                     if (tcb->state == THREAD_ZOMBIE ||
                         tcb->state == THREAD_ZOMBIE_ACK) {
-
+                        status = tcb->status;
                         arch_context_free(tcb);
                         sched_free_tid(tcb->tid);
                         list_remove_value(tcb->cpu->threads, tcb);
@@ -310,6 +322,9 @@ void sched_cleaner(void) {
 
                 if (proc->threads->length > 0)
                     continue;
+            } else if (proc->state == PROCESS_ZOMBIE_ALL) {
+                struct thread *tcb = proc->threads->head->value;
+                status = tcb->status;
             }
 
             // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
@@ -318,6 +333,11 @@ void sched_cleaner(void) {
                 init_proc = NULL;
 
             if (proc->parent) {
+                struct dead_process *dp = kmalloc(sizeof(struct dead_process));
+                dp->pid = proc->pid;
+                dp->status = status;
+                list_insert(proc->parent->dead_children, dp);
+
                 signal_send(proc->parent, SIGCHLD);
                 list_remove_value(proc->parent->children, proc);
             }

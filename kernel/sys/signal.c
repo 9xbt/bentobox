@@ -52,21 +52,21 @@ void signal_handle(struct thread *tcb, int sig) {
                 return;
             case SIGINT:
             case SIGTERM:
-                sched_exit(tcb);
+                sched_exit(tcb, 128 + sig);
                 return;
             case SIGILL:
                 dprintf(LOG_ERR, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
-                sched_exit(tcb);
+                sched_exit(tcb, 128 + sig);
                 return;
             case SIGSEGV:
                 dprintf(LOG_ERR, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
-                sched_exit(tcb);
+                sched_exit(tcb, 128 + sig);
                 return;
             case SIGBUS:
             case SIGFPE:
             case SIGABRT:
             case SIGQUIT:
-                sched_exit(tcb);
+                sched_exit(tcb, 128 + sig);
                 return;
             case SIGSTOP:
             case SIGTSTP:
