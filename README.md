@@ -61,6 +61,12 @@ Run `./ports/lua.sh`.
 ### doomgeneric
 Get an [IWAD](https://archive.org/details/theultimatedoom_doom2_doom.wad), then run `./ports/doomgeneric.sh`
 
+### fastfetch
+Packages required:
+- cmake
+
+Run `./ports/fastfetch.sh`.
+
 ## Building the kernel
 ### x86_64
 Packages required:

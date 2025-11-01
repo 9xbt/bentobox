@@ -1,0 +1,232 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 930dd54..659246a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -504,29 +504,28 @@ if(LINUX)
+     list(APPEND LIBFASTFETCH_SRC
+         src/common/dbus.c
+         src/common/io/io_unix.c
+-        src/common/netif/netif_linux.c
+-        src/common/networking/networking_linux.c
++        src/common/networking/networking_nosupport.c
++        src/common/netif/netif_nosupport.c
+         src/common/processing_linux.c
+         src/detection/battery/battery_linux.c
+-        src/detection/bios/bios_linux.c
+-        src/detection/board/board_linux.c
+-        src/detection/bootmgr/bootmgr_linux.c
+-        src/detection/brightness/brightness_linux.c
+-        src/detection/btrfs/btrfs_linux.c
+-        src/detection/chassis/chassis_linux.c
+-        src/detection/cpu/cpu_linux.c
+-        src/detection/cpucache/cpucache_linux.c
+-        src/detection/cpuusage/cpuusage_linux.c
+-        src/detection/cursor/cursor_linux.c
+-        src/detection/bluetooth/bluetooth_linux.c
+-        src/detection/bluetoothradio/bluetoothradio_linux.c
+-        src/detection/disk/disk_linux.c
++        src/detection/bios/bios_nosupport.c
++        src/detection/board/board_nosupport.c
++        src/detection/bootmgr/bootmgr_nosupport.c
++        src/detection/brightness/brightness_nosupport.c
++        src/detection/btrfs/btrfs_nosupport.c
++        src/detection/chassis/chassis_nosupport.c
++        src/detection/cpu/cpu_nosupport.c
++        src/detection/cpucache/cpucache_nosupport.c
++        src/detection/cpuusage/cpuusage_nosupport.c
++        src/detection/cursor/cursor_nosupport.c
++        src/detection/bluetooth/bluetooth_nosupport.c
++        src/detection/bluetoothradio/bluetoothradio_nosupport.c
++        src/detection/disk/disk_nosupport.c
+         src/detection/dns/dns_linux.c
+-        src/detection/physicaldisk/physicaldisk_linux.c
+-        src/detection/physicalmemory/physicalmemory_linux.c
+-        src/detection/diskio/diskio_linux.c
++        src/detection/physicaldisk/physicaldisk_nosupport.c
++        src/detection/physicalmemory/physicalmemory_nosupport.c
++        src/detection/diskio/diskio_nosupport.c
+         src/detection/displayserver/linux/displayserver_linux.c
+-        src/detection/displayserver/linux/common.c
+         src/detection/displayserver/linux/drm.c
+         src/detection/displayserver/linux/wayland/wayland.c
+         src/detection/displayserver/linux/wayland/global-output.c
+@@ -540,50 +539,49 @@ if(LINUX)
+         src/detection/displayserver/linux/xcb.c
+         src/detection/displayserver/linux/xlib.c
+         src/detection/font/font_linux.c
+-        src/detection/gpu/gpu_linux.c
+-        src/detection/gpu/gpu_drm.c
++        src/detection/gpu/gpu_nosupport.c
+         src/detection/gpu/gpu_pci.c
+         src/detection/gtk_qt/gtk.c
+         src/detection/host/host_linux.c
+         src/detection/host/host_mac.c
+         src/detection/icons/icons_linux.c
+         src/detection/initsystem/initsystem_linux.c
+-        src/detection/keyboard/keyboard_linux.c
++        src/detection/keyboard/keyboard_nosupport.c
+         src/detection/libc/libc_linux.c
+-        src/detection/lm/lm_linux.c
+-        src/detection/loadavg/loadavg_linux.c
++        src/detection/lm/lm_nosupport.c
++        src/detection/loadavg/loadavg_nosupport.c
+         src/detection/locale/locale_linux.c
+-        src/detection/localip/localip_linux.c
+-        src/detection/gamepad/gamepad_linux.c
+-        src/detection/media/media_linux.c
+-        src/detection/memory/memory_linux.c
+-        src/detection/mouse/mouse_linux.c
+-        src/detection/netio/netio_linux.c
++        src/detection/localip/localip_nosupport.c
++        src/detection/gamepad/gamepad_nosupport.c
++        src/detection/media/media_nosupport.c
++        src/detection/memory/memory_nosupport.c
++        src/detection/mouse/mouse_nosupport.c
++        src/detection/netio/netio_nosupport.c
+         src/detection/opengl/opengl_linux.c
+         src/detection/os/os_linux.c
+-        src/detection/packages/packages_linux.c
+-        src/detection/packages/packages_nix.c
++        src/detection/packages/packages_nosupport.c
+         src/detection/poweradapter/poweradapter_linux.c
+         src/detection/processes/processes_linux.c
+         src/detection/gtk_qt/qt.c
+-        src/detection/sound/sound_linux.c
++        src/detection/sound/sound_nosupport.c
+         src/detection/swap/swap_linux.c
+         src/detection/terminalfont/terminalfont_linux.c
+         src/detection/terminalshell/terminalshell_linux.c
+         src/detection/terminalsize/terminalsize_linux.c
+         src/detection/theme/theme_linux.c
+-        src/detection/tpm/tpm_linux.c
++        src/detection/tpm/tpm_nosupport.c
+         src/detection/uptime/uptime_linux.c
+-        src/detection/users/users_linux.c
+-        src/detection/wallpaper/wallpaper_linux.c
+-        src/detection/wifi/wifi_linux.c
+-        src/detection/wm/wm_linux.c
++        src/detection/users/users_nosupport.c
++        src/detection/wallpaper/wallpaper_nosupport.c
++        src/detection/wifi/wifi_nosupport.c
++        src/detection/wm/wm_nosupport.c
+         src/detection/de/de_linux.c
+         src/detection/wmtheme/wmtheme_linux.c
+-        src/detection/camera/camera_linux.c
+-        src/detection/zpool/zpool_linux.c
++        src/detection/camera/camera_nosupport.c
++        src/detection/zpool/zpool_nosupport.c
+         src/util/platform/FFPlatform_unix.c
+         src/util/binary_linux.c
++        src/detection/displayserver/linux/common.c
+     )
+ elseif(ANDROID)
+     list(APPEND LIBFASTFETCH_SRC
+diff --git a/src/common/netif/netif_nosupport.c b/src/common/netif/netif_nosupport.c
+new file mode 100644
+index 0000000..1b808d3
+--- /dev/null
++++ b/src/common/netif/netif_nosupport.c
+@@ -0,0 +1,25 @@
++#include "netif.h"
++
++const char* ffNetifGetHWType(uint16_t type)
++{
++    (void)type;
++    return "Unknown";
++}
++
++bool ffNetifGetDefaultRouteIfName(FFstrbuf* ifName)
++{
++    ffStrbufClear(ifName);
++    return false;
++}
++
++bool ffNetifGetDefaultRouteImplV4(FFNetifDefaultRouteResult* result)
++{
++    (void)result;
++    return false;
++}
++
++bool ffNetifGetDefaultRouteImplV6(FFNetifDefaultRouteResult* result)
++{
++    (void)result;
++    return false;
++}
+\ No newline at end of file
+diff --git a/src/common/networking/networking_nosupport.c b/src/common/networking/networking_nosupport.c
+new file mode 100644
+index 0000000..1207bdb
+--- /dev/null
++++ b/src/common/networking/networking_nosupport.c
+@@ -0,0 +1,18 @@
++#include "networking.h"
++#include <stddef.h>
++
++const char* ffNetworkingSendHttpRequest(FFNetworkingState* state, const char* host, const char* path, const char* headers)
++{
++    (void)state;
++    (void)host;
++    (void)path;
++    (void)headers;
++    return "Networking not supported";
++}
++
++const char* ffNetworkingRecvHttpResponse(FFNetworkingState* state, FFstrbuf* buffer)
++{
++    (void)state;
++    (void)buffer;
++    return "Networking not supported";
++}
+\ No newline at end of file
+diff --git a/src/detection/localip/localip_nosupport.c b/src/detection/localip/localip_nosupport.c
+new file mode 100644
+index 0000000..4948730
+--- /dev/null
++++ b/src/detection/localip/localip_nosupport.c
+@@ -0,0 +1,8 @@
++#include "localip.h"
++
++const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
++{
++    (void)options;
++    (void)results;
++    return "Local IP detection is not supported on this platform";
++}
+\ No newline at end of file
+diff --git a/src/detection/terminalsize/terminalsize_linux.c b/src/detection/terminalsize/terminalsize_linux.c
+index cb6880f..cf65fe0 100644
+--- a/src/detection/terminalsize/terminalsize_linux.c
++++ b/src/detection/terminalsize/terminalsize_linux.c
+@@ -4,6 +4,7 @@
+ #include <sys/ioctl.h>
+ #include <fcntl.h>
+ #include <unistd.h>
++#include <termios.h>
+ 
+ #ifdef __sun
+     #include <sys/termios.h>
+diff --git a/src/logo/image/image.c b/src/logo/image/image.c
+index 56aa0a2..427f56e 100644
+--- a/src/logo/image/image.c
++++ b/src/logo/image/image.c
+@@ -9,6 +9,8 @@
+ #include <limits.h>
+ #include <math.h>
+ 
++#undef __linux__
++
+ #ifdef __APPLE__
+     #include <sys/syslimits.h>
+ #elif _WIN32
+diff --git a/src/modules/separator/separator.c b/src/modules/separator/separator.c
+index bf2a5ff..06d1231 100644
+--- a/src/modules/separator/separator.c
++++ b/src/modules/separator/separator.c
+@@ -6,6 +6,7 @@
+ #include "util/mallocHelper.h"
+ #include "util/wcwidth.h"
+ #include "util/textModifier.h"
++#include <wchar.h>
+ 
+ #include <locale.h>
+ 
