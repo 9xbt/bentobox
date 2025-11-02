@@ -1,3 +1,4 @@
+#include "kernel/spinlock.h"
 #include <kernel/bitmap.h>
 #include <kernel/signal.h>
 #include <kernel/printf.h>
@@ -102,7 +103,8 @@ int signal_send(struct process *proc, int sig) {
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
-    tcb->state = THREAD_RUNNING;
+    if (tcb->state == THREAD_PAUSED)
+        tcb->state = THREAD_RUNNING;
     
     return 0;
 }

@@ -24,8 +24,29 @@ long meminfo_read(struct vfs_node *node, void *buffer, long offset, size_t len) 
     return n;
 }
 
+long uptime_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+    (void)node;
+
+    size_t secs = 0, nanos = 0;
+    uptime(&secs, &nanos);
+
+    char buf[1024];
+    size_t i = snprintf(buf, sizeof buf, "%lu.%02lu %lu.%02lu\n", secs, nanos / 10000000, 0, 0);
+
+    if ((size_t)offset > i)
+        return 0;
+
+    size_t n = len < i - offset ? len : i - offset;
+    memcpy(buffer, buf + offset, len > i ? i : len);
+    return n;
+}
+
 vfs_ops_t meminfo_ops = {
     .read = meminfo_read
+};
+
+vfs_ops_t uptime_ops = {
+    .read = uptime_read
 };
 
 vfs_ops_t procfs_ops = {
@@ -49,4 +70,9 @@ void procfs_initialize(void) {
     meminfo->perms = 0444;
     meminfo->ops = &meminfo_ops;
     vfs_add_node(proc, meminfo);
+
+    vfs_node_t *uptime = vfs_create_node("uptime", VFS_FILE);
+    uptime->perms = 0444;
+    uptime->ops = &uptime_ops;
+    vfs_add_node(proc, uptime);
 }

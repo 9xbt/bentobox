@@ -169,12 +169,17 @@ void arch_context_fork(struct thread *tcb) {
 void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
     struct context *ctx = &frame->ctx;
     memset(ctx, 0, sizeof(struct context));
-    memcpy(ctx, &this->ctx, 7 * sizeof(uint64_t));
+    memcpy(ctx, &tcb->ctx, 7 * sizeof(uint64_t));
     memcpy(&ctx->regs, this->syscall_regs, 15 * sizeof(uint64_t));
     asm volatile ("fxsave %0" :: "m"(ctx->fxsave));
     
+    memcpy(&tcb->ctx.regs, this->syscall_regs, 15 * sizeof(uint64_t));
+    
     tcb->ctx.regs.rip = (uint64_t)action->sa_handler;
     tcb->ctx.regs.rdi = sig;
+    tcb->ctx.regs.cs = 0x23;
+    tcb->ctx.regs.ss = 0x1b;
+    tcb->ctx.regs.rflags = 0x202;
     
     uintptr_t rsp = (uintptr_t)frame;
     rsp -= 8;
@@ -185,6 +190,7 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
 }
 
 void arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
+    memcpy(&tcb->ctx, &frame->ctx, 7 * sizeof(uint64_t));
     memcpy(tcb->syscall_regs, &frame->ctx.regs, 15 * sizeof(uint64_t));
     asm volatile ("fxrstor %0" :: "m"(frame->ctx.fxsave));
 }

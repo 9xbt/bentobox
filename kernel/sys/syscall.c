@@ -549,7 +549,6 @@ long sys_sigreturn(void) {
     
     struct sigframe *frame = this->sigframe;
     this->parent->blocked = frame->oldmask;
-    this->ctx = frame->ctx;
     this->sigframe = NULL;
 
     arch_restore_signal_context(this, frame);

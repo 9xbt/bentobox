@@ -115,6 +115,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->sigframe = NULL;
+    tcb->status = 0;
 
     static char *empty_argv_envp[] = { NULL };
     arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);
@@ -231,22 +232,7 @@ void sched_exit_group(struct process *proc, int status) {
         this->status = status;
         sched_yield();
         for (;;) {}
-    }
-}
-
-void sched_deliver_signals(struct thread *tcb) {
-    tcb->psig = this_proc->psig;
-    memset(&this_proc->psig, 0, sizeof this_proc->psig);
-    for (int sig = 1; sig < _NSIG; sig++) {
-        int word = (sig - 1) / LONG_BIT;
-        int bit  = (sig - 1) % LONG_BIT;
-
-        if (tcb->psig.sig[word] & (1ul << bit)) {
-            tcb->psig.sig[word] &= ~(1ul << bit);
-            
-            signal_handle(tcb, sig);
-        }
-    }
+    } 
 }
 
 node_t *sched_find_next(void) {
@@ -284,7 +270,7 @@ void sched_schedule(struct registers *r) {
 
     enum thread_state state = this->state;
     this->cpu = this_cpu;
-    sched_deliver_signals(this);
+    signal_check_pending(this);
     if (this->state != state)
         goto find_next;
 

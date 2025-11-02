@@ -117,14 +117,14 @@ void isr_handler(struct registers *r) {
         switch (r->int_no) {
             case 6:
                 signal_send(this_proc, SIGILL);
-                sched_yield();
                 break;
             case 14:
             default:
                 signal_send(this_proc, SIGSEGV);
-                sched_yield();
                 break;
         }
+        sched_yield();
+        return;
     }
 
     uint32_t eax = 1, bspid, _;

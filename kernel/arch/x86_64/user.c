@@ -63,8 +63,7 @@ void do_syscall(struct registers *r) {
     this->syscall_regs = r;
     size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
     r->rax = syscall_handler(args);
-
-    signal_check_pending(this);
+    this->syscall_regs = NULL;
 }
 
 static long __user_copy(void *restrict dest, const void *restrict src, size_t n) {
