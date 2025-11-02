@@ -110,7 +110,6 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->parent = parent;
     tcb->cpu = NULL;
     tcb->syscall_regs = NULL;
-    memset(&tcb->psig, 0, sizeof tcb->psig);
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;

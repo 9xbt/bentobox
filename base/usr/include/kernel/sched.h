@@ -39,7 +39,6 @@ struct thread {
     struct process *parent;
     struct cpu *cpu;
     struct registers *syscall_regs;
-    sigset_t psig;
     bool doing_user_copy;
     long user_copy_status;
     size_t sleep_end;
