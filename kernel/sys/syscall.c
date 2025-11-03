@@ -334,43 +334,38 @@ long sys_waitpid(int pid, int *wstatus, int options) {
     if (this_proc->children->length == 0 && this_proc->dead_children->length == 0)
         return -ECHILD;
     
-    if (this_proc->dead_children->length > 0) {
-        struct dead_process *dp = NULL;
-        
-        if (pid > 0) {
-            foreach_safe(i, this_proc->dead_children) {
-                struct dead_process *d = i->value;
-                if (d->pid == pid) {
-                    dp = d;
-                    list_remove(this_proc->dead_children, i);
-                    break;
+    for (;;) {
+        if (this_proc->dead_children->length > 0) {
+            struct dead_process *dp = NULL;
+            
+            if (pid > 0) {
+                foreach_safe(i, this_proc->dead_children) {
+                    struct dead_process *d = i->value;
+                    if (d->pid == pid) {
+                        dp = d;
+                        list_remove(this_proc->dead_children, i);
+                        break;
+                    }
                 }
+            } else if (pid == -1) {
+                dp = list_pop(this_proc->dead_children);
             }
-        } else if (pid == -1) {
-            dp = list_pop(this_proc->dead_children);
+            // TODO: handle pid == 0 & pid < -1
+            
+            if (dp) {
+                *wstatus = dp->status;
+                int ret_pid = dp->pid;
+                kfree(dp);
+                return ret_pid;
+            }
         }
-        // TODO: handle pid == 0 & pid < -1
-        
-        if (dp) {
-            *wstatus = dp->status;
-            int ret_pid = dp->pid;
-            kfree(dp);
-            return ret_pid;
-        }
+
+        if (options & WNOHANG)
+            return 0;
+
+        this->state = THREAD_PAUSED;
+        sched_yield();
     }
-
-    if (options & WNOHANG)
-        return 0;
-
-    this->state = THREAD_PAUSED;
-    sched_yield();
-
-    struct dead_process *dp = list_pop(this_proc->dead_children);
-    if (!dp)
-        return 0;
-    *wstatus = dp->status;
-    pid = dp->pid;
-    kfree(dp);
     return pid;
 }
 

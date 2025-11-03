@@ -16,3 +16,4 @@ PS1="\[\e[1;31m\]\u@\h [ \[\e[0m\]\w\[\e[1;31m\] ]# \[\e[0m\]"
 
 alias ls='ls --color=auto'
 alias clear='echo -en "\033[2J\033[H"'
+alias reset='echo -en "\033c"'

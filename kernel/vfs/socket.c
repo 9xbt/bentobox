@@ -125,6 +125,8 @@ int socket_new(int domain, int type, int protocol) {
     sock->state = SOCKET_NONE;
     sock->pending = list_create();
     sock->recv_queue = list_create();
+    sock->peer = NULL;
+    sock->node = NULL;
     node->device = sock;
 
     int flags = 0;

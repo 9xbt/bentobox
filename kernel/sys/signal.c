@@ -1,4 +1,3 @@
-#include "kernel/spinlock.h"
 #include <kernel/bitmap.h>
 #include <kernel/signal.h>
 #include <kernel/printf.h>
