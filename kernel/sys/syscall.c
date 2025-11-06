@@ -129,8 +129,8 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-
     vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    kfree(path);
     if (!node)
         return -ENOENT;
 
@@ -178,8 +178,6 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
             statbuf->st_size = 0;
             break;
     }
-    
-    kfree(path);
     return 0;
 }
 
@@ -259,8 +257,10 @@ long sys_readdir(int fd, struct dirent *buf, size_t count) {
         return -EBADF;
     
     vfs_node_t *dir = file->node;
-    if (dir->type != VFS_DIRECTORY)
+    if (dir->type != VFS_DIRECTORY) {
+        dprintf(LOG_DEBUG, "%s is not a directory you dumb fuck\n", vfs_resolve_path(dir));
         return -ENOTDIR;
+    }
     
     if (!count)
         return -EINVAL;
@@ -588,10 +588,10 @@ long sys_getcwd(char *buf, size_t bufsiz) {
 long sys_chdir(const char *pathname) {
     COPY_USER_STRING(path, pathname, MAX_PATH);
     vfs_node_t *dir = vfs_open(this_proc->cwd, path, 0);
+    kfree(path);
     if (!dir)
         return -ENOENT;
     this_proc->cwd = dir;
-    kfree(path);
     return 0;
 }
 
@@ -671,8 +671,8 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-
     vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    kfree(path);
     if (!node)
         return -ENOENT;
 
@@ -684,8 +684,6 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
         return -EACCES;
     if (mode & X_OK && !(node->perms & (S_IXUSR | S_IXGRP | S_IXOTH)))
         return -EACCES;
-
-    kfree(path);
     return 0;
 }
 
@@ -699,11 +697,10 @@ long sys_unlinkat(int dirfd, const char *pathname, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-
     vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    kfree(path);
     if (!node)
         return -ENOENT;
-    kfree(path);
 
     return vfs_remove(node);
 }
@@ -719,10 +716,11 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-
     vfs_node_t *node = vfs_lookup(dir, path, true, VFS_DIRECTORY);
+    kfree(path);
     if (!node)
         return -EPERM;
+    
     return 0;
 }
 
@@ -765,6 +763,62 @@ long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *
     (void)addr;
     (void)addrlen;
     return sys_read_write(fd, (void *)buffer, size, true, false);
+}
+
+long sys_fchdir(int fd) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (file->node->type != VFS_DIRECTORY)
+        return -ENOTDIR;
+    this_proc->cwd = file->node;
+    return 0;
+}
+
+long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const char *newpathname) {
+    vfs_node_t *olddir = this_proc->cwd;
+    if (olddirfd != AT_FDCWD) {
+        struct file *file = file_get(olddirfd);
+        if (!file)
+            return -EBADF;
+        olddir = file->node;
+    }
+
+    vfs_node_t *newdir = this_proc->cwd;
+    if (newdirfd != AT_FDCWD) {
+        struct file *file = file_get(newdirfd);
+        if (!file)
+            return -EBADF;
+        newdir = file->node;
+    }
+
+    COPY_USER_STRING(oldpath, oldpathname, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(olddir, oldpath, true, VFS_NONE);
+    kfree(oldpath);
+    if (!node)
+        return -ENOENT;
+
+    COPY_USER_STRING(newpath, newpathname, MAX_PATH);
+    vfs_node_t *target = vfs_lookup(newdir, newpath, true, VFS_NONE);
+    if (target) {
+        if (target->type == VFS_DIRECTORY && node->type != VFS_DIRECTORY) {
+            kfree(newpath);
+            return -EISDIR;
+        }
+        if (target->type != VFS_DIRECTORY && node->type == VFS_DIRECTORY) {
+            kfree(newpath);
+            return -ENOTDIR;
+        }
+        if (target->type == VFS_DIRECTORY && target->children->length > 0) {
+            kfree(newpath);
+            return -ENOTEMPTY;
+        }
+    }
+    
+    long ret = vfs_rename(node, newdir, newpath);
+    kfree(newpath);
+    return ret;
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);
@@ -819,6 +873,9 @@ syscall_func syscalls[] = {
     [SYS_accept]      = (syscall_func)(uintptr_t)sys_accept,
     [SYS_recvfrom]    = (syscall_func)(uintptr_t)sys_recvfrom,
     [SYS_sendto]      = (syscall_func)(uintptr_t)sys_sendto,
+
+    [SYS_fchdir]      = (syscall_func)(uintptr_t)sys_fchdir,
+    [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat
 };
 
 long syscall_handler(size_t *args) {

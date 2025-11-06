@@ -16,8 +16,19 @@
 #define O_TRUNC		00001000
 #define O_APPEND	00002000
 #define O_NONBLOCK	00004000
-#define O_NOFOLLOW	00400000
 #define O_CLOEXEC	02000000
+
+#ifdef __x86_64__
+#define O_DIRECT      040000
+#define O_LARGEFILE  0100000
+#define O_DIRECTORY  0200000
+#define O_NOFOLLOW   0400000
+#elif __aarch64__
+#define O_DIRECTORY   040000
+#define O_NOFOLLOW   0100000
+#define O_DIRECT     0200000
+#define O_LARGEFILE  0400000
+#endif
 
 #define S_IFMT      0xF000
 #define S_IFIFO     0x1000
@@ -93,7 +104,7 @@ typedef struct vfs_ops {
     long(*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);
     struct vfs_node *(*create)(struct vfs_node *parent, const char *name, enum vfs_node_type type);
     long(*remove)(struct vfs_node *node);
-    long(*rename)(struct vfs_node *node, const char *name);
+    long(*rename)(struct vfs_node *node, struct vfs_node *parent, const char *name);
     long(*mmap)(struct vfs_node *node, void *addr, size_t pages, uint64_t prot, int flags, long offset);
     long(*poll)(struct vfs_node *node, long events);
 } vfs_ops_t;
@@ -132,13 +143,13 @@ vfs_node_t *vfs_get_root(void);
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
 long vfs_remove(vfs_node_t *node);
-long vfs_rename(vfs_node_t *node, const char *name);
+long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path);
 vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow);
 vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type);
 vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
 long vfs_close(vfs_node_t *node);
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
-long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len);
+long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long vfs_poll(vfs_node_t *node, long events, long timeout);
 void vfs_wake_waiters(vfs_node_t *node);
 char *vfs_resolve_path(vfs_node_t *node);

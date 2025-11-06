@@ -163,6 +163,16 @@ char *strchr(register const char *s, int c) {
     return 0;
 }
 
+char *strrchr(register const char *s, int c) {
+    const char *l = NULL;
+    do {
+        if (*s == c) {
+            l = s;
+        }
+    } while (*s++);
+    return (char *)l;
+}
+
 char *strstr(const char *a, const char *b) {
     const size_t len = strlen(b);
 

@@ -76,17 +76,24 @@ long vfs_remove(vfs_node_t *node) {
     return 0;
 }
 
-long vfs_rename(vfs_node_t *node, const char *name) {
-    if (!node)
+long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
+    if (!node || !parent)
         return -EINVAL;
-    if (!node->ops || !node->ops->remove)
+    if (!node->parent)
         return -EINVAL;
+    if (!node->ops || !node->ops->rename)
+        return -EINVAL;
+    if (node->device != parent->device)
+        return -EXDEV;
 
-    long ret = node->ops->rename(node, name);
+    long ret = node->ops->rename(node, parent, name);
     if (ret < 0)
         return ret;
 
+    list_remove_value(node->parent->children, node);
     strcpy(node->name, name);
+    node->parent = parent;
+    list_insert(parent->children, node);
     return 0;
 }
 
@@ -185,7 +192,7 @@ long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     return -EPERM;
 }
 
-long vfs_write(vfs_node_t *node, void *buffer, long offset, size_t len) {
+long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     if (!buffer)
         return -EFAULT;
     if (!node)

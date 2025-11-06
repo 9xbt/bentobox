@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/utsname.h>
@@ -43,6 +44,19 @@ int main(int argc, char *argv[]) {
     }
 
     chdir("/root");
+
+    if (fork() == 0) {
+        int fd = open("/dev/ttyS0", O_RDWR);
+        if (fd < 0)
+            exit(0);
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+
+        printf("Press enter to enable this TTY.");
+        fflush(stdout);
+        getchar();
+    }
 
     for (;;) {
         pid_t pid = fork();

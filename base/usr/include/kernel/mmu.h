@@ -95,5 +95,13 @@ long strnlen_user(const char *s, size_t maxlen);
     long name##_len = strnlen_user(user_ptr, max_len); \
     if (name##_len < 0) \
         return name##_len; \
+    if (name##_len >= max_len) \
+        return -ENAMETOOLONG; \
     char *name = kmalloc(name##_len + 1); \
-    copy_from_user(name, user_ptr, name##_len + 1);
+    if (!name) \
+        return -ENOMEM; \
+    if (copy_from_user(name, user_ptr, name##_len + 1)) { \
+        kfree(name); \
+        return -EFAULT; \
+    } \
+    name[name##_len] = '\0';

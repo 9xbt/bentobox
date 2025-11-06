@@ -129,13 +129,15 @@ long ext2_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
 long ext2_remove(vfs_node_t *node);
+long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
 
 vfs_ops_t ext2_ops = {
-    .open = ext2_open,
-    .read = ext2_read,
-    .write = ext2_write,
+    .open   = ext2_open,
+    .read   = ext2_read,
+    .write  = ext2_write,
     .create = ext2_create,
-    .remove = ext2_remove
+    .remove = ext2_remove,
+    .rename = ext2_rename
 };
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
@@ -204,7 +206,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
                 fs->bgd_table[group].free_blocks--;
                 ext2_write_sb(fs);
                 ext2_write_bgd(fs, group, fs->bgd_table[group]);
-                return fs->sb->block_num + (group * fs->sb->blocks_per_group) + i;
+                return group * fs->sb->blocks_per_group + i;
             }
         }
         kfree(bitmap);
@@ -396,7 +398,8 @@ int ext2_remove_inode(ext2_fs *fs, uint32_t dir_inode, uint32_t in) {
 }
 
 bool ext2_check_sequential(uint32_t blocks[], uint32_t count) {
-    if (count <= 1) return true;
+    if (count == 0) return false;
+    if (count <= 1) return blocks[0] != 0;
     if (!blocks[0]) return false;
     
     for (uint32_t i = 1; i < count; i++) {
@@ -414,6 +417,8 @@ void ext2_read_direct_blocks(ext2_fs *fs, uint32_t blocks[], void *buffer, uint3
         for (uint32_t i = 0; i < count; i++) {
             if (blocks[i]) {
                 ext2_read_block(fs, blocks[i], buffer + (i * fs->block_size), fs->block_size);
+            } else {
+                memset(buffer + (i * fs->block_size), 0, fs->block_size);
             }
         }
     }
@@ -683,19 +688,20 @@ long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
-    inode.last_access_time = now();
-    inode.mod_time = now();
+    inode.last_access_time = inode.mod_time = now();
 
     if (offset == -1)
         offset = inode.size;
-    if (offset + len < inode.size || offset + len > inode.size)
+    if (offset + len > inode.size)
         inode.size = offset + len;
 
     uint32_t block = offset / fs->block_size;
-    uint32_t count = inode.size ? DIV_CEILING(offset + len, fs->block_size) - (offset / fs->block_size) : 0;
+    uint32_t count = DIV_CEILING(offset + len, fs->block_size) - block;
 
     uint8_t *buf = kmalloc(count * fs->block_size);
-    if (count > 0 && (size_t)offset < inode.size - len) {
+    
+    if (((offset % fs->block_size) != 0 || ((offset + len) % fs->block_size) != 0) &&
+        block * fs->block_size < inode.size && count > 0) {
         ext2_read_inode_blocks(fs, &inode, buf, block, count);
     } else {
         memset(buf, 0, count * fs->block_size);
@@ -759,6 +765,51 @@ long ext2_remove(vfs_node_t *node) {
     ext2_free_inode_blocks(fs, &inode);
 
     return ext2_remove_inode(fs, node->parent->inode, node->inode);
+}
+
+long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return -EIO;
+    assert(fs->sb->signature == 0xef53);
+    assert(node->device == parent->device);
+
+    ext2_inode inode;
+
+    if (node->type == VFS_DIRECTORY && node->parent != parent) {
+        ext2_read_inode(fs, node->parent->inode, &inode);
+        inode.hard_link_count--;
+        ext2_write_inode(fs, node->parent->inode, &inode);
+        
+        ext2_read_inode(fs, parent->inode, &inode);
+        inode.hard_link_count++;
+        ext2_write_inode(fs, parent->inode, &inode);
+        
+        ext2_remove_inode(fs, node->inode, node->parent->inode);
+        ext2_add_inode(fs, node->inode, "..", parent->inode);
+    }
+    
+    int ret = ext2_remove_inode(fs, node->parent->inode, node->inode);
+    if (ret < 0)
+        return ret;
+    
+    ret = ext2_add_inode(fs, parent->inode, name, node->inode);
+    if (ret < 0) {
+        ext2_add_inode(fs, node->parent->inode, node->name, node->inode);
+        return ret;
+    }
+    
+    ext2_read_inode(fs, node->parent->inode, &inode);
+    inode.mod_time = now();
+    ext2_write_inode(fs, node->parent->inode, &inode);
+    
+    if (node->parent != parent) {
+        ext2_read_inode(fs, parent->inode, &inode);
+        inode.mod_time = now();
+        ext2_write_inode(fs, parent->inode, &inode);
+    }
+    
+    return 0;
 }
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms) {
