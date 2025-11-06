@@ -58,6 +58,9 @@ Run `./ports/coreutils.sh`.
 ### lua
 Run `./ports/lua.sh`.
 
+### figlet
+Run `./ports/figlet.sh`.
+
 ### doomgeneric
 Get an [IWAD](https://archive.org/details/theultimatedoom_doom2_doom.wad), then run `./ports/doomgeneric.sh`.
 
