@@ -74,6 +74,9 @@ Run `./ports/fastfetch.sh`.
 Run `./ports/ncurses.sh`.
 
 ### vim
+Dependencies:
+- ncurses
+
 Run `./ports/vim.sh`.
 
 ## Building the kernel
