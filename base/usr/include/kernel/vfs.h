@@ -112,7 +112,7 @@ typedef struct vfs_ops {
 typedef struct vfs_tty_ops {
     long (*ioctl)(struct vfs_node *node, int op, void *arg);
     long (*enqueue)(struct vfs_node *node, unsigned char c);
-    long (*dequeue)(struct vfs_node *node, bool block);
+    long (*dequeue)(struct vfs_node *node);
     void (*flush)(struct vfs_node *node);
 } vfs_tty_ops_t;
 

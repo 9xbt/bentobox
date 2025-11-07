@@ -13,12 +13,14 @@ static void tty_worker_thread(void) {
     tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
     int c;
     for (;;) {
+        if (fifo_is_empty(tty->ofifo)) {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+        }
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
             if (c > 0)
                 putchar(c);
         }
-        this->state = THREAD_PAUSED;
-        sched_yield();
     }
 }
 
@@ -80,13 +82,8 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
     return 0;
 }
 
-long tty_dequeue(vfs_node_t *node, bool block) {
+long tty_dequeue(vfs_node_t *node) {
     tty_t *tty = node->device;
-    while (fifo_is_empty(tty->ififo)) {
-        if (!block)
-            return -EAGAIN;
-        while (!(vfs_poll(node, POLLIN, -1) & POLLIN)) {}
-    }
     int c = 0;
     if (fifo_dequeue(tty->ififo, &c) <= 0)
         return -EAGAIN;
@@ -128,7 +125,7 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct termios *tio = &tty->tio;
 
     if ((tio->c_lflag & ICANON) == 0) {
-        long c = node->tty_ops->dequeue(node, tio->c_cc[VMIN] != 0);
+        long c = node->tty_ops->dequeue(node);
         if (c < 0)
             return c;
         str[0] = c;
@@ -140,14 +137,14 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
     size_t i = 0;
     while (i < len) {
-        int c = node->tty_ops->dequeue(node, true);
+        int c = node->tty_ops->dequeue(node);
         if (c > 0) str[i] = c;
         else continue;
         
         switch (c) {
             case '\033':
                 for (int j = 0; j < 2; j++)
-                    node->tty_ops->dequeue(node, true);
+                    node->tty_ops->dequeue(node);
                 break;
             case '\0':
             case '\t':

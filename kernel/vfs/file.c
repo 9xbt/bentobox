@@ -51,7 +51,8 @@ int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {
     vfs_node_t *node = vfs_open(cwd, path, 0);
     if (!node && flags & O_CREAT) {
         node = vfs_open(cwd, path, flags);
-        node->perms = mode;
+        if (node)
+            node->perms = mode;
     }
     if (!node)
         return -ENOENT;
