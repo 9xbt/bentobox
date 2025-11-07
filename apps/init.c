@@ -71,10 +71,12 @@ int main(int argc, char *argv[]) {
 
             execve(argv[0], argv, envp);
             perror(argv[0]);
-            exit(errno);
+            exit(EXIT_FAILURE);
         } else {
             int status;
             waitpid(pid, &status, 0);
+            if (status != 0)
+                exit(EXIT_FAILURE);
         }
     }
 
