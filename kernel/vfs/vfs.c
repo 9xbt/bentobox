@@ -76,7 +76,7 @@ long vfs_remove(vfs_node_t *node) {
     return 0;
 }
 
-long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
+long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
     if (!node || !parent)
         return -EINVAL;
     if (!node->parent)
@@ -85,6 +85,12 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
         return -EINVAL;
     if (node->device != parent->device)
         return -EXDEV;
+
+    const char *name = strrchr(path, '/');
+    if (name)
+        name++;
+    else
+        name = path;
 
     long ret = node->ops->rename(node, parent, name);
     if (ret < 0)
