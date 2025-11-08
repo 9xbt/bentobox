@@ -3,6 +3,7 @@
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
+#include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -235,14 +236,7 @@ void irq1_handler(struct registers *r) {
 
 void irq12_handler(struct registers *r) {
     (void)r;
-    static int pi = 0;
-    
-    if (!__atomic_load_n(&mouse_refcount, __ATOMIC_SEQ_CST)) {
-        inb(PS2_STATUS);
-        inb(PS2_DATA);
-        lapic_eoi();
-        return;
-    }
+    static int pi = 0, x = 0, y = 0;
 
     static struct {
         bool left;
@@ -262,7 +256,7 @@ void irq12_handler(struct registers *r) {
 
     uint8_t data = inb(PS2_DATA);
     if (pi == 0 && !(data & (1 << 3))) {
-        dprintf(LOG_ERR, "\033[93mi8042:\033[0m corrupted mouse packet\n");
+        dprintf(LOG_ERR, "\033[93mi8042:\033[0m corrupt mouse packet\n");
         lapic_eoi();
         return;
     }
@@ -284,46 +278,91 @@ void irq12_handler(struct registers *r) {
     }
 
     if (++pi >= 3) {
-        if (state.delta_x) {
-            struct input_event iev = {
-                .type = EV_REL,
-                .code = REL_X,
-                .value = state.delta_x
-            };
-            fifo_enqueue(mouse_fifo, iev);
+        if (__atomic_load_n(&mouse_refcount, __ATOMIC_SEQ_CST)) {
+            if (state.delta_x) {
+                struct input_event iev = {
+                    .type = EV_REL,
+                    .code = REL_X,
+                    .value = state.delta_x
+                };
+                fifo_enqueue(mouse_fifo, iev);
+            }
+            if (state.delta_y) {
+                struct input_event iev = {
+                    .type = EV_REL,
+                    .code = REL_Y,
+                    .value = state.delta_y
+                };
+                fifo_enqueue(mouse_fifo, iev);
+            }
+            if (state.left != last_state.left) {
+                struct input_event iev = {
+                    .type = EV_KEY,
+                    .code = BTN_LEFT,
+                    .value = state.left
+                };
+                fifo_enqueue(mouse_fifo, iev);
+            }
+            if (state.right != last_state.right) {
+                struct input_event iev = {
+                    .type = EV_KEY,
+                    .code = BTN_RIGHT,
+                    .value = state.right
+                };
+                fifo_enqueue(mouse_fifo, iev);
+            }
+            if (state.middle != last_state.middle) {
+                struct input_event iev = {
+                    .type = EV_KEY,
+                    .code = BTN_MIDDLE,
+                    .value = state.middle
+                };
+                fifo_enqueue(mouse_fifo, iev);
+            }
         }
-        if (state.delta_y) {
-            struct input_event iev = {
-                .type = EV_REL,
-                .code = REL_Y,
-                .value = state.delta_y
-            };
-            fifo_enqueue(mouse_fifo, iev);
+
+        x += state.delta_x;
+        y -= state.delta_y;
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x > (int)framebuffer->width) x = (int)framebuffer->width - 1;
+        if (y > (int)framebuffer->height) y = (int)framebuffer->height - 1;
+
+        tty_t *t = tty->device;
+        if (t->mouse_tracking && t->sgr_mode) {
+            int col = (x / 8) + 1;
+            int row = (y / 16) + 1;
+            int i;
+
+            char buf[32];
+            if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle)) {
+                int button = state.left ? 32 : (state.middle ? 33 : 34);
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<%d;%d;%dM", button, col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+            }
+
+            if (state.left && !last_state.left)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dM", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+            if (state.right && !last_state.right)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dM", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+            if (state.middle && !last_state.middle)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dM", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+
+            if (!state.left && last_state.left)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dm", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+            if (!state.right && last_state.right)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dm", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
+            if (!state.middle && last_state.middle)
+                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dm", col, row); i++)
+                    tty->tty_ops->enqueue(tty, buf[i]);
         }
-        if (state.left != last_state.left) {
-            struct input_event iev = {
-                .type = EV_KEY,
-                .code = BTN_LEFT,
-                .value = state.left
-            };
-            fifo_enqueue(mouse_fifo, iev);
-        }
-        if (state.right != last_state.right) {
-            struct input_event iev = {
-                .type = EV_KEY,
-                .code = BTN_RIGHT,
-                .value = state.right
-            };
-            fifo_enqueue(mouse_fifo, iev);
-        }
-        if (state.middle != last_state.middle) {
-            struct input_event iev = {
-                .type = EV_KEY,
-                .code = BTN_MIDDLE,
-                .value = state.middle
-            };
-            fifo_enqueue(mouse_fifo, iev);
-        }
+
+        framebuffer_draw_cursor(x, y);
 
         memcpy(&last_state, &state, sizeof state);
         memset(&state, 0, sizeof state);

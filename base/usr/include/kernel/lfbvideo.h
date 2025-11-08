@@ -53,3 +53,4 @@ extern struct flanterm_context *ft_ctx;
 void framebuffer_initialize(void);
 void framebuffer_get_winsize(struct winsize *ws);
 void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo);
+void framebuffer_draw_cursor(int x, int y);

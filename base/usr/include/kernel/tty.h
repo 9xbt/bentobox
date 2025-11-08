@@ -14,6 +14,8 @@ typedef struct tty {
     struct termios tio;
     struct thread *worker;
     long (*ioctl)(struct vfs_node *node, int op, void *arg);
+    bool sgr_mode;
+    bool mouse_tracking;
 } tty_t;
 
 tty_t *tty_create(vfs_node_t *node);

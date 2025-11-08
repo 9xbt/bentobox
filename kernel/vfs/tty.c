@@ -3,6 +3,7 @@
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>
+#include <kernel/string.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/fifo.h>
@@ -90,6 +91,17 @@ long tty_dequeue(vfs_node_t *node) {
     return c;
 }
 
+static void tty_handle_sgr(tty_t *tty, const char *buf, size_t len) {
+    for (size_t i = 0; i + 8 <= len; i++) {
+        if (!memcmp(&buf[i], "\e[?1006", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
+            tty->sgr_mode = buf[i + 7] == 'h';
+        else if (!memcmp(&buf[i], "\e[?1000", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
+            tty->mouse_tracking = buf[i + 7] == 'h';
+        else if (!memcmp(&buf[i], "\e[?1002", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
+            tty->mouse_tracking = buf[i + 7] == 'h';
+    }
+}
+
 long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     (void)offset;
     if (!node->tty_ops)
@@ -99,6 +111,8 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
 
     tty_t *tty = node->device;
     char *buf = (char *)buffer;
+    if (len >= 8)
+        tty_handle_sgr(tty, buf, len);
     long i;
     for (i = 0; (unsigned)i < len; i++) {
         while (fifo_is_full(tty->ofifo)) {
@@ -257,6 +271,8 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->tio.c_cc[VSUSP] = 26;
     tty->worker = NULL;
     tty->ioctl = NULL;
+    tty->sgr_mode = false;
+    tty->mouse_tracking = false;
     node->ops = &tty_ops;
     node->tty_ops = &tty_tty_ops;
     return tty;

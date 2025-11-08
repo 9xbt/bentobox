@@ -18,18 +18,21 @@ void write(const char *s, size_t len) {
     uart_write(s, len);
     #endif
 
+    framebuffer_draw_cursor(-1, -1);
     acquire(&flanterm_lock);
     flanterm_write(ft_ctx, s, len);
     release(&flanterm_lock);
 }
 
 void putchar(char c) {
+    framebuffer_draw_cursor(-1, -1);
     acquire(&flanterm_lock);
     flanterm_write(ft_ctx, &c, 1);
     release(&flanterm_lock);
 }
 
 void puts(char *s) {
+    framebuffer_draw_cursor(-1, -1);
     acquire(&flanterm_lock);
 	flanterm_write(ft_ctx, s, strlen(s));
     release(&flanterm_lock);

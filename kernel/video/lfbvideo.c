@@ -70,3 +70,31 @@ void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
     vinfo->blue.offset = framebuffer->blue_mask_shift;
     vinfo->blue.length = framebuffer->blue_mask_size;
 }
+
+void framebuffer_draw_cursor(int x, int y) {
+    static int last_x = -1, last_y = -1;
+
+    if (last_x >= 0 && last_y >= 0) {
+        for (int dy = 0; dy < 10; dy++) {
+            for (int dx = 0; dx < 10; dx++) {
+                if (last_x + dx < (int)framebuffer->width && last_y + dy < (int)framebuffer->height) {
+                    uint32_t *pixel = &((uint32_t *)framebuffer->address)[(last_y + dy) * framebuffer->width + (last_x + dx)];
+                    *pixel ^= 0xFFFFFF;
+                }
+            }
+        }
+    }
+    
+    if (x >= 0 && y >= 0) {
+        for (int dy = 0; dy < 10; dy++) {
+            for (int dx = 0; dx < 10; dx++) {
+                if (x + dx < (int)framebuffer->width && y + dy < (int)framebuffer->height) {
+                    uint32_t *pixel = &((uint32_t *)framebuffer->address)[(y + dy) * framebuffer->width + (x + dx)];
+                    *pixel ^= 0xFFFFFF;
+                }
+            }
+        }
+    }
+    
+    last_x = x, last_y = y;
+}
