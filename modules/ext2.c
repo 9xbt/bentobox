@@ -196,7 +196,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
         uint8_t *bitmap = kmalloc(fs->block_size);
         ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
         
-        for (uint32_t i = 0; i < fs->sb->blocks_per_group; i++) {
+        for (uint32_t i = fs->sb->block_num; i < fs->sb->blocks_per_group; i++) {
             if (!bitmap_get(bitmap, i)) {
                 bitmap_set(bitmap, i);
                 ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
