@@ -330,7 +330,7 @@ void irq12_handler(struct registers *r) {
 
         tty_t *t = tty->device;
         if (t->mouse_tracking && t->sgr_mode) {
-            int col = (x / 8) + 1;
+            int col = (x / 9) + 1;
             int row = (y / 16) + 1;
             int i;
 
@@ -362,7 +362,10 @@ void irq12_handler(struct registers *r) {
                     tty->tty_ops->enqueue(tty, buf[i]);
         }
 
-        framebuffer_draw_cursor(x, y);
+        if (!state.left && !state.right && !state.middle)
+            framebuffer_draw_cursor(x, y);
+        else
+            framebuffer_draw_cursor(-1, -1);
 
         memcpy(&last_state, &state, sizeof state);
         memset(&state, 0, sizeof state);
@@ -386,19 +389,6 @@ long ps2_keyboard_read_event(vfs_node_t *node, void *buffer, long offset, size_t
         return -EAGAIN;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
-        
-    // int c, sc;
-    // if (fifo_dequeue(kb_fifo, &c) < (long)sizeof(int))
-    //     return -EAGAIN;
-    // if ((sc = scancode_to_keycode(c > 0 ? c : -c)) < 0)
-    //     return -EAGAIN;
-
-    // struct input_event iev = {0};
-    // iev.type = EV_KEY;
-    // iev.code = sc;
-    // iev.value = c > 0;
-    // memcpy(buffer, &iev, sizeof iev);
-    // return sizeof iev;
 }
 
 long ps2_mouse_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
