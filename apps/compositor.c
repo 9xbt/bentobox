@@ -32,6 +32,11 @@ list_t *clients;
 
 cc_canvas *titlebar, *close_button, *max_button, *min_button;
 
+int allocate_wid(void) {
+    static int wid = 0;
+    return wid++;
+}
+
 void render_decorations(cc_canvas *cv);
 
 cc_canvas *canvas_new(int width, int height, void *buffer) {
@@ -57,6 +62,7 @@ cc_window *window_new(char *name, int width, int height) {
     w->width = width + DECOR_WIDTH;
     w->height = height + DECOR_HEIGHT;
     w->cv = canvas_new(w->width, w->height, NULL);
+    w->wid = allocate_wid();
     render_decorations(w->cv);
     return w;
 }
@@ -195,6 +201,15 @@ void handle_packet(cc_client *c, cc_packet *p) {
             cc_window_create_packet *packet = (cc_window_create_packet *)p;
             cc_window *w = window_new(packet->name, packet->width, packet->height);
             add_window(c, w);
+
+            cc_window_create_ack ack = {
+                .hdr.length = sizeof(ack),
+                .hdr.type = CC_CREATE_WINDOW_ACK,
+                .wid = w->wid
+            };
+            if (send(c->socket, &ack, sizeof(ack), 0) < 0) {
+                perror("send");
+            }
             break;
         }
         default:
@@ -206,6 +221,7 @@ void handle_packet(cc_client *c, cc_packet *p) {
 int main(int argc, char *argv[]) {
     name = argv[0];
     console = fopen("/dev/console", "w");
+    printf("\e[?1006l");
 
     int fb = open("/dev/fb0", O_RDWR);
     if (fb == -1) {

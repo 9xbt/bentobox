@@ -126,7 +126,7 @@ int socket_new(int domain, int type, int protocol) {
     sock->pending = list_create();
     sock->recv_queue = list_create();
     sock->peer = NULL;
-    sock->node = NULL;
+    sock->node = node;
     node->device = sock;
 
     int flags = 0;
@@ -235,7 +235,6 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             
             sock->peer = server_child;
             sock->state = SOCKET_CONNECTED;
-            sock->node = bind;
             
             list_insert(server_sock->pending, server_child);
             vfs_wake_waiters(bind);

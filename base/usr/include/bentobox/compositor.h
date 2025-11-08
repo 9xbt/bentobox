@@ -10,7 +10,8 @@
 
 typedef enum {
     CC_NONE,
-    CC_CREATE_WINDOW
+    CC_CREATE_WINDOW,
+    CC_CREATE_WINDOW_ACK
 } cc_packet_type;
 
 typedef struct {
@@ -30,6 +31,7 @@ typedef struct {
     int x, y, z;
     int width;
     int height;
+    int wid;
     cc_canvas *cv;
 } cc_window;
 
@@ -44,3 +46,10 @@ typedef struct {
     int height;
     char name[64];
 } cc_window_create_packet;
+
+typedef struct {
+    cc_packet hdr;
+    int wid;
+} cc_window_create_ack;
+
+cc_window *cc_create_window(int width, int height, const char *name);

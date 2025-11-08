@@ -360,12 +360,12 @@ void irq12_handler(struct registers *r) {
             if (!state.middle && last_state.middle)
                 for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dm", col, row); i++)
                     tty->tty_ops->enqueue(tty, buf[i]);
-        }
 
-        if (!state.left && !state.right && !state.middle)
-            framebuffer_draw_cursor(x, y);
-        else
-            framebuffer_draw_cursor(-1, -1);
+            if (!state.left && !state.right && !state.middle)
+                framebuffer_draw_cursor(x, y);
+            else
+                framebuffer_draw_cursor(-1, -1);
+        }
 
         memcpy(&last_state, &state, sizeof state);
         memset(&state, 0, sizeof state);
