@@ -11,6 +11,7 @@
 #include <kernel/errno.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
+#include <kernel/acpi.h>
 #include <kernel/file.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
@@ -821,6 +822,16 @@ long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const cha
     return ret;
 }
 
+long sys_reboot(void) {
+    acpi_reboot();
+    __builtin_unreachable();
+}
+
+long sys_shutdown(void) {
+    acpi_shutdown();
+    __builtin_unreachable();
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -875,7 +886,9 @@ syscall_func syscalls[] = {
     [SYS_sendto]      = (syscall_func)(uintptr_t)sys_sendto,
 
     [SYS_fchdir]      = (syscall_func)(uintptr_t)sys_fchdir,
-    [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat
+    [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat,
+    [SYS_reboot]      = (syscall_func)(uintptr_t)sys_reboot,
+    [SYS_shutdown]    = (syscall_func)(uintptr_t)sys_shutdown
 };
 
 long syscall_handler(size_t *args) {

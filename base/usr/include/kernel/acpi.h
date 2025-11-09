@@ -226,6 +226,7 @@ extern size_t madt_gicds;
 
 void  acpi_install(void);
 void  acpi_reboot(void);
+void  acpi_shutdown(void);
 void *acpi_find_table(const char *signature);
 void  madt_init(void);
 void  fadt_init(void);
