@@ -19,6 +19,9 @@ bool acpi_use_xsdt = false;
 void *acpi_rsdt;
 
 void *acpi_find_table(const char *signature) {
+    if (!memcmp(signature, "DSDT", 4))
+        return fadt_dsdt;
+
     #ifdef __x86_64__
     uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
     #elif __aarch64__
@@ -38,7 +41,7 @@ void *acpi_find_table(const char *signature) {
             }
         }
 
-        dprintf(LOG_INFO, "\033[93macpi:\033[0m couldn't find table '%s'\n", signature);
+        dprintf(LOG_DEBUG, "\033[93macpi:\033[0m couldn't find table '%s'\n", signature);
         return NULL;
     }
     
@@ -54,7 +57,7 @@ void *acpi_find_table(const char *signature) {
         }
     }
 
-    dprintf(LOG_INFO, "\033[93macpi:\033[0m couldn't find table '%s'\n", signature);
+    dprintf(LOG_DEBUG, "\033[93macpi:\033[0m couldn't find table '%s'\n", signature);
     return NULL;
 }
 
@@ -81,4 +84,6 @@ void acpi_install(void) {
     dprintf(LOG_INFO, "\033[93macpi:\033[0m using %s\n", acpi_use_xsdt ? "XSDT (version 2.0)" : "RSDT (version 1.0)");
 
     madt_init();
+    fadt_init();
+    lai_init();
 }

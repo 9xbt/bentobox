@@ -5,3 +5,6 @@
 	path = lib/mlibc
 	url = https://github.com/9xbt/mlibc
 	branch = bentobox
+[submodule "lib/lai"]
+	path = lib/lai
+	url = https://github.com/managarm/lai

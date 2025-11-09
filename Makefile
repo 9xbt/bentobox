@@ -14,7 +14,7 @@ endif
 CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
 CFLAGS += -g -O2 -fno-omit-frame-pointer -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\"
-CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
+CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -I lib/lai/include -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
 LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
 include build/${ARCH}.mk
@@ -22,6 +22,7 @@ include build/${ARCH}.mk
 SOURCES := $(shell find -L kernel cc-runtime/src -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find -L kernel/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find lib/flanterm -type f -name '*.c')
+SOURCES += $(shell find lib/lai -type f -name '*.c')
 
 CFILES := $(filter %.c,$(SOURCES))
 ASFILES := $(filter %.S,$(SOURCES))
