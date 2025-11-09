@@ -120,6 +120,8 @@ typedef struct {
     uint32_t bgd_count;
     uint32_t bgd_block;
     uint32_t inode_size;
+    spinlock_t sb_lock;
+    spinlock_t *bg_locks;
 } ext2_fs;
 
 #define EXT2_FS_FLAGS_MOUNTED 0x1
@@ -185,15 +187,18 @@ void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
 
     assert(block_group < fs->bgd_count);
 
+    acquire(&fs->bg_locks[block_group]);
     uint8_t buffer[fs->block_size];
     ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
     memcpy(buffer + inode_offset, in, fs->inode_size);
     ext2_write_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
+    release(&fs->bg_locks[block_group]);
 }
 
 uint32_t ext2_allocate_block(ext2_fs *fs) {
     for (uint32_t group = 0; group < fs->bgd_count; group++) {
         uint8_t *bitmap = kmalloc(fs->block_size);
+        acquire(&fs->bg_locks[group]);
         ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
         
         for (uint32_t i = fs->sb->block_num; i < fs->sb->blocks_per_group; i++) {
@@ -202,13 +207,19 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
                 ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
                 kfree(bitmap);
 
+                acquire(&fs->sb_lock);
                 fs->sb->free_blocks_count--;
-                fs->bgd_table[group].free_blocks--;
                 ext2_write_sb(fs);
+                release(&fs->sb_lock);
+
+                fs->bgd_table[group].free_blocks--;
                 ext2_write_bgd(fs, group, fs->bgd_table[group]);
+                
+                release(&fs->bg_locks[group]);
                 return group * fs->sb->blocks_per_group + i;
             }
         }
+        release(&fs->bg_locks[group]);
         kfree(bitmap);
     }
     return 0;
@@ -217,6 +228,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
 uint32_t ext2_allocate_inode(ext2_fs *fs) {
     for (uint32_t group = 0; group < fs->bgd_count; group++) {
         uint8_t *bitmap = kmalloc(fs->block_size);
+        acquire(&fs->bg_locks[group]);
         ext2_read_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
 
         for (uint32_t i = 0; i < fs->sb->inodes_per_group; i++) {
@@ -225,13 +237,19 @@ uint32_t ext2_allocate_inode(ext2_fs *fs) {
                 ext2_write_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
                 kfree(bitmap);
                 
+                acquire(&fs->sb_lock);
                 fs->sb->free_inodes_count--;
-                fs->bgd_table[group].free_inodes--;
                 ext2_write_sb(fs);
+                release(&fs->sb_lock);
+
+                fs->bgd_table[group].free_inodes--;
                 ext2_write_bgd(fs, group, fs->bgd_table[group]);
+
+                release(&fs->bg_locks[group]);
                 return group * fs->sb->inodes_per_group + i + 1;
             }
         }
+        release(&fs->bg_locks[group]);
         kfree(bitmap);
     }
     return 0;
@@ -248,9 +266,12 @@ void ext2_free_block(ext2_fs *fs, uint32_t block) {
         bitmap_clear(bitmap, index);
         ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
 
+        acquire(&fs->sb_lock);
         fs->sb->free_blocks_count++;
-        fs->bgd_table[group].free_blocks++;
         ext2_write_sb(fs);
+        release(&fs->sb_lock);
+
+        fs->bgd_table[group].free_blocks++;
         ext2_write_bgd(fs, group, fs->bgd_table[group]);
     }
 
@@ -262,18 +283,23 @@ void ext2_free_inode(ext2_fs *fs, uint32_t ino) {
     uint32_t index = (ino - 1) % fs->sb->inodes_per_group;
 
     uint8_t *bitmap = kmalloc(fs->block_size);
+    acquire(&fs->bg_locks[group]);
     ext2_read_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
 
     if (bitmap_get(bitmap, index)) {
         bitmap_clear(bitmap, index);
         ext2_write_block(fs, fs->bgd_table[group].inode_bitmap, bitmap, fs->block_size);
 
+        acquire(&fs->sb_lock);
         fs->sb->free_inodes_count++;
-        fs->bgd_table[group].free_inodes++;
         ext2_write_sb(fs);
+        release(&fs->sb_lock);
+
+        fs->bgd_table[group].free_inodes++;
         ext2_write_bgd(fs, group, fs->bgd_table[group]);
     }
 
+    release(&fs->bg_locks[group]);
     kfree(bitmap);
 }
 
@@ -951,6 +977,9 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
     fs->bgd_table = (ext2_bgd *)kmalloc(fs->bgd_count * sizeof(ext2_bgd));
     fs->inode_size = fs->sb->inode_size;
     ext2_read_block(fs, fs->bgd_block, fs->bgd_table, fs->bgd_count * sizeof(ext2_bgd));
+    fs->sb_lock = 0;
+    fs->bg_locks = kmalloc(fs->bgd_count * sizeof(spinlock_t));
+    memset((void *)fs->bg_locks, 0, fs->bgd_count * sizeof(spinlock_t));
     
     target->inode = 2;
     target->device = fs;
