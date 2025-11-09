@@ -71,12 +71,16 @@ int main(int argc, char *argv[]) {
 
             execve(argv[0], argv, envp);
             perror(argv[0]);
-            exit(EXIT_FAILURE);
+            exit(errno);
         } else {
             int status;
-            waitpid(pid, &status, 0);
-            if (status != 0)
-                exit(EXIT_FAILURE);
+            for (;;) {
+                if (waitpid(pid, &status, 0) != pid)
+                    continue;
+                if (status == ENOEXEC)
+                    exit(EXIT_FAILURE);
+                break;
+            }
         }
     }
 
