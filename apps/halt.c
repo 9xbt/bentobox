@@ -23,23 +23,37 @@ void shutdown(void) {
 }
 
 void print_usage(void) {
+    char *action = "Halt the system.";
+    if (!strcmp(name, "shutdown"))
+        action = "Shut down the system.";
+    else if (!strcmp(name, "poweroff"))
+        action = "Power off the system.";
+    else if (!strcmp(name, "reboot"))
+        action = "Reboot the system.";
+
     printf(
         "Usage: %s [OPTIONS...]\n"
-        "Halt the system.\n"
+        "%s\n"
         "\n"
         "Options:\n"
         "     --help      Show this help\n"
         "  -p --poweroff  Switch off the machine\n"
         "  -r --reboot    Reboot the machine\n",
-        name);
+        name, action);
     exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[]) {
     name = argv[0];
 
-    if (argc < 2)
-        print_usage();
+    if (argc < 2) {
+        if (!strcmp(name, "shutdown") || !strcmp(name, "poweroff"))
+            shutdown();
+        else if (!strcmp(name, "reboot"))
+            reboot();
+        else
+            print_usage();
+    }
 
     for (int i = argc - 1; i >= 1; i--) {
         if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--poweroff"))

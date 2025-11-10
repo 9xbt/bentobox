@@ -6,7 +6,8 @@
 #include <kernel/list.h>
 #include <kernel/time.h>
 
-#define MAX_PATH    256
+#define MAX_PATH        256
+#define MAX_SYMLINKS    40
 
 #define O_ACCMODE	00000003
 #define O_RDONLY	00000000
@@ -141,6 +142,7 @@ typedef struct vfs_node {
 void vfs_install(void);
 vfs_node_t *vfs_get_root(void);
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
+vfs_node_t *vfs_create_symlink(const char *name, const char *target);
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
 long vfs_remove(vfs_node_t *node);
 long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path);

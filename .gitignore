@@ -8,7 +8,6 @@
 /build/ovmf
 /build/kernel-deps
 /ports/src
-/base/bin
 /base/usr/bin
 /base/usr/share/*
 !/base/usr/share/compositor

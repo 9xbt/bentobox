@@ -859,23 +859,17 @@ uint16_t ext2_get_perms(uint16_t type_perms) {
     return type_perms & 0x0FFF;
 }
 
-vfs_node_t *ext2_create_symlink_node(ext2_fs *fs, const char *name, ext2_inode *inode) {
-    (void)fs;
-    (void)name;
-    (void)inode;
+vfs_node_t *ext2_create_symlink_node(const char *name, ext2_inode *inode) {
+    if (inode->size > 60) {
+        dprintf(LOG_DEBUG, "\033[93mext2:\033[0m slow symlinks not supported for '%s'\n", name);
+        return NULL;
+    }
 
-    // char *target = NULL;
-    // if (inode->size <= 60) {
-    //     target = kmalloc(inode->size + 1);
-    //     memcpy(target, (char *)inode->direct_block_ptr, inode->size);
-    //     target[inode->size] = '\0';
-    // }
-    // if (!target)
-    //     return NULL;
-    // vfs_node_t *node = vfs_create_symlink(name, target);
-    // kfree(target);
-    // return node;
-    return NULL;
+    char target[inode->size + 1];
+    memcpy(target, (char *)inode->direct_block_ptr, inode->size);
+    target[inode->size] = '\0';
+
+    return vfs_create_symlink(name, target);
 }
 
 void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, vfs_node_t *parent) {
@@ -894,7 +888,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, v
         ext2_read_inode(fs, entry->inode, &child);
 
         enum vfs_node_type type = ext2_get_type(child.type_perms);
-        vfs_node_t *node = type == VFS_SYMLINK ? ext2_create_symlink_node(fs, name, &child) : vfs_create_node(name, type);
+        vfs_node_t *node = type == VFS_SYMLINK ? ext2_create_symlink_node(name, &child) : vfs_create_node(name, type);
         if (node) {
             node->size = child.size;
             node->perms = ext2_get_perms(child.type_perms);

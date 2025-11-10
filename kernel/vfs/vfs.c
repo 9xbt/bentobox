@@ -42,6 +42,13 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     return node;
 }
 
+vfs_node_t *vfs_create_symlink(const char *name, const char *target) {
+    vfs_node_t *node = vfs_create_node(name, VFS_SYMLINK);
+    node->device = strdup(target);
+    node->size = strlen(target);
+    return node;
+}
+
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     if (!parent)
         parent = vfs_get_root();
@@ -103,13 +110,21 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
     return 0;
 }
 
+vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth) {
+    if (!node || node->type != VFS_SYMLINK || depth <= 0)
+        return NULL;
+    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->device, false, VFS_NONE)))
+        return NULL;
+    if (node->symlink->type == VFS_SYMLINK)
+        return vfs_resolve_symlink(node, depth - 1);
+    return node->symlink;
+}
+
 vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow_symlinks) {
-    (void)follow_symlinks;
     foreach(item, parent->children) {
         vfs_node_t *child = item->value;
-        if (!strcmp(child->name, name)) {
-            return child;
-        }
+        if (!strcmp(child->name, name))
+            return (child->type == VFS_SYMLINK && follow_symlinks) ? vfs_resolve_symlink(child, MAX_SYMLINKS) : child;
     }
     return NULL;
 }
