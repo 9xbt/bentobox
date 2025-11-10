@@ -55,9 +55,12 @@
 #define SYS_recvfrom    46
 #define SYS_sendto      47
 
-#define SYS_fchdir      48
-#define SYS_renameat    49
-#define SYS_reboot      50
-#define SYS_shutdown    51
+#define SYS_reboot      48
+#define SYS_shutdown    49
+
+#define SYS_fchdir      50
+#define SYS_renameat    51
+#define SYS_readlinkat  52
+#define SYS_symlinkat   53
 
 long syscall_handler(size_t *args);

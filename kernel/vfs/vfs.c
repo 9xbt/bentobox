@@ -44,7 +44,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
 
 vfs_node_t *vfs_create_symlink(const char *name, const char *target) {
     vfs_node_t *node = vfs_create_node(name, VFS_SYMLINK);
-    node->device = strdup(target);
+    node->target = strdup(target);
     node->size = strlen(target);
     return node;
 }
@@ -75,8 +75,8 @@ long vfs_remove(vfs_node_t *node) {
     
     if (node->parent)
         list_remove_value(node->parent->children, node);
-    if (node->type == VFS_SYMLINK && node->device)
-        kfree(node->device);
+    if (node->type == VFS_SYMLINK && node->symlink)
+        kfree(node->symlink);
 
     list_free(node->children);
     kfree(node);
@@ -111,9 +111,9 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
 }
 
 vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth) {
-    if (!node || node->type != VFS_SYMLINK || depth <= 0)
+    if (!node || node->type != VFS_SYMLINK || !node->target || depth <= 0)
         return NULL;
-    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->device, false, VFS_NONE)))
+    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->target, false, VFS_NONE)))
         return NULL;
     if (node->symlink->type == VFS_SYMLINK)
         return vfs_resolve_symlink(node, depth - 1);

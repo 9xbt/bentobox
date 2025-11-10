@@ -137,6 +137,7 @@ typedef struct vfs_node {
     struct vfs_ops *ops;
     struct vfs_tty_ops *tty_ops;
     void *device;
+    const char *target;
 } vfs_node_t;
 
 void vfs_install(void);
@@ -146,6 +147,7 @@ vfs_node_t *vfs_create_symlink(const char *name, const char *target);
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
 long vfs_remove(vfs_node_t *node);
 long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path);
+vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth);
 vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow);
 vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type);
 vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);

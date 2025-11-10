@@ -24,8 +24,6 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll)
         return -ENOENT;
     if (!len)
         return 0;
-    if (!file->node->ops || (!file->node->ops->write && write) || (!file->node->ops->read && !write))
-        return 0;
 
     void *buffer = kmalloc(len);
     if (write && copy_from_user(buffer, buf, len) < 0) {
@@ -173,7 +171,7 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
             statbuf->st_blocks = node->blocks;
             break;
         case VFS_SYMLINK:
-            statbuf->st_size = node->symlink ? ((flags & AT_SYMLINK_NOFOLLOW) ? strlen(node->symlink->name) : node->symlink->size) : 0;
+            statbuf->st_size = node->size;
             break;
         default:
             statbuf->st_size = 0;
@@ -689,6 +687,8 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
 }
 
 long sys_unlinkat(int dirfd, const char *pathname, int flags) {
+    (void)flags; // TODO: handle AT_REMOVEDIR
+
     vfs_node_t *dir = this_proc->cwd;
     if (dirfd != AT_FDCWD) {
         struct file *file = file_get(dirfd);
@@ -698,7 +698,7 @@ long sys_unlinkat(int dirfd, const char *pathname, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    vfs_node_t *node = vfs_lookup(dir, path, false, VFS_NONE);
     kfree(path);
     if (!node)
         return -ENOENT;
@@ -832,6 +832,60 @@ long sys_shutdown(void) {
     __builtin_unreachable();
 }
 
+long sys_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
+    COPY_USER_STRING(path, pathname, MAX_PATH);
+    vfs_node_t *node = vfs_lookup(dir, path, false, VFS_NONE);
+    kfree(path);
+    if (!node)
+        return -ENOENT;
+    if (node->type != VFS_SYMLINK)
+        return -EINVAL;
+
+    char *name = strdup(node->target);
+    size_t n = bufsiz < node->size ? bufsiz : node->size;
+    copy_to_user(buf, name, n);
+
+    return n;
+}
+
+long sys_symlinkat(const char *target, int dirfd, const char *linkpath) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+    
+    COPY_USER_STRING(path, linkpath, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(dir, path, true, VFS_NONE);
+    if (node) {
+        kfree(path);
+        return -EEXIST;
+    }
+    node = vfs_lookup(dir, path, true, VFS_SYMLINK);
+    kfree(path);
+    if (!node)
+        return -EPERM;
+
+    COPY_USER_STRING(ktarget, target, MAX_PATH);
+    node->target = strdup(ktarget);
+    node->size = strlen(ktarget);
+    vfs_write(node, node->target, 0, node->size);
+    kfree(ktarget);
+
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -885,10 +939,13 @@ syscall_func syscalls[] = {
     [SYS_recvfrom]    = (syscall_func)(uintptr_t)sys_recvfrom,
     [SYS_sendto]      = (syscall_func)(uintptr_t)sys_sendto,
 
+    [SYS_reboot]      = (syscall_func)(uintptr_t)sys_reboot,
+    [SYS_shutdown]    = (syscall_func)(uintptr_t)sys_shutdown,
+
     [SYS_fchdir]      = (syscall_func)(uintptr_t)sys_fchdir,
     [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat,
-    [SYS_reboot]      = (syscall_func)(uintptr_t)sys_reboot,
-    [SYS_shutdown]    = (syscall_func)(uintptr_t)sys_shutdown
+    [SYS_readlinkat]  = (syscall_func)(uintptr_t)sys_readlinkat,
+    [SYS_symlinkat]   = (syscall_func)(uintptr_t)sys_symlinkat
 };
 
 long syscall_handler(size_t *args) {

@@ -126,6 +126,8 @@ typedef struct {
 
 #define EXT2_FS_FLAGS_MOUNTED 0x1
 
+enum vfs_node_type ext2_get_type(uint16_t type_perms);
+
 long ext2_open(vfs_node_t *node, int flags);
 long ext2_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
@@ -716,6 +718,18 @@ long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     ext2_read_inode(fs, node->inode, &inode);
     inode.last_access_time = inode.mod_time = now();
 
+    if (node->type == VFS_SYMLINK) {
+        if (len > 60) {
+            dprintf(LOG_DEBUG, "\033[93mext2:\033[0m slow symlinks not supported for '%s'\n", node->name);
+            return -ENOSYS;
+        }
+        inode.size = len;
+        memcpy((char *)inode.direct_block_ptr, buffer, len);
+        ext2_write_inode(fs, node->inode, &inode);
+        dprintf(LOG_DEBUG, "wrote fast symlink for %s\n", node->name);
+        return len;
+    }
+
     if (offset == -1)
         offset = inode.size;
     if (offset + len > inode.size)
@@ -750,7 +764,7 @@ vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t ty
 
     ext2_inode inode;
     memset(&inode, 0, sizeof inode);
-    inode.type_perms = type == VFS_DIRECTORY ? EXT_DIRECTORY | 0755 : EXT_FILE | 0644;
+    inode.type_perms = type == VFS_SYMLINK ? EXT_SYM_LINK | 0777 : type == VFS_DIRECTORY ? EXT_DIRECTORY | 0755 : EXT_FILE | 0644;
     inode.size = 0;
     inode.last_access_time = inode.creation_time = inode.mod_time = now();
     inode.hard_link_count = type == VFS_DIRECTORY ? 2 : 1;
@@ -788,9 +802,14 @@ long ext2_remove(vfs_node_t *node) {
 
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
-    ext2_free_inode_blocks(fs, &inode);
+    if (ext2_get_type(inode.type_perms) != VFS_SYMLINK || inode.size > 60)
+        ext2_free_inode_blocks(fs, &inode);
 
-    return ext2_remove_inode(fs, node->parent->inode, node->inode);
+    int ret = ext2_remove_inode(fs, node->parent->inode, node->inode);
+    if (ret < 0)
+        return ret;
+    ext2_free_inode(fs, node->inode);
+    return 0;
 }
 
 long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
