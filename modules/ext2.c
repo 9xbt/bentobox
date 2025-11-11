@@ -203,7 +203,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
         acquire(&fs->bg_locks[group]);
         ext2_read_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
         
-        for (uint32_t i = fs->sb->block_num; i < fs->sb->blocks_per_group; i++) {
+        for (uint32_t i = 0; i < fs->sb->blocks_per_group; i++) {
             if (!bitmap_get(bitmap, i)) {
                 bitmap_set(bitmap, i);
                 ext2_write_block(fs, fs->bgd_table[group].block_bitmap, bitmap, fs->block_size);
@@ -218,7 +218,7 @@ uint32_t ext2_allocate_block(ext2_fs *fs) {
                 ext2_write_bgd(fs, group, fs->bgd_table[group]);
                 
                 release(&fs->bg_locks[group]);
-                return group * fs->sb->blocks_per_group + i;
+                return fs->sb->block_num + group * fs->sb->blocks_per_group + i;
             }
         }
         release(&fs->bg_locks[group]);
@@ -258,6 +258,9 @@ uint32_t ext2_allocate_inode(ext2_fs *fs) {
 }
 
 void ext2_free_block(ext2_fs *fs, uint32_t block) {
+    assert(block);
+    block -= fs->sb->block_num;
+
     uint32_t group = block / fs->sb->blocks_per_group;
     uint32_t index = block % fs->sb->blocks_per_group;
 
@@ -281,6 +284,8 @@ void ext2_free_block(ext2_fs *fs, uint32_t block) {
 }
 
 void ext2_free_inode(ext2_fs *fs, uint32_t ino) {
+    assert(ino);
+    
     uint32_t group = (ino - 1) / fs->sb->inodes_per_group;
     uint32_t index = (ino - 1) % fs->sb->inodes_per_group;
 
