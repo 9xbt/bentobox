@@ -14,6 +14,7 @@
 #include <kernel/fifo.h>
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
+#include <flanterm.h>
 
 #define PS2_STATUS_OUTPUT_FULL      0x01
 #define PS2_STATUS_INPUT_FULL       0x02
@@ -236,7 +237,7 @@ void irq1_handler(struct registers *r) {
 
 void irq12_handler(struct registers *r) {
     (void)r;
-    static int pi = 0, x = 0, y = 0;
+    static int pi = 0, x = 0, y = 0, last_col = -1, last_row = -1;
 
     static struct {
         bool left;
@@ -330,36 +331,40 @@ void irq12_handler(struct registers *r) {
 
         tty_t *t = tty->device;
         if (t->mouse_tracking && t->sgr_mode) {
-            int col = (x / 9) + 1;
-            int row = (y / 16) + 1;
-            int i;
+            size_t font_width, font_height;
+            framebuffer_get_font_size(&font_width, &font_height);
+            int col = (x / font_width) + 1;
+            int row = (y / font_height) + 1;
 
-            char buf[32];
-            if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle)) {
-                int button = state.left ? 32 : (state.middle ? 33 : 34);
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<%d;%d;%dM", button, col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
+            if (col != last_col || row != last_row) {
+                int i;
+                char buf[32];
+                if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle)) {
+                    int button = state.left ? 32 : (state.middle ? 33 : 34);
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<%d;%d;%dM", button, col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+                }
+
+                if (state.left && !last_state.left)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dM", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+                if (state.right && !last_state.right)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dM", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+                if (state.middle && !last_state.middle)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dM", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+
+                if (!state.left && last_state.left)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dm", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+                if (!state.right && last_state.right)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dm", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
+                if (!state.middle && last_state.middle)
+                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dm", col, row); i++)
+                        tty->tty_ops->enqueue(tty, buf[i]);
             }
-
-            if (state.left && !last_state.left)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dM", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
-            if (state.right && !last_state.right)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dM", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
-            if (state.middle && !last_state.middle)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dM", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
-
-            if (!state.left && last_state.left)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dm", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
-            if (!state.right && last_state.right)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dm", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
-            if (!state.middle && last_state.middle)
-                for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dm", col, row); i++)
-                    tty->tty_ops->enqueue(tty, buf[i]);
 
             if (!state.left && !state.right && !state.middle)
                 framebuffer_draw_cursor(x, y);

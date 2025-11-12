@@ -78,6 +78,12 @@ void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
     vinfo->blue.length = framebuffer->blue_mask_size;
 }
 
+void framebuffer_get_font_size(size_t *width, size_t *height) {
+    struct flanterm_fb_context *fb_ctx = (struct flanterm_fb_context *)ft_ctx;
+    *width = fb_ctx->font_width + 1;
+    *height = fb_ctx->font_height;
+}
+
 void framebuffer_draw_cursor(int x, int y) {
     static int last_x = -1, last_y = -1;
 
