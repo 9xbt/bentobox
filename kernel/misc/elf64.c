@@ -375,8 +375,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     }
 
     kfree(this_proc->name);
-    this_proc->name = kmalloc(strlen(file + 1));
-    strcpy(this_proc->name, file);
+    this_proc->name = strdup(file);
     
     vma_destroy(this_proc->vma, this_proc->pm);
     this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);

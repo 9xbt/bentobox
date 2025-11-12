@@ -106,6 +106,7 @@ void *kmalloc(size_t n) {
     assert(n);
     acquire(&lock);
     void *ptr = dlmalloc(n);
+    assert(ptr);
     release(&lock);
     return ptr;
 }
