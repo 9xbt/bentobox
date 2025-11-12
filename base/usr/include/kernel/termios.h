@@ -1,9 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
-#define KDFONTOP        0x4B72
-#define PIO_UNIMAP	    0x4B67
-#define PIO_UNIMAPCLR   0x4B68
+#define BBLOADFONT	0xF001
 
 #define KD_FONT_OP_SET          0
 #define KD_FONT_OP_GET          1
@@ -72,11 +71,7 @@ struct termios {
 #define TIOCGPGRP  0x540F
 #define TIOCSPGRP  0x5410
 
-struct console_font_op {
-	uint32_t op;
-	uint32_t flags;
-	uint32_t width;
-	uint32_t height;
-	uint32_t charcount;
-	uint8_t *data;
+struct bb_font_op {
+	size_t fontlen;
+	void  *fontdata;
 };

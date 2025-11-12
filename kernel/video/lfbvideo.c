@@ -3,13 +3,20 @@
 #include <stddef.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
+#include <kernel/malloc.h>
+#include <kernel/string.h>
+#include <kernel/printf.h>
+#include <kernel/psf.h>
+#include <kernel/mmu.h>
 #include <flanterm_backends/fb.h>
 #define FLANTERM_IN_FLANTERM
 #include <flanterm_private.h>
+#include <flanterm_backends/fb_private.h>
 #include <flanterm.h>
 
 struct limine_framebuffer *framebuffer;
 struct flanterm_context *ft_ctx;
+static void *font = NULL;
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
@@ -97,4 +104,66 @@ void framebuffer_draw_cursor(int x, int y) {
     }
     
     last_x = x, last_y = y;
+}
+
+void framebuffer_setfont(const void *fontdata, size_t fontlen) {
+    if (font)
+        kfree(font);
+    font = kmalloc(fontlen);
+    memcpy(font, fontdata, fontlen);
+
+    struct psf1_header *psf1 = font;
+    struct psf2_header *psf2 = font;
+    void *bitmap = NULL;
+    int width = 8, height = 16;
+
+    if (psf1->magic[0] == 0x36 &&
+        psf1->magic[1] == 0x04) {
+        bitmap = font + sizeof(struct psf1_header);
+    } else if (
+        psf2->magic[0] == 0x72 &&
+        psf2->magic[1] == 0xb5 &&
+        psf2->magic[2] == 0x4a &&
+        psf2->magic[3] == 0x86) {
+        height = psf2->height;
+        width = psf2->width;
+        bitmap = font + psf2->header_size;
+    } else {
+        bitmap = font;
+    }
+
+    struct flanterm_fb_context *fb_ctx = (struct flanterm_fb_context *)ft_ctx;
+
+    size_t x = fb_ctx->cursor_x, y = fb_ctx->cursor_y, grid_size = fb_ctx->grid_size;
+    struct flanterm_fb_char *grid = kmalloc(grid_size);
+    memcpy(grid, fb_ctx->grid, grid_size);
+
+    flanterm_deinit(ft_ctx, NULL);
+    ft_ctx = flanterm_fb_init(
+        NULL,
+        NULL,
+        framebuffer->address,
+        framebuffer->width,
+        framebuffer->height,
+        framebuffer->pitch,
+        framebuffer->red_mask_size,
+        framebuffer->red_mask_shift,
+        framebuffer->green_mask_size,
+        framebuffer->green_mask_shift,
+        framebuffer->blue_mask_size,
+        framebuffer->blue_mask_shift,
+        NULL,
+        NULL, NULL,
+        NULL, NULL,
+        NULL, NULL,
+        bitmap, width, height, 1,
+        0, 0,
+        0
+    );
+    fb_ctx = (struct flanterm_fb_context *)ft_ctx;
+
+    memcpy(fb_ctx->grid, grid, MIN(grid_size, fb_ctx->grid_size));
+    fb_ctx->cursor_x = x, fb_ctx->cursor_y = y;
+    ft_ctx->full_refresh(ft_ctx);
+    kfree(grid);
 }

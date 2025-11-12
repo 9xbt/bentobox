@@ -1,3 +1,5 @@
+#include "kernel/mmu.h"
+#include "kernel/termios.h"
 #include <stddef.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
@@ -34,6 +36,17 @@ static long tty1_ioctl(vfs_node_t *node, int op, void *arg) {
             struct winsize ws;
             framebuffer_get_winsize(&ws);
             return copy_to_user(arg, &ws, sizeof ws);
+        }
+        case BBLOADFONT: {
+            struct bb_font_op fop;
+            if (copy_from_user(&fop, arg, sizeof fop) < 0)
+                return -EFAULT;
+            void *font = kmalloc(fop.fontlen);
+            if (copy_from_user(font, fop.fontdata, fop.fontlen) < 0)
+                return -EFAULT;
+            framebuffer_setfont((const void *)font, fop.fontlen);
+            kfree(font);
+            return 0;
         }
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);

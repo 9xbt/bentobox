@@ -11,6 +11,7 @@
 /base/usr/bin
 /base/usr/share/*
 !/base/usr/share/compositor
+!/base/usr/share/fonts
 /base/usr/lib/
 /base/usr/include/*
 !/base/usr/include/**/
