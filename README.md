@@ -79,6 +79,9 @@ Dependencies:
 
 Run `./ports/vim.sh`.
 
+### nyancat
+Run `./ports/nyancat.sh`.
+
 ## Building the kernel
 ### x86_64
 Packages required:
