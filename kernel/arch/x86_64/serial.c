@@ -92,7 +92,7 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
             return copy_to_user(arg, &ws, sizeof ws);
         }
         default:
-            dprintf(LOG_DEBUG, "\033[93m%s\033[0m: function 0x%lx not implemented\n", __func__, op);
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }
