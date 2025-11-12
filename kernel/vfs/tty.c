@@ -11,7 +11,8 @@
 #include <kernel/vfs.h>
 
 static void tty_worker_thread(void) {
-    tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
+    vfs_node_t *node = vfs_open(NULL, "/dev/tty1", 0);
+    tty_t *tty = node->device;
     int c;
     for (;;) {
         if (fifo_is_empty(tty->ofifo)) {
@@ -22,6 +23,7 @@ static void tty_worker_thread(void) {
             if (c > 0)
                 putchar(c);
         }
+        vfs_wake_waiters(node);
     }
 }
 
@@ -115,14 +117,10 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
         tty_handle_sgr(tty, buf, len);
     long i;
     for (i = 0; (unsigned)i < len; i++) {
-        while (fifo_is_full(tty->ofifo)) {
-            if (node->tty_ops && node->tty_ops->flush)
-                node->tty_ops->flush(node);
+        while (fifo_enqueue(tty->ofifo, buf[i]) < 0) {
+            node->tty_ops->flush(node);
             sched_yield();
         }
-        
-        if (fifo_enqueue(tty->ofifo, buf[i]) < 0)
-            break;
     }
 
     node->tty_ops->flush(node);

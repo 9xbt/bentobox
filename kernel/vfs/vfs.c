@@ -277,7 +277,6 @@ void vfs_wake_waiters(vfs_node_t *node) {
         struct thread *tcb = i->value;
         tcb->state = THREAD_RUNNING;
     }
-    list_clear(node->waiters);
     release(&node->waiters_lock);
 }
 
