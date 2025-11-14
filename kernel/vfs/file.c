@@ -97,9 +97,9 @@ struct file *file_get_from_node(vfs_node_t *node) {
 }
 
 int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
-    struct file *oldfile = file_get(oldfd);
-    if (!oldfile)
+    if (!file_get(oldfd))
         return -EBADF;
+    struct file oldfile = *file_get(oldfd);
     
     if (newfd == -1) {
         for (int i = 0; i < this_proc->max_files; i++) {
@@ -139,14 +139,14 @@ int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
         }
     }
     
-    this_proc->files[newfd] = *oldfile;
+    this_proc->files[newfd] = oldfile;
     this_proc->files[newfd].flags = flags;
 
-    if (oldfile->node->type == VFS_UNIXPIPE) {
-        struct unix_pipe *pipe = oldfile->node->device;
-        if (!strcmp(oldfile->node->name, "[pipe::read]"))
+    if (oldfile.node->type == VFS_UNIXPIPE) {
+        struct unix_pipe *pipe = oldfile.node->device;
+        if (!strcmp(oldfile.node->name, "[pipe::read]"))
             pipe->read_refs++;
-        else if (!strcmp(oldfile->node->name, "[pipe::write]"))
+        else if (!strcmp(oldfile.node->name, "[pipe::write]"))
             pipe->write_refs++;
     }
     return newfd;

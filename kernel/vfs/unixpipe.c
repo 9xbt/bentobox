@@ -47,8 +47,15 @@ long unixpipe_write(vfs_node_t *node, const void *buffer, long offset, size_t le
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
     ringbuffer_destroy(pipe->buffer);
+
+    list_free(pipe->read_end->children);
+    list_free(pipe->read_end->waiters);
     kfree(pipe->read_end);
+    
+    list_free(pipe->write_end->children);
+    list_free(pipe->write_end->waiters);
     kfree(pipe->write_end);
+
     kfree(pipe);
 }
 
@@ -69,7 +76,7 @@ long unixpipe_close_write(vfs_node_t *node) {
         pipe->write_refs--;
     }
     if (pipe->write_refs <= 0) {
-        foreach(i, pipe->buffer->waiting_readers) {
+        foreach_safe(i, pipe->buffer->waiting_readers) {
             struct thread *tcb = i->value;
             tcb->state = THREAD_RUNNING;
             list_remove(pipe->buffer->waiting_readers, i);

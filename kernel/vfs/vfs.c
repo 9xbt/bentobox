@@ -75,8 +75,8 @@ long vfs_remove(vfs_node_t *node) {
     
     if (node->parent)
         list_remove_value(node->parent->children, node);
-    if (node->type == VFS_SYMLINK && node->symlink)
-        kfree(node->symlink);
+    if (node->type == VFS_SYMLINK && node->target)
+        kfree((void *)node->target);
 
     list_free(node->children);
     kfree(node);

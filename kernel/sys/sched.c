@@ -346,7 +346,7 @@ void sched_cleaner(void) {
 
             for (int j = 0; j < proc->max_files; j++) {
                 struct file *file = &proc->files[j];
-                if (file->open)
+                if (file->open && file->node)
                     vfs_close(file->node);
             }
 
