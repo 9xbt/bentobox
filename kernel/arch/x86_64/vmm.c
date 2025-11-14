@@ -128,6 +128,7 @@ void mmu_unmap_2mb(uintptr_t *pm, void *virt) {
     if ((pd = pt_get_next_lvl(pdpt, pdpt_index, 0, false)) == NULL) return;
 
     pd[pd_index] = 0;
+    tlb_invalidate(virt);
         
     if (pt_empty(pd)) {
         mmu_free(PHYSICAL_HHDM(pd));
@@ -138,8 +139,6 @@ void mmu_unmap_2mb(uintptr_t *pm, void *virt) {
         mmu_free(PHYSICAL_HHDM(pdpt));
         pml4[pml4_index] = 0;
     }
-
-    tlb_invalidate(virt);
 }
 
 void mmu_unmap(uintptr_t *pm, void *virt) {
@@ -154,6 +153,7 @@ void mmu_unmap(uintptr_t *pm, void *virt) {
     if ((pt = pt_get_next_lvl(pd, pd_index, 0, false)) == NULL) return;
 
     pt[pt_index] = 0;
+    tlb_invalidate(virt);
 
     if (pt_empty(pt)) {
         mmu_free(PHYSICAL_HHDM(pt));
@@ -169,8 +169,6 @@ void mmu_unmap(uintptr_t *pm, void *virt) {
         mmu_free(PHYSICAL_HHDM(pdpt));
         pml4[pml4_index] = 0;
     }
-
-    tlb_invalidate(virt);
 }
 
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt) {
