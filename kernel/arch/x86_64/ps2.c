@@ -503,74 +503,35 @@ vfs_ops_t mouse_ops = {
     .poll = ps2_mouse_poll
 };
 
-static bool ps2_test_port(uint8_t port_cmd) {
-    ps2_send_command(port_cmd);
-    return ps2_read_data() == PS2_PORT_TEST_PASSED;
-}
-
 void ps2_hid_install(void) {
-    ps2_send_command(PS2_CMD_DISABLE_PORT1);
-    ps2_send_command(PS2_CMD_DISABLE_PORT2);
+    ps2_flush_buffer();
+    ps2_config_write((ps2_config_read() & ~PS2_CONFIG_PORT1_TRANSLATE) | PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT2_IRQ);
+    
+    tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
+    kb = vfs_create_node("event0", VFS_CHARDEVICE);
+    kb->ops = &keyboard_ops;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
+    kb_fifo = fifo_create(256, struct input_event);
+    irq_register(1, irq1_handler);
+    ioapic_redirect_irq(0, 33, 1, false);
+    
+    ps2_flush_buffer();
+    ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
+    if (ps2_read_data() != 0xFA)
+        return;
     ps2_flush_buffer();
     
-    uint8_t config = ps2_config_read();
-    config &= ~(PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT1_CLOCK | PS2_CONFIG_PORT1_TRANSLATE);
-    ps2_config_write(config);
+    ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
+    ps2_read_data();
+    ps2_send_mouse_command(100);
+    ps2_read_data();
     
-    ps2_send_command(PS2_CMD_SELF_TEST);
-    if (ps2_read_data() != PS2_SELF_TEST_PASSED) {
-        dprintf(LOG_ERR, "\033[93mi8042:\033[0m self test failed\n");
-        return;
-    }
-    
-    ps2_send_command(PS2_CMD_ENABLE_PORT2);
-    config = ps2_config_read();
-    bool dual_channel = !(config & PS2_CONFIG_PORT2_CLOCK);
-    if (dual_channel) {
-        ps2_send_command(PS2_CMD_DISABLE_PORT2);
-        config = ps2_config_read();
-        config &= ~(PS2_CONFIG_PORT2_IRQ | PS2_CONFIG_PORT2_CLOCK);
-        ps2_config_write(config);
-    }
-    
-    bool port1_works = ps2_test_port(PS2_CMD_TEST_PORT1);
-    bool port2_works = dual_channel && ps2_test_port(PS2_CMD_TEST_PORT2);
-    
-    if (port1_works) {
-        ps2_send_command(PS2_CMD_ENABLE_PORT1);
-        config |= PS2_CONFIG_PORT1_IRQ;
-        ps2_config_write(config);
-
-        tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
-        kb = vfs_create_node("event0", VFS_CHARDEVICE);
-        kb->ops = &keyboard_ops;
-        vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
-        kb_fifo = fifo_create(256, struct input_event);
-        irq_register(1, irq1_handler);
-        ioapic_redirect_irq(0, 33, 1, false);
-    }
-    
-    if (port2_works) {
-        ps2_send_command(PS2_CMD_ENABLE_PORT2);
-        config |= PS2_CONFIG_PORT2_IRQ;
-        ps2_config_write(config);
-        
-        ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
-        ps2_read_data();
-        ps2_flush_buffer();
-        
-        ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
-        ps2_read_data();
-        ps2_send_mouse_command(100);
-        ps2_read_data();
-        
-        mouse_fifo = fifo_create(256, struct input_event);
-        mouse = vfs_create_node("event1", VFS_CHARDEVICE);
-        mouse->ops = &mouse_ops;
-        vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
-        irq_register(12, irq12_handler);
-        ioapic_redirect_irq(0, 44, 12, false);
-    }
+    mouse_fifo = fifo_create(256, struct input_event);
+    mouse = vfs_create_node("event1", VFS_CHARDEVICE);
+    mouse->ops = &mouse_ops;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
+    irq_register(12, irq12_handler);
+    ioapic_redirect_irq(0, 44, 12, false);
     
     dprintf(LOG_INFO, "\033[93mi8042:\033[0m initialized PS/2 controller\n");
 }
