@@ -47,15 +47,6 @@ long unixpipe_write(vfs_node_t *node, const void *buffer, long offset, size_t le
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
     ringbuffer_destroy(pipe->buffer);
-
-    list_free(pipe->read_end->children);
-    list_free(pipe->read_end->waiters);
-    kfree(pipe->read_end);
-    
-    list_free(pipe->write_end->children);
-    list_free(pipe->write_end->waiters);
-    kfree(pipe->write_end);
-
     kfree(pipe);
 }
 

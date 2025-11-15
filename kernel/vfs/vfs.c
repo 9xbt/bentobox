@@ -266,6 +266,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
         release(&node->waiters_lock);
         sched_sleep(timeout);
     }
+    list_remove_value(node->waiters, this);
     return node->ops->poll(node, events);
 }
 

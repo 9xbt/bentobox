@@ -40,7 +40,7 @@ size_t ringbuffer_read(struct ringbuffer *rb, unsigned char *buffer, size_t size
         i++;
     }
 
-    foreach(j, rb->waiting_writers) {
+    foreach_safe(j, rb->waiting_writers) {
         struct thread *tcb = j->value;
         tcb->state = THREAD_RUNNING;
         list_remove(rb->waiting_writers, j);
@@ -58,7 +58,7 @@ size_t ringbuffer_write(struct ringbuffer *rb, unsigned const char *buffer, size
         i++;
     }
 
-    foreach(j, rb->waiting_readers) {
+    foreach_safe(j, rb->waiting_readers) {
         struct thread *tcb = j->value;
         tcb->state = THREAD_RUNNING;
         list_remove(rb->waiting_readers, j);

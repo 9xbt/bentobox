@@ -191,6 +191,12 @@ long fork(void) {
     tcb->state = THREAD_RUNNING;
     tcb->parent = proc;
     tcb->cpu = NULL;
+    tcb->syscall_regs = NULL;
+    tcb->doing_user_copy = false;
+    tcb->user_copy_status = 0;
+    tcb->sleep_end = 0;
+    tcb->sigframe = NULL;
+    tcb->status = 0;
     arch_context_fork(tcb);
     
     list_insert(proc->threads, tcb);
@@ -291,15 +297,15 @@ void sched_cleaner(void) {
                     if (tcb->state == THREAD_ZOMBIE ||
                         tcb->state == THREAD_ZOMBIE_ACK) {
                         status = tcb->status;
-                        arch_context_free(tcb);
-                        sched_free_tid(tcb->tid);
                         list_remove_value(tcb->cpu->threads, tcb);
                         list_remove(proc->threads, j);
+                        arch_context_free(tcb);
+                        sched_free_tid(tcb->tid);
                         kfree(tcb);
                     }
                 }
 
-                if (proc->threads->length > 0)
+                if (proc->threads->length > 0) 
                     continue;
             } else if (proc->state == PROCESS_ZOMBIE_ALL) {
                 struct thread *tcb = proc->threads->head->value;

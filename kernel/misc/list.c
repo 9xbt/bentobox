@@ -104,7 +104,7 @@ void *list_pop(list_t *list) {
 }
 
 void list_clear(list_t *list) {
-    foreach(node, list) {
+    foreach_safe(node, list) {
         list_remove(list, node);
     }
 }

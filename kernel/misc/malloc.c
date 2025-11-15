@@ -114,6 +114,8 @@ void *kmalloc(size_t n) {
 void kfree(void *ptr) {
     assert(ptr);
     acquire(&lock);
+    size_t n = malloc_usable_size(ptr);
+    memset(ptr, 0xCC, n);
     dlfree(ptr);
     release(&lock);
 }
