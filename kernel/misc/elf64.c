@@ -299,11 +299,11 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
+        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
         return -ENOENT;
     }
     if (node->type == VFS_DIRECTORY) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
+        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
         vfs_close(node);
         return -EISDIR;
     }
@@ -311,7 +311,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     void *buffer = kmalloc(node->size);
     long len = vfs_read(node, buffer, 0, node->size);
     if (len < 0) {
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(len));
+        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(len));
         kfree(buffer);
         vfs_close(node);
         return len;
