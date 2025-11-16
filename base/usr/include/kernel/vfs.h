@@ -65,6 +65,7 @@
 #define W_OK 2
 #define X_OK 1
 
+#ifdef __x86_64__
 struct stat {
 	uint64_t st_dev;
 	uint64_t st_ino;
@@ -84,6 +85,26 @@ struct stat {
 	struct timespec st_ctim;
 	long __unused[3];
 };
+#elif __aarch64__
+struct stat {
+    uint64_t st_dev;
+    uint64_t st_ino;
+    uint32_t st_mode;
+    uint32_t st_nlink;
+    uint32_t st_uid;
+    uint32_t st_gid;
+    uint64_t st_rdev;
+    uint64_t __pad1;
+    int64_t st_size;
+    int64_t st_blksize;
+    int32_t __pad2;
+    int64_t st_blocks;
+    struct timespec st_atim;
+    struct timespec st_mtim;
+    struct timespec st_ctim;
+    int32_t __pad3[2];
+};
+#endif
 
 typedef enum vfs_node_type {
     VFS_NONE,
