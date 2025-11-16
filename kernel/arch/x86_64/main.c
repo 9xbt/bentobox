@@ -189,10 +189,11 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
     tcb->ctx.user_stack = rsp;
 }
 
-void arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
+long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
     memcpy(&tcb->ctx, &frame->ctx, 7 * sizeof(uint64_t));
     memcpy(tcb->syscall_regs, &frame->ctx.regs, 15 * sizeof(uint64_t));
     asm volatile ("fxrstor %0" :: "m"(frame->ctx.fxsave));
+    return frame->ctx.regs.rax;
 }
 
 void arch_save_context(void) {

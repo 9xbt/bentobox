@@ -51,4 +51,4 @@ set -e
     vim_cv_memmove_handles_overlap=yes
 make -j"$(nproc)"
 make DESTDIR="$MLIBC_ROOT/../../../base" install
-strip "$MLIBC_ROOT/../../../base/usr/bin/vim"
+"${TOOLCHAIN_PREFIX}strip" $MLIBC_ROOT/../../../base/usr/bin/vim

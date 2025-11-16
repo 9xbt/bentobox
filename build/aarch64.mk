@@ -3,10 +3,9 @@
 QEMUFLAGS :=
 
 ARCH := aarch64
-DEFAULT_QEMUFLAGS := -m 2G -smp 2
 IMAGE_NAME := bin/$(ARCH)/image
 
-CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only
+CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only -mno-outline-atomics
 LDFLAGS += -m aarch64elf
 
 HOST_CC := cc
@@ -21,8 +20,9 @@ APPS_LDFLAGS += -m aarch64elf
 .PHONY: all
 all: $(IMAGE_NAME).iso
 
+.PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device usb-mouse -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso $(DEFAULT_QEMUFLAGS) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device usb-mouse -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
@@ -46,7 +46,11 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@cp bin/$(ARCH)/initrd.tar iso_root/boot/
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
-	@cp build/limine.conf iso_root/boot/limine/
+	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
+		{ echo "default_entry: 3"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
+	else \
+		cp build/limine.conf iso_root/boot/limine/; \
+	fi
 	@mkdir -p iso_root/EFI/BOOT
 	@cp build/limine/limine-uefi-cd.bin iso_root/boot/limine/
 	@cp build/limine/BOOTAA64.EFI iso_root/EFI/BOOT/

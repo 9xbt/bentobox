@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
             for (;;) {
                 if (waitpid(pid, &status, 0) != pid)
                     continue;
-                if (status == ENOEXEC)
+                if (WEXITSTATUS(status) == ENOEXEC)
                     exit(EXIT_FAILURE);
                 break;
             }

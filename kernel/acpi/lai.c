@@ -1,4 +1,6 @@
+#ifdef __x86_64__
 #include <kernel/arch/x86_64/io.h>
+#endif
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/assert.h>
@@ -82,9 +84,15 @@ void *laihost_scan(const char *sig, size_t len) {
 }
 
 void *laihost_map(size_t phys, size_t len) {
+    #ifdef __x86_64__
+    uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+    #elif __aarch64__
+    uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+    #endif
+
     uintptr_t virt = (uintptr_t)VIRTUAL_HHDM(phys);
     for (uint32_t i = 0; i < ALIGN_UP(len, PAGE_SIZE); i += PAGE_SIZE) {
-        mmu_map(kernel_pd, (void *)(virt + i), (void *)(phys + i), PTE_PRESENT | PTE_WRITABLE);
+        mmu_map(kernel_pd, (void *)(virt + i), (void *)(phys + i), flags);
     }
     return (void *)virt;
 }
@@ -95,6 +103,7 @@ void laihost_unmap(void *virt, size_t len) {
     }
 }
 
+#ifdef __x86_64__
 void laihost_outb(uint16_t port, uint8_t val) {
     outb(port, val);
 }
@@ -118,6 +127,7 @@ uint16_t laihost_inw(uint16_t port) {
 uint32_t laihost_ind(uint16_t port) {
     return inl(port);
 }
+#endif
 
 void laihost_pci_writeb(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset, uint8_t value) {
     (void)seg;

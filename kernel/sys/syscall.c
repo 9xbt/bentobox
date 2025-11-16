@@ -535,7 +535,7 @@ long sys_sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
     return 0;
 }
 
-extern void arch_restore_signal_context(struct thread *tcb, struct sigframe *frame);
+extern long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame);
 
 long sys_sigreturn(void) {
     if (!this->sigframe)
@@ -545,8 +545,7 @@ long sys_sigreturn(void) {
     this->parent->blocked = frame->oldmask;
     this->sigframe = NULL;
 
-    arch_restore_signal_context(this, frame);
-    return frame->ctx.regs.rax;
+    return arch_restore_signal_context(this, frame);
 }
 
 struct utsname {

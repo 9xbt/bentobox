@@ -36,4 +36,4 @@ set -e
     ac_cv_func_realloc_0_nonnull=yes
 make -j"$(nproc)"
 make DESTDIR="$MLIBC_ROOT/../../../base" install
-strip $MLIBC_ROOT/../../../base/usr/bin/*
+"${TOOLCHAIN_PREFIX}strip" $MLIBC_ROOT/../../../base/usr/bin/*

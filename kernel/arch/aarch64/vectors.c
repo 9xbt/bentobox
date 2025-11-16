@@ -70,13 +70,14 @@ void el1_fault_handler(struct registers *r) {
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
     asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
 
-    if (((esr_el1 >> 26) & 0x3F) == 0x24 && this && this->doing_user_copy && far_el1 < hhdm_offset) {
-        this->user_copy_status = -EFAULT;
-        this->doing_user_copy = false;
+    // uint64_t ec = (esr_el1 >> 26) & 0x3F;
+    // if ((ec == 0x24 || ec == 0x25) && this && this->doing_user_copy && far_el1 < hhdm_offset) {
+    //     this->user_copy_status = -EFAULT;
+    //     this->doing_user_copy = false;
 
-        asm volatile("msr ELR_EL1, %0" :: "r"((uint64_t)user_copy_fail));
-        return;
-    }
+    //     asm volatile("msr ELR_EL1, %0" :: "r"((uint64_t)user_copy_fail));
+    //     return;
+    // }
 
     do_regdump("EL1-EL1 fault", r);
     arch_fatal();

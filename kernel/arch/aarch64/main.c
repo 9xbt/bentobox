@@ -157,6 +157,19 @@ void arch_context_fork(struct thread *tcb) {
     ctx->regs.x16 = ctx->stack;
 }
 
+void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
+    (void)tcb;
+    (void)frame;
+    (void)action;
+    (void)sig;
+}
+
+long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
+    (void)tcb;
+    (void)frame;
+    return 0;
+}
+
 void arch_save_context(void) {
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(0));
     
