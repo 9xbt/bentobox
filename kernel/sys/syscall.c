@@ -133,51 +133,53 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
     if (!node)
         return -ENOENT;
 
-    memset(statbuf, 0, sizeof(struct stat));
+    struct stat st;
+    memset(&st, 0, sizeof st);
     switch (node->type) {
         case VFS_FILE:
-            statbuf->st_mode |= S_IFREG;
+            st.st_mode |= S_IFREG;
             break;
         case VFS_DIRECTORY:
-            statbuf->st_mode |= S_IFDIR;
+            st.st_mode |= S_IFDIR;
             break;
         case VFS_CHARDEVICE:
-            statbuf->st_mode |= S_IFCHR;
+            st.st_mode |= S_IFCHR;
             break;
         case VFS_BLOCKDEVICE:
-            statbuf->st_mode |= S_IFBLK;
+            st.st_mode |= S_IFBLK;
             break;
         case VFS_SYMLINK:
-            statbuf->st_mode |= S_IFLNK;
+            st.st_mode |= S_IFLNK;
             break;
         default:
-            statbuf->st_mode |= S_IFREG;
+            st.st_mode |= S_IFREG;
             break;
     }
-    statbuf->st_mode |= (node->perms & 07777);
+    st.st_mode |= (node->perms & 07777);
 
-    statbuf->st_nlink = 1;
-    statbuf->st_uid = 0;
-    statbuf->st_gid = 0;
-    statbuf->st_ino = node->inode;
-    statbuf->st_atim.tv_sec = node->atime;
-    statbuf->st_ctim.tv_sec = node->ctime;
-    statbuf->st_mtim.tv_sec = node->mtime;
+    st.st_nlink = 1;
+    st.st_uid = 0;
+    st.st_gid = 0;
+    st.st_ino = node->inode;
+    st.st_atim.tv_sec = node->atime;
+    st.st_ctim.tv_sec = node->ctime;
+    st.st_mtim.tv_sec = node->mtime;
     
     switch (node->type) {
         case VFS_FILE:
         case VFS_DIRECTORY:
-            statbuf->st_size = node->size;
-            statbuf->st_blocks = node->blocks;
+            st.st_size = node->size;
+            st.st_blocks = node->blocks;
             break;
         case VFS_SYMLINK:
-            statbuf->st_size = node->size;
+            st.st_size = node->size;
             break;
         default:
-            statbuf->st_size = 0;
+            st.st_size = 0;
             break;
     }
-    return 0;
+
+    return copy_to_user(statbuf, &st, sizeof st);
 }
 
 long sys_ioctl(int fd, int op, void *arg) {

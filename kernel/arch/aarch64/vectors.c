@@ -99,7 +99,6 @@ void el0_fault_handler(struct registers *r) {
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
 
         asm ("msr daifclr, #2");
-        dprintf(LOG_DEBUG, "%d\n", args[0]);
         r->x0 = syscall_handler(args);
         asm ("msr daifset, #2");
 
