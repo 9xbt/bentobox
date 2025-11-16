@@ -21,7 +21,7 @@ void acpi_reboot(void) {
 
     lai_api_error_t err = lai_acpi_reset();
     if (err)
-        dprintf(LOG_CRIT, "\033[93mlai\033[0m: %s\n", lai_api_error_to_string(err));
+        dprintf(LOG_CRIT, "\033[93mlai:\033[0m %s\n", lai_api_error_to_string(err));
 
     arch_fatal();
     __builtin_unreachable();
@@ -32,7 +32,7 @@ void acpi_shutdown(void) {
 
     lai_api_error_t err = lai_enter_sleep(5);
     if (err)
-        dprintf(LOG_CRIT, "\033[93mlai\033[0m: %s\n", lai_api_error_to_string(err));
+        dprintf(LOG_CRIT, "\033[93mlai:\033[0m %s\n", lai_api_error_to_string(err));
 
     arch_fatal();
     __builtin_unreachable();
