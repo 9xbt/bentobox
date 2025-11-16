@@ -80,7 +80,7 @@ void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
 
 void framebuffer_get_font_size(size_t *width, size_t *height) {
     struct flanterm_fb_context *fb_ctx = (struct flanterm_fb_context *)ft_ctx;
-    *width = fb_ctx->font_width + 1;
+    *width = fb_ctx->font_width;
     *height = fb_ctx->font_height;
 }
 
