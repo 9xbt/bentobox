@@ -4,6 +4,7 @@
 
 #define EV_KEY     0x01
 #define EV_REL     0x02
+#define EV_ABS     0x03
 #define REL_X      0x00
 #define REL_Y      0x01
 #define BTN_LEFT   0x110
@@ -65,10 +66,11 @@
 #define KEY_LEFTCTRL   0x1d
 #define KEY_LEFTSHIFT  0x2a
 #define KEY_RIGHTSHIFT 0x36
-#define KEY_UP         0x48
-#define KEY_DOWN       0x50
-#define KEY_LEFT       0x4b
-#define KEY_RIGHT      0x4d
+#define KEY_CAPSLOCK   0x3a
+#define KEY_UP         0x67
+#define KEY_DOWN       0x6c
+#define KEY_LEFT       0x69
+#define KEY_RIGHT      0x6a
 #define KEY_MAX        0x2ff
 
 struct input_event {

@@ -1,8 +1,10 @@
 #include <stdint.h>
+#include <kernel/arch/aarch64/virtio.h>
 #include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/syscall.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/sched.h>
 #include <kernel/witty.h>
@@ -32,6 +34,8 @@ const char *esr_ec_reasons[0x40] = {
     [0x3C] = "Software breakpoint (aarch32 BKPT)",
     [0x3F] = "Implementation-defined exception",
 };
+
+void (*irq_handlers[80])(struct registers *);
 
 extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
@@ -95,6 +99,7 @@ void el0_fault_handler(struct registers *r) {
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
 
         asm ("msr daifclr, #2");
+        dprintf(LOG_DEBUG, "%d\n", args[0]);
         r->x0 = syscall_handler(args);
         asm ("msr daifset, #2");
 
@@ -113,21 +118,36 @@ void el0_fault_handler(struct registers *r) {
 void irq_handler(struct registers *r) {
     uint32_t iar = gicc_read(this_cpu->gicc, GICC_IAR);
     uint32_t irq = iar & 0x3FF;
-    if (irq == 1) {
-        asm ("msr daifset, #2");
-        for (;;) asm ("wfi");
-    }
-    if (irq == 0 || irq == 30) {
-        sched_schedule(r);
-    }
-    if (irq == 33) {
-        pl011_irq_handler(r);
-    }
+    this_cpu->current_irq = irq;
+
+    void(*handler)(struct registers *) = irq < 80 ? irq_handlers[irq] : NULL;
+    if (handler)
+        handler(r);
 
     gicc_write(this_cpu->gicc, GICC_EOIR, iar);
 }
 
+void irq_register(uint8_t vector, void *handler) {
+    assert(vector < 80);
+    irq_handlers[vector] = handler;
+}
+
+void irq_unregister(uint8_t vector) {
+    assert(vector < 80);
+    irq_handlers[vector] = NULL;
+}
+
+void hcf(void) {
+    asm ("msr daifset, #2");
+    for (;;) asm ("wfi");
+}
+
 void vectors_install(void) {
+    irq_register(1, hcf);
+    irq_register(0, sched_schedule);
+    irq_register(30, sched_schedule);
+    irq_register(33, pl011_irq_handler);
+
     extern char _evt[];
     asm volatile("msr VBAR_EL1, %0" :: "r"(&_evt));
 }

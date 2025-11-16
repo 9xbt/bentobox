@@ -22,7 +22,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device usb-mouse -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-device -device virtio-tablet-device -global virtio-mmio.force-legacy=false -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf

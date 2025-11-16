@@ -179,3 +179,5 @@ long vfs_poll(vfs_node_t *node, long events, long timeout);
 void vfs_wake_waiters(vfs_node_t *node);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
+vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type);
+vfs_node_t *devfs_create_event(void);

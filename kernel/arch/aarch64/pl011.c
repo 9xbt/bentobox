@@ -4,6 +4,8 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/errno.h>
+#include <kernel/tty.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
@@ -17,9 +19,9 @@
 #define UARTFR_TXFF (1 << 5)
 #define UARTFR_BUSY (1 << 3)
 
-volatile uint32_t *pl011_base = NULL;
-spinlock_t uart_lock = 0;
-vfs_node_t *tty;
+static volatile uint32_t *pl011_base = NULL;
+static spinlock_t uart_lock = 0;
+static vfs_node_t *ttyS0;
 
 uint32_t pl011_read(uint32_t offset) {
     return pl011_base ? pl011_base[offset / sizeof(uint32_t)] : 0;
@@ -57,10 +59,41 @@ void uart_puts(const char *str) {
     uart_write(str, strlen(str));
 }
 
+static void serial_tty_worker_thread(void) {
+    tty_t *tty = vfs_open(NULL, "/dev/ttyS0", 0)->device;
+    int c;
+    for (;;) {
+        acquire(&uart_lock);
+        while (fifo_dequeue(tty->ofifo, &c) > 0) {
+            if (c > 0)
+                uart_putchar(c);
+        }
+        release(&uart_lock);
+
+        this->state = THREAD_PAUSED;
+        sched_yield();
+    }
+}
+
+static long pl011_tty_ioctl(vfs_node_t *node, int op, void *arg) {
+    (void)node;
+    switch (op) {
+        case TIOCGWINSZ: {
+            struct winsize ws = {
+                .ws_row = 25,
+                .ws_col = 80
+            };
+            return copy_to_user(arg, &ws, sizeof ws);
+        }
+        default:
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
+            return -EINVAL;
+    }
+}
+
 void pl011_irq_handler(struct registers *r) {
     (void)r;
-    char c = pl011_read(UARTDR) & 0xFF;
-    tty->tty_ops->enqueue(tty, c);
+    ttyS0->tty_ops->enqueue(ttyS0, pl011_read(UARTDR) & 0xFF);
     pl011_write(UARTICR, 0x10);
 }
 
@@ -76,5 +109,15 @@ void pl011_initialize(void) {
     pl011_write(UARTCR, 0x301);
     pl011_write(UARTIMSC, 0x10); 
 
-    tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
+    ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    ttyS0->perms = 0600;
+    ttyS0->device = tty_create(ttyS0);
+    ((tty_t *)ttyS0->device)->ioctl = pl011_tty_ioctl;
+    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
+
+    tty_t *tty = ttyS0->device;
+
+    struct process *proc = sched_new_process("uart tty", false);
+    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL);
+    sched_add_process(proc);
 }

@@ -18,6 +18,7 @@ struct cpu {
     void *tlb_va;
 
     struct madt_gicc *gicc;
+    int current_irq;
 };
 
 extern struct cpu *cpu_list[SMP_MAX_CORES];

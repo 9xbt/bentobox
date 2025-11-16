@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <kernel/arch/aarch64/vectors.h>
+#include <kernel/arch/aarch64/virtio.h>
 #include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -258,5 +259,6 @@ void kmain(void) {
 
     generic_startup();
     pl011_initialize();
+    virtio_install();
     generic_main();
 }
