@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 930dd54..659246a 100644
+index 49f2d65..b0ea5b2 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -504,29 +504,28 @@ if(LINUX)
+@@ -505,29 +505,28 @@ if(LINUX)
      list(APPEND LIBFASTFETCH_SRC
          src/common/dbus.c
          src/common/io/io_unix.c
@@ -50,7 +50,7 @@ index 930dd54..659246a 100644
          src/detection/displayserver/linux/drm.c
          src/detection/displayserver/linux/wayland/wayland.c
          src/detection/displayserver/linux/wayland/global-output.c
-@@ -540,50 +539,49 @@ if(LINUX)
+@@ -541,50 +540,49 @@ if(LINUX)
          src/detection/displayserver/linux/xcb.c
          src/detection/displayserver/linux/xlib.c
          src/detection/font/font_linux.c
@@ -74,13 +74,12 @@ index 930dd54..659246a 100644
 -        src/detection/localip/localip_linux.c
 -        src/detection/gamepad/gamepad_linux.c
 -        src/detection/media/media_linux.c
--        src/detection/memory/memory_linux.c
--        src/detection/mouse/mouse_linux.c
--        src/detection/netio/netio_linux.c
 +        src/detection/localip/localip_nosupport.c
 +        src/detection/gamepad/gamepad_nosupport.c
 +        src/detection/media/media_nosupport.c
-+        src/detection/memory/memory_nosupport.c
+         src/detection/memory/memory_linux.c
+-        src/detection/mouse/mouse_linux.c
+-        src/detection/netio/netio_linux.c
 +        src/detection/mouse/mouse_nosupport.c
 +        src/detection/netio/netio_nosupport.c
          src/detection/opengl/opengl_linux.c
@@ -121,78 +120,6 @@ index 930dd54..659246a 100644
      )
  elseif(ANDROID)
      list(APPEND LIBFASTFETCH_SRC
-diff --git a/src/common/netif/netif_nosupport.c b/src/common/netif/netif_nosupport.c
-new file mode 100644
-index 0000000..1b808d3
---- /dev/null
-+++ b/src/common/netif/netif_nosupport.c
-@@ -0,0 +1,25 @@
-+#include "netif.h"
-+
-+const char* ffNetifGetHWType(uint16_t type)
-+{
-+    (void)type;
-+    return "Unknown";
-+}
-+
-+bool ffNetifGetDefaultRouteIfName(FFstrbuf* ifName)
-+{
-+    ffStrbufClear(ifName);
-+    return false;
-+}
-+
-+bool ffNetifGetDefaultRouteImplV4(FFNetifDefaultRouteResult* result)
-+{
-+    (void)result;
-+    return false;
-+}
-+
-+bool ffNetifGetDefaultRouteImplV6(FFNetifDefaultRouteResult* result)
-+{
-+    (void)result;
-+    return false;
-+}
-\ No newline at end of file
-diff --git a/src/common/networking/networking_nosupport.c b/src/common/networking/networking_nosupport.c
-new file mode 100644
-index 0000000..1207bdb
---- /dev/null
-+++ b/src/common/networking/networking_nosupport.c
-@@ -0,0 +1,18 @@
-+#include "networking.h"
-+#include <stddef.h>
-+
-+const char* ffNetworkingSendHttpRequest(FFNetworkingState* state, const char* host, const char* path, const char* headers)
-+{
-+    (void)state;
-+    (void)host;
-+    (void)path;
-+    (void)headers;
-+    return "Networking not supported";
-+}
-+
-+const char* ffNetworkingRecvHttpResponse(FFNetworkingState* state, FFstrbuf* buffer)
-+{
-+    (void)state;
-+    (void)buffer;
-+    return "Networking not supported";
-+}
-\ No newline at end of file
-diff --git a/src/detection/localip/localip_nosupport.c b/src/detection/localip/localip_nosupport.c
-new file mode 100644
-index 0000000..4948730
---- /dev/null
-+++ b/src/detection/localip/localip_nosupport.c
-@@ -0,0 +1,8 @@
-+#include "localip.h"
-+
-+const char* ffDetectLocalIps(const FFLocalIpOptions* options, FFlist* results)
-+{
-+    (void)options;
-+    (void)results;
-+    return "Local IP detection is not supported on this platform";
-+}
-\ No newline at end of file
 diff --git a/src/detection/terminalsize/terminalsize_linux.c b/src/detection/terminalsize/terminalsize_linux.c
 index cb6880f..cf65fe0 100644
 --- a/src/detection/terminalsize/terminalsize_linux.c
