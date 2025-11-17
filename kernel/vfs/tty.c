@@ -1,7 +1,6 @@
-#include "kernel/mmu.h"
-#include "kernel/termios.h"
 #include <stddef.h>
 #include <kernel/lfbvideo.h>
+#include <kernel/termios.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>
@@ -96,6 +95,13 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
             return ({ long n = fifo_enqueue(tty->ififo, c); vfs_wake_waiters(node); n; });
     }
     return 0;
+}
+
+long tty_enqueue_string(vfs_node_t *node, const char *s) {
+    long n = 0;
+    while (*s)
+        n += tty_enqueue(node, *s++);
+    return n;
 }
 
 long tty_dequeue(vfs_node_t *node) {

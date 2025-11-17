@@ -18,6 +18,7 @@ typedef struct tty {
     bool mouse_tracking;
 } tty_t;
 
+long tty_enqueue_string(vfs_node_t *node, const char *s);
 tty_t *tty_create(vfs_node_t *node);
 void tty_destroy(vfs_node_t *node);
 void tty_spawn_worker(void);
