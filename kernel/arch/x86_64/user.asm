@@ -25,11 +25,7 @@ syscall_entry:
     push r14
     push r15
 
-    ;push qword [gs:184]
-    ;popf
-
-    push qword 0x10202
-    popf
+    sti
 
     mov rdi, rsp
     call do_syscall
