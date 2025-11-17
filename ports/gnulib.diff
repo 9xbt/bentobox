@@ -1,5 +1,5 @@
 diff --git a/lib/getlocalename_l-unsafe.c b/lib/getlocalename_l-unsafe.c
-index e27388294c..a1656406a8 100644
+index e273882..a165640 100644
 --- a/lib/getlocalename_l-unsafe.c
 +++ b/lib/getlocalename_l-unsafe.c
 @@ -668,6 +668,10 @@ getlocalename_l_unsafe (int category, locale_t locale)
@@ -14,7 +14,7 @@ index e27388294c..a1656406a8 100644
   #error "Please port gnulib getlocalename_l-unsafe.c to your platform! Report this to bug-gnulib."
  #endif
 diff --git a/lib/mountlist.c b/lib/mountlist.c
-index 1a1e7fbf78..2ef2693a78 100644
+index 1a1e7fb..2ef2693 100644
 --- a/lib/mountlist.c
 +++ b/lib/mountlist.c
 @@ -1284,6 +1284,10 @@ read_file_system_list (bool need_fs_type)
@@ -29,7 +29,7 @@ index 1a1e7fbf78..2ef2693a78 100644
  # error "Please port gnulib mountlist.c to your platform!"
  #endif
 diff --git a/lib/readutmp.c b/lib/readutmp.c
-index ce9aff9595..934e2d10ab 100644
+index ce9aff9..934e2d1 100644
 --- a/lib/readutmp.c
 +++ b/lib/readutmp.c
 @@ -40,6 +40,14 @@
@@ -48,27 +48,18 @@ index ce9aff9595..934e2d10ab 100644
  # if HAVE_SYS_PARAM_H
  #  include <sys/param.h>
 diff --git a/lib/renameatu.c b/lib/renameatu.c
-index 89653cb3e8..3b59b4d695 100644
+index 29c4839..ca6f8e9 100644
 --- a/lib/renameatu.c
 +++ b/lib/renameatu.c
-@@ -109,12 +109,14 @@ renameatu (int fd1, char const *src, int fd2, char const *dst,
-   int ret_val = -1;
-   int err = EINVAL;
+@@ -26,9 +26,11 @@
+ #include <sys/stat.h>
+ #include <unistd.h>
  
--#if HAVE_WORKING_RENAMEAT2
--  ret_val = renameat2 (fd1, src, fd2, dst, flags);
--  err = errno;
--#elif defined SYS_renameat2
--  ret_val = syscall (SYS_renameat2, fd1, src, fd2, dst, flags);
--  err = errno;
 +#ifndef __bentobox__
-+  #if HAVE_WORKING_RENAMEAT2
-+    ret_val = renameat2 (fd1, src, fd2, dst, flags);
-+    err = errno;
-+  #elif defined SYS_renameat2
-+    ret_val = syscall (SYS_renameat2, fd1, src, fd2, dst, flags);
-+    err = errno;
-+  #endif
+ #ifdef __linux__
+ # include <sys/syscall.h>
  #endif
++#endif
  
-   if (! (ret_val < 0 && (err == EINVAL || err == ENOSYS || err == ENOTSUP)))
+ #include "issymlink.h"
+ 
