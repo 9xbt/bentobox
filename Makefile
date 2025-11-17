@@ -3,7 +3,9 @@
 OUTPUT := kernel
 ARCH := x86_64
 
-TOOLCHAIN :=
+ifeq ($(ARCH),aarch64)
+    TOOLCHAIN ?= aarch64-none-elf
+endif
 TOOLCHAIN_PREFIX :=
 ifneq ($(TOOLCHAIN),)
     ifeq ($(TOOLCHAIN_PREFIX),)

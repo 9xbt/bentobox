@@ -28,9 +28,9 @@ Packages required:
 
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
 
-Now you can build the ports. Run `. build/mlibc-root aarch64` and `export TOOLCHAIN_PREFIX=aarch64-linux-gnu-` to source the environment.
+Now you can build the ports. Run `. build/mlibc-root aarch64` to source the environment.
 
-After building the ports, run `make livecd -j$(nproc) ARCH=aarch64 TOOLCHAIN_PREFIX=aarch64-none-elf-` to make the initrd.
+After building the ports, run `make livecd -j$(nproc) ARCH=aarch64` to make the initrd.
 
 > [!NOTE]
 > HDD images are not supported on ARM yet, only live CD images.
@@ -109,7 +109,7 @@ Packages required:
 - aarch64-none-elf-binutils
 - xorriso
 
-Run `make kernel-deps` to get the dependencies, then run `make run ARCH=aarch64 TOOLCHAIN_PREFIX=aarch64-none-elf- -j$(nproc)` to run it in QEMU.
+Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) ARCH=aarch64` to run it in QEMU.
 
 ## Screenshots
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/95fa1e76-81f0-4676-8bbe-87e19873beca" />
