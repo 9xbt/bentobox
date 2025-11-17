@@ -2,6 +2,7 @@
 #include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
+#include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/printf.h>
@@ -15,32 +16,6 @@
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
 #include <flanterm.h>
-
-#define PS2_STATUS_OUTPUT_FULL      0x01
-#define PS2_STATUS_INPUT_FULL       0x02
-
-#define PS2_CMD_READ_CONFIG         0x20
-#define PS2_CMD_WRITE_CONFIG        0x60
-#define PS2_CMD_DISABLE_PORT2       0xA7
-#define PS2_CMD_ENABLE_PORT2        0xA8
-#define PS2_CMD_TEST_PORT2          0xA9
-#define PS2_CMD_SELF_TEST           0xAA
-#define PS2_CMD_TEST_PORT1          0xAB
-#define PS2_CMD_DISABLE_PORT1       0xAD
-#define PS2_CMD_ENABLE_PORT1        0xAE
-#define PS2_CMD_WRITE_TO_PORT2      0xD4
-
-#define PS2_CONFIG_PORT1_IRQ        0x01
-#define PS2_CONFIG_PORT2_IRQ        0x02
-#define PS2_CONFIG_PORT1_CLOCK      0x10
-#define PS2_CONFIG_PORT2_CLOCK      0x20
-#define PS2_CONFIG_PORT1_TRANSLATE  0x40
-
-#define PS2_SELF_TEST_PASSED        0x55
-#define PS2_PORT_TEST_PASSED        0x00
-
-#define PS2_MOUSE_SET_SAMPLE_RATE   0xF3
-#define PS2_MOUSE_ENABLE_REPORTING  0xF4
 
 static const int kb_map_keys[256] = {
     [0x15] = 'q', [0x1D] = 'w', [0x24] = 'e', [0x2D] = 'r', [0x2C] = 't',
@@ -132,44 +107,37 @@ enum {
     PS2_COMMAND = 0x64
 };
 
-static bool kb_caps = false, kb_ctrl = false, kb_shift = false;
-static struct fifo *kb_fifo, *mouse_fifo;
 static vfs_node_t *tty, *kb, *mouse;
-static int kb_refcount = 0, mouse_refcount = 0;
-
-static int scancode_to_keycode(uint8_t scancode) {
-    if (scancode >= sizeof(keycode_map) / sizeof(int16_t))
-        return -1;
-    return keycode_map[scancode] ? keycode_map[scancode] : -1;
-}
 
 static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
-    if (__atomic_load_n(&kb_refcount, __ATOMIC_SEQ_CST)) {
+    struct ps2_device *dev = kb->device;
+    if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
         struct input_event iev = {
             .type = EV_KEY,
-            .code = scancode_to_keycode(key),
+            .code = key < sizeof(keycode_map) / sizeof(int16_t) ? keycode_map[key] : 0,
             .value = value
         };
-        fifo_enqueue(kb_fifo, iev);
+        fifo_enqueue(dev->fifo, iev);
     }
 }
 
 void irq1_handler(struct registers *r) {
     (void)r;
     
-    unsigned char c = 0;
+    int c;
     uint8_t key = inb(0x60);
     static uint8_t last_key = 0;
+    struct ps2_device *dev = kb->device;
     if (last_key == 0xf0) {
         switch (key) {
             case 0xe0:
                 break;
             case 0x12:
             case 0x59:
-                kb_shift = false;
+                dev->shift = false;
                 break;
             case 0x14:
-                kb_ctrl = false;
+                dev->ctrl = false;
                 break;
         }
         ps2_keyboard_enqueue_key(key, 0);
@@ -177,24 +145,16 @@ void irq1_handler(struct registers *r) {
     } else if (last_key == 0xe0) {
         switch (key) {
             case 0x75: // up
-                tty->tty_ops->enqueue(tty, '\033');
-                tty->tty_ops->enqueue(tty, '[');
-                tty->tty_ops->enqueue(tty, 'A');
+                tty_enqueue_string(tty, "\033[A");
                 break;
             case 0x72: // down
-                tty->tty_ops->enqueue(tty, '\033');
-                tty->tty_ops->enqueue(tty, '[');
-                tty->tty_ops->enqueue(tty, 'B');
+                tty_enqueue_string(tty, "\033[B");
                 break;
             case 0x74: // right
-                tty->tty_ops->enqueue(tty, '\033');
-                tty->tty_ops->enqueue(tty, '[');
-                tty->tty_ops->enqueue(tty, 'C');
+                tty_enqueue_string(tty, "\033[C");
                 break;
             case 0x6b: // left
-                tty->tty_ops->enqueue(tty, '\033');
-                tty->tty_ops->enqueue(tty, '[');
-                tty->tty_ops->enqueue(tty, 'D');
+                tty_enqueue_string(tty, "\033[D");
                 break;
         }
         ps2_keyboard_enqueue_key(key, 1);
@@ -205,20 +165,20 @@ void irq1_handler(struct registers *r) {
                 break;
             case 0x12:
             case 0x59:
-                kb_shift = true;
+                dev->shift = true;
                 break;
             case 0x14:
-                kb_ctrl = true;
+                dev->ctrl = true;
                 break;
             case 0x58:
-                kb_caps = !kb_caps;
+                dev->caps = !dev->caps;
                 break;
             default:
-                if (kb_ctrl) {
+                if (dev->ctrl) {
                     c = kb_map_keys_caps[key] - '@';
-                } else if (kb_shift) {
+                } else if (dev->shift) {
                     c = kb_map_keys_shift[key];
-                } else if (kb_caps) {
+                } else if (dev->caps) {
                     c = kb_map_keys_caps[key];
                 } else {
                     c = kb_map_keys[key];
@@ -233,6 +193,12 @@ void irq1_handler(struct registers *r) {
 
     last_key = key;
     lapic_eoi();
+}
+
+static inline void ps2_send_sgr_event(const char *fmt, int button, int col, int row) {
+    char buf[32];
+    snprintf(buf, sizeof buf, fmt, button, col, row);
+    tty_enqueue_string(tty, buf);
 }
 
 void irq12_handler(struct registers *r) {
@@ -279,47 +245,26 @@ void irq12_handler(struct registers *r) {
     }
 
     if (++pi >= 3) {
-        if (__atomic_load_n(&mouse_refcount, __ATOMIC_SEQ_CST)) {
-            if (state.delta_x) {
-                struct input_event iev = {
-                    .type = EV_REL,
-                    .code = REL_X,
-                    .value = state.delta_x
-                };
-                fifo_enqueue(mouse_fifo, iev);
+        struct ps2_device *dev = mouse->device;
+
+        #define EMIT_REL(f, c) \
+            if (state.f) { \
+                struct input_event iev = { .type = EV_REL, .code = c, .value = state.f }; \
+                fifo_enqueue(dev->fifo, iev); \
             }
-            if (state.delta_y) {
-                struct input_event iev = {
-                    .type = EV_REL,
-                    .code = REL_Y,
-                    .value = state.delta_y
-                };
-                fifo_enqueue(mouse_fifo, iev);
+
+        #define EMIT_KEY(f, c) \
+            if (state.f != last_state.f) { \
+                struct input_event iev = { .type = EV_KEY, .code = c, .value = state.f }; \
+                fifo_enqueue(dev->fifo, iev); \
             }
-            if (state.left != last_state.left) {
-                struct input_event iev = {
-                    .type = EV_KEY,
-                    .code = BTN_LEFT,
-                    .value = state.left
-                };
-                fifo_enqueue(mouse_fifo, iev);
-            }
-            if (state.right != last_state.right) {
-                struct input_event iev = {
-                    .type = EV_KEY,
-                    .code = BTN_RIGHT,
-                    .value = state.right
-                };
-                fifo_enqueue(mouse_fifo, iev);
-            }
-            if (state.middle != last_state.middle) {
-                struct input_event iev = {
-                    .type = EV_KEY,
-                    .code = BTN_MIDDLE,
-                    .value = state.middle
-                };
-                fifo_enqueue(mouse_fifo, iev);
-            }
+
+        if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
+            EMIT_REL(delta_x, REL_X);
+            EMIT_REL(delta_y, REL_Y);
+            EMIT_KEY(left, BTN_LEFT);
+            EMIT_KEY(right, BTN_RIGHT);
+            EMIT_KEY(middle, BTN_MIDDLE);
         }
 
         x += state.delta_x;
@@ -337,33 +282,15 @@ void irq12_handler(struct registers *r) {
             int row = (y / font_height) + 1;
 
             if (col != last_col || row != last_row) {
-                int i;
-                char buf[32];
-                if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle)) {
-                    int button = state.left ? 32 : (state.middle ? 33 : 34);
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<%d;%d;%dM", button, col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-                }
+                if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle))
+                    ps2_send_sgr_event("\e[<%d;%d;%dM", state.left ? 32 : (state.middle ? 33 : 34), col, row);
 
-                if (state.left && !last_state.left)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dM", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-                if (state.right && !last_state.right)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dM", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-                if (state.middle && !last_state.middle)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dM", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-
-                if (!state.left && last_state.left)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<0;%d;%dm", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-                if (!state.right && last_state.right)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<2;%d;%dm", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
-                if (!state.middle && last_state.middle)
-                    for (i = 0; i < snprintf(buf, sizeof buf, "\e[<1;%d;%dm", col, row); i++)
-                        tty->tty_ops->enqueue(tty, buf[i]);
+                if (state.left && !last_state.left)     ps2_send_sgr_event("\e[<0;%d;%dM", 0, col, row);
+                if (state.right && !last_state.right)   ps2_send_sgr_event("\e[<2;%d;%dM", 2, col, row);
+                if (state.middle && !last_state.middle) ps2_send_sgr_event("\e[<1;%d;%dM", 1, col, row);
+                if (!state.left && last_state.left)     ps2_send_sgr_event("\e[<0;%d;%dm", 0, col, row);
+                if (!state.right && last_state.right)   ps2_send_sgr_event("\e[<2;%d;%dm", 2, col, row);
+                if (!state.middle && last_state.middle) ps2_send_sgr_event("\e[<1;%d;%dm", 1, col, row);
             }
 
             if (!state.left && !state.right && !state.middle)
@@ -382,75 +309,39 @@ void irq12_handler(struct registers *r) {
     lapic_eoi();
 }
 
-long ps2_keyboard_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    (void)node;
+long ps2_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)offset;
+    struct ps2_device *dev = node->device;
 
     if (len < sizeof(struct input_event))
         return -EINVAL;
 
     struct input_event iev;
-    if (fifo_dequeue(kb_fifo, &iev) < (long)sizeof(struct input_event))
+    if (fifo_dequeue(dev->fifo, &iev) < (long)sizeof(struct input_event))
         return -EAGAIN;
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
 }
 
-long ps2_mouse_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
-    (void)node;
-    (void)offset;
-    
-    if (len < sizeof(struct input_event))
-        return -EINVAL;
-    
-    struct input_event iev;
-    if (fifo_dequeue(mouse_fifo, &iev) < (long)sizeof(struct input_event))
-        return -EAGAIN;
-    memcpy(buffer, &iev, sizeof iev);
-    return sizeof iev;
-}
-
-long ps2_keyboard_poll(vfs_node_t *node, long events) {
-    (void)node;
+long ps2_poll(vfs_node_t *node, long events) {
+    struct ps2_device *dev = node->device;
     if (events & POLLIN) {
-        if (!fifo_is_empty(kb_fifo))
+        if (!fifo_is_empty(dev->fifo))
             return POLLIN;
     }
     return 0;
 }
 
-long ps2_mouse_poll(vfs_node_t *node, long events) {
-    (void)node;
-    if (events & POLLIN) {
-        if (!fifo_is_empty(mouse_fifo))
-            return POLLIN;
-    }
-    return 0;
-}
-
-long ps2_keyboard_open(vfs_node_t *node, int flags) {
-    (void)node;
+long ps2_open(vfs_node_t *node, int flags) {
     (void)flags;
-    __atomic_add_fetch(&kb_refcount, 1, __ATOMIC_SEQ_CST);
+    struct ps2_device *dev = node->device;
+    __atomic_add_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
     return 0;
 }
 
-long ps2_mouse_open(vfs_node_t *node, int flags) {
-    (void)node;
-    (void)flags;
-    __atomic_add_fetch(&mouse_refcount, 1, __ATOMIC_SEQ_CST);
-    return 0;
-}
-
-long ps2_keyboard_close(vfs_node_t *node) {
-    (void)node;
-    __atomic_sub_fetch(&kb_refcount, 1, __ATOMIC_SEQ_CST);
-    return 0;
-}
-
-long ps2_mouse_close(vfs_node_t *node) {
-    (void)node;
-    __atomic_sub_fetch(&mouse_refcount, 1, __ATOMIC_SEQ_CST);
+long ps2_close(vfs_node_t *node) {
+    struct ps2_device *dev = node->device;
+    __atomic_sub_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
     return 0;
 }
 
@@ -489,18 +380,14 @@ static void ps2_config_write(uint8_t config) {
     ps2_write_data(config);
 }
 
-vfs_ops_t keyboard_ops = {
-    .open = ps2_keyboard_open,
-    .close = ps2_keyboard_close,
-    .read = ps2_keyboard_read_event,
-    .poll = ps2_keyboard_poll
-};
+struct ps2_device keyboard_device = {0};
+struct ps2_device mouse_device = {0};
 
-vfs_ops_t mouse_ops = {
-    .open = ps2_mouse_open,
-    .close = ps2_mouse_close,
-    .read = ps2_mouse_read_event,
-    .poll = ps2_mouse_poll
+vfs_ops_t ps2_ops = {
+    .open = ps2_open,
+    .close = ps2_close,
+    .read = ps2_read_event,
+    .poll = ps2_poll
 };
 
 void ps2_hid_install(void) {
@@ -509,9 +396,10 @@ void ps2_hid_install(void) {
     
     tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
     kb = vfs_create_node("event0", VFS_CHARDEVICE);
-    kb->ops = &keyboard_ops;
+    kb->ops = &ps2_ops;
+    kb->device = &keyboard_device;
+    keyboard_device.fifo = fifo_create(256, struct input_event);
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
-    kb_fifo = fifo_create(256, struct input_event);
     irq_register(1, irq1_handler);
     ioapic_redirect_irq(0, 33, 1, false);
     
@@ -526,9 +414,10 @@ void ps2_hid_install(void) {
     ps2_send_mouse_command(100);
     ps2_read_data();
     
-    mouse_fifo = fifo_create(256, struct input_event);
     mouse = vfs_create_node("event1", VFS_CHARDEVICE);
-    mouse->ops = &mouse_ops;
+    mouse->ops = &ps2_ops;
+    mouse->device = &mouse_device;
+    mouse_device.fifo = fifo_create(256, struct input_event);;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
     irq_register(12, irq12_handler);
     ioapic_redirect_irq(0, 44, 12, false);
