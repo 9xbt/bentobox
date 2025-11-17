@@ -22,6 +22,7 @@ extern void arch_jumpstart(void);
 extern void arch_yield(struct cpu *cpu);
 
 list_t *processes = NULL;
+int zombies_pending = 0;
 
 uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
@@ -220,24 +221,28 @@ void sched_sleep(size_t ns) {
 
 void sched_exit(struct thread *tcb, int status) {
     tcb->parent->state = PROCESS_ZOMBIE;
-    cleaner_tcb->state = THREAD_RUNNING;
     if (tcb == this) {
-        this->state = THREAD_ZOMBIE;
         this->status = status;
+        this->state = THREAD_ZOMBIE;
+        __atomic_add_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
+        cleaner_tcb->state = THREAD_RUNNING;
         sched_yield();
         for (;;) {}
     }
+    cleaner_tcb->state = THREAD_RUNNING;
 }
 
 void sched_exit_group(struct process *proc, int status) {
     proc->state = PROCESS_ZOMBIE_ALL;
-    cleaner_tcb->state = THREAD_RUNNING;
     if (proc == this_proc) {
-        this->state = THREAD_ZOMBIE;
         this->status = status;
+        this->state = THREAD_ZOMBIE;
+        __atomic_add_fetch(&zombies_pending, this_proc->threads->length, __ATOMIC_SEQ_CST);
+        cleaner_tcb->state = THREAD_RUNNING;
         sched_yield();
         for (;;) {}
-    } 
+    }
+    cleaner_tcb->state = THREAD_RUNNING;
 }
 
 node_t *sched_find_next(void) {
@@ -302,6 +307,7 @@ void sched_cleaner(void) {
                         arch_context_free(tcb);
                         sched_free_tid(tcb->tid);
                         kfree(tcb);
+                        __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
                     }
                 }
 
@@ -341,6 +347,7 @@ void sched_cleaner(void) {
                 sched_free_tid(tcb->tid);
                 list_remove_value(tcb->cpu->threads, tcb);
                 kfree(tcb);
+                __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
             }
             list_free(proc->threads);
 
@@ -368,8 +375,10 @@ void sched_cleaner(void) {
             // mmu_print_memory();
         }
 
-        this->state = THREAD_PAUSED;
-        sched_yield();
+        if (__atomic_load_n(&zombies_pending, __ATOMIC_SEQ_CST) == 0) {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+        }
     }
 }
 
