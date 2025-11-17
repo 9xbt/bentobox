@@ -4,7 +4,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 ## Tested build environments
 - Debian Trixie
 - Arch Linux (latest rolling release)
-- Ubuntu 22.04 LTS (needs latest meson)
+- Ubuntu Server 24.04 LTS
 - Ubuntu 25.04
 
 ## Building the userspace
@@ -18,6 +18,8 @@ Start by building mlibc. Run `make -f build/mlibc.mk setup build install`.
 
 Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 
+After building the ports, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
+
 ### aarch64
 Packages required:
 - git
@@ -26,7 +28,12 @@ Packages required:
 
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
 
-Now you can build the ports. Run `. build/mlibc-root aarch64` and `TOOLCHAIN_PREFIX=aarch64-linux-gnu-` to source the environment.
+Now you can build the ports. Run `. build/mlibc-root aarch64` and `export TOOLCHAIN_PREFIX=aarch64-linux-gnu-` to source the environment.
+
+After building the ports, run `make livecd -j$(nproc) ARCH=aarch64 TOOLCHAIN_PREFIX=aarch64-none-elf-` to make the initrd.
+
+> [!NOTE]
+> HDD images are not supported on ARM yet, only live CD images.
 
 ## Ports
 
@@ -92,7 +99,7 @@ Packages required:
 - xorriso
 - nasm
 
-Run `make kernel-deps` to get the dependencies, and then you can use `make run -j$(nproc)` to run it in QEMU.
+First run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc)` to run it in QEMU.
 
 ### aarch64
 Packages required:
@@ -102,7 +109,7 @@ Packages required:
 - aarch64-none-elf-binutils
 - xorriso
 
-Run `make kernel-deps` to get the dependencies, and then you can use `make run ARCH=aarch64 TOOLCHAIN_PREFIX=aarch64-none-elf- -j$(nproc)` to run it in QEMU.
+Run `make kernel-deps` to get the dependencies, then run `make run ARCH=aarch64 TOOLCHAIN_PREFIX=aarch64-none-elf- -j$(nproc)` to run it in QEMU.
 
 ## Screenshots
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/95fa1e76-81f0-4676-8bbe-87e19873beca" />
