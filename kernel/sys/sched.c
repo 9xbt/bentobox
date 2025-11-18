@@ -288,6 +288,24 @@ void sched_schedule(struct registers *r) {
     arch_restore_context();
 }
 
+static void sched_cleanup_thread(struct thread *tcb) {
+    if (tcb->cpu->current_tcb->value == tcb) {
+        tcb->state = THREAD_ZOMBIE;
+        arch_yield(tcb->cpu);
+        while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
+            #ifdef __x86_64__
+            __builtin_ia32_pause();
+            #endif
+        }
+    }
+    
+    arch_context_free(tcb);
+    sched_free_tid(tcb->tid);
+    list_remove_value(tcb->cpu->threads, tcb);
+    kfree(tcb);
+    __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
+}
+
 void sched_cleaner(void) {
     for (;;) {
         foreach_safe(i, processes) {
@@ -302,12 +320,8 @@ void sched_cleaner(void) {
                     if (tcb->state == THREAD_ZOMBIE ||
                         tcb->state == THREAD_ZOMBIE_ACK) {
                         status = tcb->status;
-                        list_remove_value(tcb->cpu->threads, tcb);
                         list_remove(proc->threads, j);
-                        arch_context_free(tcb);
-                        sched_free_tid(tcb->tid);
-                        kfree(tcb);
-                        __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
+                        sched_cleanup_thread(tcb);
                     }
                 }
 
@@ -334,20 +348,7 @@ void sched_cleaner(void) {
 
             foreach(j, proc->threads) {
                 struct thread *tcb = j->value;
-                if (tcb->cpu->current_tcb->value == tcb) {
-                    tcb->state = THREAD_ZOMBIE;
-                    arch_yield(tcb->cpu);
-                    while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
-                        #ifdef __x86_64__
-                        __builtin_ia32_pause();
-                        #endif
-                    }
-                }
-                arch_context_free(tcb);
-                sched_free_tid(tcb->tid);
-                list_remove_value(tcb->cpu->threads, tcb);
-                kfree(tcb);
-                __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
+                sched_cleanup_thread(tcb);
             }
             list_free(proc->threads);
 
