@@ -33,9 +33,8 @@ long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
 long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
-    if (offset == -1) {
+    if (offset == -1)
         offset = node->size;
-    }
     if (!file->data) {
         file->data = kmalloc(offset + len);
         node->size = offset + len;
@@ -55,7 +54,6 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
         return NULL;
     if (type == VFS_DIRECTORY) {
         node->ops = &tmpfs_ops;
-        vfs_add_node(parent, node);
     } else if (type == VFS_FILE) {
         tmpfs_t *file = kmalloc(sizeof(tmpfs_t));
         file->data = NULL;

@@ -64,8 +64,8 @@ long vfs_remove(vfs_node_t *node) {
         return -EINVAL;
     if (node->busy)
         return -EBUSY;
-    if (node->type == VFS_DIRECTORY && node->children->length)
-        return -ENOTEMPTY;
+    // if (node->type == VFS_DIRECTORY && node->children->length)
+        // return -ENOTEMPTY;
     if (!node->ops || !node->ops->remove)
         return -EINVAL;
 

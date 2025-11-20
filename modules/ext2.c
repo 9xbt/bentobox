@@ -773,8 +773,15 @@ vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t ty
     inode.size = 0;
     inode.last_access_time = inode.creation_time = inode.mod_time = now();
     inode.hard_link_count = type == VFS_DIRECTORY ? 2 : 1;
-    if (type == VFS_DIRECTORY)
+    if (type == VFS_DIRECTORY) {
         inode.direct_block_ptr[0] = ext2_allocate_block(fs);
+        inode.size = fs->block_size;
+
+        uint8_t *zero = kmalloc(fs->block_size);
+        memset(zero, 0, fs->block_size);
+        ext2_write_block(fs, inode.direct_block_ptr[0], zero, fs->block_size);
+        kfree(zero);
+    }
 
     vfs_node_t *node = vfs_create_node(name, type);
     node->size = 0;
@@ -783,8 +790,6 @@ vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t ty
     ext2_write_inode(fs, node->inode, &inode);
     node->ops = &ext2_ops;
     node->device = fs;
-    vfs_add_node(parent, node);
-
     ext2_add_inode(fs, parent->inode, name, node->inode);
 
     if (type == VFS_DIRECTORY) {
@@ -796,6 +801,8 @@ vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t ty
         parent_inode.hard_link_count++;
         ext2_write_inode(fs, parent->inode, &parent_inode);
     }
+
+    vfs_add_node(parent, node);
     return node;
 }
 
@@ -804,9 +811,22 @@ long ext2_remove(vfs_node_t *node) {
     if (!fs)
         return -EIO;
     assert(fs->sb->signature == 0xef53);
+    if (node->children->length > 2)
+        return -ENOTEMPTY;
 
     ext2_inode inode;
     ext2_read_inode(fs, node->inode, &inode);
+
+    if (ext2_get_type(inode.type_perms) == VFS_DIRECTORY) {
+        ext2_remove_inode(fs, node->inode, node->inode);
+        ext2_remove_inode(fs, node->inode, node->parent->inode);
+        
+        ext2_inode parent_inode;
+        ext2_read_inode(fs, node->parent->inode, &parent_inode);
+        parent_inode.hard_link_count--;
+        ext2_write_inode(fs, node->parent->inode, &parent_inode);
+    }
+
     if (ext2_get_type(inode.type_perms) != VFS_SYMLINK || inode.size > 60)
         ext2_free_inode_blocks(fs, &inode);
 
