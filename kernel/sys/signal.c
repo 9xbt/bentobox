@@ -31,62 +31,65 @@ static void setup_signal_frame(struct thread *tcb, int sig, struct sigaction *ac
     mmu_switch_pm(pm);
 }
 
-void signal_handle(struct thread *tcb, int sig) {
+int signal_handle(struct thread *tcb, int sig) {
     struct process *proc = tcb->parent;
     struct sigaction *action = &proc->sighand[sig];
 
     if (sigismember(&proc->blocked, sig))
-        return;
+        return 1;
     
     int word = (sig - 1) / LONG_BIT;
     int bit = (sig - 1) % LONG_BIT;
     proc->psig.sig[word] &= ~(1UL << bit);
     
     if (action->sa_handler == SIG_IGN)
-        return;
+        return 1;
     if (action->sa_handler == SIG_DFL) {
         switch (sig) {
             case SIGCHLD:
             case SIGURG:
             case SIGWINCH:
-                return;
+                return 0;
             case SIGINT:
             case SIGTERM:
             case SIGKILL:
                 sched_exit(tcb, sig);
-                return;
+                return 0;
             case SIGILL:
-                dprintf(LOG_ERR, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
+                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
                 sched_exit(tcb, sig);
-                return;
+                return 0;
             case SIGSEGV:
-                dprintf(LOG_ERR, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
+                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
                 sched_exit(tcb, sig);
-                return;
+                return 0;
             case SIGBUS:
             case SIGFPE:
             case SIGABRT:
             case SIGQUIT:
                 sched_exit(tcb, sig);
-                return;
+                return 0;
             case SIGSTOP:
             case SIGTSTP:
             case SIGTTIN:
             case SIGTTOU:
                 if (tcb->parent != init_proc)
                     tcb->state = THREAD_PAUSED;
-                return;
+                return 0;
             case SIGCONT:
                 if (tcb->state == THREAD_PAUSED)
                     tcb->state = THREAD_RUNNING;
-                return;
+                return 0;
             default:
                 dprintf(LOG_DEBUG, "\033[93m%s:\033[0m unhandled signal %d\n", proc->name, sig);
-                return;
+                return 0;
         }
     }
     
+    if (!tcb->syscall_regs)
+        return 1;
     setup_signal_frame(tcb, sig, action);
+    return 0;
 }
 
 int signal_send(struct process *proc, int sig) {
@@ -121,14 +124,14 @@ int signal_send_pgrp(int pgid, int sig) {
 }
 
 void signal_check_pending(struct thread *tcb) {
-    if (!tcb || !tcb->parent || tcb->sigframe || !tcb->syscall_regs)
+    if (!tcb || !tcb->parent || tcb->sigframe)
         return;
 
     struct process *proc = tcb->parent;
     for (int sig = 1; sig < _NSIG; sig++) {
         if (sigismember(&proc->psig, sig) && !sigismember(&proc->blocked, sig)) {
-            signal_handle(tcb, sig);
-            return;
+            if (!signal_handle(tcb, sig))
+                return;
         }
     }
 }

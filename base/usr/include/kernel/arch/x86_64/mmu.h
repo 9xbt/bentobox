@@ -10,4 +10,5 @@
 #define PTE_WT       8ul
 #define PTE_CD       16ul
 #define PTE_HUGE     128ul
-#define PTE_NX (1ul << 63)
+#define PTE_COW      (1ul << 59)
+#define PTE_NX       (1ul << 63)

@@ -43,10 +43,18 @@ extern void generic_startup(void);
 extern void generic_main(void);
 
 void arch_fatal_prepare(void) {
-    for (size_t i = 0; i < cpu_count; i++) {
-        struct cpu *core = get_core(i);
-        if (core != this_cpu)
-            lapic_ipi(core->logical_id, 0x02);
+    static bool lock = false;
+
+    if (!lock) {
+        lock = true;
+        for (size_t i = 0; i < cpu_count; i++) {
+            struct cpu *core = get_core(i);
+            if (core != this_cpu)
+                lapic_ipi(core->logical_id, 0x02);
+        }
+    } else {
+        asm ("cli");
+	    for (;;) asm ("hlt");
     }
 }
 

@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/spinlock.h>
+#include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -38,8 +39,9 @@ struct vma *kernel_vma;
 
 uintptr_t hhdm_offset;
 
-static uint8_t *mmu_bitmap = NULL;
-static size_t   mmu_page_count = 0;
+static uint8_t  *mmu_bitmap = NULL;
+static uint16_t *mmu_refcounts = NULL;
+static size_t    mmu_page_count = 0;
 size_t mmu_usable_mem = 0;
 size_t mmu_used_pages = 0;
 
@@ -153,6 +155,7 @@ void mmu_initialize(void) {
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m switched to new pagemap\n");
 
     kernel_vma = vma_create(VMA_KERNEL_BASE, 256 * 1024 * 1024);
+    mmu_refcounts = vmalloc(kernel_vma, kernel_pd, 0, 0, ALIGN_UP(mmu_page_count * sizeof(uint16_t), PAGE_SIZE) / PAGE_SIZE, data_flags);
 }
 
 static uint64_t last_page = 0;
@@ -177,11 +180,14 @@ void *mmu_alloc(void) {
         page = mmu_find_page(0);
     if (page == (uint64_t)-1)
         panic("Out of memory");
+    if (mmu_refcounts)
+        mmu_refcounts[page] = 1;
     release(&lock);
     return (void *)(page * PAGE_SIZE);
 }
 
 void mmu_free(void *ptr) {
+    assert(ptr);
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
     acquire(&lock);
@@ -196,6 +202,14 @@ void mmu_free(void *ptr) {
     if (page < last_page)
         last_page = (uint64_t)ptr / PAGE_SIZE;
     release(&lock);
+}
+
+uint16_t *mmu_get_refcount(void *ptr) {
+    assert(ptr);
+    if (!mmu_refcounts)
+        return NULL;
+    uint64_t page = (uint64_t)ptr / PAGE_SIZE;
+    return &mmu_refcounts[page];
 }
 
 void *mmu_map_module(uintptr_t base, size_t len) {

@@ -46,12 +46,14 @@ void  mmu_unmap_2mb(uintptr_t *pm, void *virt);
 void  mmu_unmap(uintptr_t *pm, void *virt);
 void  mmu_switch_pm(uintptr_t *pm);
 void  mmu_destroy_pagemap(uintptr_t *pm);
+uint16_t *mmu_get_refcount(void *ptr);
 uintptr_t mmu_get_physical(uintptr_t *pm, void *virt);
 uint64_t  mmu_get_flags(uintptr_t *pm, void *virt);
 void *mmu_map_module(uintptr_t base, size_t len);
 void *mmu_map_module_bss(size_t pages);
 uintptr_t *mmu_create_pagemap(void);
 uintptr_t *mmu_get_pm(void);
+void  tlb_invalidate(void *va);
 
 struct vma {
     uint8_t *bitmap;

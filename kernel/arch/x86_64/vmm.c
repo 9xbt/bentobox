@@ -50,7 +50,7 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
     }
 }
 
-static inline void tlb_invalidate(void *va) {
+void tlb_invalidate(void *va) {
     asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
 
     if (va < (void *)hhdm_offset)

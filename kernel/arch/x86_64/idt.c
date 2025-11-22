@@ -4,11 +4,14 @@
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
+#include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/witty.h>
+#include <kernel/mmu.h>
 
+extern void arch_fatal_prepare(void);
 extern void arch_fatal(void);
 extern void arch_do_backtrace(void);
 
@@ -112,6 +115,26 @@ void isr_handler(struct registers *r) {
         r->rip = (uint64_t)user_copy_fail;
         return;
     }
+
+    if (r->cs == 0x23 && r->int_no == 14 && r->error_code == 0x07 && cr2 < hhdm_offset) {
+        uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)cr2);
+        if (flags & PTE_COW) {
+            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)(cr2 & ~0xFFF)));
+            uint16_t *refcount = mmu_get_refcount(old_pa);
+            
+            if (refcount && *refcount > 1) {
+                (*refcount)--;
+                void *pa = mmu_alloc();
+                memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
+                mmu_map(mmu_get_pm(), (void *)(cr2 & ~0xFFF), pa, (flags & ~PTE_COW) | PTE_WRITABLE);
+            } else {
+                mmu_map(mmu_get_pm(), (void *)(cr2 & ~0xFFF), old_pa, (flags & ~PTE_COW) | PTE_WRITABLE);
+            }
+            
+            tlb_invalidate((void *)(cr2 & ~0xFFF));
+            return;
+        }
+    }
     
     if (r->cs == 0x23) {
         switch (r->int_no) {
@@ -126,6 +149,8 @@ void isr_handler(struct registers *r) {
         sched_yield();
         return;
     }
+
+    arch_fatal_prepare();
 
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));

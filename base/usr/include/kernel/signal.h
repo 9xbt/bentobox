@@ -93,7 +93,7 @@ struct sigframe {
 struct thread;
 struct process;
 
-void signal_handle(struct thread *tcb, int sig);
+int  signal_handle(struct thread *tcb, int sig);
 int  signal_send(struct process *proc, int sig);
 int  signal_send_pgrp(int pgid, int sig);
 void signal_check_pending(struct thread *tcb);

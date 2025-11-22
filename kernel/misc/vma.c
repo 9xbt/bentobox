@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
@@ -19,7 +20,6 @@ struct vma *vma_create(uintptr_t base, size_t size) {
     vma->lock = 0;
     memset(vma->bitmap, 0, ALIGN_UP(vma->pages, 8) / 8);
 
-    //dprintf(LOG_DEBUG, "\033[93mvma:\033[0m created %ld MB pool\n", vma->pages / 256);
     return vma;
 }
 
@@ -30,7 +30,12 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
         struct vma_region *region = i->value;
         for (size_t j = 0; j < region->pages; j++) {
             void *vaddr = (void *)region->va + (j * PAGE_SIZE);
-            if (!region->pa) mmu_free((void *)mmu_get_physical(pm, vaddr));
+            if (!region->pa) {
+                void *pa = (void *)mmu_get_physical(pm, vaddr);
+                assert(pa);
+                if (--(*mmu_get_refcount(pa)) == 0)
+                    mmu_free(pa);
+            }
             mmu_unmap(pm, vaddr);
         }
 
@@ -49,7 +54,10 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
     for (uint64_t page = 0; page < vma->pages; page++) {
         if (bitmap_get(vma->bitmap, page)) {
             void *vaddr = (void *)(vma->base + page * PAGE_SIZE);
-            mmu_free((void *)mmu_get_physical(pm, vaddr));
+            void *pa = (void *)mmu_get_physical(pm, vaddr);
+            assert(pa);
+            if (--(*mmu_get_refcount(pa)) == 0)
+                mmu_free(pa);
             mmu_unmap(pm, vaddr);
         }
     }
@@ -77,10 +85,18 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
 
         for (size_t j = 0; j < region->pages; j++) {
             void *vaddr = (void *)region->va + (j * PAGE_SIZE);
-            void *phys = region->pa ? (void *)(region->pa + j * PAGE_SIZE) : mmu_alloc();
+            void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
             
-            mmu_map(pm, vaddr, phys, region->flags);
-            if (!region->pa) memcpy(VIRTUAL_HHDM(phys), vaddr, PAGE_SIZE);
+            if (region->pa == 0 && (mmu_get_flags(this_proc->pm, vaddr) & PTE_WRITABLE)) {
+                uint64_t flags = (mmu_get_flags(this_proc->pm, vaddr) & ~PTE_WRITABLE) | PTE_COW;
+                
+                mmu_map(pm, vaddr, phys, flags);
+                mmu_map(this_proc->pm, vaddr, phys, flags);
+            } else {
+                mmu_map(pm, vaddr, phys, mmu_get_flags(this_proc->pm, vaddr));
+            }
+            
+            (*mmu_get_refcount(phys))++;
         }
 
         if (region->va >= vma->base && region->va < vma->base + vma->pages * PAGE_SIZE) {
@@ -94,10 +110,14 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
     for (uint64_t page = 0; page < src->pages; page++) {
         if (bitmap_get(src->bitmap, page)) {
             void *vaddr = (void *)(src->base + page * PAGE_SIZE);
-            void *phys = mmu_alloc();
+            void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
+            
+            uint64_t flags = (mmu_get_flags(this_proc->pm, vaddr) & ~PTE_WRITABLE) | PTE_COW;
 
-            mmu_map(pm, vaddr, phys, mmu_get_flags(this_proc->pm, vaddr));
-            memcpy(VIRTUAL_HHDM(phys), vaddr, PAGE_SIZE);
+            mmu_map(pm, vaddr, phys, flags);
+            mmu_map(this_proc->pm, vaddr, phys, flags);
+            
+            (*mmu_get_refcount(phys))++;
         }
     }
 	
@@ -179,7 +199,12 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
         if ((uintptr_t)ptr >= region->va && (uintptr_t)ptr < region->va + region->pages * PAGE_SIZE) {
             for (size_t j = 0; j < region->pages; j++) {
                 void *vaddr = (void *)region->va + (j * PAGE_SIZE);
-                if (!region->pa) mmu_free((void *)mmu_get_physical(pm, vaddr));
+                if (!region->pa) {
+                    void *pa = (void *)mmu_get_physical(pm, vaddr);
+                    assert(pa);
+                    if (--(*mmu_get_refcount(pa)) == 0)
+                        mmu_free(pa);
+                }
                 mmu_unmap(pm, vaddr);
             }
 
@@ -204,7 +229,10 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
         size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;
         for (size_t i = 0; i < page_count; i++) {
             void *vaddr = ptr + (i * PAGE_SIZE);
-            mmu_free((void *)mmu_get_physical(pm, vaddr));
+            void *pa = (void *)mmu_get_physical(pm, vaddr);
+            assert(pa);
+            if (--(*mmu_get_refcount(pa)) == 0)
+                mmu_free(pa);
             mmu_unmap(pm, vaddr);
             bitmap_clear(vma->bitmap, page + i);
         }
