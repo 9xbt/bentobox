@@ -50,7 +50,7 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
 	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
-		{ echo "default_entry: 3"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
+		{ echo "default_entry: 2"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
 	else \
 		cp build/limine.conf iso_root/boot/limine/; \
 	fi

@@ -6,6 +6,7 @@
 #include <kernel/assert.h>
 #include <kernel/panic.h>
 #include <kernel/acpi.h>
+#include <kernel/args.h>
 #include <kernel/time.h>
 #include <kernel/pci.h>
 #include <kernel/mmu.h>
@@ -39,6 +40,9 @@ void acpi_shutdown(void) {
 }
 
 void lai_init(void) {
+    if (args_contains("noacpi"))
+        return;
+
     lai_set_acpi_revision(6);
     lai_create_namespace();
     lai_enable_tracing(0);
