@@ -2,8 +2,10 @@
 #include <kernel/arch/aarch64/virtio.h>
 #include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
+#include <kernel/arch/aarch64/mmu.h>
 #include <kernel/arch/aarch64/gic.h>
 #include <kernel/syscall.h>
+#include <kernel/string.h>
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/sched.h>
@@ -41,14 +43,14 @@ extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
 
 void do_regdump(const char *msg, struct registers *r) {
-    uint64_t esr_elx, far_elx, elr_elx, spsr_elx;
+    uint64_t esr_el1, far_el1, elr_el1, spsr_el1;
     
-    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_elx));
-    asm volatile("mrs %0, FAR_EL1" : "=r"(far_elx));
-    asm volatile("mrs %0, ELR_EL1" : "=r"(elr_elx));
-    asm volatile("mrs %0, SPSR_EL1" : "=r"(spsr_elx));
+    asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
+    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
+    asm volatile("mrs %0, ELR_EL1" : "=r"(elr_el1));
+    asm volatile("mrs %0, SPSR_EL1" : "=r"(spsr_el1));
 
-    uint64_t ec = (esr_elx >> 26) & 0x3F;
+    uint64_t ec = (esr_el1 >> 26) & 0x3F;
 
     dprintf(LOG_EMERG, "%s: \033[91m%s\033[0m on CPU %d\n", msg, esr_ec_reasons[ec], this_cpu->id);
     dprintf(LOG_EMERG, "// %s\n", witty());
@@ -59,11 +61,10 @@ void do_regdump(const char *msg, struct registers *r) {
     dprintf(LOG_EMERG, "x16: 0x%p x17: 0x%p x18: 0x%p x19: 0x%p\n", r->x16, r->x17, r->x18, r->x19);
     dprintf(LOG_EMERG, "x20: 0x%p x21: 0x%p x22: 0x%p x23: 0x%p\n", r->x20, r->x21, r->x22, r->x23);
     dprintf(LOG_EMERG, "x24: 0x%p x25: 0x%p x26: 0x%p x27: 0x%p\n", r->x24, r->x25, r->x26, r->x27);
-    dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p PC:  0x%p\n", r->x28, r->x29, r->x30, elr_elx);
-    dprintf(LOG_EMERG, "ESR_ELx: 0x%p\n", esr_elx);
-    dprintf(LOG_EMERG, "FAR_ELx: 0x%p\n", far_elx);
-    dprintf(LOG_EMERG, "ELR_ELx: 0x%p\n", elr_elx);
-    dprintf(LOG_EMERG, "SPSR_ELx: 0x%p\n", spsr_elx);
+    dprintf(LOG_EMERG, "x28: 0x%p x29: 0x%p x30: 0x%p PC:  0x%p\n", r->x28, r->x29, r->x30, elr_el1);
+    dprintf(LOG_EMERG, "ESR_ELx:  0x%p\n", esr_el1);
+    dprintf(LOG_EMERG, "FAR_ELx:  0x%p\n", far_el1);
+    dprintf(LOG_EMERG, "SPSR_ELx: 0x%p\n", spsr_el1);
     arch_do_backtrace();
 }
 
@@ -94,7 +95,8 @@ void el0_fault_handler(struct registers *r) {
     asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_el0));
     asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_el0));
     
-    if (((esr_el1 >> 26) & 0x3F) == 0x15) {
+    uint64_t ec = (esr_el1 >> 26) & 0x3F;
+    if (ec == 0x15) {
         this->syscall_regs = r;
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
 
@@ -106,9 +108,33 @@ void el0_fault_handler(struct registers *r) {
         asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_el0));
         return;
     }
-    // signal_send(this_proc, SIGSEGV);
-    // sched_yield();
-    // for (;;) {}
+
+    uint64_t far_el1;
+    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
+
+    if (((esr_el1 >> 26) & 0x3F) == 0x24 && (esr_el1 & (1<<6)) && ((esr_el1 & 0x3C) == 0x0C)) {
+        uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)far_el1);
+        if (flags & PTE_COW) {
+            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)(far_el1 & ~0xFFF)));
+            uint16_t *refcount = mmu_get_refcount(old_pa);
+            
+            if (refcount && *refcount > 1) {
+                (*refcount)--;
+                void *pa = mmu_alloc();
+                memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
+                mmu_map(mmu_get_pm(), (void *)(far_el1 & ~0xFFF), pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+            } else {
+                mmu_map(mmu_get_pm(), (void *)(far_el1 & ~0xFFF), old_pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+            }
+            
+            tlb_invalidate((void *)(far_el1 & ~0xFFF));
+            return;
+        }
+    }
+
+    signal_send(this_proc, SIGSEGV);
+    sched_yield();
+    for (;;) {}
 
     do_regdump("EL0-EL1 fault", r);
     arch_fatal();

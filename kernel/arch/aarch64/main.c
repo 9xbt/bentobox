@@ -87,7 +87,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
         uintptr_t *pm = mmu_get_pm();
         mmu_switch_pm(tcb->parent->pm);
 
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN | PTE_USER);
+        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
         ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
 
         long depth = ((argc + envc) % 2 == 0) ? 24 : 16;

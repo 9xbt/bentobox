@@ -210,8 +210,7 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
             if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
             if (!(phdr[i].p_flags & PF_X)) flags |= PTE_NX;
             #elif __aarch64__
-            uint64_t flags = PTE_VALID | PTE_AF | PTE_USER;
-            flags |= (phdr[i].p_flags & PF_W) ? PTE_RW : PTE_RO;
+            uint64_t flags = PTE_VALID | PTE_AF | (phdr[i].p_flags & PF_W ? PTE_USER_RW : PTE_USER_RO);
             if (!(phdr[i].p_flags & PF_X)) flags |= PTE_UXN;
             #endif
             

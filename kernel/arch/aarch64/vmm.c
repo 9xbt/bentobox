@@ -47,7 +47,7 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
     }
 }
 
-static inline void tlb_invalidate(void *va) {
+void tlb_invalidate(void *va) {
     // asm volatile("tlbi vae1, %0" : : "r"((uintptr_t)va >> 12) : "memory");
     // asm volatile("dsb ish; isb");
     asm volatile("dsb ishst" ::: "memory");

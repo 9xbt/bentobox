@@ -86,14 +86,25 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
         for (size_t j = 0; j < region->pages; j++) {
             void *vaddr = (void *)region->va + (j * PAGE_SIZE);
             void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
+            uint64_t va_flags = mmu_get_flags(this_proc->pm, vaddr);
             
-            if (region->pa == 0 && (mmu_get_flags(this_proc->pm, vaddr) & PTE_WRITABLE)) {
-                uint64_t flags = (mmu_get_flags(this_proc->pm, vaddr) & ~PTE_WRITABLE) | PTE_COW;
+            #ifdef __x86_64__
+            bool writable = va_flags & PTE_WRITABLE;
+            #elif __aarch64__
+            bool writable = ((va_flags >> 6) & 0b11) == 0b01;
+            #endif
+            
+            if (region->pa == 0 && writable) {
+                #ifdef __x86_64__
+                uint64_t flags = (va_flags & ~PTE_WRITABLE) | PTE_COW;
+                #elif __aarch64__
+                uint64_t flags = (va_flags & ~(0b11UL << 6)) | PTE_USER_RO | PTE_COW;
+                #endif
                 
                 mmu_map(pm, vaddr, phys, flags);
                 mmu_map(this_proc->pm, vaddr, phys, flags);
             } else {
-                mmu_map(pm, vaddr, phys, mmu_get_flags(this_proc->pm, vaddr));
+                mmu_map(pm, vaddr, phys, va_flags);
             }
             
             (*mmu_get_refcount(phys))++;
@@ -111,8 +122,13 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
         if (bitmap_get(src->bitmap, page)) {
             void *vaddr = (void *)(src->base + page * PAGE_SIZE);
             void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
+            uint64_t va_flags = mmu_get_flags(this_proc->pm, vaddr);
             
-            uint64_t flags = (mmu_get_flags(this_proc->pm, vaddr) & ~PTE_WRITABLE) | PTE_COW;
+            #ifdef __x86_64__
+            uint64_t flags = (va_flags & ~PTE_WRITABLE) | PTE_COW;
+            #elif __aarch64__
+            uint64_t flags = (va_flags & ~(0b11UL << 6)) | PTE_USER_RO | PTE_COW;
+            #endif
 
             mmu_map(pm, vaddr, phys, flags);
             mmu_map(this_proc->pm, vaddr, phys, flags);

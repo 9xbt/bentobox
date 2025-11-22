@@ -428,15 +428,13 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
 
     uint64_t mmu_flags = 0;
     if (prot != PROT_NONE) {
-        mmu_flags = PTE_USER;
         #ifdef __x86_64__
+        mmu_flags = PTE_USER;
         if (prot & PROT_READ) mmu_flags |= PTE_PRESENT;
         if (prot & PROT_WRITE) mmu_flags |= PTE_WRITABLE;
         if (!(prot & PROT_EXEC)) mmu_flags |= PTE_NX;
         #elif __aarch64__
-        if ((prot & PROT_READ) || (prot & PROT_WRITE)) mmu_flags |= PTE_VALID | PTE_AF;
-        if (prot & PROT_READ) mmu_flags |= PTE_RO;
-        if (prot & PROT_WRITE) mmu_flags |= PTE_RW;
+        mmu_flags = PTE_VALID | PTE_AF | (prot & PROT_WRITE ? PTE_USER_RW : PTE_USER_RO);
         if (!(prot & PROT_EXEC)) mmu_flags |= PTE_UXN;
         #endif
     }
