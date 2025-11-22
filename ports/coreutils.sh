@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 [ ! -d "ports/src/gnulib" ] && echo "Please build gnulib before building coreutils!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
@@ -14,10 +14,8 @@ export LDFLAGS_FOR_BUILD=""
 
 mkdir -p base/usr/bin
 mkdir -p ports/src
-cd ports/src
-
-git clone https://github.com/coreutils/coreutils --depth=1
-cd coreutils
+git clone https://github.com/coreutils/coreutils ports/src/coreutils --depth=1
+cd ports/src/coreutils
 git apply ../../coreutils.diff
 
 make clean
@@ -35,5 +33,4 @@ set -e
     ac_cv_func_malloc_0_nonnull=yes \
     ac_cv_func_realloc_0_nonnull=yes
 make -j"$(nproc)"
-make DESTDIR="$MLIBC_ROOT/../../../base" install
-"${TOOLCHAIN_PREFIX}strip" $MLIBC_ROOT/../../../base/usr/bin/*
+make DESTDIR=$BASE install

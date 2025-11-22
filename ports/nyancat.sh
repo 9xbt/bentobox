@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
@@ -8,14 +8,12 @@ export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o -Wl,-
 
 mkdir -p base/usr/bin
 mkdir -p ports/src
-cd ports/src
-
-git clone https://github.com/klange/nyancat.git --depth=1
-cd nyancat
+git clone https://github.com/klange/nyancat.git ports/src/nyancat --depth=1
+cd ports/src/nyancat
 
 make clean
 set -e
 sed -i 's|\$(LDFLAGS) \$(OBJECTS)|\$(LDFLAGS) $(LIBS) $(OBJECTS) -Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group|' src/Makefile
 make -j$(nproc)
 
-cp src/nyancat ../../../base/usr/bin/
+cp src/nyancat $BASE/usr/bin

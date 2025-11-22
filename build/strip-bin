@@ -1,0 +1,3 @@
+#!/bin/bash
+[ -z "$BASE" ] && echo "Please run . build/mlibc-root before stripping binaries!" && exit 1
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/bin/*

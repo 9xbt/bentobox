@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
@@ -13,10 +13,8 @@ export LDFLAGS_FOR_BUILD=""
 
 mkdir -p base/usr/bin
 mkdir -p ports/src
-cd ports/src
-
-git clone https://github.com/vim/vim.git --depth=1
-cd vim/src
+git clone https://github.com/vim/vim.git ports/src/vim --depth=1
+cd ports/src/vim/src
 
 make clean
 set -e
@@ -50,5 +48,4 @@ set -e
     vim_cv_stat_ignores_slash=no \
     vim_cv_memmove_handles_overlap=yes
 make -j"$(nproc)"
-make DESTDIR="$MLIBC_ROOT/../../../base" install
-"${TOOLCHAIN_PREFIX}strip" $MLIBC_ROOT/../../../base/usr/bin/vim
+make DESTDIR=$BASE install

@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
@@ -11,16 +11,13 @@ export CC_FOR_BUILD="gcc"
 export CFLAGS_FOR_BUILD="-std=gnu17"
 export LDFLAGS_FOR_BUILD=""
 
-mkdir -p base/usr/bin
+mkdir -p $BASE/usr/bin
 mkdir -p ports/src
-cd ports/src
-if [ ! -d "bash" ]; then
-    git clone https://github.com/bminor/bash --depth=1
-fi
-cd bash
+git clone https://github.com/bminor/bash ports/src/bash --depth=1
+cd ports/src/bash
 
 make clean
-#make distclean
+# make distclean
 set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \
@@ -36,4 +33,4 @@ set -e
     ac_cv_func_unsetenv=yes \
     ac_cv_func_strchrnul=yes
 make -j$(nproc)
-cp bash ../../../base/usr/bin/
+cp bash $BASE/usr/bin

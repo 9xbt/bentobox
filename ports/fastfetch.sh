@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export CXX="${TOOLCHAIN_PREFIX:-}g++"
@@ -8,12 +8,10 @@ export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17"
 export CXXFLAGS="-I$MLIBC_ROOT/include -g -std=gnu++17"
 export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
 
-mkdir -p base/usr/bin
+mkdir -p $BASE/usr/bin
 mkdir -p ports/src
-cd ports/src
-
-git clone https://github.com/fastfetch-cli/fastfetch -b master --depth=1
-cd fastfetch
+git clone https://github.com/fastfetch-cli/fastfetch ports/src/fastfetch -b master --depth=1
+cd ports/src/fastfetch
 git apply ../../fastfetch.diff
 rm -rf build
 mkdir -p build
@@ -59,4 +57,4 @@ cmake .. \
     -DENABLE_DRM_AMDGPU=OFF \
     -DBUILD_TESTS=OFF
 make -j$(nproc)
-cp fastfetch ../../../../base/usr/bin/
+cp fastfetch $BASE/usr/bin

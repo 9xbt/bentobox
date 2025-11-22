@@ -1,7 +1,8 @@
 #!/bin/bash
 ARCH="${1:-${ARCH:-x86_64}}"
-[[ "${ARCH:=x86_64}" == "aarch64" ]] && export TOOLCHAIN_PREFIX=aarch64-linux-gnu-
-export MLIBC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/mlibc/$ARCH
-set -x
+CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[[ "$ARCH" == "aarch64" ]] && export TOOLCHAIN_PREFIX=aarch64-linux-gnu-
+export BASE="$CWD/base/$ARCH"
+export MLIBC_ROOT="$CWD/mlibc/$ARCH"
+mkdir -p $BASE
 echo $MLIBC_ROOT
-{ set +x; } 2>/dev/null

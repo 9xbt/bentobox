@@ -1,11 +1,12 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
+mkdir -p $BASE/usr/bin
+mkdir -p ports/src
 git clone https://github.com/ozkl/doomgeneric ports/src/doomgeneric --depth=1
 cd ports/src/doomgeneric/
 git apply ../../doomgeneric.diff
 cd doomgeneric/
+make clean
 make -f Makefile.fblinux -j$nproc CC="${TOOLCHAIN_PREFIX:-}gcc"
-mkdir -p ../../../../base/usr/bin
-cp doomgeneric ../../../../base/usr/bin/
-cd ../../../../
+cp doomgeneric $BASE/usr/bin

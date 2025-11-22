@@ -18,6 +18,9 @@ Start by building mlibc. Run `make -f build/mlibc.mk setup build install`.
 
 Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 
+> [!TIP]
+> Run `./build/strip-bin` to strip the binaries and reduce the image size.
+
 After building the ports, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
 
 ### aarch64
@@ -29,6 +32,9 @@ Packages required:
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
 
 Now you can build the ports. Run `. build/mlibc-root aarch64` to source the environment.
+
+> [!TIP]
+> Run `./build/strip-bin` to strip the binaries and reduce the image size.
 
 After building the ports, run `make livecd -j$(nproc) ARCH=aarch64` to make the initrd.
 
@@ -93,7 +99,7 @@ Run `./ports/nyancat.sh`.
 ### x86_64
 Packages required:
 - git
-- make
+- gmake
 - gcc
 - binutils
 - xorriso
@@ -104,7 +110,7 @@ First run `make kernel-deps` to get the dependencies, then run `make run -j$(npr
 ### aarch64
 Packages required:
 - git
-- make
+- gmake
 - aarch64-none-elf-gcc
 - aarch64-none-elf-binutils
 - xorriso
