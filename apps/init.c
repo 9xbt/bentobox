@@ -23,9 +23,9 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
     if (pid == 0) {
         char *argv[] = { "/etc/rc", NULL };
-        char *envp[] = { "TERM=linux", "HOME=/root", NULL };
 
         fprintf(console, "\033[93minit:\033[0m running script '%s'\n", argv[0]);
         execve(argv[0], argv, envp);
@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
         dup2(fd, STDIN_FILENO);
         dup2(fd, STDOUT_FILENO);
         dup2(fd, STDERR_FILENO);
+        envp[0] = "TERM=xterm";
 
         printf("Press enter to enable this TTY.");
         fflush(stdout);
@@ -92,7 +93,6 @@ int main(int argc, char *argv[]) {
 
         if (pid == 0) {
             char *argv[] = { "/usr/bin/bash", NULL };
-            char *envp[] = { "TERM=linux", "HOME=/root", NULL };
 
             execve(argv[0], argv, envp);
             perror(argv[0]);
