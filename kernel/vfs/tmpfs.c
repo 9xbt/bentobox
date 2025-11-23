@@ -82,9 +82,19 @@ long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
     return 0;
 }
 
+long tmpfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
+    (void)node;
+    (void)device;
+    (void)flags;
+    return 0;
+}
+
+vfs_mount_ops_t tmpfs_mount_ops = {
+    .type  = "tmp",
+    .nodev = true,
+    .mount = tmpfs_mount
+};
+
 void tmpfs_initialize(void) {
-    vfs_node_t *tmp = vfs_create_node("tmp", VFS_DIRECTORY);
-    tmp->perms = 0777;
-    tmp->ops = &tmpfs_ops;
-    vfs_add_node(NULL, tmp);
+    vfs_register(&tmpfs_mount_ops);
 }

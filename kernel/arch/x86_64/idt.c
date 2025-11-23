@@ -110,30 +110,30 @@ void isr_handler(struct registers *r) {
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
 
-    if (r->int_no == 14 && this && this->doing_user_copy && cr2 < hhdm_offset) {
-        this->user_copy_status = -EFAULT;
-        r->rip = (uint64_t)user_copy_fail;
-        return;
-    }
-
-    if (r->cs == 0x23 && r->int_no == 14 && r->error_code == 0x07 && cr2 < hhdm_offset) {
+    if (r->int_no == 14 && (r->error_code & 0x03) == 0x03 && cr2 < hhdm_offset) {
         uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)cr2);
         if (flags & PTE_COW) {
-            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)(cr2 & ~0xFFF)));
+            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)ALIGN_DOWN(cr2, PAGE_SIZE)));
             uint16_t *refcount = mmu_get_refcount(old_pa);
             
             if (refcount && *refcount > 1) {
                 (*refcount)--;
                 void *pa = mmu_alloc();
                 memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
-                mmu_map(mmu_get_pm(), (void *)(cr2 & ~0xFFF), pa, (flags & ~PTE_COW) | PTE_WRITABLE);
+                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(cr2, PAGE_SIZE), pa, (flags & ~PTE_COW) | PTE_WRITABLE);
             } else {
-                mmu_map(mmu_get_pm(), (void *)(cr2 & ~0xFFF), old_pa, (flags & ~PTE_COW) | PTE_WRITABLE);
+                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(cr2, PAGE_SIZE), old_pa, (flags & ~PTE_COW) | PTE_WRITABLE);
             }
             
-            tlb_invalidate((void *)(cr2 & ~0xFFF));
+            tlb_invalidate((void *)ALIGN_DOWN(cr2, PAGE_SIZE));
             return;
         }
+    }
+
+    if (r->int_no == 14 && this && this->doing_user_copy && cr2 < hhdm_offset) {
+        this->user_copy_status = -EFAULT;
+        r->rip = (uint64_t)user_copy_fail;
+        return;
     }
     
     if (r->cs == 0x23) {

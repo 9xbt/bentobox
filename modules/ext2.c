@@ -113,7 +113,7 @@ typedef struct {
 } ext2_bgd;
 
 typedef struct {
-    vfs_node_t *sda;
+    vfs_node_t *device;
     ext2_sb    *sb;
     ext2_bgd   *bgd_table;
     uint32_t block_size;
@@ -146,12 +146,12 @@ vfs_ops_t ext2_ops = {
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
     assert(block);
-    vfs_read(fs->sda, buffer, block * fs->block_size, count);
+    vfs_read(fs->device, buffer, block * fs->block_size, count);
 }
 
 void ext2_write_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
     assert(block);
-    vfs_write(fs->sda, buffer, block * fs->block_size, count);
+    vfs_write(fs->device, buffer, block * fs->block_size, count);
 }
 
 void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
@@ -160,7 +160,7 @@ void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
 }
 
 void ext2_write_sb(ext2_fs *fs) {
-    vfs_write(fs->sda, fs->sb, 1024, sizeof(ext2_sb));
+    vfs_write(fs->device, fs->sb, 1024, sizeof(ext2_sb));
 }
 
 void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
@@ -955,7 +955,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, v
     parent->flags |= EXT2_FS_FLAGS_MOUNTED;
 }
 
-void ext2_mount(ext2_fs *fs, vfs_node_t *parent, uint32_t in) {
+void ext2_mount_node(ext2_fs *fs, vfs_node_t *parent, uint32_t in) {
     ext2_inode inode;
     ext2_read_inode(fs, in, &inode);
 
@@ -978,33 +978,32 @@ long ext2_open(vfs_node_t *node, int flags) {
     assert(fs->sb->signature == 0xef53);
 
     if (!(node->flags & EXT2_FS_FLAGS_MOUNTED))
-        ext2_mount(fs, node, node->inode);
+        ext2_mount_node(fs, node, node->inode);
     return 0;
 }
 
-long mount(vfs_node_t *sda, vfs_node_t *target) {
-    if (!sda)
-        return -ENOENT;
+long ext2_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
+    (void)flags;
 
     ext2_fs *fs = kmalloc(sizeof(ext2_fs));
-    fs->sda = sda;
+    fs->device = device;
     fs->sb = (ext2_sb *)kmalloc(ALIGN_UP(sizeof(ext2_sb), 512));
-    vfs_read(sda, fs->sb, 1024, ALIGN_UP(sizeof(ext2_sb), 512));
+    vfs_read(device, fs->sb, 1024, ALIGN_UP(sizeof(ext2_sb), 512));
 
-    char *sda_path = vfs_resolve_path(sda), *target_path = vfs_resolve_path(target);
+    char *dev_path = vfs_resolve_path(device), *node_path = vfs_resolve_path(node);
     if (fs->sb->signature != 0xef53) {
-        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: not an ext2 partition\n", sda_path);
-        kfree(sda_path);
-        kfree(target_path);
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: not an ext2 partition\n", dev_path);
+        kfree(dev_path);
+        kfree(node_path);
         kfree(fs->sb);
         kfree(fs);
         return -EINVAL;
     }
-    dprintf(LOG_INFO, "\033[93mext2:\033[0m mounting %s to %s\n", sda_path, target_path);
+    dprintf(LOG_DEBUG, "\033[93mext2:\033[0m mounting %s to %s\n", dev_path, node_path);
     if (fs->sb->req_features) {
-        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: unsupported features 0x%x\n", sda_path, fs->sb->req_features);
-        kfree(sda_path);
-        kfree(target_path);
+        dprintf(LOG_ERR, "\033[93mext2:\033[0m %s: unsupported features 0x%x\n", dev_path, fs->sb->req_features);
+        kfree(dev_path);
+        kfree(node_path);
         kfree(fs->sb);
         kfree(fs);
         return -EOPNOTSUPP;
@@ -1019,25 +1018,62 @@ long mount(vfs_node_t *sda, vfs_node_t *target) {
     fs->bg_locks = kmalloc(fs->bgd_count * sizeof(spinlock_t));
     memset((void *)fs->bg_locks, 0, fs->bgd_count * sizeof(spinlock_t));
     
-    target->inode = 2;
-    target->device = fs;
-    target->ops = &ext2_ops;
+    node->inode = 2;
+    node->device = fs;
+    node->ops = &ext2_ops;
     
-    kfree(sda_path);
-    kfree(target_path);
+    kfree(node_path);
+    kfree(dev_path);
     return 0;
 }
 
-int init() {
-    if (!args_contains("root")) {
-        panic("root partition not specified in command line");
+void ext2_unmount_recursive(vfs_node_t *node) {
+    foreach_safe(i, node->children) {
+        vfs_node_t *child = i->value;
+        if (child->type == VFS_DIRECTORY && strcmp(child->name, ".") && strcmp(child->name, ".."))
+            ext2_unmount_recursive(child);
+        vfs_remove_node(child);
     }
+}
 
-    // vfs_register("ext2", mount, false);
-    // return vfs_mount(vfs_open(NULL, args_value("root"), false, false), vfs_root, "ext2", 0);
+long ext2_unmount(vfs_node_t *node, long flags) {
+    (void)flags;
+    
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return -EINVAL;
+    
+    char *node_path = vfs_resolve_path(node);
+    dprintf(LOG_DEBUG, "\033[93mext2:\033[0m unmounting %s\n", node_path);
+    kfree(node_path);
+    
+    ext2_unmount_recursive(node);
 
-    mount(vfs_lookup(NULL, args_value("root"), false, VFS_NONE), vfs_get_root());
+    node->device = NULL;
+    node->ops = NULL;
+    node->flags &= ~EXT2_FS_FLAGS_MOUNTED;
+    
+    kfree(fs->bgd_table);
+    kfree((void *)fs->bg_locks);
+    kfree(fs->sb);
+    kfree(fs);
+    
     return 0;
+}
+
+vfs_mount_ops_t ext2_mount_ops = {
+    .type    = "ext2",
+    .nodev   = false,
+    .mount   = ext2_mount,
+    .unmount = ext2_unmount
+};
+
+int init() {
+    vfs_register(&ext2_mount_ops);
+
+    if (!args_contains("root"))
+        return 0;
+    return vfs_mount(vfs_get_root(), "ext2", vfs_lookup(NULL, args_value("root"), false, VFS_NONE), 0);
 }
 
 int fini() {

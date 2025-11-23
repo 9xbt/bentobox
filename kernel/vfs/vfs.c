@@ -15,6 +15,7 @@ extern void tmpfs_initialize(void);
 extern void procfs_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
+list_t *vfs_mount_ops = NULL;
 
 vfs_node_t *vfs_get_root(void) {
     return vfs_root;
@@ -39,6 +40,8 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->ops = NULL;
     node->tty_ops = NULL;
     node->device = NULL;
+    node->target = NULL;
+    node->mount = NULL;
     return node;
 }
 
@@ -59,6 +62,19 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     return list_insert(parent->children, node)->value;
 }
 
+long vfs_remove_node(vfs_node_t *node) {
+    if (!node)
+        return -EINVAL;
+    if (node->parent)
+        list_remove_value(node->parent->children, node);
+    if (node->type == VFS_SYMLINK && node->target)
+        kfree((void *)node->target);
+
+    list_free(node->children);
+    kfree(node);
+    return 0;
+}
+
 long vfs_remove(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
@@ -73,14 +89,7 @@ long vfs_remove(vfs_node_t *node) {
     if (ret < 0)
         return ret;
     
-    if (node->parent)
-        list_remove_value(node->parent->children, node);
-    if (node->type == VFS_SYMLINK && node->target)
-        kfree((void *)node->target);
-
-    list_free(node->children);
-    kfree(node);
-    return 0;
+    return vfs_remove_node(node);
 }
 
 long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
@@ -113,10 +122,10 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
 vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth) {
     if (!node || node->type != VFS_SYMLINK || !node->target || depth <= 0)
         return NULL;
-    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->target, false, VFS_NONE)))
+    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->target, true, VFS_NONE)))
         return NULL;
     if (node->symlink->type == VFS_SYMLINK)
-        return vfs_resolve_symlink(node, depth - 1);
+        return vfs_resolve_symlink(node->symlink, depth - 1);
     return node->symlink;
 }
 
@@ -296,6 +305,62 @@ char *vfs_resolve_path(vfs_node_t *node) {
     return strdup(path);
 }
 
+void vfs_register(vfs_mount_ops_t *ops) {
+    list_insert(vfs_mount_ops, ops);
+}
+
+void vfs_unregister(vfs_mount_ops_t *ops) {
+    list_remove_value(vfs_mount_ops, ops);
+}
+
+long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags) {
+    if (!node || node->type != VFS_DIRECTORY || !type)
+        return -EINVAL;
+    if (node->mount)
+        return -EBUSY;
+
+    foreach(i, vfs_mount_ops) {
+        vfs_mount_ops_t *ops = i->value;
+        if (strcmp(ops->type, type))
+            continue;
+        if (!ops->nodev && !device)
+            return -EINVAL;
+
+        long ret = ops->mount(node, device, flags);
+        if (ret < 0)
+            return ret;
+
+        vfs_mountpoint_t *mp = kmalloc(sizeof(vfs_mountpoint_t));
+        mp->ops = ops;
+        mp->node = node;
+        mp->device = device;
+        mp->flags = flags;
+        node->mount = mp;
+
+        return 0;
+    }
+
+    return -EINVAL;
+}
+
+long vfs_unmount(vfs_node_t *node, long flags) {
+    if (!node)
+        return -ENOENT;
+
+    vfs_mountpoint_t *mnt = node->mount;
+    if (!mnt || !mnt->ops->unmount)
+        return -EINVAL;
+
+    long ret = mnt->ops->unmount(node, flags);
+    if (ret < 0)
+        return ret;
+
+    node->mount = NULL;
+    kfree(mnt);
+    
+    return 0;
+}
+
 void vfs_print_tree(vfs_node_t *node) {
     if (!node)
         node = vfs_get_root();
@@ -318,6 +383,7 @@ void vfs_print_tree(vfs_node_t *node) {
 
 void vfs_install(void) {
     vfs_root = vfs_create_node("", VFS_DIRECTORY);
+    vfs_mount_ops = list_create();
 
     devfs_initialize();
     zero_initialize();

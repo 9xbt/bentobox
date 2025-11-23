@@ -63,18 +63,29 @@ vfs_node_t *procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t 
     return node;
 }
 
-void procfs_initialize(void) {
-    vfs_node_t *proc = vfs_create_node("proc", VFS_DIRECTORY);
-    proc->ops = &procfs_ops;
-    vfs_add_node(NULL, proc);
+long procfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
+    (void)device;
+    (void)flags;
 
     vfs_node_t *meminfo = vfs_create_node("meminfo", VFS_FILE);
     meminfo->perms = 0444;
     meminfo->ops = &meminfo_ops;
-    vfs_add_node(proc, meminfo);
+    vfs_add_node(node, meminfo);
 
     vfs_node_t *uptime = vfs_create_node("uptime", VFS_FILE);
     uptime->perms = 0444;
     uptime->ops = &uptime_ops;
-    vfs_add_node(proc, uptime);
+    vfs_add_node(node, uptime);
+    
+    return 0;
+}
+
+vfs_mount_ops_t procfs_mount_ops = {
+    .type  = "proc",
+    .nodev = true,
+    .mount = procfs_mount
+};
+
+void procfs_initialize(void) {
+    vfs_register(&procfs_mount_ops);
 }

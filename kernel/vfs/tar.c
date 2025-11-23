@@ -1,3 +1,4 @@
+#include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -9,11 +10,30 @@ vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type 
 long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long tar_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 
+vfs_node_t *root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+long root_remove(vfs_node_t *node);
+
 vfs_ops_t tar_ops = {
     .create = tar_create,
     .read = tar_read,
     .write = tar_write
 };
+
+vfs_ops_t root_ops = {
+    .create = root_create,
+    .remove = root_remove
+};
+
+vfs_node_t *root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
+    vfs_node_t *node = vfs_create_node(name, type);
+    node->ops = &root_ops;
+    return vfs_add_node(parent, node);
+}
+
+long root_remove(vfs_node_t *node) {
+    (void)node;
+    return 0;
+}
 
 vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     vfs_node_t *node = vfs_create_node(name, type);
@@ -85,11 +105,16 @@ void tar_module(struct limine_file *mod) {
             node->device = tar;
             node->size = filesize;
             node->perms = oct2bin(tar->mode + 4, 3);
+        } else if (type == VFS_SYMLINK) {
+            node->size = strnlen(tar->link_name, sizeof tar->link_name);
+            node->target = kmalloc(node->size + 1);
+            memcpy(node->target, tar->link_name, node->size);
+            node->target[node->size] = 0;
         }
 
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
     }
 
-    vfs_get_root()->ops = NULL;
+    vfs_get_root()->ops = &root_ops;
     tar_ops.create = NULL;
 }

@@ -118,6 +118,7 @@ typedef enum vfs_node_type {
 } vfs_node_type_t;
 
 struct vfs_node;
+struct vfs_mountpoint;
 
 typedef struct vfs_ops {
     long(*open)(struct vfs_node *node, int flags);
@@ -158,14 +159,30 @@ typedef struct vfs_node {
     struct vfs_ops *ops;
     struct vfs_tty_ops *tty_ops;
     void *device;
-    const char *target;
+    char *target;
+    struct vfs_mountpoint *mount;
 } vfs_node_t;
+
+typedef struct vfs_mount_ops {
+    const char *type;
+    bool nodev;
+    long(*mount)(struct vfs_node *node, struct vfs_node *device, long flags);
+    long(*unmount)(struct vfs_node *node, long flags);
+} vfs_mount_ops_t;
+
+typedef struct vfs_mountpoint {
+    struct vfs_mount_ops *ops;
+    struct vfs_node *node;
+    struct vfs_node *device;
+    long flags;
+} vfs_mountpoint_t;
 
 void vfs_install(void);
 vfs_node_t *vfs_get_root(void);
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
 vfs_node_t *vfs_create_symlink(const char *name, const char *target);
 vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
+long vfs_remove_node(vfs_node_t *node);
 long vfs_remove(vfs_node_t *node);
 long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path);
 vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth);
@@ -177,7 +194,13 @@ long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long vfs_poll(vfs_node_t *node, long events, long timeout);
 void vfs_wake_waiters(vfs_node_t *node);
+void vfs_register(vfs_mount_ops_t *ops);
+void vfs_unregister(vfs_mount_ops_t *ops);
+long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags);
+long vfs_unmount(vfs_node_t *node, long flags);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
+
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type);
 vfs_node_t *devfs_create_event(void);
+vfs_node_t *devfs_create_disk(void);

@@ -55,13 +55,16 @@ int main(int argc, char *argv[]) {
             print_usage();
     }
 
-    for (int i = argc - 1; i >= 1; i--) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--help"))
+            print_usage();
+    }
+
+    for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--poweroff"))
             shutdown();
         else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--reboot"))
             reboot();
-        else if (!strcmp(argv[i], "--help"))
-            print_usage();
         else {
             printf("%s: invalid option -- '%s'\n", name, argv[i]);
             print_usage();

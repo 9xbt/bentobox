@@ -286,7 +286,6 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
     
     hba_cmd_tbl_t *cmd_tbl = port->cmd_tbls[slot];
     memset(cmd_tbl, 0, sizeof(hba_cmd_tbl_t) + (cmd_hdr->prdtl - 1) * sizeof(hba_prdt_entry_t));
-    // release(&ahci_lock[port->port_num]);
     
     uintptr_t *pages = kmalloc(sizeof(uintptr_t) * ALIGN_UP(count, 8) / 8);
     for (uint32_t i = 0; i < ALIGN_UP(count, 8) / 8; i++) {
@@ -295,7 +294,6 @@ int ahci_op(ahci_port_t *port, uint64_t lba, uint32_t count, void *buffer, bool 
             memcpy(VIRTUAL_HHDM(pages[i]), buffer + i * PAGE_SIZE, MIN((count - i * 8) * 512, PAGE_SIZE));
     }
     
-    // acquire(&ahci_lock[port->port_num]);
     for (int i = 0, j = count; j > 0; j -= 8, i++) {
         uintptr_t phys = pages[i];
         cmd_tbl->prdt_entry[i].dba = LOW(phys);
@@ -455,15 +453,11 @@ int init() {
     ahci_write(AHCI_IS, 0xFFFFFFFF);
 
     uint32_t pi = ahci_read(AHCI_PI);
-    int sata_drive = 0;
     for (i = 0; i < 32; i++) {
         if (bitmap_get((uint8_t *)&pi, i)) {
             switch (ahci_get_type(i)) {
                 case SATA_SIG_ATA: {
-                    char mountpoint[32];
-                    snprintf(mountpoint, sizeof mountpoint, "/dev/sd%c", 'a' + sata_drive++);
-
-                    vfs_node_t *node = vfs_lookup(NULL, mountpoint, false, VFS_BLOCKDEVICE);
+                    vfs_node_t *node = devfs_create_disk();
                     node->perms = 0660;
                     node->ops = &ops;
                     node->device = ahci_init_drive(i);

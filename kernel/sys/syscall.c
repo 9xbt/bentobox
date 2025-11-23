@@ -258,11 +258,8 @@ long sys_readdir(int fd, struct dirent *buf, size_t count) {
         return -EBADF;
     
     vfs_node_t *dir = file->node;
-    if (dir->type != VFS_DIRECTORY) {
-        dprintf(LOG_DEBUG, "%s is not a directory you dumb fuck\n", vfs_resolve_path(dir));
+    if (dir->type != VFS_DIRECTORY)
         return -ENOTDIR;
-    }
-    
     if (!count)
         return -EINVAL;
     
@@ -885,11 +882,46 @@ long sys_symlinkat(const char *target, int dirfd, const char *linkpath) {
     return 0;
 }
 
+long sys_mount(const char *path, const char *type, const char *device_path, long flags) {
+    COPY_USER_STRING(_path, path, MAX_PATH);
+    COPY_USER_STRING(_type, type, MAX_PATH);
+    COPY_USER_STRING(_device, device_path, MAX_PATH);
+
+    vfs_node_t *node = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
+    if (!node) {
+        kfree(_path);
+        kfree(_type);
+        kfree(_device);
+        return -ENOENT;
+    }
+    vfs_node_t *device = vfs_lookup(this_proc->cwd, _device, true, VFS_NONE);
+
+    long ret = vfs_mount(node, _type, device, flags);
+
+    kfree(_path);
+    kfree(_type);
+    kfree(_device);
+    return ret;
+}
+
+long sys_umount(const char *path, long flags) {
+    COPY_USER_STRING(_path, path, MAX_PATH);
+    vfs_node_t *node = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
+    if (!node) {
+        kfree(_path);
+        return -ENOENT;
+    }
+
+    long ret = vfs_unmount(node, flags);
+    kfree(_path);
+    return ret;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
-    [SYS_write]       = (syscall_func)(uintptr_t)sys_write,
     [SYS_read]        = (syscall_func)(uintptr_t)sys_read,
+    [SYS_write]       = (syscall_func)(uintptr_t)sys_write,
     [SYS_seek]        = (syscall_func)(uintptr_t)sys_seek,
     [SYS_openat]      = (syscall_func)(uintptr_t)sys_openat,
     [SYS_close]       = (syscall_func)(uintptr_t)sys_close,
@@ -944,7 +976,9 @@ syscall_func syscalls[] = {
     [SYS_fchdir]      = (syscall_func)(uintptr_t)sys_fchdir,
     [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat,
     [SYS_readlinkat]  = (syscall_func)(uintptr_t)sys_readlinkat,
-    [SYS_symlinkat]   = (syscall_func)(uintptr_t)sys_symlinkat
+    [SYS_symlinkat]   = (syscall_func)(uintptr_t)sys_symlinkat,
+    [SYS_mount]       = (syscall_func)(uintptr_t)sys_mount,
+    [SYS_umount]      = (syscall_func)(uintptr_t)sys_umount
 };
 
 long syscall_handler(size_t *args) {

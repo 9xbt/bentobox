@@ -62,5 +62,7 @@
 #define SYS_renameat    51
 #define SYS_readlinkat  52
 #define SYS_symlinkat   53
+#define SYS_mount       54
+#define SYS_umount      55
 
 long syscall_handler(size_t *args);

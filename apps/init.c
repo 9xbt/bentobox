@@ -33,6 +33,32 @@ int main(int argc, char *argv[]) {
         fclose(fptr);
     }
 
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        char *argv[] = { "/etc/rc", NULL };
+        char *envp[] = { "TERM=linux", "HOME=/root", NULL };
+
+        execve(argv[0], argv, envp);
+        perror(argv[0]);
+        exit(errno);
+    } else {
+        int status;
+        for (;;) {
+            if (waitpid(pid, &status, 0) != pid)
+                continue;
+            if (WEXITSTATUS(status) == ENOEXEC)
+                exit(EXIT_FAILURE);
+            break;
+        }
+    }
+
+    chdir("/root");
+
     printf("\nWelcome to \033[96mbentobox\033[0m!\n");
 
     struct utsname sysinfo;
@@ -42,8 +68,6 @@ int main(int argc, char *argv[]) {
         printf("%s %s %s\n\n",
         sysinfo.sysname, sysinfo.release, sysinfo.version);
     }
-
-    chdir("/root");
 
     if (fork() == 0) {
         int fd = open("/dev/ttyS0", O_RDWR);

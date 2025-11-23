@@ -112,22 +112,22 @@ void el0_fault_handler(struct registers *r) {
     uint64_t far_el1;
     asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
 
-    if (((esr_el1 >> 26) & 0x3F) == 0x24 && (esr_el1 & (1<<6)) && ((esr_el1 & 0x3C) == 0x0C)) {
+    if ((ec == 0x24 || ec == 0x25) && (esr_el1 & (1<<6)) && ((esr_el1 & 0x3C) == 0x0C)) {
         uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)far_el1);
         if (flags & PTE_COW) {
-            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)(far_el1 & ~0xFFF)));
+            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE)));
             uint16_t *refcount = mmu_get_refcount(old_pa);
             
             if (refcount && *refcount > 1) {
                 (*refcount)--;
                 void *pa = mmu_alloc();
                 memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
-                mmu_map(mmu_get_pm(), (void *)(far_el1 & ~0xFFF), pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
             } else {
-                mmu_map(mmu_get_pm(), (void *)(far_el1 & ~0xFFF), old_pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), old_pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
             }
             
-            tlb_invalidate((void *)(far_el1 & ~0xFFF));
+            tlb_invalidate((void *)ALIGN_DOWN(far_el1, PAGE_SIZE));
             return;
         }
     }
