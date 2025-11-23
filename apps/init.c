@@ -17,6 +17,31 @@ int main(int argc, char *argv[]) {
     sigaddset(&set, SIGTSTP);
     sigprocmask(SIG_BLOCK, &set, NULL);
 
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        char *argv[] = { "/etc/rc", NULL };
+        char *envp[] = { "TERM=linux", "HOME=/root", NULL };
+
+        fprintf(console, "\033[93minit:\033[0m running script '%s'\n", argv[0]);
+        execve(argv[0], argv, envp);
+        perror(argv[0]);
+        exit(errno);
+    } else {
+        int status;
+        for (;;) {
+            if (waitpid(pid, &status, 0) != pid)
+                continue;
+            if (WEXITSTATUS(status) == ENOEXEC)
+                exit(EXIT_FAILURE);
+            break;
+        }
+    }
+
     FILE *fptr = fopen("/etc/hostname", "r");
     char hostname[65];
     if (!fptr ||
@@ -31,30 +56,6 @@ int main(int argc, char *argv[]) {
             perror("sethostname");
         }
         fclose(fptr);
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        exit(1);
-    }
-
-    if (pid == 0) {
-        char *argv[] = { "/etc/rc", NULL };
-        char *envp[] = { "TERM=linux", "HOME=/root", NULL };
-
-        execve(argv[0], argv, envp);
-        perror(argv[0]);
-        exit(errno);
-    } else {
-        int status;
-        for (;;) {
-            if (waitpid(pid, &status, 0) != pid)
-                continue;
-            if (WEXITSTATUS(status) == ENOEXEC)
-                exit(EXIT_FAILURE);
-            break;
-        }
     }
 
     chdir("/root");

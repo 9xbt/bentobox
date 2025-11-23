@@ -361,6 +361,18 @@ long vfs_unmount(vfs_node_t *node, long flags) {
     return 0;
 }
 
+long vfs_chmod(vfs_node_t *node, unsigned int mode) {
+    if (!node || !node->ops || !node->ops->chmod)
+        return -EINVAL;
+
+    long ret = node->ops->chmod(node, mode);
+    if (ret < 0)
+        return ret;
+
+    node->perms = mode;
+    return 0;
+}
+
 void vfs_print_tree(vfs_node_t *node) {
     if (!node)
         node = vfs_get_root();

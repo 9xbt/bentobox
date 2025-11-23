@@ -64,5 +64,8 @@
 #define SYS_symlinkat   53
 #define SYS_mount       54
 #define SYS_umount      55
+#define SYS_umask       56
+#define SYS_fchmod      57
+#define SYS_chmodat     58
 
 long syscall_handler(size_t *args);

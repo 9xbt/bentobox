@@ -717,7 +717,8 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     kfree(path);
     if (!node)
         return -EPERM;
-    
+
+    node->perms = mode & ~this_proc->umask;
     return 0;
 }
 
@@ -917,6 +918,40 @@ long sys_umount(const char *path, long flags) {
     return ret;
 }
 
+long sys_umask(unsigned int mask) {
+    unsigned int old_mask = this_proc->umask;
+    this_proc->umask = mask;
+    return old_mask;
+}
+
+long sys_fchmod(int fd, unsigned int mode) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+
+    file->node->perms = mode;
+    return 0;
+}
+
+long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned int flags) {
+    vfs_node_t *dir = this_proc->cwd;
+    if (dirfd != AT_FDCWD) {
+        struct file *file = file_get(dirfd);
+        if (!file)
+            return -EBADF;
+        dir = file->node;
+    }
+
+    COPY_USER_STRING(path, filename, MAX_PATH);
+    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    kfree(path);
+    if (!node)
+        return -ENOENT;
+
+    node->perms = mode;
+    return 0;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -978,7 +1013,10 @@ syscall_func syscalls[] = {
     [SYS_readlinkat]  = (syscall_func)(uintptr_t)sys_readlinkat,
     [SYS_symlinkat]   = (syscall_func)(uintptr_t)sys_symlinkat,
     [SYS_mount]       = (syscall_func)(uintptr_t)sys_mount,
-    [SYS_umount]      = (syscall_func)(uintptr_t)sys_umount
+    [SYS_umount]      = (syscall_func)(uintptr_t)sys_umount,
+    [SYS_umask]       = (syscall_func)(uintptr_t)sys_umask,
+    [SYS_fchmod]      = (syscall_func)(uintptr_t)sys_fchmod,
+    [SYS_chmodat]     = (syscall_func)(uintptr_t)sys_chmodat,
 };
 
 long syscall_handler(size_t *args) {

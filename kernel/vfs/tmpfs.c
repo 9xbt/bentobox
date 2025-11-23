@@ -13,13 +13,15 @@ long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long tmpfs_remove(vfs_node_t *node);
 long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
+long tmpfs_chmod(vfs_node_t *node, unsigned int mode);
 
 vfs_ops_t tmpfs_ops = {
     .read   = tmpfs_read,
     .write  = tmpfs_write,
     .create = tmpfs_create,
     .remove = tmpfs_remove,
-    .rename = tmpfs_rename
+    .rename = tmpfs_rename,
+    .chmod  = tmpfs_chmod
 };
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -72,6 +74,12 @@ long tmpfs_remove(vfs_node_t *node) {
             kfree(file->data);
         kfree(file);
     }
+    return 0;
+}
+
+long tmpfs_chmod(vfs_node_t *node, unsigned int mode) {
+    (void)node;
+    (void)mode;
     return 0;
 }
 

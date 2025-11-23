@@ -52,7 +52,7 @@ int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {
     if (!node && flags & O_CREAT) {
         node = vfs_open(cwd, path, flags);
         if (node)
-            node->perms = mode;
+            node->perms = mode & ~this_proc->umask;
     }
     if (!node)
         return -ENOENT;

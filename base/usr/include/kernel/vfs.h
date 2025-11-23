@@ -130,6 +130,7 @@ typedef struct vfs_ops {
     long(*rename)(struct vfs_node *node, struct vfs_node *parent, const char *name);
     long(*mmap)(struct vfs_node *node, void *addr, size_t pages, uint64_t prot, int flags, long offset);
     long(*poll)(struct vfs_node *node, long events);
+    long(*chmod)(struct vfs_node *node, unsigned int mode);
 } vfs_ops_t;
 
 typedef struct vfs_tty_ops {
@@ -198,6 +199,7 @@ void vfs_register(vfs_mount_ops_t *ops);
 void vfs_unregister(vfs_mount_ops_t *ops);
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags);
 long vfs_unmount(vfs_node_t *node, long flags);
+long vfs_chmod(vfs_node_t *node, unsigned int mode);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
 

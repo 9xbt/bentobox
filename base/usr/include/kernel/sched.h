@@ -57,6 +57,7 @@ struct process {
     struct file *files;
     int max_files;
     struct vfs_node *cwd;
+    unsigned int umask;
     sigset_t psig;
 
     struct process *parent;

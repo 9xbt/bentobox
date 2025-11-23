@@ -142,6 +142,7 @@ struct process *sched_new_process(const char *name, bool user) {
     memset(proc->files, 0, sizeof(struct file) * proc->max_files);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
+    proc->umask = 022;
     memset(&proc->psig, 0, sizeof proc->psig);
     memset(&proc->sighand, 0, sizeof proc->sighand);
     memset(&proc->blocked, 0, sizeof proc->blocked);
@@ -181,6 +182,7 @@ long fork(void) {
             pipe->write_refs++;
     }
     proc->cwd = this_proc->cwd;
+    proc->umask = this_proc->umask;
     memset(&proc->psig, 0, sizeof proc->psig);
     memcpy(&proc->sighand, &this_proc->sighand, sizeof proc->sighand);
     memcpy(&proc->blocked, &this_proc->blocked, sizeof proc->blocked);
