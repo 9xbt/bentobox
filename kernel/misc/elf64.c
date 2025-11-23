@@ -48,12 +48,13 @@ static bool elf64_is_executable(Elf64_Ehdr *ehdr) {
         return false;
     }
 
+    if (ehdr->e_machine != EM_NONE &&
     #ifdef __x86_64__
-    if (ehdr->e_machine != EM_X86_64) {
+        ehdr->e_machine != EM_X86_64) {
     #elif __aarch64__
-    if (ehdr->e_machine != EM_AARCH64) {
+        ehdr->e_machine != EM_AARCH64) {
     #endif
-        dprintf(LOG_DEBUG, "\033[93melf:\033[0m wrong architecture\n");
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m wrong architecture 0x%x\n", ehdr->e_machine);
         return false;
     }
 
@@ -297,12 +298,9 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
-    if (!node) {
-        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
+    if (!node)
         return -ENOENT;
-    }
     if (node->type == VFS_DIRECTORY) {
-        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
         vfs_close(node);
         return -EISDIR;
     }
@@ -310,7 +308,6 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     void *buffer = kmalloc(node->size);
     long len = vfs_read(node, buffer, 0, node->size);
     if (len < 0) {
-        // dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s: %s\n", file, strerror(len));
         kfree(buffer);
         vfs_close(node);
         return len;

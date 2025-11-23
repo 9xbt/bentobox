@@ -68,12 +68,40 @@ void do_regdump(const char *msg, struct registers *r) {
     arch_do_backtrace();
 }
 
+int do_cow(void) {
+    uint64_t far_el1;
+    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
+
+    uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)far_el1);
+    if (flags & PTE_COW) {
+        void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE)));
+        uint16_t *refcount = mmu_get_refcount(old_pa);
+        
+        if (refcount && *refcount > 1) {
+            (*refcount)--;
+            void *pa = mmu_alloc();
+            memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
+            mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+        } else {
+            mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), old_pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
+        }
+        
+        tlb_invalidate((void *)ALIGN_DOWN(far_el1, PAGE_SIZE));
+        return 0;
+    }
+    return 1;
+}
+
 extern void user_copy_fail();
 
 void el1_fault_handler(struct registers *r) {
     uint64_t esr_el1, far_el1;
     asm volatile("mrs %0, ESR_EL1" : "=r"(esr_el1));
     asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
+
+    uint64_t ec = (esr_el1 >> 26) & 0x3F;
+    if (ec == 0x25 && (esr_el1 & (1 << 6)) && ((esr_el1 & 0x3C) == 0x0C) && !do_cow())
+        return;
 
     // uint64_t ec = (esr_el1 >> 26) & 0x3F;
     // if ((ec == 0x24 || ec == 0x25) && this && this->doing_user_copy && far_el1 < hhdm_offset) {
@@ -109,28 +137,8 @@ void el0_fault_handler(struct registers *r) {
         return;
     }
 
-    uint64_t far_el1;
-    asm volatile("mrs %0, FAR_EL1" : "=r"(far_el1));
-
-    if ((ec == 0x24 || ec == 0x25) && (esr_el1 & (1<<6)) && ((esr_el1 & 0x3C) == 0x0C)) {
-        uint64_t flags = mmu_get_flags(mmu_get_pm(), (void *)far_el1);
-        if (flags & PTE_COW) {
-            void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE)));
-            uint16_t *refcount = mmu_get_refcount(old_pa);
-            
-            if (refcount && *refcount > 1) {
-                (*refcount)--;
-                void *pa = mmu_alloc();
-                memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
-                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
-            } else {
-                mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(far_el1, PAGE_SIZE), old_pa, (flags & ~((0b11UL << 6) | PTE_COW)) | PTE_USER_RW);
-            }
-            
-            tlb_invalidate((void *)ALIGN_DOWN(far_el1, PAGE_SIZE));
-            return;
-        }
-    }
+    if (ec == 0x24 && (esr_el1 & (1 << 6)) && ((esr_el1 & 0x3C) == 0x0C) && !do_cow())
+        return;
 
     signal_send(this_proc, SIGSEGV);
     sched_yield();
