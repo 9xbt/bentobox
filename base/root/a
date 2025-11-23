@@ -1,2 +1,0 @@
-#!/usr/bin/bash
-compositor & bash </dev/ttyS0 >/dev/ttyS0 2>&1
