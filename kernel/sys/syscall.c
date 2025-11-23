@@ -791,28 +791,12 @@ long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const cha
     }
 
     COPY_USER_STRING(oldpath, oldpathname, MAX_PATH);
-
     vfs_node_t *node = vfs_lookup(olddir, oldpath, true, VFS_NONE);
     kfree(oldpath);
     if (!node)
         return -ENOENT;
 
     COPY_USER_STRING(newpath, newpathname, MAX_PATH);
-    vfs_node_t *target = vfs_lookup(newdir, newpath, true, VFS_NONE);
-    if (target) {
-        if (target->type == VFS_DIRECTORY && node->type != VFS_DIRECTORY) {
-            kfree(newpath);
-            return -EISDIR;
-        }
-        if (target->type != VFS_DIRECTORY && node->type == VFS_DIRECTORY) {
-            kfree(newpath);
-            return -ENOTDIR;
-        }
-        if (target->type == VFS_DIRECTORY && target->children->length > 0) {
-            kfree(newpath);
-            return -ENOTEMPTY;
-        }
-    }
     
     long ret = vfs_rename(node, newdir, newpath);
     kfree(newpath);

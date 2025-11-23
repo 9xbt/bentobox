@@ -58,7 +58,6 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
     if (parent->type != VFS_DIRECTORY)
         return NULL;
     node->parent = parent;
-    //node->ops = parent->ops;
     return list_insert(parent->children, node)->value;
 }
 
@@ -80,8 +79,6 @@ long vfs_remove(vfs_node_t *node) {
         return -EINVAL;
     if (node->busy)
         return -EBUSY;
-    // if (node->type == VFS_DIRECTORY && node->children->length)
-        // return -ENOTEMPTY;
     if (!node->ops || !node->ops->remove)
         return -EINVAL;
 
@@ -92,21 +89,43 @@ long vfs_remove(vfs_node_t *node) {
     return vfs_remove_node(node);
 }
 
-long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
-    if (!node || !parent)
+long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
+    if (!node || !cwd || !path)
         return -EINVAL;
     if (!node->parent)
         return -EINVAL;
+
+    vfs_node_t *parent;
+    const char *name;
+    char *copy = strdup(path), *last_token = strrchr(copy, '/');
+    
+    if (last_token) {
+        *last_token = '\0';
+        name = last_token + 1;
+        parent = vfs_lookup(cwd, *copy ? copy : "/", true, VFS_NONE);
+        if (!parent) {
+            kfree(copy);
+            return -ENOENT;
+        }
+    } else {
+        parent = cwd;
+        name = copy;
+    }
+
     if (!node->ops || !node->ops->rename)
         return -EINVAL;
     if (node->device != parent->device)
         return -EXDEV;
 
-    const char *name = strrchr(path, '/');
-    if (name)
-        name++;
-    else
-        name = path;
+    vfs_node_t *target = vfs_lookup(parent, name, true, VFS_NONE);
+    if (target) {
+        if (target->type == VFS_DIRECTORY && node->type != VFS_DIRECTORY)
+            return -EISDIR;
+        if (target->type != VFS_DIRECTORY && node->type == VFS_DIRECTORY)
+            return -ENOTDIR;
+        if (target->type == VFS_DIRECTORY && target->children->length > 0)
+            return -ENOTEMPTY;
+    }
 
     long ret = node->ops->rename(node, parent, name);
     if (ret < 0)
@@ -116,6 +135,7 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path) {
     strcpy(node->name, name);
     node->parent = parent;
     list_insert(parent->children, node);
+
     return 0;
 }
 
