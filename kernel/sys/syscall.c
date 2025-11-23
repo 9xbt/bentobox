@@ -913,8 +913,7 @@ long sys_fchmod(int fd, unsigned int mode) {
     if (!file)
         return -EBADF;
 
-    file->node->perms = mode;
-    return 0;
+    return vfs_chmod(file->node, mode);
 }
 
 long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned int flags) {
@@ -932,8 +931,7 @@ long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned in
     if (!node)
         return -ENOENT;
 
-    node->perms = mode;
-    return 0;
+    return vfs_chmod(node, mode);
 }
 
 typedef long (*syscall_func)(long, long, long, long, long, long);
