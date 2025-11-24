@@ -1,7 +1,0 @@
-#!/usr/bin/bash
-
-mkdir -p /proc
-mkdir -p /tmp
-chmod 777 /tmp
-mount proc proc /proc
-mount tmp tmp /tmp

@@ -1,3 +1,5 @@
+#include "sys/stat.h"
+#include <abi-bits/syscall.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -8,6 +10,14 @@
 #include <string.h>
 #include <signal.h>
 
+void mount(const char *path, const char *type, const char *device, long flags) {
+    errno = -__syscall4(SYS_mount, (long)path, (long)type, (long)device, flags);
+    if (errno) {
+        perror("mount");
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(int argc, char *argv[]) {
     FILE *console = fopen("/dev/console", "w");
 
@@ -17,30 +27,12 @@ int main(int argc, char *argv[]) {
     sigaddset(&set, SIGTSTP);
     sigprocmask(SIG_BLOCK, &set, NULL);
 
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        exit(1);
-    }
-
-    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
-    if (pid == 0) {
-        char *argv[] = { "/etc/rc", NULL };
-
-        fprintf(console, "\033[93minit:\033[0m running script '%s'\n", argv[0]);
-        execve(argv[0], argv, envp);
-        perror(argv[0]);
-        exit(errno);
-    } else {
-        int status;
-        for (;;) {
-            if (waitpid(pid, &status, 0) != pid)
-                continue;
-            if (WEXITSTATUS(status) == ENOEXEC)
-                exit(EXIT_FAILURE);
-            break;
-        }
-    }
+    fprintf(console, "\033[93minit:\033[0m mounting filesystems\n");
+    umask(0);
+    mkdir("/tmp", 0777);
+    mkdir("/proc", 0755);
+    mount("/tmp", "tmp", "tmp", 0);
+    mount("/proc", "proc", "proc", 0);
 
     FILE *fptr = fopen("/etc/hostname", "r");
     char hostname[65];
@@ -70,6 +62,7 @@ int main(int argc, char *argv[]) {
         sysinfo.sysname, sysinfo.release, sysinfo.version);
     }
 
+    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
     if (fork() == 0) {
         int fd = open("/dev/ttyS0", O_RDWR);
         if (fd < 0)
