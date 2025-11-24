@@ -9,6 +9,7 @@
 /build/kernel-deps
 /build/base
 /ports/src
+/base/etc/localtime
 compile_commands.json
 .cache
 .vscode

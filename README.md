@@ -1,6 +1,18 @@
 # bentobox
 bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 
+## Features
+- SMP capable preemptive kernel with full multi-architecture support
+- POSIX compatibility
+- IPC: Pipes, UNIX domain sockets, signals
+- Ports: bash, coreutils, vim, fastfetch & more
+- Filesystems: ext2, devfs, tmpfs, procfs
+- Interrupt controllers: APIC (x86_64), GICv2 (aarch64)
+- ACPI table parsing & full ACPI mode using LAI
+- PCI scanning
+- Input devices: PS/2 (x86_64), virtio-input (aarch64)
+- Elf64 modules & binaries, VMM with CoW support
+
 ## Tested build environments
 - Debian Trixie
 - Arch Linux (latest rolling release)
@@ -21,7 +33,9 @@ Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 > [!TIP]
 > Run `./build/strip-bin` to strip the binaries and reduce the image size.
 
-After building the ports, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
+Now copy `/etc/localtime` to `base/etc/localtime`.
+
+Finally, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
 
 ### aarch64
 Packages required:
@@ -36,7 +50,9 @@ Now you can build the ports. Run `. build/mlibc-root aarch64` to source the envi
 > [!TIP]
 > Run `./build/strip-bin` to strip the binaries and reduce the image size.
 
-After building the ports, run `make livecd -j$(nproc) ARCH=aarch64` to make the initrd.
+Now copy `/etc/localtime` to `base/etc/localtime`.
+
+Finally, run `make livecd -j$(nproc) ARCH=aarch64` to make the initrd.
 
 > [!NOTE]
 > HDD images are not supported on ARM yet, only live CD images.
