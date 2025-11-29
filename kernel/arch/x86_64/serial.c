@@ -15,14 +15,14 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
-static uint16_t serial_base = COM1;
+static bool serial_works = false;
 static spinlock_t serial_lock = 0;
 static vfs_node_t *ttyS0;
 
 void serial_install(void) {
     outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x80);
-    outb(COM1 + 0, 0x03);
+    outb(COM1 + 0, 0x01);
     outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x03);
     outb(COM1 + 2, 0x07);
@@ -30,9 +30,7 @@ void serial_install(void) {
     
     outb(COM1 + 7, 0xAB);
     if (inb(COM1 + 7) == 0xAB)
-        serial_base = COM1;
-    else
-        serial_base = DEBUGCON;
+        serial_works = true;
 }
 
 int serial_is_bus_empty(void) {
@@ -109,6 +107,9 @@ void irq4_handler(struct registers *r) {
 }
 
 void serial_initialize(void) {
+    if (!serial_works)
+        return;
+
     ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
     ttyS0->perms = 0600;
     ttyS0->device = tty_create(ttyS0);
