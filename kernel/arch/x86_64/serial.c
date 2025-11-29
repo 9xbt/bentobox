@@ -23,19 +23,16 @@ void serial_install(void) {
     outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x80);
     outb(COM1 + 0, 0x03);
-    outb(COM1 + 0, 0x00);
+    outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x03);
-    outb(COM1 + 2, 0xC7);
+    outb(COM1 + 2, 0x07);
     outb(COM1 + 4, 0x0B);
-    outb(COM1 + 4, 0x1E);
-    outb(COM1 + 0, 0x55);
-
-    if (inb(COM1) != 0x55) {
+    
+    outb(COM1 + 7, 0xAB);
+    if (inb(COM1 + 7) == 0xAB)
+        serial_base = COM1;
+    else
         serial_base = DEBUGCON;
-        return;
-    }
-
-    outb(COM1 + 4, 0x0F);
 }
 
 int serial_is_bus_empty(void) {
@@ -47,7 +44,8 @@ int serial_is_data_ready(void) {
 }
 
 void serial_putchar(char c) {
-    while (serial_is_bus_empty() == 0) {}
+    while (serial_is_bus_empty() == 0)
+        __builtin_ia32_pause();
     if (c == '\n')
         outb(COM1, '\r');
     outb(COM1, c);
@@ -66,18 +64,22 @@ void serial_puts(const char *str) {
 }
 
 static void serial_tty_worker_thread(void) {
-    tty_t *tty = vfs_open(NULL, "/dev/ttyS0", 0)->device;
-    int c;
+    vfs_node_t *node = vfs_open(NULL, "/dev/ttyS0", 0);
+    tty_t *tty = node->device;
+    char c;
     for (;;) {
+        if (fifo_is_empty(tty->ofifo)) {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+        }
+
         acquire(&serial_lock);
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
-            if (c > 0)
-                serial_putchar(c);
+            serial_putchar(c);
         }
         release(&serial_lock);
 
-        this->state = THREAD_PAUSED;
-        sched_yield();
+        vfs_wake_waiters(node);
     }
 }
 

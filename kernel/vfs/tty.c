@@ -14,15 +14,14 @@
 static void tty_worker_thread(void) {
     vfs_node_t *node = vfs_open(NULL, "/dev/tty1", 0);
     tty_t *tty = node->device;
-    int c;
+    char c;
     for (;;) {
         if (fifo_is_empty(tty->ofifo)) {
             this->state = THREAD_PAUSED;
             sched_yield();
         }
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
-            if (c > 0)
-                putchar(c);
+            putchar(c);
         }
         vfs_wake_waiters(node);
     }

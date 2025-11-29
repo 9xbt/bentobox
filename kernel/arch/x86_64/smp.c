@@ -59,7 +59,7 @@ void smp_bootstrap(void) {
     irq_register(0x81 - 32, smp_tlb_invalidate);
 
     for (size_t i = 0; i < cpu_count; i++) {
-        if (madt_lapic_list[i]->id != bspid)
+        if (smp_request.response->cpus[i]->lapic_id != bspid)
             smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
     }
 
@@ -77,13 +77,17 @@ void smp_initialize(void) {
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
         core->tlb_va = NULL;
-        cpu_list[i] = core;
+        cpu_list[core->logical_id] = core;
     }
     
     smp_bootstrap();
 }
 
 struct cpu *get_core(size_t core) {
+    for (size_t i = 0; i < SMP_MAX_CORES; i++) {
+        if (cpu_list[i] && cpu_list[i]->id == core)
+            return cpu_list[i];
+    }
     return cpu_list[core];
 }
 
