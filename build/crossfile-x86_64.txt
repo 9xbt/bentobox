@@ -11,8 +11,12 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-c = '/usr/bin/clang'
-cpp = '/usr/bin/clang++'
-ar = '/usr/bin/ar'
-ld = '/usr/bin/ld'
-strip = '/usr/bin/llvm-strip'
+c = 'x86_64-pc-bentobox-gcc'
+cpp = 'x86_64-pc-bentobox-g++'
+ar = 'x86_64-pc-bentobox-ar'
+ld = 'x86_64-pc-bentobox-ld'
+strip = 'x86_64-pc-bentobox-strip'
+
+[built-in options]
+c_args = ['-D_GNU_SOURCE']
+cpp_args = ['-D_GNU_SOURCE']

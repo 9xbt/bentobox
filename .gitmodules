@@ -8,3 +8,9 @@
 [submodule "lib/lai"]
 	path = lib/lai
 	url = https://github.com/managarm/lai
+[submodule "util/binutils-gdb"]
+	path = util/binutils-gdb
+	url = https://github.com/9xbt/binutils-gdb
+[submodule "util/gcc"]
+	path = util/gcc
+	url = https://github.com/9xbt/gcc

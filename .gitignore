@@ -8,6 +8,10 @@
 /build/ovmf
 /build/kernel-deps
 /build/base
+/build/binutils
+/build/gcc
+/build/toolchain
+/util/build
 /ports/src
 /base/etc/localtime
 compile_commands.json
