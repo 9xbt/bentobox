@@ -111,14 +111,18 @@ void mmu_initialize(void) {
 
         size_t j, end = entry->base + entry->length;
         #ifdef __x86_64__
-        uint64_t flags = PTE_PRESENT | PTE_WRITABLE;
+        uint64_t flags = PTE_PRESENT | PTE_WRITABLE, flags_2mb = flags;
+        if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
+            flags |= PTE_WC;
+            flags_2mb |= PTE_WC_2MB;
+        }
         #elif __aarch64__
-        uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN;
+        uint64_t flags = PTE_VALID | PTE_AF | PTE_RW | PTE_PXN, flags_2mb = flags;
         #endif
         for (j = entry->base; j < ALIGN_UP(entry->base, PAGE_SIZE_2M) && j < end; j += PAGE_SIZE)
             mmu_map(kernel_pd, VIRTUAL_HHDM(j), (void *)j, flags);
         for (j = ALIGN_UP(entry->base, PAGE_SIZE_2M); j + PAGE_SIZE_2M <= ALIGN_DOWN(end, PAGE_SIZE_2M); j += PAGE_SIZE_2M)
-            mmu_map_2mb(kernel_pd, VIRTUAL_HHDM(j), (void *)j, flags);
+            mmu_map_2mb(kernel_pd, VIRTUAL_HHDM(j), (void *)j, flags_2mb);
         for (j = ALIGN_DOWN(end, PAGE_SIZE_2M); j < end; j += PAGE_SIZE)
             mmu_map(kernel_pd, VIRTUAL_HHDM(j), (void *)j, flags);
     }

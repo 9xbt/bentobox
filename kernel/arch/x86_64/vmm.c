@@ -95,7 +95,8 @@ void mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags) {
     uintptr_t *pd = pt_get_next_lvl(pdpt, pdpt_index, PTE_PRESENT | PTE_WRITABLE | PTE_USER, true);
  
     bool flush = pd[pd_index] & PTE_PRESENT;
-
+    if (flags & PTE_WC)
+        flags = (flags & ~PTE_PAT) | PTE_PAT_2MB;
     pd[pd_index] = (uintptr_t)phys | flags | PTE_HUGE;
 
     if (flush) tlb_invalidate(virt);
