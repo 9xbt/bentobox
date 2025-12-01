@@ -4,6 +4,7 @@ ARCH := x86_64
 
 setup:
 	cd lib/mlibc && \
+	PATH="$(CURDIR)/util/build/bin:$$PATH" \
 	meson setup build-$(ARCH) --cross-file ../../build/crossfile-$(ARCH).txt -Dheaders_only=false \
 		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
@@ -12,6 +13,7 @@ setup:
 
 resetup:
 	cd lib/mlibc && \
+	PATH="$(CURDIR)/util/build/bin:$$PATH" \
 	meson setup build-$(ARCH) --cross-file ../../build/crossfile-$(ARCH).txt -Dheaders_only=false \
 		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
@@ -19,13 +21,17 @@ resetup:
 	cp /etc/localtime base/etc/localtime
 
 build:
-	cd lib/mlibc && ninja -C build-$(ARCH)
+	cd lib/mlibc && \
+	PATH="$(CURDIR)/util/build/bin:$$PATH" \
+	ninja -C build-$(ARCH)
 
 clean:
 	cd lib/mlibc && ninja -C build-$(ARCH) clean
 
 install:
-	cd lib/mlibc && ninja -C build-$(ARCH) install
+	cd lib/mlibc && \
+	PATH="$(CURDIR)/util/build/bin:$$PATH" \
+	ninja -C build-$(ARCH) install
 
 uninstall:
 	rm -rf build/mlibc/$(ARCH)/

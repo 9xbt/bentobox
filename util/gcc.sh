@@ -6,9 +6,9 @@ PREFIX="$CWD/build"
 export PATH="$PREFIX/bin:$PATH"
 
 set -e
-mkdir -p $CWD/../build/gcc
-cd $CWD/../build/gcc
-CC="ccache gcc" CXX="ccache g++" ../../util/gcc/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --without-headers --disable-hosted-libstdcxx
+mkdir -p /tmp/gcc
+cd /tmp/gcc
+CC="ccache gcc" CXX="ccache g++" $CWD/gcc/configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++ --without-headers --disable-hosted-libstdcxx
 make all-gcc -j$(nproc)
 make all-target-libgcc -j$(nproc)
 #make all-target-libstdc++-v3 -j$(nproc)

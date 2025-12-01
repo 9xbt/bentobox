@@ -6,8 +6,8 @@ PREFIX="$CWD/build"
 SYSROOT="$PREFIX/$TARGET"
 
 set -e
-mkdir -p $CWD/../build/binutils
-cd $CWD/../build/binutils
-CC="ccache gcc" CXX="ccache g++" ../../util/binutils-gdb/configure --target=$TARGET --prefix=$PREFIX --with-sysroot --disable-nls --disable-werror
+mkdir -p /tmp/binutils
+cd /tmp/binutils
+CC="ccache gcc" CXX="ccache g++" $CWD/binutils-gdb/configure --target=$TARGET --prefix=$PREFIX --with-sysroot --disable-nls --disable-werror
 make -j$(nproc)
 make install
