@@ -1,8 +1,11 @@
 #!/bin/bash
 ARCH="${1:-${ARCH:-x86_64}}"
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[[ "$ARCH" == "aarch64" ]] && export TOOLCHAIN_PREFIX=aarch64-linux-gnu-
+[[ "$ARCH" == "x86_64" ]] && export TOOLCHAIN=x86_64-pc-bentobox
+[[ "$ARCH" == "aarch64" ]] && export TOOLCHAIN=aarch64-linux-gnu
+export TOOLCHAIN_PREFIX=$TOOLCHAIN-
 export BASE="$CWD/base/$ARCH"
-export MLIBC_ROOT="$CWD/mlibc/$ARCH"
+export MLIBC_ROOT="$BASE/usr"
 mkdir -p $BASE
-echo $MLIBC_ROOT
+echo "BASE: $BASE"
+echo "MLIBC_ROOT: $MLIBC_ROOT"

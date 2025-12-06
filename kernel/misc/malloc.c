@@ -85,6 +85,7 @@ static void *mmap(void *addr, size_t length, int prot, int flags, int fd, long o
 
     size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
     void *ptr = vmalloc(kernel_vma, kernel_pd, 0, 0, pages, mmu_flags);
+    assert(ptr);
     #ifdef __x86_64__
     mmu_switch_pm(mmu_get_pm());
     #endif

@@ -1,3 +1,9 @@
 #!/bin/bash
 [ -z "$BASE" ] && echo "Please run . build/mlibc-root before stripping binaries!" && exit 1
 "${TOOLCHAIN_PREFIX}strip" $BASE/usr/bin/*
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/$TOOLCHAIN/bin/*
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/lib/gcc/$TOOLCHAIN/16.0.0/cc1
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/lib/gcc/$TOOLCHAIN/16.0.0/cc1plus
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/lib/gcc/$TOOLCHAIN/16.0.0/collect2
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/lib/gcc/$TOOLCHAIN/16.0.0/lto1
+"${TOOLCHAIN_PREFIX}strip" $BASE/usr/lib/gcc/$TOOLCHAIN/16.0.0/lto-wrapper

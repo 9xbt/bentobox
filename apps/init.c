@@ -85,10 +85,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (pid == 0) {
-            char *argv[] = { "/usr/bin/bash", NULL };
+            char *argv[] = { "-bash", NULL };
 
-            execve(argv[0], argv, envp);
-            perror(argv[0]);
+            execve("/usr/bin/bash", argv, envp);
+            perror("/usr/bin/bash");
             exit(errno);
         } else {
             int status;

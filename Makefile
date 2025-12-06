@@ -37,8 +37,10 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
-APPS_CFLAGS := -g -O2 -nostdlib -static -L$(CURDIR)/build/mlibc/$(ARCH)/lib -Ibase/usr/include/ -I$(CURDIR)/build/mlibc/$(ARCH)/include $(CURDIR)/build/mlibc/$(ARCH)/lib/crt0.o
-APPS_LDFLAGS := -Wl,--start-group -lc -lgcc -lgcc_eh -Lbin/$(ARCH)/lib -l:list.a -l:compositor.a -Wl,--end-group
+APPS_CC := $(ARCH)-pc-bentobox-gcc
+
+APPS_CFLAGS := -g -O2 -Ibase/usr/include/
+APPS_LDFLAGS := -Wl,--start-group -Lbin/$(ARCH)/lib -l:list.a -l:compositor.a -Wl,--end-group
 APPS_SOURCES := $(shell find apps -type f)
 
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
@@ -157,8 +159,13 @@ $(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -t
 	@cp -r base/* bin/$(ARCH)/base/
 	@cp -r build/base/$(ARCH)/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
-# 	@truncate -s 1000M $@
-	@genext2fs -d bin/$(ARCH)/base -b 1048576 -L bentobox -N 20000 $@ 2>&1 >/dev/null | grep -v copying | cat
+# 	@truncate -s 4000M $@
+# 	@mkfs.ext2 -b 1024 -O ^filetype -F $@
+# 	@sudo mkdir -p /mnt/bentobox
+# 	@sudo mount -o loop $@ /mnt/bentobox
+# 	@sudo rsync -a --info=progress2 bin/$(ARCH)/base /mnt/bentobox/
+# 	@sudo umount /mnt/bentobox
+	@genext2fs -d bin/$(ARCH)/base -b 4194304 -L bentobox -N 20000 $@ 2>&1 >/dev/null | grep -v copying | cat
 
 .PHONY: clean
 clean:
