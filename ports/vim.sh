@@ -4,8 +4,7 @@
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
 export CFLAGS="-I$MLIBC_ROOT/include -I$BASE/usr/include -g -O2 -Wno-error"
-export LDFLAGS="-L$MLIBC_ROOT/lib -L$BASE/usr/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
-export LIBS="-Wl,--allow-multiple-definition -Wl,--start-group -lncurses -lc -lgcc -lgcc_eh -Wl,--end-group"
+export LIBS="-lncurses"
 
 export CC_FOR_BUILD="gcc"
 export CFLAGS_FOR_BUILD="-O2"

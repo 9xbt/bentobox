@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 49f2d65..b0ea5b2 100644
+index 49f2d65..ec3288c 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -505,29 +505,28 @@ if(LINUX)
@@ -59,7 +59,8 @@ index 49f2d65..b0ea5b2 100644
 +        src/detection/gpu/gpu_nosupport.c
          src/detection/gpu/gpu_pci.c
          src/detection/gtk_qt/gtk.c
-         src/detection/host/host_linux.c
+-        src/detection/host/host_linux.c
++        src/detection/host/host_nosupport.c
          src/detection/host/host_mac.c
          src/detection/icons/icons_linux.c
          src/detection/initsystem/initsystem_linux.c
@@ -177,6 +178,26 @@ index 0000000..1207bdb
 +    return "Networking not supported";
 +}
 \ No newline at end of file
+diff --git a/src/detection/displayserver/linux/displayserver_linux.c b/src/detection/displayserver/linux/displayserver_linux.c
+index f86105c..15f9ffa 100644
+--- a/src/detection/displayserver/linux/displayserver_linux.c
++++ b/src/detection/displayserver/linux/displayserver_linux.c
+@@ -45,6 +45,7 @@ static void getWMProtocolNameFromEnv(FFDisplayServerResult* result)
+ 
+ void ffConnectDisplayServerImpl(FFDisplayServerResult* ds)
+ {
++    #ifndef __bentobox__
+     if (instance.config.general.dsForceDrm == FF_DS_FORCE_DRM_TYPE_FALSE)
+     {
+         //We try wayland as our preferred display server, as it supports the most features.
+@@ -65,6 +66,7 @@ void ffConnectDisplayServerImpl(FFDisplayServerResult* ds)
+     //Use it if all connections failed
+     if(ds->displays.length == 0)
+         ffdsConnectDrm(ds);
++    #endif
+ 
+     #ifdef __FreeBSD__
+     if(ds->displays.length == 0)
 diff --git a/src/detection/localip/localip_nosupport.c b/src/detection/localip/localip_nosupport.c
 new file mode 100644
 index 0000000..4948730
@@ -229,3 +250,16 @@ index bf2a5ff..06d1231 100644
  
  #include <locale.h>
  
+diff --git a/src/util/platform/FFPlatform_unix.c b/src/util/platform/FFPlatform_unix.c
+index 85e624a..1026d2e 100644
+--- a/src/util/platform/FFPlatform_unix.c
++++ b/src/util/platform/FFPlatform_unix.c
+@@ -45,7 +45,7 @@ static void getExePath(FFPlatform* platform)
+             exePathLen = 0;
+         else
+             exePathLen--; // remove terminating NUL
+-    #elif defined(__OpenBSD__)
++    #elif defined(__OpenBSD__) || defined(__bentobox__)
+         size_t exePathLen = 0;
+     #elif defined(__sun)
+         ssize_t exePathLen = readlink("/proc/self/path/a.out", exePath, sizeof(exePath) - 1);

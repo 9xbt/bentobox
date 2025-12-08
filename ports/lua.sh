@@ -6,5 +6,5 @@ git clone https://github.com/lua/lua ports/src/lua --depth=1
 cd ports/src/lua
 git apply ../../lua.diff
 make clean
-make CC="${TOOLCHAIN_PREFIX:-}gcc" MYCFLAGS="-I$MLIBC_ROOT/include" MYLDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o" MYLIBS="-Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group" -j$(nproc)
+make CC="${TOOLCHAIN_PREFIX:-}gcc" LD="${TOOLCHAIN_PREFIX:-}gcc" -j$(nproc)
 cp lua $BASE/usr/bin

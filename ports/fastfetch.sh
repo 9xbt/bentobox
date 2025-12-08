@@ -6,7 +6,7 @@ export CXX="${TOOLCHAIN_PREFIX:-}g++"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
 export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17"
 export CXXFLAGS="-I$MLIBC_ROOT/include -g -std=gnu++17"
-export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
+# export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
 
 mkdir -p $BASE/usr/bin
 mkdir -p ports/src
@@ -26,8 +26,6 @@ cmake .. \
     -DCMAKE_C_FLAGS="$CFLAGS" \
     -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
     -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-    -DCMAKE_C_STANDARD_LIBRARIES="-Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group" \
-    -DCMAKE_CXX_STANDARD_LIBRARIES="-Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group" \
     -DCMAKE_BUILD_TYPE=Release \
     -DENABLE_RPM=OFF \
     -DENABLE_ZLIB=OFF \

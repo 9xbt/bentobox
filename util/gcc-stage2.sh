@@ -1,8 +1,7 @@
 #!/bin/bash
-[ -z "$BASE" ] && echo "Please run . build/mlibc-root before building GCC!" && exit 1
+[ -z "$BASE" ] || [ -z "$TARGET" ] && echo "Please run . build/mlibc-root before building GCC!" && exit 1
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARCH=x86_64
 TARGET=x86_64-pc-bentobox
 PREFIX="$CWD/build"
 export PATH="$CWD/build/bin:$PATH"
@@ -17,3 +16,9 @@ make all-target-libstdc++-v3 -j$(nproc)
 make install-gcc
 make install-target-libgcc
 make install-target-libstdc++-v3
+
+cd $PREFIX/lib/gcc/x86_64-pc-bentobox/16.0.0/
+ln -sf crtbegin.o crtbeginT.o
+ln -sf crtend.o crtendT.o
+ln -sf crtbegin.o crtbeginS.o
+ln -sf crtend.o crtendS.o

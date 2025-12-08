@@ -1,9 +1,7 @@
 #!/bin/bash
 [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building GCC!" && exit 1
 
-CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARCH=x86_64
-TARGET=x86_64-pc-bentobox
+CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"/../util
 PREFIX="$BASE/usr"
 export PATH="$CWD/build/bin:$PATH"
 

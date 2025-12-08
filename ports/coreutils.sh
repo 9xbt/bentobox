@@ -4,9 +4,7 @@
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
-export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17 -D__bentobox__ -Wno-error -Wno-error=format-overflow"
-export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
-export LIBS="-Wl,--allow-multiple-definition -Wl,--start-group -lc -lgcc -lgcc_eh -Wl,--end-group"
+export CFLAGS="-g -std=gnu17 -Wno-error"
 
 export CC_FOR_BUILD="gcc"
 export CFLAGS_FOR_BUILD="-std=gnu17"
@@ -19,7 +17,6 @@ cd ports/src/coreutils
 git apply ../../coreutils.diff
 
 make clean
-#make distclean
 ./bootstrap --gnulib-srcdir=../gnulib
 set -e
 ./configure --host=x86_64-linux-gnu \
