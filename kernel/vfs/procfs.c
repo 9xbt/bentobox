@@ -66,6 +66,7 @@ vfs_node_t *procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t 
 long procfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)device;
     (void)flags;
+    node->ops = &procfs_ops;
 
     vfs_node_t *meminfo = vfs_create_node("meminfo", VFS_FILE);
     meminfo->perms = 0444;

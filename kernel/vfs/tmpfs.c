@@ -94,6 +94,7 @@ long tmpfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)node;
     (void)device;
     (void)flags;
+    node->ops = &tmpfs_ops;
     return 0;
 }
 

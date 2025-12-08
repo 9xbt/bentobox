@@ -82,6 +82,7 @@ long vfs_remove(vfs_node_t *node) {
     if (!node->ops || !node->ops->remove)
         return -EINVAL;
 
+    // TODO: this will use the wrong ops if its a mountpoint
     long ret = node->ops->remove(node);
     if (ret < 0)
         return ret;
