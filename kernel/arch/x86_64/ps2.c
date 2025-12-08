@@ -195,9 +195,9 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static inline void ps2_send_sgr_event(int button, int col, int row) {
+static inline void ps2_send_sgr_event(int button, int col, int row, bool release) {
     char buf[32];
-    snprintf(buf, sizeof buf, "\e[<%d;%d;%dM", button, col, row);
+    snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
     tty_enqueue_string(tty, buf);
 }
 
@@ -283,16 +283,16 @@ void irq12_handler(struct registers *r) {
 
             if (col != last_col || row != last_row) {
                 if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle))
-                    ps2_send_sgr_event(state.left ? 32 : (state.middle ? 33 : 34), col, row);
+                    ps2_send_sgr_event(state.left ? 32 : (state.middle ? 33 : 34), col, row, false);
                 last_col = col, last_row = row;
             }
 
-            if (state.left && !last_state.left)     ps2_send_sgr_event(0, col, row);
-            if (state.right && !last_state.right)   ps2_send_sgr_event(2, col, row);
-            if (state.middle && !last_state.middle) ps2_send_sgr_event(1, col, row);
-            if (!state.left && last_state.left)     ps2_send_sgr_event(0, col, row);
-            if (!state.right && last_state.right)   ps2_send_sgr_event(2, col, row);
-            if (!state.middle && last_state.middle) ps2_send_sgr_event(1, col, row);
+            if (state.left && !last_state.left)     ps2_send_sgr_event(0, col, row, false);
+            if (state.right && !last_state.right)   ps2_send_sgr_event(2, col, row, false);
+            if (state.middle && !last_state.middle) ps2_send_sgr_event(1, col, row, false);
+            if (!state.left && last_state.left)     ps2_send_sgr_event(0, col, row, true);
+            if (!state.right && last_state.right)   ps2_send_sgr_event(2, col, row, true);
+            if (!state.middle && last_state.middle) ps2_send_sgr_event(1, col, row, true);
 
             if (!state.left && !state.right && !state.middle)
                 framebuffer_draw_cursor(x, y);
