@@ -1,0 +1,11 @@
+--- configfsf.sub	2025-12-09 21:50:26.129799334 +0100
++++ configfsfnew.sub	2025-12-09 21:51:01.083290744 +0100
+@@ -1759,7 +1759,7 @@
+ 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
+ 	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
+ 	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx* | zephyr* \
+-	     | fiwix* | mlibc* )
++	     | fiwix* | mlibc* | bentobox* )
+ 		;;
+ 	# This one is extra strict with allowed versions
+ 	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
