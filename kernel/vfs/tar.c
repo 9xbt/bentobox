@@ -76,9 +76,11 @@ void tar_module(struct limine_file *mod) {
     vfs_get_root()->ops = &tar_ops;
 
     struct tar *tar = (struct tar *)mod->address;
+    static uint64_t inode = 1;
 
     while (!memcmp(tar->ustar, "ustar", 5)) {
         int filesize = oct2bin(tar->size, sizeof(tar->size));
+        int mode = oct2bin(tar->mode + 4, 3);
 
         vfs_node_type_t type;
         switch (tar->type) {
@@ -104,12 +106,19 @@ void tar_module(struct limine_file *mod) {
         } else if (type == VFS_FILE) {
             node->device = tar;
             node->size = filesize;
-            node->perms = oct2bin(tar->mode + 4, 3);
+            node->perms = mode;
+            node->inode = inode++;
+        } else if (type == VFS_DIRECTORY) {
+            node->size = filesize;
+            node->perms = mode;
+            node->inode = inode++;
         } else if (type == VFS_SYMLINK) {
             node->size = strnlen(tar->link_name, sizeof tar->link_name);
             node->target = kmalloc(node->size + 1);
+            node->perms = mode;
             memcpy(node->target, tar->link_name, node->size);
             node->target[node->size] = 0;
+            node->inode = inode++;
         }
 
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);

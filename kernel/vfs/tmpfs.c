@@ -26,7 +26,7 @@ vfs_ops_t tmpfs_ops = {
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
-    if (!file->data)
+    if (!file->data || (size_t)offset >= node->size)
         return 0;
     size_t count = len < node->size - offset ? len : node->size - offset;
     memcpy(buffer, file->data + offset, count);
@@ -37,15 +37,20 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
     tmpfs_t *file = node->device;
     if (offset == -1)
         offset = node->size;
+    size_t size = offset + len;
+    
     if (!file->data) {
-        file->data = kmalloc(offset + len);
-        node->size = offset + len;
-    } else if (offset + len > node->size) {
-        file->data = krealloc(file->data, offset + len);
-        node->size = offset + len;
-    } else if (offset + len < node->size) {
-        node->size = offset + len;
+        file->data = kmalloc(size);
+        memset(file->data, 0, size);
+        node->size = size;
+    } else if (size > node->size) {
+        void *new_data = krealloc(file->data, size);
+        if ((size_t)offset > node->size)
+            memset((char *)new_data + node->size, 0, offset - node->size);
+        file->data = new_data;
+        node->size = size;
     }
+
     memcpy((char *)file->data + offset, buffer, len);
     return len;
 }
