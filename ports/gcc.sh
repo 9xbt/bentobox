@@ -29,3 +29,9 @@ make all-target-libgcc -j$(nproc)
 make install-gcc
 make install-target-libgcc
 # make install-target-libstdc++-v3
+
+cd $PREFIX/lib/gcc/x86_64-pc-bentobox/16.0.0/
+ln -sf crtbegin.o crtbeginT.o
+ln -sf crtend.o crtendT.o
+ln -sf crtbegin.o crtbeginS.o
+ln -sf crtend.o crtendS.o
