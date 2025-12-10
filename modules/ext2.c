@@ -481,6 +481,55 @@ bool ext2_check_sequential(uint32_t blocks[], uint32_t count) {
     return true;
 }
 
+bool ext2_ensure_indirect_block(ext2_fs *fs, uint32_t *block) {
+    if (*block)
+        return true;
+    if (!(*block = ext2_allocate_block(fs)))
+        return false;
+    
+    uint32_t *zero = kmalloc(fs->block_size);
+    memset(zero, 0, fs->block_size);
+    ext2_write_block(fs, *block, zero, fs->block_size);
+    kfree(zero);
+    return true;
+}
+
+bool ext2_allocate_indirect_blocks(ext2_fs *fs, uint32_t *ptrs, uint32_t block, uint32_t offset, uint32_t count, uint32_t max_ptrs) {
+    uint32_t need_alloc = 0;
+    uint32_t indices[max_ptrs];
+    
+    uint32_t end = offset + count > max_ptrs ? max_ptrs : offset + count;
+    for (uint32_t i = offset; i < end; i++) {
+        if (!ptrs[i])
+            indices[need_alloc++] = i;
+    }
+    
+    if (need_alloc == 0)
+        return true;
+    
+    uint32_t new_blocks[max_ptrs];
+    if (ext2_allocate_blocks(fs, need_alloc, new_blocks) < need_alloc)
+        return false;
+    
+    for (uint32_t i = 0; i < need_alloc; i++)
+        ptrs[indices[i]] = new_blocks[i];
+    
+    ext2_write_block(fs, block, ptrs, fs->block_size);
+    return true;
+}
+
+void ext2_transfer_blocks(ext2_fs *fs, uint32_t *block_ptrs, uint32_t offset, uint32_t count, uint8_t *buffer, bool write) {
+    if (ext2_check_sequential(&block_ptrs[offset], count)) {
+        if (write) ext2_write_block(fs, block_ptrs[offset], buffer, fs->block_size * count);
+        else ext2_read_block(fs, block_ptrs[offset], buffer, fs->block_size * count);
+    } else {
+        for (uint32_t i = 0; i < count; i++) {
+            if (write) ext2_write_block(fs, block_ptrs[offset + i], buffer + i * fs->block_size, fs->block_size);
+            else if (block_ptrs[offset + i]) ext2_read_block(fs, block_ptrs[offset + i], buffer + i * fs->block_size, fs->block_size);
+        }
+    }
+}
+
 void ext2_read_direct_blocks(ext2_fs *fs, uint32_t blocks[], void *buffer, uint32_t count) {
     if (ext2_check_sequential(blocks, count)) {
         ext2_read_block(fs, blocks[0], buffer, fs->block_size * count);
@@ -517,76 +566,34 @@ uint32_t ext2_read_singly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, u
     uint32_t singly_ptr = fs->block_size / sizeof(uint32_t);
     if (offset >= singly_ptr)
         return 0;
-    if (offset + count > singly_ptr)
-        count = singly_ptr - offset;
+    
+    count = offset + count > singly_ptr ? singly_ptr - offset : count;
 
     uint32_t *block_ptrs = kmalloc(fs->block_size);
     ext2_read_block(fs, block, block_ptrs, fs->block_size);
-
-    if (ext2_check_sequential(&block_ptrs[offset], count)) {
-        ext2_read_block(fs, block_ptrs[offset], buffer, fs->block_size * count);
-        kfree(block_ptrs);
-        return count;
-    }
-
-    uint32_t i;
-    for (i = 0; i < count; i++) {
-        if (block_ptrs[offset + i]) {
-            ext2_read_block(fs, block_ptrs[offset + i], buffer + (i * fs->block_size), fs->block_size);
-        }
-    }
-
+    
+    ext2_transfer_blocks(fs, block_ptrs, offset, count, buffer, false);
+    
     kfree(block_ptrs);
-    return i;
+    return count;
 }
 
 void ext2_write_singly_blocks(ext2_fs *fs, uint32_t *block, uint8_t *buffer, uint32_t offset, uint32_t count) {
     uint32_t singly_ptr = fs->block_size / sizeof(uint32_t);
-    if (!block[0]) {
-        if (!(block[0] = ext2_allocate_block(fs)))
-            return;
-
-        uint32_t *zero = kmalloc(fs->block_size);
-        memset(zero, 0, fs->block_size);
-        ext2_write_block(fs, *block, zero, fs->block_size);
-        kfree(zero);
-    }
+    
+    if (!ext2_ensure_indirect_block(fs, block))
+        return;
 
     uint32_t *block_ptrs = kmalloc(fs->block_size);
     ext2_read_block(fs, *block, block_ptrs, fs->block_size);
 
-    uint32_t new_block_count = 0;
-    uint32_t new_block_indices[singly_ptr];
-    
-    for (uint32_t i = 0; i < count; i++) {
-        uint32_t index = offset + i;
-        if (index >= singly_ptr)
-            break;
-        if (!block_ptrs[index])
-            new_block_indices[new_block_count++] = index;
-    }
-    
-    if (new_block_count > 0) {
-        uint32_t new_blocks[singly_ptr];
-        uint32_t allocated = ext2_allocate_blocks(fs, new_block_count, new_blocks);
-        if (allocated < new_block_count) {
-            kfree(block_ptrs);
-            return;
-        }
-        for (uint32_t i = 0; i < new_block_count; i++) {
-            block_ptrs[new_block_indices[i]] = new_blocks[i];
-        }
-        ext2_write_block(fs, *block, block_ptrs, fs->block_size);
+    if (!ext2_allocate_indirect_blocks(fs, block_ptrs, *block, offset, count, singly_ptr)) {
+        kfree(block_ptrs);
+        return;
     }
     
     uint32_t len = offset + count > singly_ptr ? singly_ptr - offset : count;
-    if (ext2_check_sequential(&block_ptrs[offset], len)) {
-        ext2_write_block(fs, block_ptrs[offset], buffer, fs->block_size * len);
-    } else {
-        for (uint32_t i = 0; i < len; i++) {
-            ext2_write_block(fs, block_ptrs[offset + i], buffer + (i * fs->block_size), fs->block_size);
-        }
-    }
+    ext2_transfer_blocks(fs, block_ptrs, offset, len, buffer, true);
 
     kfree(block_ptrs);
 }
@@ -600,25 +607,12 @@ uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, u
     ext2_read_block(fs, block, doubly_ptrs, fs->block_size);
 
     uint32_t read = 0;
-    uint32_t first_singly_table = offset / doubly_ptr;
-    uint32_t last_singly_table = (offset + count - 1) / doubly_ptr;
-    
-    if (first_singly_table == last_singly_table || 
-        ext2_check_sequential(&doubly_ptrs[first_singly_table], last_singly_table - first_singly_table + 1))
-    {
-        for (uint32_t i = first_singly_table; i <= last_singly_table && read < count; i++) {
-            uint32_t singly_offset = (i == first_singly_table) ? offset % doubly_ptr : 0;
-            uint32_t singly_count = (count - read > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - read;
-            
-            read += doubly_ptrs[i] ? ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count) : singly_count;
-        }
-    } else {
-        for (uint32_t i = offset / doubly_ptr; i < doubly_ptr && read < count; i++) {
-            uint32_t singly_offset = (i == offset / doubly_ptr) ? offset % doubly_ptr : 0;
-            uint32_t singly_count = (count - read > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - read;
-            
-            read += doubly_ptrs[i] ? ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count) : singly_count;
-        }
+    for (uint32_t i = offset / doubly_ptr; i < doubly_ptr && read < count; i++) {
+        uint32_t singly_offset = (i == offset / doubly_ptr) ? offset % doubly_ptr : 0;
+        uint32_t singly_count = count - read > doubly_ptr - singly_offset ? doubly_ptr - singly_offset : count - read;
+        
+        if (doubly_ptrs[i]) read += ext2_read_singly_blocks(fs, doubly_ptrs[i], buffer + read * fs->block_size, singly_offset, singly_count);
+        else read += singly_count;
     }
 
     kfree(doubly_ptrs);
@@ -627,37 +621,26 @@ uint32_t ext2_read_doubly_blocks(ext2_fs *fs, uint32_t block, uint8_t *buffer, u
 
 void ext2_write_doubly_blocks(ext2_fs *fs, uint32_t *block, uint8_t *buffer, uint32_t offset, uint32_t count) {
     uint32_t doubly_ptr = fs->block_size / sizeof(uint32_t);
-    uint32_t *doubly_ptrs;
+    
+    if (!ext2_ensure_indirect_block(fs, block))
+        return;
 
-    if (!block[0]) {
-        if (!(block[0] = ext2_allocate_block(fs)))
-            return;
+    uint32_t *doubly_ptrs = kmalloc(fs->block_size);
+    ext2_read_block(fs, *block, doubly_ptrs, fs->block_size);
 
-        doubly_ptrs = kmalloc(fs->block_size);
-        memset(doubly_ptrs, 0, fs->block_size);
-        ext2_write_block(fs, *block, doubly_ptrs, fs->block_size);
-    } else {
-        doubly_ptrs = kmalloc(fs->block_size);
-        ext2_read_block(fs, *block, doubly_ptrs, fs->block_size);
-    }
-
-    uint32_t written = 0;
-    uint32_t first_singly_table = offset / doubly_ptr;
-    uint32_t last_singly_table = (offset + count - 1) / doubly_ptr;
+    uint32_t first = offset / doubly_ptr;
+    uint32_t last = (offset + count - 1) / doubly_ptr;
     
     uint32_t need_singly = 0;
     uint32_t singly_indices[doubly_ptr];
-    
-    for (uint32_t i = first_singly_table; i <= last_singly_table && i < doubly_ptr; i++) {
-        if (!doubly_ptrs[i]) {
+    for (uint32_t i = first; i <= last && i < doubly_ptr; i++) {
+        if (!doubly_ptrs[i])
             singly_indices[need_singly++] = i;
-        }
     }
     
     if (need_singly > 0) {
         uint32_t new_blocks[doubly_ptr];
-        uint32_t allocated = ext2_allocate_blocks(fs, need_singly, new_blocks);
-        if (allocated < need_singly) {
+        if (ext2_allocate_blocks(fs, need_singly, new_blocks) < need_singly) {
             kfree(doubly_ptrs);
             return;
         }
@@ -672,11 +655,12 @@ void ext2_write_doubly_blocks(ext2_fs *fs, uint32_t *block, uint8_t *buffer, uin
         ext2_write_block(fs, *block, doubly_ptrs, fs->block_size);
     }
     
-    for (uint32_t i = offset / doubly_ptr; i < doubly_ptr && written < count; i++) {
-        uint32_t singly_offset = (i == offset / doubly_ptr) ? offset % doubly_ptr : 0;
-        uint32_t singly_count = (count - written > doubly_ptr - singly_offset) ? doubly_ptr - singly_offset : count - written;
+    uint32_t written = 0;
+    for (uint32_t i = first; i < doubly_ptr && written < count; i++) {
+        uint32_t singly_offset = (i == first) ? offset % doubly_ptr : 0;
+        uint32_t singly_count = count - written > doubly_ptr - singly_offset ? doubly_ptr - singly_offset : count - written;
 
-        ext2_write_singly_blocks(fs, &doubly_ptrs[i], buffer + (written * fs->block_size), singly_offset, singly_count);
+        ext2_write_singly_blocks(fs, &doubly_ptrs[i], buffer + written * fs->block_size, singly_offset, singly_count);
         written += singly_count;
     }
 
