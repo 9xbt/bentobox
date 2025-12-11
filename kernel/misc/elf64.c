@@ -265,6 +265,11 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
         vfs_close(node);
         return -EISDIR;
     }
+    if (node->type != VFS_FILE) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(EACCES));
+        vfs_close(node);
+        return -EACCES;
+    }
 
     void *buffer = kmalloc(node->size);
     long len = vfs_read(node, buffer, 0, node->size);
@@ -303,6 +308,10 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     if (node->type == VFS_DIRECTORY) {
         vfs_close(node);
         return -EISDIR;
+    }
+    if (node->type != VFS_FILE) {
+        vfs_close(node);
+        return -EACCES;
     }
 
     void *buffer = kmalloc(node->size);
