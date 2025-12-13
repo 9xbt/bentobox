@@ -3,6 +3,7 @@
 #include <kernel/sched.h>
 #include <kernel/elf64.h>
 #include <kernel/panic.h>
+#include <kernel/futex.h>
 #include <kernel/args.h>
 #include <kernel/time.h>
 #include <kernel/pci.h>
@@ -19,6 +20,7 @@ void generic_startup(void) {
     modules_install();
     sched_install();
     tty_spawn_worker();
+    futex_initialize();
 }
 
 void generic_main(void) {

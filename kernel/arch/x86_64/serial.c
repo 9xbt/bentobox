@@ -123,6 +123,6 @@ void serial_initialize(void) {
     tty_t *tty = ttyS0->device;
 
     struct process *proc = sched_new_process("serial tty", false);
-    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL);
+    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL);
     sched_add_process(proc);
 }

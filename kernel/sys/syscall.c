@@ -11,6 +11,7 @@
 #include <kernel/errno.h>
 #include <kernel/elf64.h>
 #include <kernel/sched.h>
+#include <kernel/futex.h>
 #include <kernel/acpi.h>
 #include <kernel/file.h>
 #include <kernel/vfs.h>
@@ -322,7 +323,7 @@ long sys_readdir(int fd, struct dirent *buf, size_t count) {
 }
 
 long sys_exit(int status) {
-    sched_exit(this, (status & 0xff) << 8);
+    sched_exit_group(this_proc, (status & 0xff) << 8);
     __builtin_unreachable();
 }
 
@@ -934,6 +935,25 @@ long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned in
     return vfs_chmod(node, mode);
 }
 
+long sys_clone(void *entry, void *stack) {
+    struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, stack);
+    list_insert(sched_find_cpu()->threads, tcb);
+    return tcb->tid;
+}
+
+long sys_exit_thread(void) {
+    sched_exit(this, 0);
+    __builtin_unreachable();
+}
+
+long sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
+    return futex_wait(pointer, expected, time);
+}
+
+long sys_futex_wake(int *pointer) {
+    return futex_wake(pointer);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -999,6 +1019,11 @@ syscall_func syscalls[] = {
     [SYS_umask]       = (syscall_func)(uintptr_t)sys_umask,
     [SYS_fchmod]      = (syscall_func)(uintptr_t)sys_fchmod,
     [SYS_chmodat]     = (syscall_func)(uintptr_t)sys_chmodat,
+
+    [SYS_clone]       = (syscall_func)(uintptr_t)sys_clone,
+    [SYS_exit_thread] = (syscall_func)(uintptr_t)sys_exit_thread,
+    [SYS_futex_wait]  = (syscall_func)(uintptr_t)sys_futex_wait,
+    [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake
 };
 
 long syscall_handler(size_t *args) {

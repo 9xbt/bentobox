@@ -13,7 +13,7 @@
 #include <kernel/smp.h>
 #include <stddef.h>
 
-extern void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]);
+extern void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[], void *stack);
 extern void arch_context_free(struct thread *tcb);
 extern void arch_context_fork(struct thread *tcb);
 extern void arch_save_context(void);
@@ -104,7 +104,7 @@ struct process *sched_find_in_group(long pgid) {
     return NULL;
 }
 
-struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[]) {
+struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], void *stack) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_RUNNING;
@@ -118,7 +118,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->status = 0;
 
     static char *empty_argv_envp[] = { NULL };
-    arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp);
+    arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp, stack);
     
     list_insert(parent->threads, tcb);
     return tcb;
@@ -227,24 +227,36 @@ void sched_exit(struct thread *tcb, int status) {
         this->status = status;
         this->state = THREAD_ZOMBIE;
         __atomic_add_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
-        cleaner_tcb->state = THREAD_RUNNING;
+        if (cleaner_tcb->state == THREAD_PAUSED)
+            cleaner_tcb->state = THREAD_RUNNING;
         sched_yield();
         for (;;) {}
     }
-    cleaner_tcb->state = THREAD_RUNNING;
+    if (cleaner_tcb->state == THREAD_PAUSED)
+        cleaner_tcb->state = THREAD_RUNNING;
 }
 
 void sched_exit_group(struct process *proc, int status) {
     proc->state = PROCESS_ZOMBIE_ALL;
+
+    int threads = 0;
+    foreach(i, proc->threads) {
+        struct thread *tcb = i->value;
+        if (tcb->state != THREAD_ZOMBIE && tcb->state != THREAD_ZOMBIE_ACK)
+            threads++;
+    }
+    
     if (proc == this_proc) {
         this->status = status;
         this->state = THREAD_ZOMBIE;
-        __atomic_add_fetch(&zombies_pending, this_proc->threads->length, __ATOMIC_SEQ_CST);
-        cleaner_tcb->state = THREAD_RUNNING;
+        __atomic_add_fetch(&zombies_pending, threads, __ATOMIC_SEQ_CST);
+        if (cleaner_tcb->state == THREAD_PAUSED)
+            cleaner_tcb->state = THREAD_RUNNING;
         sched_yield();
         for (;;) {}
     }
-    cleaner_tcb->state = THREAD_RUNNING;
+    if (cleaner_tcb->state == THREAD_PAUSED)
+        cleaner_tcb->state = THREAD_RUNNING;
 }
 
 node_t *sched_find_next(void) {
@@ -291,7 +303,7 @@ void sched_schedule(struct registers *r) {
 }
 
 static void sched_cleanup_thread(struct thread *tcb) {
-    if (tcb->cpu->current_tcb->value == tcb) {
+    if (tcb->cpu && tcb->cpu->current_tcb->value == tcb) {
         tcb->state = THREAD_ZOMBIE;
         arch_yield(tcb->cpu);
         while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
@@ -303,13 +315,16 @@ static void sched_cleanup_thread(struct thread *tcb) {
     
     arch_context_free(tcb);
     sched_free_tid(tcb->tid);
-    list_remove_value(tcb->cpu->threads, tcb);
+    if (tcb->cpu)
+        list_remove_value(tcb->cpu->threads, tcb);
     kfree(tcb);
     __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
 }
 
 void sched_cleaner(void) {
     for (;;) {
+        sched_sleep(10000000);
+
         foreach_safe(i, processes) {
             struct process *proc = i->value;
             if (proc->state != PROCESS_ZOMBIE && proc->state != PROCESS_ZOMBIE_ALL)
@@ -394,7 +409,7 @@ void sched_install(void) {
     bitmap_set(pid_bitmap, 1);
 
     struct process *cleaner = sched_new_process("psycho killer", false);
-    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL);
+    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL, NULL);
     cleaner_tcb->state = THREAD_PAUSED;
     sched_add_process(cleaner);
 

@@ -84,7 +84,7 @@ void idle(void) {
     }
 }
 
-void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]) {
+void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[], void *stack) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
     memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
@@ -95,50 +95,53 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, cha
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     if (user) {
-        uintptr_t *pm = mmu_get_pm();
-        //asm volatile ("cli" ::: "memory");
-        mmu_switch_pm(tcb->parent->pm);
-        
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER | PTE_NX);
-        ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
+        if (!stack) {
+            uintptr_t *pm = mmu_get_pm();
+            mmu_switch_pm(tcb->parent->pm);
+            
+            ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_PRESENT | PTE_WRITABLE | PTE_USER | PTE_NX);
+            ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
 
-        long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
+            long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
 
-        uint64_t argv_ptrs[argc + 1];
-        uint64_t env_ptrs[envc + 1];
-        argv_ptrs[argc] = 0;
-        env_ptrs[envc] = 0;
+            uint64_t argv_ptrs[argc + 1];
+            uint64_t env_ptrs[envc + 1];
+            argv_ptrs[argc] = 0;
+            env_ptrs[envc] = 0;
 
-        int i = 0;
-        for (i = 0; i < envc; i++) {
-            depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
-            env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-            strcpy((char *)ctx->user_stack - depth, envp[i]);
+            int i = 0;
+            for (i = 0; i < envc; i++) {
+                depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
+                env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+                strcpy((char *)ctx->user_stack - depth, envp[i]);
+            }
+            for (i = 0; i < argc; i++) {
+                depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+                argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+                strcpy((char *)ctx->user_stack - depth, argv[i]);
+            }
+
+            #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
+
+            PUSH(0);
+            for (i = envc - 1; i >= 0; i--) {
+                PUSH(env_ptrs[i]);
+            }
+
+            PUSH(0);
+            for (i = argc - 1; i >= 0; i--) {
+                PUSH(argv_ptrs[i]);
+            }
+
+            PUSH(argc);
+
+            ctx->user_stack -= depth;
+
+            mmu_switch_pm(pm);
+        } else {
+            ctx->user_stack_bottom = 0;
+            ctx->user_stack = (uint64_t)stack;
         }
-        for (i = 0; i < argc; i++) {
-            depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
-            argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-            strcpy((char *)ctx->user_stack - depth, argv[i]);
-        }
-
-        #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
-
-        PUSH(0);
-        for (i = envc - 1; i >= 0; i--) {
-            PUSH(env_ptrs[i]);
-        }
-
-        PUSH(0);
-        for (i = argc - 1; i >= 0; i--) {
-            PUSH(argv_ptrs[i]);
-        }
-
-        PUSH(argc);
-
-        ctx->user_stack -= depth;
-
-        mmu_switch_pm(pm);
-        //asm volatile ("sti" ::: "memory");
     }
     ctx->regs.rsp = user ? ctx->user_stack : ctx->stack;
     ctx->regs.rip = (uint64_t)entry;
@@ -241,7 +244,7 @@ void arch_jumpstart(void) {
     
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL);
+        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL, NULL);
         tcb->state = THREAD_PAUSED;
         core->idle_tcb = list_insert(core->threads, tcb);
         if (core != this_cpu)

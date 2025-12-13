@@ -91,9 +91,13 @@ struct cpu *get_core(size_t core) {
     return cpu_list[core];
 }
 
-struct cpu *this_core(void) {
+struct cpu * __attribute__((noinline)) this_core(void) {
     uint32_t eax = 1, bspid, _;
-    asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
+    asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax) : "memory");
     bspid >>= 24;
-    return cpu_list[bspid];
+    
+    // Force compiler to treat cpu_list as volatile
+    struct cpu *result = ((struct cpu * volatile *)cpu_list)[bspid];
+    asm volatile("" : :: "memory");  // Memory barrier
+    return result;
 }

@@ -289,7 +289,7 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     }
 
     struct process *proc = sched_new_process(file, true);
-    sched_new_thread(proc, (void *)ehdr->e_entry, argc, argv, envp);
+    sched_new_thread(proc, (void *)ehdr->e_entry, argc, argv, envp, NULL);
     
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     elf64_load_sections(proc, ehdr, phdr);
@@ -385,7 +385,7 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vma_destroy(this_proc->vma, this_proc->pm);
     this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
 
-    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp);    
+    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp, NULL);    
 
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     elf64_load_sections(this_proc, ehdr, phdr);
