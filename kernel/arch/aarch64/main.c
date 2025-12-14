@@ -70,62 +70,19 @@ void idle(void) {
     }
 }
 
-void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[]) {
+void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
     memset(&ctx->regs, 0, sizeof(struct registers));
     ctx->elr_elx = (uint64_t)entry;
     ctx->spsr_elx = user ? 0x0 : 0x345;
 
-    int envc = 0;
-    if (envp) for (; envp[envc]; envc++);
-
     ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
     ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
     ctx->regs.x16 = ctx->stack;
     if (user) {
-        uintptr_t *pm = mmu_get_pm();
-        mmu_switch_pm(tcb->parent->pm);
-
-        ctx->user_stack_bottom = (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
-        ctx->user_stack = ctx->user_stack_bottom + (256 * PAGE_SIZE);
-
-        long depth = ((argc + envc) % 2 == 0) ? 24 : 16;
-
-        uint64_t argv_ptrs[argc + 1];
-        uint64_t env_ptrs[envc + 1];
-        argv_ptrs[argc] = 0;
-        env_ptrs[envc] = 0;
-
-        int i = 0;
-        for (i = 0; i < envc; i++) {
-            depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
-            env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-            strcpy((char *)ctx->user_stack - depth, envp[i]);
-        }
-        for (i = 0; i < argc; i++) {
-            depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
-            argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-            strcpy((char *)ctx->user_stack - depth, argv[i]);
-        }
-
-        #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
-
-        PUSH(0);
-        for (i = envc - 1; i >= 0; i--) {
-            PUSH(env_ptrs[i]);
-        }
-
-        PUSH(0);
-        for (i = argc - 1; i >= 0; i--) {
-            PUSH(argv_ptrs[i]);
-        }
-
-        PUSH(argc);
-
-        ctx->user_stack -= depth;
-
-        mmu_switch_pm(pm);
+        ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
+        ctx->user_stack = stack ? (uint64_t)stack : ctx->user_stack_bottom + (256 * PAGE_SIZE);
     }
 }
 

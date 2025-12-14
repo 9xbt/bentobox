@@ -4,6 +4,7 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/elf64.h>
 #include <kernel/panic.h>
 #include <kernel/sched.h>
 #include <kernel/file.h>
@@ -13,7 +14,7 @@
 #include <kernel/smp.h>
 #include <stddef.h>
 
-extern void arch_context_init(struct thread *tcb, void *entry, bool user, int argc, char *argv[], char *envp[], void *stack);
+extern void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack);
 extern void arch_context_free(struct thread *tcb);
 extern void arch_context_fork(struct thread *tcb);
 extern void arch_save_context(void);
@@ -104,7 +105,65 @@ struct process *sched_find_in_group(long pgid) {
     return NULL;
 }
 
-struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], void *stack) {
+void sched_setup_stack(struct thread *tcb, int argc, char *argv[], char *envp[], Elf64_auxv_t *auxv, int auxc) {
+    struct context *ctx = &tcb->ctx;
+
+    int envc = 0;
+    if (envp) for (; envp[envc]; envc++);
+
+    uintptr_t *pm = mmu_get_pm();
+    mmu_switch_pm(tcb->parent->pm);
+
+    long depth = ((argc + envc + auxc) % 2 == 0) ? 24 : 16;
+
+    uint64_t argv_ptrs[argc + 1];
+    uint64_t env_ptrs[envc + 1];
+    argv_ptrs[argc] = 0;
+    env_ptrs[envc] = 0;
+
+    int i = 0;
+    for (i = 0; i < envc; i++) {
+        depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
+        env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+        strcpy((char *)ctx->user_stack - depth, envp[i]);
+    }
+    for (i = 0; i < argc; i++) {
+        depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+        argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
+        strcpy((char *)ctx->user_stack - depth, argv[i]);
+    }
+
+    #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
+
+    if (auxv) {
+        for (i = auxc - 1; i >= 0; i--) {
+            PUSH(auxv[i].a_un.a_val);
+            PUSH(auxv[i].a_type);
+        }
+    }
+
+    PUSH(0);
+    for (i = envc - 1; i >= 0; i--) {
+        PUSH(env_ptrs[i]);
+    }
+
+    PUSH(0);
+    for (i = argc - 1; i >= 0; i--) {
+        PUSH(argv_ptrs[i]);
+    }
+
+    PUSH(argc);
+
+    ctx->user_stack -= depth;
+
+    #ifdef __x86_64__
+    ctx->regs.rsp = ctx->user_stack;
+    #endif
+
+    mmu_switch_pm(pm);
+}
+
+struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], Elf64_auxv_t *auxv, int auxc, void *stack) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
     tcb->state = THREAD_RUNNING;
@@ -117,8 +176,12 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->sigframe = NULL;
     tcb->status = 0;
 
-    static char *empty_argv_envp[] = { NULL };
-    arch_context_init(tcb, entry, parent->user, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp, stack);
+    arch_context_init(tcb, entry, parent->user, stack);
+
+    if (parent->user) {
+        static char *empty_argv_envp[] = { NULL };
+        sched_setup_stack(tcb, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp, auxv, auxc);
+    }
     
     list_insert(parent->threads, tcb);
     return tcb;
@@ -409,7 +472,7 @@ void sched_install(void) {
     bitmap_set(pid_bitmap, 1);
 
     struct process *cleaner = sched_new_process("psycho killer", false);
-    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL, NULL);
+    cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL, NULL, 0, NULL);
     cleaner_tcb->state = THREAD_PAUSED;
     sched_add_process(cleaner);
 

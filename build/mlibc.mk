@@ -6,7 +6,7 @@ setup:
 	cd lib/mlibc && \
 	PATH="$(CURDIR)/util/build/bin:$$PATH" \
 	meson setup build-$(ARCH) --cross-file ../../build/crossfile-$(ARCH).txt -Dheaders_only=false \
-		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
+		-Ddefault_library=shared -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
 		--prefix=$(CURDIR)/build/base/$(ARCH)/usr/
 	cp /etc/localtime base/etc/localtime
@@ -15,7 +15,7 @@ resetup:
 	cd lib/mlibc && \
 	PATH="$(CURDIR)/util/build/bin:$$PATH" \
 	meson setup build-$(ARCH) --cross-file ../../build/crossfile-$(ARCH).txt -Dheaders_only=false \
-		-Ddefault_library=static -Dbuild_tests=false -Dposix_option=enabled \
+		-Ddefault_library=shared -Dbuild_tests=false -Dposix_option=enabled \
 		-Dlinux_option=disabled -Dglibc_option=enabled -Dbsd_option=enabled \
 		--prefix=$(CURDIR)/build/base/$(ARCH)/usr/ --wipe
 	cp /etc/localtime base/etc/localtime

@@ -185,7 +185,6 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
             region->pages = page_count;
             region->va = (uintptr_t)ptr;
             region->pa = pa;
-            region->flags = flags;
             list_insert(vma->regions, region);
         }
     } else {
@@ -193,7 +192,6 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
         region->pages = page_count;
         region->va = va;
         region->pa = pa;
-        region->flags = flags;
         list_insert(vma->regions, region);
         ptr = (void *)va;
     }

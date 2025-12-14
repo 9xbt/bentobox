@@ -307,7 +307,7 @@ void tty_spawn_worker(void) {
     tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
 
     struct process *proc = sched_new_process("tty", false);
-    tty->worker = sched_new_thread(proc, tty_worker_thread, 0, NULL, NULL, NULL);
+    tty->worker = sched_new_thread(proc, tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
     sched_add_process(proc);
 }
 

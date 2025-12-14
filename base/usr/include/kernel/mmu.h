@@ -69,7 +69,6 @@ struct vma_region {
     size_t pages;
     uintptr_t va;
     uintptr_t pa;
-    uint64_t flags;
 };
 
 struct vma *vma_create(uintptr_t base, size_t size);

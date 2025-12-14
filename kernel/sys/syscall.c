@@ -936,7 +936,7 @@ long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned in
 }
 
 long sys_clone(void *entry, void *stack) {
-    struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, stack);
+    struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, NULL, 0, stack);
     list_insert(sched_find_cpu()->threads, tcb);
     return tcb->tid;
 }

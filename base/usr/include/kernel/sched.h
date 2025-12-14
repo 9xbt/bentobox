@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <kernel/context.h>
 #include <kernel/signal.h>
+#include <kernel/elf64.h>
 #include <kernel/list.h>
 #include <kernel/file.h>
 #include <kernel/mmu.h>
@@ -80,7 +81,7 @@ struct cpu *sched_find_cpu(void);
 node_t *sched_add_process(struct process *proc);
 struct process *sched_find_process(long pid);
 struct process *sched_find_in_group(long pgid);
-struct thread  *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], void *stack);
+struct thread  *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], Elf64_auxv_t *auxv, int auxc, void *stack);
 struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);

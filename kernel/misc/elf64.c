@@ -8,6 +8,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/malloc.h>
+#include <kernel/assert.h>
 #include <kernel/elf64.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
@@ -17,6 +18,7 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 #include <limine.h>
+#include <stddef.h>
 
 static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int symbol_count, const char *str) {
     for (int i = 0; i < symbol_count; i++) {
@@ -58,7 +60,7 @@ static bool elf64_is_executable(Elf64_Ehdr *ehdr) {
         return false;
     }
 
-    if (ehdr->e_type != ET_EXEC) {
+    if (ehdr->e_type != ET_EXEC && ehdr->e_type != ET_DYN) {
         dprintf(LOG_DEBUG, "\033[93melf:\033[0m unsupported elf type\n");
         return false;
     }
@@ -203,9 +205,11 @@ int elf64_module(struct limine_file *mod) {
     return metadata->init();
 }
 
-static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr) {
+static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, uintptr_t base) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
+            uintptr_t p_vaddr = phdr[i].p_paddr + base;
+
             #ifdef __x86_64__
             uint64_t flags = PTE_PRESENT | PTE_USER;
             if (phdr[i].p_flags & PF_W) flags |= PTE_WRITABLE;
@@ -215,13 +219,13 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
             if (!(phdr[i].p_flags & PF_X)) flags |= PTE_UXN;
             #endif
             
-            vmalloc(proc->vma, proc->pm, ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE),
-                0, (ALIGN_UP(phdr[i].p_vaddr + phdr[i].p_memsz, PAGE_SIZE) -
-                ALIGN_DOWN(phdr[i].p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
+            vmalloc(proc->vma, proc->pm, ALIGN_DOWN(p_vaddr, PAGE_SIZE),
+                0, (ALIGN_UP(p_vaddr + phdr[i].p_memsz, PAGE_SIZE) -
+                ALIGN_DOWN(p_vaddr, PAGE_SIZE)) / PAGE_SIZE, flags);
 
             if (phdr[i].p_filesz > 0) {
 				uintptr_t src = (uintptr_t)ehdr + phdr[i].p_offset;
-				uintptr_t dest = phdr[i].p_vaddr;
+				uintptr_t dest = p_vaddr;
 				size_t remaining = phdr[i].p_filesz;
 				
 				while (remaining > 0) {
@@ -236,7 +240,7 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
 			}
 
 			if (phdr[i].p_memsz > phdr[i].p_filesz) {
-				uintptr_t dest = phdr[i].p_vaddr + phdr[i].p_filesz;
+				uintptr_t dest = p_vaddr + phdr[i].p_filesz;
 				size_t remaining = phdr[i].p_memsz - phdr[i].p_filesz;
 
 				while (remaining > 0) {
@@ -289,19 +293,94 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     }
 
     struct process *proc = sched_new_process(file, true);
-    sched_new_thread(proc, (void *)ehdr->e_entry, argc, argv, envp, NULL);
     
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
-    elf64_load_sections(proc, ehdr, phdr);
+    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0, interp_base = 0x7f0000000000;
+    elf64_load_sections(proc, ehdr, phdr, base);
+
+    char *interp = NULL;
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdr[i].p_type == PT_INTERP) {
+            interp = (char *)buffer + phdr[i].p_offset;
+            break;
+        }
+    }
+
+    uintptr_t entry;
+    if (interp) {
+        vfs_node_t *interp_node = vfs_open(NULL, interp, 0);
+        if (!interp_node) {
+            dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(ENOENT));
+            kfree(buffer);
+            vfs_close(node);
+            return -ENOENT;
+        }
+
+        void *interp_buffer = kmalloc(interp_node->size);
+        long interp_len = vfs_read(interp_node, interp_buffer, 0, interp_node->size);
+        if (interp_len < 0) {
+            dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(interp_len));
+            kfree(interp_buffer);
+            kfree(buffer);
+            vfs_close(interp_node);
+            vfs_close(node);
+            return interp_len;
+        }
+
+        Elf64_Ehdr *interp_ehdr = (Elf64_Ehdr *)interp_buffer;
+        if (!elf64_is_executable(interp_ehdr)) {
+            kfree(interp_buffer);
+            kfree(buffer);
+            vfs_close(interp_node);
+            vfs_close(node);
+            return -ENOEXEC;
+        }
+
+        Elf64_Phdr *interp_phdr = (Elf64_Phdr *)((uintptr_t)interp_buffer + interp_ehdr->e_phoff);
+        elf64_load_sections(proc, interp_ehdr, interp_phdr, interp_base);
+        
+        entry = interp_ehdr->e_entry + interp_base;
+
+        kfree(interp_buffer);
+        vfs_close(interp_node);
+    } else {
+        entry = ehdr->e_entry + base;
+    }
+
+    #define AUXV_COUNT 7
+    Elf64_auxv_t auxv[AUXV_COUNT];
+
+    if (interp) {
+        uintptr_t phdr_vaddr = base + ehdr->e_phoff;
+        for (int i = 0; i < ehdr->e_phnum; i++) {
+            if (phdr[i].p_type == PT_LOAD && 
+                ehdr->e_phoff >= phdr[i].p_offset && 
+                ehdr->e_phoff < phdr[i].p_offset + phdr[i].p_filesz) {
+                phdr_vaddr = base + phdr[i].p_vaddr + (ehdr->e_phoff - phdr[i]. p_offset);
+                break;
+            }
+        }
+
+        auxv[0] = (Elf64_auxv_t){ AT_PHDR,   .a_un.a_val = phdr_vaddr };
+        auxv[1] = (Elf64_auxv_t){ AT_PHENT,  .a_un.a_val = ehdr->e_phentsize };
+        auxv[2] = (Elf64_auxv_t){ AT_PHNUM,  .a_un.a_val = ehdr->e_phnum };
+        auxv[3] = (Elf64_auxv_t){ AT_PAGESZ, .a_un.a_val = PAGE_SIZE };
+        auxv[4] = (Elf64_auxv_t){ AT_BASE,   .a_un.a_val = interp_base };
+        auxv[5] = (Elf64_auxv_t){ AT_ENTRY,  .a_un.a_val = base + ehdr->e_entry };
+    }
+    auxv[6] = (Elf64_auxv_t){ AT_NULL, .a_un.a_val = 0 };
+
+    sched_new_thread(proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
+    sched_add_process(proc);
 
     kfree(buffer);
     vfs_close(node);
-
-    sched_add_process(proc);
     return 0;
 }
 
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
+    // TODO: support loading the dynamic linker here too
+
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node)
         return -ENOENT;
@@ -385,10 +464,10 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vma_destroy(this_proc->vma, this_proc->pm);
     this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
 
-    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp, NULL);    
+    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp, NULL, 0, NULL);    
 
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
-    elf64_load_sections(this_proc, ehdr, phdr);
+    elf64_load_sections(this_proc, ehdr, phdr, 0);
 
     kfree(buffer);
     vfs_close(node);
