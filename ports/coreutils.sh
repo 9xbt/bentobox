@@ -21,7 +21,6 @@ make clean
 set -e
 ./configure --host=x86_64-linux-gnu \
     --disable-nls \
-    --enable-static-link \
     --prefix=/usr \
     gl_cv_func_getcwd_abort_bug=no \
     gl_cv_func_getcwd_null=yes \

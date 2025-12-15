@@ -196,6 +196,19 @@ typedef struct {
 	Elf64_Sxword r_addend;
 } Elf64_Rela;
 
+#define DT_NULL		0
+#define DT_RELA 	7
+#define DT_RELASZ 	8
+#define DT_RELAENT 	9
+
+typedef struct {
+	Elf64_Sxword d_tag;
+	union {
+		Elf64_Xword d_val;
+		Elf64_Addr  d_ptr;
+	} d_un;
+} Elf64_Dyn;
+
 #define AT_NULL     0
 #define AT_IGNORE   1
 #define AT_EXECFD   2
@@ -219,6 +232,9 @@ typedef struct {
         uint64_t a_val;
     } a_un;
 } Elf64_auxv_t;
+
+#define INTERP_BASE 0x7f0000000000
+#define AUXV_COUNT  7
 
 int elf64_module(struct limine_file *mod);
 int spawn(const char *file, int argc, char *argv[], char *envp[]);

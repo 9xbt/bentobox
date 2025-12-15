@@ -1,4 +1,5 @@
 #include <kernel/unixpipe.h>
+#include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
@@ -114,7 +115,7 @@ void sched_setup_stack(struct thread *tcb, int argc, char *argv[], char *envp[],
     uintptr_t *pm = mmu_get_pm();
     mmu_switch_pm(tcb->parent->pm);
 
-    long depth = ((argc + envc + auxc) % 2 == 0) ? 24 : 16;
+    long depth = ((argc + envc + auxc) % 2 == 0) ? 16 : 24;
 
     uint64_t argv_ptrs[argc + 1];
     uint64_t env_ptrs[envc + 1];

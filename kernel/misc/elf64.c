@@ -1,8 +1,3 @@
-/*
- * Credits:
- *  - aarch64_imm_adr, aarch64_imm_12: https://github.com/klange/toaruos/blob/master/kernel/misc/elf64.c
- */
-
 #include <stdbool.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
@@ -29,6 +24,9 @@ static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int s
     return 0;
 }
 
+/*
+ * Credits: https://github.com/klange/toaruos/blob/master/kernel/misc/elf64.c
+ */
 static uint32_t aarch64_imm_adr(uint32_t val) {
 	uint32_t low  = (val & 0x3) << 29;
 	uint32_t high = ((val >> 2) & 0x7ffff) << 5;
@@ -199,6 +197,12 @@ int elf64_module(struct limine_file *mod) {
                     dprintf(LOG_ERR, "\033[93melf:\033[0m unsupported relocation %ld\n", ELF64_R_TYPE(rela[j].r_info));
                     break;
             }
+
+            #undef S
+            #undef A
+            #undef P
+            #undef T32
+            #undef T64
         }
     }
 
@@ -208,7 +212,7 @@ int elf64_module(struct limine_file *mod) {
 static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, uintptr_t base) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
-            uintptr_t p_vaddr = phdr[i].p_paddr + base;
+            uintptr_t p_vaddr = phdr[i].p_vaddr + base;
 
             #ifdef __x86_64__
             uint64_t flags = PTE_PRESENT | PTE_USER;
@@ -258,6 +262,122 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
     }
 }
 
+static uintptr_t elf64_load_interp(struct process *proc, char *interp) {
+    vfs_node_t *node = vfs_open(NULL, interp, 0);
+    if (!node)
+        return -ENOENT;
+
+    void *buffer = kmalloc(node->size);
+    long len = vfs_read(node, buffer, 0, node->size);
+    if (len < 0) {
+        kfree(buffer);
+        vfs_close(node);
+        return len;
+    }
+
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
+    if (!elf64_is_executable(ehdr)) {
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
+    elf64_load_sections(proc, ehdr, phdr, INTERP_BASE);
+
+    Elf64_Dyn *dynamic = NULL;
+    for (int i = 0; i < ehdr->e_phnum; i++) {
+        if (phdr[i].p_type == PT_DYNAMIC) {
+            dynamic = (Elf64_Dyn *)(INTERP_BASE + phdr[i].p_vaddr);
+            break;
+        }
+    }
+
+    if (!dynamic) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s has no PT_DYNAMIC section\n", interp);
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    uintptr_t *pm = mmu_get_pm();
+    mmu_switch_pm(proc->pm);
+
+    Elf64_Rela *rela = NULL;
+    size_t rela_sz = 0;
+    size_t rela_ent = sizeof(Elf64_Rela);
+
+    for (Elf64_Dyn *d = dynamic; d->d_tag != DT_NULL; d++) {
+        switch (d->d_tag) {
+            case DT_RELA:
+                rela = (Elf64_Rela *)(INTERP_BASE + d->d_un.d_ptr);
+                break;
+            case DT_RELASZ:
+                rela_sz = d->d_un.d_val;
+                break;
+            case DT_RELAENT:
+                rela_ent = d->d_un.d_val;
+                break;
+        }
+    }
+
+    if (!rela || !rela_sz) {
+        dprintf(LOG_DEBUG, "\033[93melf:\033[0m %s has no PT_DYNAMIC section\n", interp);
+        mmu_switch_pm(pm);
+        kfree(buffer);
+        vfs_close(node);
+        return -ENOEXEC;
+    }
+
+    for (size_t i = 0; i < rela_sz / rela_ent; i++) {
+        uintptr_t target = INTERP_BASE + rela[i].r_offset;
+
+        #define A (rela[i].r_addend)
+        #define P (target)
+        #define B (INTERP_BASE)
+        #define T64 (*(uint64_t*)target)
+
+        switch (ELF64_R_TYPE(rela[i].r_info)) {
+            case R_X86_64_RELATIVE:
+                T64 = B + A;
+                break;
+        }
+    }
+
+    mmu_switch_pm(pm);
+    
+    uintptr_t entry = ehdr->e_entry + INTERP_BASE;
+    kfree(buffer);
+    vfs_close(node);
+    return entry;
+}
+
+static Elf64_auxv_t *elf64_setup_auxv(Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, char *interp, uintptr_t base) {
+    Elf64_auxv_t *auxv = kmalloc(AUXV_COUNT * sizeof(Elf64_auxv_t));
+
+    if (interp) {
+        uintptr_t phdr_vaddr = base + ehdr->e_phoff;
+        for (int i = 0; i < ehdr->e_phnum; i++) {
+            if (phdr[i].p_type == PT_LOAD && 
+                ehdr->e_phoff >= phdr[i].p_offset && 
+                ehdr->e_phoff < phdr[i].p_offset + phdr[i].p_filesz) {
+                phdr_vaddr = base + phdr[i].p_vaddr + (ehdr->e_phoff - phdr[i].p_offset);
+                break;
+            }
+        }
+
+        auxv[0] = (Elf64_auxv_t){ AT_PHDR,   .a_un.a_val = phdr_vaddr };
+        auxv[1] = (Elf64_auxv_t){ AT_PHENT,  .a_un.a_val = ehdr->e_phentsize };
+        auxv[2] = (Elf64_auxv_t){ AT_PHNUM,  .a_un.a_val = ehdr->e_phnum };
+        auxv[3] = (Elf64_auxv_t){ AT_PAGESZ, .a_un.a_val = PAGE_SIZE };
+        auxv[4] = (Elf64_auxv_t){ AT_BASE,   .a_un.a_val = INTERP_BASE };
+        auxv[5] = (Elf64_auxv_t){ AT_ENTRY,  .a_un.a_val = base + ehdr->e_entry };
+    }
+    auxv[6] = (Elf64_auxv_t){ AT_NULL, .a_un.a_val = 0 };
+
+    return auxv;
+}
+
 int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(NULL, file, 0);
     if (!node) {
@@ -286,6 +406,21 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 
+    if (!memcmp(buffer, "#!", 2)) {
+        long shebang_len = memchr(buffer, '\n', node->size) - buffer;
+        char shebang[shebang_len + 1];
+        shebang[shebang_len] = 0;
+        memcpy(shebang, buffer, shebang_len);
+        kfree(buffer);
+        vfs_close(node);
+
+        char **_argv = kmalloc((argc + 2) * sizeof(char *));
+        memcpy(_argv + 1, argv, (argc + 1) * sizeof(char *));
+        _argv[0] = shebang + 2;
+        
+        return exec(_argv[0], argc + 1, _argv, envp);
+    }
+
     if (!elf64_is_executable(ehdr)) {
         kfree(buffer);
         vfs_close(node);
@@ -295,7 +430,7 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     struct process *proc = sched_new_process(file, true);
     
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
-    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0, interp_base = 0x7f0000000000;
+    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;
     elf64_load_sections(proc, ehdr, phdr, base);
 
     char *interp = NULL;
@@ -305,82 +440,27 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
             break;
         }
     }
-
-    uintptr_t entry;
-    if (interp) {
-        vfs_node_t *interp_node = vfs_open(NULL, interp, 0);
-        if (!interp_node) {
-            dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(ENOENT));
-            kfree(buffer);
-            vfs_close(node);
-            return -ENOENT;
-        }
-
-        void *interp_buffer = kmalloc(interp_node->size);
-        long interp_len = vfs_read(interp_node, interp_buffer, 0, interp_node->size);
-        if (interp_len < 0) {
-            dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(interp_len));
-            kfree(interp_buffer);
-            kfree(buffer);
-            vfs_close(interp_node);
-            vfs_close(node);
-            return interp_len;
-        }
-
-        Elf64_Ehdr *interp_ehdr = (Elf64_Ehdr *)interp_buffer;
-        if (!elf64_is_executable(interp_ehdr)) {
-            kfree(interp_buffer);
-            kfree(buffer);
-            vfs_close(interp_node);
-            vfs_close(node);
-            return -ENOEXEC;
-        }
-
-        Elf64_Phdr *interp_phdr = (Elf64_Phdr *)((uintptr_t)interp_buffer + interp_ehdr->e_phoff);
-        elf64_load_sections(proc, interp_ehdr, interp_phdr, interp_base);
-        
-        entry = interp_ehdr->e_entry + interp_base;
-
-        kfree(interp_buffer);
-        vfs_close(interp_node);
-    } else {
-        entry = ehdr->e_entry + base;
+    
+    uintptr_t entry = interp ? elf64_load_interp(proc, interp) : ehdr->e_entry + base;
+    if ((long)entry < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(entry));
+        kfree(buffer);
+        vfs_close(node);
+        proc->state = PROCESS_ZOMBIE;
+        return (int)entry;
     }
-
-    #define AUXV_COUNT 7
-    Elf64_auxv_t auxv[AUXV_COUNT];
-
-    if (interp) {
-        uintptr_t phdr_vaddr = base + ehdr->e_phoff;
-        for (int i = 0; i < ehdr->e_phnum; i++) {
-            if (phdr[i].p_type == PT_LOAD && 
-                ehdr->e_phoff >= phdr[i].p_offset && 
-                ehdr->e_phoff < phdr[i].p_offset + phdr[i].p_filesz) {
-                phdr_vaddr = base + phdr[i].p_vaddr + (ehdr->e_phoff - phdr[i]. p_offset);
-                break;
-            }
-        }
-
-        auxv[0] = (Elf64_auxv_t){ AT_PHDR,   .a_un.a_val = phdr_vaddr };
-        auxv[1] = (Elf64_auxv_t){ AT_PHENT,  .a_un.a_val = ehdr->e_phentsize };
-        auxv[2] = (Elf64_auxv_t){ AT_PHNUM,  .a_un.a_val = ehdr->e_phnum };
-        auxv[3] = (Elf64_auxv_t){ AT_PAGESZ, .a_un.a_val = PAGE_SIZE };
-        auxv[4] = (Elf64_auxv_t){ AT_BASE,   .a_un.a_val = interp_base };
-        auxv[5] = (Elf64_auxv_t){ AT_ENTRY,  .a_un.a_val = base + ehdr->e_entry };
-    }
-    auxv[6] = (Elf64_auxv_t){ AT_NULL, .a_un.a_val = 0 };
+    Elf64_auxv_t *auxv = elf64_setup_auxv(ehdr, phdr, interp, base);
 
     sched_new_thread(proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
     sched_add_process(proc);
 
+    kfree(auxv);
     kfree(buffer);
     vfs_close(node);
     return 0;
 }
 
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
-    // TODO: support loading the dynamic linker here too
-
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node)
         return -ENOENT;
@@ -464,17 +544,35 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vma_destroy(this_proc->vma, this_proc->pm);
     this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
 
-    struct thread *tcb = sched_new_thread(this_proc, (void *)ehdr->e_entry, argc, _argv, _envp, NULL, 0, NULL);    
-
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
-    elf64_load_sections(this_proc, ehdr, phdr, 0);
+    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;
+    elf64_load_sections(this_proc, ehdr, phdr, base);
 
-    kfree(buffer);
-    vfs_close(node);
+    char *interp = NULL;
+    for (int j = 0; j < ehdr->e_phnum; j++) {
+        if (phdr[j].p_type == PT_INTERP) {
+            interp = (char *)buffer + phdr[j].p_offset;
+            break;
+        }
+    }
+    
+    uintptr_t entry = interp ? elf64_load_interp(this_proc, interp) : ehdr->e_entry + base;
+    if ((long)entry < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(entry));
+        kfree(buffer);
+        vfs_close(node);
+        this_proc->state = PROCESS_ZOMBIE;
+        return (int)entry;
+    }
+    Elf64_auxv_t *auxv = elf64_setup_auxv(ehdr, phdr, interp, base);
 
+    struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, _argv, _envp, auxv, AUXV_COUNT, NULL);    
     list_insert(sched_find_cpu()->threads, tcb);
 
     // dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
+    kfree(auxv);
+    kfree(buffer);
+    vfs_close(node);
     sched_exit(this, 0);
     return -1;
 }

@@ -260,3 +260,33 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
     release(&vma->lock);
     dprintf(LOG_WARNING, "\033[93mvma:\033[0m couldn't free region at 0x%p\n", ptr);
 }
+
+void vprotect(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count, uint64_t flags) {
+    acquire(&vma->lock);
+
+    foreach(i, vma->regions) {
+        struct vma_region *region = i->value;
+        if ((uintptr_t)ptr >= region->va && (uintptr_t)ptr < region->va + region->pages * PAGE_SIZE) {
+            for (size_t j = 0; j < page_count; j++) {
+                void *vaddr = (void *)ptr + (j * PAGE_SIZE);
+                void *pa = (void *)mmu_get_physical(pm, vaddr);
+                mmu_map(pm, vaddr, pa, flags);
+            }
+            release(&vma->lock);
+            return;
+        }
+    }
+
+    if ((uintptr_t)ptr >= vma->base && (uintptr_t)ptr < vma->base + vma->pages * PAGE_SIZE) {
+        for (size_t i = 0; i < page_count; i++) {
+            void *vaddr = ptr + (i * PAGE_SIZE);
+            void *pa = (void *)mmu_get_physical(pm, vaddr);
+            mmu_map(pm, vaddr, pa, flags);
+        }
+        release(&vma->lock);
+        return;
+    }
+
+    release(&vma->lock);
+    dprintf(LOG_WARNING, "\033[93mvma:\033[0m couldn't find region at 0x%p\n", ptr);
+}

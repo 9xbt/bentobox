@@ -420,7 +420,6 @@ long sys_setpgid(long pid, long pgid) {
 }
 
 long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offset) {
-    (void)addr;
     if (!length)
         return -EINVAL;
 
@@ -465,6 +464,25 @@ extern void arch_set_tls(uint64_t base);
 
 long sys_set_tls(uint64_t base) {
     arch_set_tls(base);
+    return 0;
+}
+
+long sys_mprotect(void *addr, size_t length, int prot) {
+    uint64_t mmu_flags = 0;
+    if (prot != PROT_NONE) {
+        #ifdef __x86_64__
+        mmu_flags = PTE_USER;
+        if (prot & PROT_READ) mmu_flags |= PTE_PRESENT;
+        if (prot & PROT_WRITE) mmu_flags |= PTE_WRITABLE;
+        if (!(prot & PROT_EXEC)) mmu_flags |= PTE_NX;
+        #elif __aarch64__
+        mmu_flags = PTE_VALID | PTE_AF | (prot & PROT_WRITE ? PTE_USER_RW : PTE_USER_RO);
+        if (!(prot & PROT_EXEC)) mmu_flags |= PTE_UXN;
+        #endif
+    }
+    size_t pages = ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE;
+
+    vprotect(this_proc->vma, this_proc->pm, addr, pages, mmu_flags);
     return 0;
 }
 
@@ -982,6 +1000,7 @@ syscall_func syscalls[] = {
     [SYS_mmap]        = (syscall_func)(uintptr_t)sys_mmap,
     [SYS_munmap]      = (syscall_func)(uintptr_t)sys_munmap,
     [SYS_set_tls]     = (syscall_func)(uintptr_t)sys_set_tls,
+    [SYS_mprotect]    = (syscall_func)(uintptr_t)sys_mprotect,
 
     [SYS_sigaction]   = (syscall_func)(uintptr_t)sys_sigaction,
     [SYS_sigreturn]   = (syscall_func)(uintptr_t)sys_sigreturn,

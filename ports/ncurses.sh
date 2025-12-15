@@ -19,10 +19,9 @@ make clean
 set -e
 ./configure --host=x86_64-linux-gnu \
     --prefix=/usr \
-    --with-shared=no \
+    --with-shared \
     --with-normal \
-    --enable-static \
-    --disable-shared \
+    --without-static \
     --without-debug \
     --without-cxx-binding \
     --without-ada \

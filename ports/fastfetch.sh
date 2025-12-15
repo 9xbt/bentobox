@@ -6,7 +6,6 @@ export CXX="${TOOLCHAIN_PREFIX:-}g++"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
 export CFLAGS="-I$MLIBC_ROOT/include -g -std=gnu17"
 export CXXFLAGS="-I$MLIBC_ROOT/include -g -std=gnu++17"
-# export LDFLAGS="-L$MLIBC_ROOT/lib -nostdlib -static $MLIBC_ROOT/lib/crt0.o"
 
 mkdir -p $BASE/usr/bin
 mkdir -p ports/src
