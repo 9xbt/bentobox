@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 49f2d65..ec3288c 100644
+index 47def792..19016374 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -505,29 +505,28 @@ if(LINUX)
+@@ -506,29 +506,28 @@ if(LINUX)
      list(APPEND LIBFASTFETCH_SRC
          src/common/dbus.c
          src/common/io/io_unix.c
@@ -50,7 +50,7 @@ index 49f2d65..ec3288c 100644
          src/detection/displayserver/linux/drm.c
          src/detection/displayserver/linux/wayland/wayland.c
          src/detection/displayserver/linux/wayland/global-output.c
-@@ -541,50 +540,49 @@ if(LINUX)
+@@ -542,49 +541,48 @@ if(LINUX)
          src/detection/displayserver/linux/xcb.c
          src/detection/displayserver/linux/xlib.c
          src/detection/font/font_linux.c
@@ -112,9 +112,7 @@ index 49f2d65..ec3288c 100644
          src/detection/de/de_linux.c
          src/detection/wmtheme/wmtheme_linux.c
 -        src/detection/camera/camera_linux.c
--        src/detection/zpool/zpool_linux.c
 +        src/detection/camera/camera_nosupport.c
-+        src/detection/zpool/zpool_nosupport.c
          src/util/platform/FFPlatform_unix.c
          src/util/binary_linux.c
 +        src/detection/displayserver/linux/common.c
@@ -123,7 +121,7 @@ index 49f2d65..ec3288c 100644
      list(APPEND LIBFASTFETCH_SRC
 diff --git a/src/common/netif/netif_nosupport.c b/src/common/netif/netif_nosupport.c
 new file mode 100644
-index 0000000..1b808d3
+index 00000000..1b808d39
 --- /dev/null
 +++ b/src/common/netif/netif_nosupport.c
 @@ -0,0 +1,25 @@
@@ -155,7 +153,7 @@ index 0000000..1b808d3
 \ No newline at end of file
 diff --git a/src/common/networking/networking_nosupport.c b/src/common/networking/networking_nosupport.c
 new file mode 100644
-index 0000000..1207bdb
+index 00000000..1207bdb5
 --- /dev/null
 +++ b/src/common/networking/networking_nosupport.c
 @@ -0,0 +1,18 @@
@@ -179,7 +177,7 @@ index 0000000..1207bdb
 +}
 \ No newline at end of file
 diff --git a/src/detection/displayserver/linux/displayserver_linux.c b/src/detection/displayserver/linux/displayserver_linux.c
-index f86105c..15f9ffa 100644
+index f86105c0..15f9ffae 100644
 --- a/src/detection/displayserver/linux/displayserver_linux.c
 +++ b/src/detection/displayserver/linux/displayserver_linux.c
 @@ -45,6 +45,7 @@ static void getWMProtocolNameFromEnv(FFDisplayServerResult* result)
@@ -200,7 +198,7 @@ index f86105c..15f9ffa 100644
      if(ds->displays.length == 0)
 diff --git a/src/detection/localip/localip_nosupport.c b/src/detection/localip/localip_nosupport.c
 new file mode 100644
-index 0000000..4948730
+index 00000000..49487309
 --- /dev/null
 +++ b/src/detection/localip/localip_nosupport.c
 @@ -0,0 +1,8 @@
@@ -214,7 +212,7 @@ index 0000000..4948730
 +}
 \ No newline at end of file
 diff --git a/src/detection/terminalsize/terminalsize_linux.c b/src/detection/terminalsize/terminalsize_linux.c
-index cb6880f..cf65fe0 100644
+index cb6880f8..cf65fe02 100644
 --- a/src/detection/terminalsize/terminalsize_linux.c
 +++ b/src/detection/terminalsize/terminalsize_linux.c
 @@ -4,6 +4,7 @@
@@ -226,7 +224,7 @@ index cb6880f..cf65fe0 100644
  #ifdef __sun
      #include <sys/termios.h>
 diff --git a/src/logo/image/image.c b/src/logo/image/image.c
-index 56aa0a2..427f56e 100644
+index 5462a211..a38be348 100644
 --- a/src/logo/image/image.c
 +++ b/src/logo/image/image.c
 @@ -9,6 +9,8 @@
@@ -239,7 +237,7 @@ index 56aa0a2..427f56e 100644
      #include <sys/syslimits.h>
  #elif _WIN32
 diff --git a/src/modules/separator/separator.c b/src/modules/separator/separator.c
-index bf2a5ff..06d1231 100644
+index bf2a5ffb..06d12316 100644
 --- a/src/modules/separator/separator.c
 +++ b/src/modules/separator/separator.c
 @@ -6,6 +6,7 @@
@@ -251,7 +249,7 @@ index bf2a5ff..06d1231 100644
  #include <locale.h>
  
 diff --git a/src/util/platform/FFPlatform_unix.c b/src/util/platform/FFPlatform_unix.c
-index 85e624a..1026d2e 100644
+index 5badc958..24d0e1c7 100644
 --- a/src/util/platform/FFPlatform_unix.c
 +++ b/src/util/platform/FFPlatform_unix.c
 @@ -45,7 +45,7 @@ static void getExePath(FFPlatform* platform)

@@ -165,6 +165,7 @@ $(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -t
 # 	@sudo mount -o loop $@ /mnt/bentobox
 # 	@sudo rsync -a --info=progress2 bin/$(ARCH)/base /mnt/bentobox/
 # 	@sudo umount /mnt/bentobox
+	@rm -f $@
 	@genext2fs -d bin/$(ARCH)/base -b 4194304 -L bentobox -N 20000 $@ 2>&1 >/dev/null | grep -v copying | cat
 
 .PHONY: clean

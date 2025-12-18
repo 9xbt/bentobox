@@ -14,6 +14,7 @@
 #include <sys/un.h>
 #include <sys/poll.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include <bentobox/compositor.h>
 #include <bentobox/list.h>

@@ -9,9 +9,9 @@ export CXXFLAGS="-I$MLIBC_ROOT/include -g -std=gnu++17"
 
 mkdir -p $BASE/usr/bin
 mkdir -p ports/src
-git clone https://github.com/fastfetch-cli/fastfetch ports/src/fastfetch -b master --depth=1
+git clone https://github.com/fastfetch-cli/fastfetch ports/src/fastfetch -b master #--depth=1
 cd ports/src/fastfetch
-git apply ../../fastfetch.diff
+git apply --3way ../../fastfetch.diff
 rm -rf build
 mkdir -p build
 cd build

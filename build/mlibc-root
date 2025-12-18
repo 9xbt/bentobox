@@ -1,5 +1,5 @@
 #!/bin/bash
-ARCH="${1:-${ARCH:-x86_64}}"
+export ARCH="${1:-${ARCH:-x86_64}}"
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ "$ARCH" == "x86_64" ]] && export TARGET=x86_64-pc-bentobox
 [[ "$ARCH" == "aarch64" ]] && export TARGET=aarch64-linux-gnu
