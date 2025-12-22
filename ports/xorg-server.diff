@@ -1,0 +1,31 @@
+diff --git a/hw/xfree86/common/xf86Xinput.c b/hw/xfree86/common/xf86Xinput.c
+index 2d310cc..9c51635 100644
+--- a/hw/xfree86/common/xf86Xinput.c
++++ b/hw/xfree86/common/xf86Xinput.c
+@@ -108,6 +108,13 @@
+ 
+ #include "xkbsrv.h"
+ 
++#ifndef major
++#define major(dev) (((dev) >> 8) & 0xff)
++#endif
++#ifndef minor
++#define minor(dev) ((dev) & 0xff)
++#endif
++
+ /* Valuator verification macro */
+ #define XI_VERIFY_VALUATORS(num_valuators)					\
+ 	if (num_valuators > MAX_VALUATORS) {					\
+diff --git a/hw/xfree86/os-support/shared/posix_tty.c b/hw/xfree86/os-support/shared/posix_tty.c
+index b5a9c87..13c3746 100644
+--- a/hw/xfree86/os-support/shared/posix_tty.c
++++ b/hw/xfree86/os-support/shared/posix_tty.c
+@@ -65,6 +65,8 @@
+ #include "xf86Priv.h"
+ #include "xf86_OSlib.h"
+ 
++#include <termios.h>
++
+ static int
+ GetBaud(int baudrate)
+ {

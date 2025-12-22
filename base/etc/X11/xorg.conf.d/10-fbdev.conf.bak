@@ -1,0 +1,28 @@
+Section "ServerFlags"
+    Option "AutoAddDevices" "false"
+    Option "AutoEnableDevices" "false"
+    Option "DontVTSwitch" "true"
+EndSection
+
+Section "Device"
+    Identifier "FBDEV"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb0"
+    Option "ShadowFB" "false"
+EndSection
+
+Section "Monitor"
+    Identifier "Monitor0"
+EndSection
+
+Section "Screen"
+    Identifier "Screen0"
+    Device "FBDEV"
+    Monitor "Monitor0"
+    DefaultDepth 24
+EndSection
+
+Section "ServerLayout"
+    Identifier "Layout0"
+    Screen "Screen0"
+EndSection

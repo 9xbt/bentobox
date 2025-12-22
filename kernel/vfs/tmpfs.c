@@ -6,6 +6,7 @@
 
 typedef struct tmpfs {
     void *data;
+    int refcount;
 } tmpfs_t;
 
 vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
@@ -14,6 +15,7 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long tmpfs_remove(vfs_node_t *node);
 long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
 long tmpfs_chmod(vfs_node_t *node, unsigned int mode);
+long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
 
 vfs_ops_t tmpfs_ops = {
     .read   = tmpfs_read,
@@ -21,7 +23,8 @@ vfs_ops_t tmpfs_ops = {
     .create = tmpfs_create,
     .remove = tmpfs_remove,
     .rename = tmpfs_rename,
-    .chmod  = tmpfs_chmod
+    .chmod  = tmpfs_chmod,
+    .link   = tmpfs_link
 };
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -64,6 +67,7 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
     } else if (type == VFS_FILE) {
         tmpfs_t *file = kmalloc(sizeof(tmpfs_t));
         file->data = NULL;
+        file->refcount = 1;
         node->size = 0;
         node->ops = &tmpfs_ops;
         node->device = file;
@@ -75,9 +79,11 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
 long tmpfs_remove(vfs_node_t *node) {
     if (node->device) {
         tmpfs_t *file = node->device;
-        if (file->data)
-            kfree(file->data);
-        kfree(file);
+        if (--file->refcount <= 0) {
+            if (file->data)
+                kfree(file->data);
+            kfree(file);
+        }
     }
     return 0;
 }
@@ -92,6 +98,13 @@ long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
     (void)node;
     (void)name;
     (void)parent;
+    return 0;
+}
+
+long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
+    tmpfs_t *file = old_node->device;
+    new_node->device = file;
+    file->refcount++;
     return 0;
 }
 

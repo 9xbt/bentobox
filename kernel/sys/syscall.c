@@ -953,6 +953,40 @@ long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned in
     return vfs_chmod(node, mode);
 }
 
+long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char *newpathname, int flags) {
+    vfs_node_t *olddir = this_proc->cwd;
+    if (olddirfd != AT_FDCWD) {
+        struct file *file = file_get(olddirfd);
+        if (!file)
+            return -EBADF;
+        olddir = file->node;
+    }
+
+    vfs_node_t *newdir = this_proc->cwd;
+    if (newdirfd != AT_FDCWD) {
+        struct file *file = file_get(newdirfd);
+        if (!file)
+            return -EBADF;
+        newdir = file->node;
+    }
+
+    COPY_USER_STRING(oldpath, oldpathname, MAX_PATH);
+    vfs_node_t *old_node = vfs_lookup(olddir, oldpath, flags & AT_SYMLINK_FOLLOW, VFS_NONE);
+    kfree(oldpath);
+    if (!old_node)
+        return -ENOENT;
+    if (old_node->type == VFS_SYMLINK)
+        return -EINVAL;
+
+    COPY_USER_STRING(newpath, newpathname, MAX_PATH);
+    vfs_node_t *new_node = vfs_lookup( newdir, newpath, flags & AT_SYMLINK_FOLLOW, old_node->type);
+    kfree(newpath);
+    if (!new_node)
+        return -ENOENT;
+
+    return vfs_link(old_node, new_node);
+}
+
 long sys_clone(void *entry, void *stack) {
     struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, NULL, 0, stack);
     list_insert(sched_find_cpu()->threads, tcb);
@@ -1038,6 +1072,7 @@ syscall_func syscalls[] = {
     [SYS_umask]       = (syscall_func)(uintptr_t)sys_umask,
     [SYS_fchmod]      = (syscall_func)(uintptr_t)sys_fchmod,
     [SYS_chmodat]     = (syscall_func)(uintptr_t)sys_chmodat,
+    [SYS_linkat]      = (syscall_func)(uintptr_t)sys_linkat,
 
     [SYS_clone]       = (syscall_func)(uintptr_t)sys_clone,
     [SYS_exit_thread] = (syscall_func)(uintptr_t)sys_exit_thread,

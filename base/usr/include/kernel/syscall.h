@@ -67,10 +67,11 @@
 #define SYS_umask       56
 #define SYS_fchmod      57
 #define SYS_chmodat     58
+#define SYS_linkat      59
 
-#define SYS_clone       59
-#define SYS_exit_thread 60
-#define SYS_futex_wait  61
-#define SYS_futex_wake  62
+#define SYS_clone       60
+#define SYS_exit_thread 61
+#define SYS_futex_wait  62
+#define SYS_futex_wake  63
 
 long syscall_handler(size_t *args);

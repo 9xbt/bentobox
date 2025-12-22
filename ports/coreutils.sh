@@ -27,6 +27,8 @@ set -e
     gl_cv_func_mknod_works=yes \
     gl_cv_func_working_mkstemp=yes \
     ac_cv_func_malloc_0_nonnull=yes \
-    ac_cv_func_realloc_0_nonnull=yes
+    ac_cv_func_realloc_0_nonnull=yes \
+    ac_cv_func_fallocate=no \
+    ac_cv_func_posix_fallocate=no
 make -j"$(nproc)"
 make DESTDIR=$BASE install

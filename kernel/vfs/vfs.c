@@ -394,6 +394,13 @@ long vfs_chmod(vfs_node_t *node, unsigned int mode) {
     return 0;
 }
 
+long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
+    if (!old_node || old_node->type == VFS_SYMLINK || !new_node)
+        return -EINVAL;
+
+    return old_node->ops->link(old_node, new_node);
+}
+
 void vfs_print_tree(vfs_node_t *node) {
     if (!node)
         node = vfs_get_root();

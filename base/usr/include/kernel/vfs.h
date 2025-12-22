@@ -43,6 +43,8 @@
 
 #define AT_FDCWD            -100
 #define AT_SYMLINK_NOFOLLOW 0x100
+#define AT_SYMLINK_FOLLOW   0x400
+#define AT_EMPTY_PATH       0x1000
 
 #define POLLIN      0x001
 #define POLLOUT     0x004
@@ -131,6 +133,7 @@ typedef struct vfs_ops {
     long(*mmap)(struct vfs_node *node, void *addr, size_t pages, uint64_t prot, int flags, long offset);
     long(*poll)(struct vfs_node *node, long events);
     long(*chmod)(struct vfs_node *node, unsigned int mode);
+    long(*link)(struct vfs_node *old_node, struct vfs_node *new_node);
 } vfs_ops_t;
 
 typedef struct vfs_tty_ops {
@@ -200,6 +203,7 @@ void vfs_unregister(vfs_mount_ops_t *ops);
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags);
 long vfs_unmount(vfs_node_t *node, long flags);
 long vfs_chmod(vfs_node_t *node, unsigned int mode);
+long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
 
