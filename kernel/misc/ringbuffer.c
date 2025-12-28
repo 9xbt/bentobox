@@ -10,14 +10,10 @@ struct ringbuffer *ringbuffer_create(size_t size) {
     rb->write_ptr = 0;
     rb->read_ptr = 0;
     rb->size = size;
-    rb->waiting_readers = list_create();
-    rb->waiting_writers = list_create();
     return rb;
 };
 
 void ringbuffer_destroy(struct ringbuffer *rb) {
-    list_free(rb->waiting_readers);
-    list_free(rb->waiting_writers);
     kfree(rb->buffer);
     kfree(rb);
 }
@@ -31,37 +27,21 @@ bool ringbuffer_full(struct ringbuffer *rb) {
 }
 
 size_t ringbuffer_read(struct ringbuffer *rb, unsigned char *buffer, size_t size) {
-    unsigned char *buf = (unsigned char *)buffer;
     size_t i = 0;
-    
     while (i < size && rb->read_ptr != rb->write_ptr) {
-        buf[i] = rb->buffer[rb->read_ptr];
+        buffer[i] = rb->buffer[rb->read_ptr];
         rb->read_ptr = (rb->read_ptr + 1) % rb->size;
         i++;
-    }
-
-    foreach_safe(j, rb->waiting_writers) {
-        struct thread *tcb = j->value;
-        tcb->state = THREAD_RUNNING;
-        list_remove(rb->waiting_writers, j);
     }
     return i;
 }
 
 size_t ringbuffer_write(struct ringbuffer *rb, unsigned const char *buffer, size_t size) {
-    unsigned char *buf = (unsigned char *)buffer;
     size_t i = 0;
-    
     while (i < size && (rb->write_ptr + 1) % rb->size != rb->read_ptr) {
-        rb->buffer[rb->write_ptr] = buf[i];
+        rb->buffer[rb->write_ptr] = buffer[i];
         rb->write_ptr = (rb->write_ptr + 1) % rb->size;
         i++;
-    }
-
-    foreach_safe(j, rb->waiting_readers) {
-        struct thread *tcb = j->value;
-        tcb->state = THREAD_RUNNING;
-        list_remove(rb->waiting_readers, j);
     }
     return i;
 }

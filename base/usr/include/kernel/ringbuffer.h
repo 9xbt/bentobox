@@ -8,8 +8,6 @@ struct ringbuffer {
     size_t write_ptr;
     size_t read_ptr;
     size_t size;
-    list_t *waiting_readers;
-    list_t *waiting_writers;
 };
 
 struct ringbuffer *ringbuffer_create(size_t size);

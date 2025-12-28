@@ -32,11 +32,18 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll)
         return -EFAULT;
     }
 
-    if (!(file->flags & O_NONBLOCK) && poll)
+    if (!(file->flags & O_NONBLOCK) && poll) {
+    retry:
         while (!(vfs_poll(file->node, write ? POLLOUT : POLLIN, -1) & (write ? POLLOUT : POLLIN)));
+    }
+
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
+
+    if (ret == -EAGAIN && !(file->flags & O_NONBLOCK) && poll)
+        goto retry;
+    
     if (ret < 0) {
         kfree(buffer);
         return ret;

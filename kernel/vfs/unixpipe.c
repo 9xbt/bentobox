@@ -11,38 +11,43 @@
 
 long unixpipe_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)offset;
+
     struct unix_pipe *pipe = node->device;
-    if (pipe->write_refs <= 0 && ringbuffer_empty(pipe->buffer)) {
+    if (pipe->write_refs <= 0 && ringbuffer_empty(pipe->buffer))
         return 0;
-    }
-    if (pipe->write_refs > 0 && ringbuffer_empty(pipe->buffer)) {
-        struct file *file = file_get_from_node(node);
-        if (file->flags & O_NONBLOCK)
-            return -EAGAIN;
-        list_insert(pipe->buffer->waiting_readers, this);
-        this->state = THREAD_PAUSED;
-        sched_yield();
-    }
-    return ringbuffer_read(pipe->buffer, buffer, len);
+    if (pipe->write_refs > 0 && ringbuffer_empty(pipe->buffer))
+        return -EAGAIN;
+
+    long n = ringbuffer_read(pipe->buffer, buffer, len);
+    vfs_wake_waiters(pipe->write_end);
+    return n;
 }
 
 long unixpipe_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     (void)offset;
+    
     struct unix_pipe *pipe = node->device;
     if (pipe->read_refs <= 0) {
         signal_send(this_proc, SIGPIPE);
         sched_yield();
         return -EPIPE;
     }
-    if (pipe->read_refs > 0 && ringbuffer_full(pipe->buffer)) {
-        struct file *file = file_get_from_node(node);
-        if (file->flags & O_NONBLOCK)
-            return -EAGAIN;
-        list_insert(pipe->buffer->waiting_writers, this);
-        this->state = THREAD_PAUSED;
-        sched_yield();
-    }
-    return ringbuffer_write(pipe->buffer, buffer, len);
+    if (pipe->read_refs > 0 && ringbuffer_full(pipe->buffer))
+        return -EAGAIN;
+
+    long n = ringbuffer_write(pipe->buffer, buffer, len);
+    vfs_wake_waiters(pipe->read_end);
+    return n;
+}
+
+long unixpipe_poll(vfs_node_t *node, long events) {
+    struct unix_pipe *pipe = node->device;
+    long ready = 0;
+    if (events & POLLIN && (pipe->write_refs <= 0 || !ringbuffer_empty(pipe->buffer)))
+        ready |= POLLIN;
+    if (events & POLLOUT && !ringbuffer_full(pipe->buffer))
+        ready |= POLLOUT;
+    return ready;
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
@@ -52,41 +57,34 @@ void unixpipe_destroy(struct unix_pipe *pipe) {
 
 long unixpipe_close_read(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
-    if (pipe->read_refs > 0) {
+    if (pipe->read_refs > 0)
         pipe->read_refs--;
-    }
-    if (pipe->read_refs <= 0 && pipe->write_refs <= 0) {
+    if (pipe->read_refs <= 0 && pipe->write_refs <= 0)
         unixpipe_destroy(pipe);
-    }
     return 0;
 }
 
 long unixpipe_close_write(vfs_node_t *node) {
     struct unix_pipe *pipe = node->device;
-    if (pipe->write_refs > 0) {
+    if (pipe->write_refs > 0)
         pipe->write_refs--;
-    }
-    if (pipe->write_refs <= 0) {
-        foreach_safe(i, pipe->buffer->waiting_readers) {
-            struct thread *tcb = i->value;
-            tcb->state = THREAD_RUNNING;
-            list_remove(pipe->buffer->waiting_readers, i);
-        }
-    }
-    if (pipe->read_refs <= 0 && pipe->write_refs <= 0) {
+    if (pipe->write_refs <= 0)
+        vfs_wake_waiters(pipe->read_end);
+    if (pipe->read_refs <= 0 && pipe->write_refs <= 0)
         unixpipe_destroy(pipe);
-    }
     return 0;
 }
 
 vfs_ops_t unixpipe_read_ops = {
     .read = unixpipe_read,
-    .close = unixpipe_close_read
+    .close = unixpipe_close_read,
+    .poll = unixpipe_poll
 };
 
 vfs_ops_t unixpipe_write_ops = {
     .write = unixpipe_write,
-    .close = unixpipe_close_write
+    .close = unixpipe_close_write,
+    .poll = unixpipe_poll
 };
 
 int unixpipe_new(int fds[2], int flags) {
