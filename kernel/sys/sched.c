@@ -179,7 +179,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
 
     arch_context_init(tcb, entry, parent->user, stack);
 
-    if (parent->user) {
+    if (parent->user && !stack) {
         static char *empty_argv_envp[] = { NULL };
         sched_setup_stack(tcb, argc, argv ? argv : empty_argv_envp, envp ? envp : empty_argv_envp, auxv, auxc);
     }

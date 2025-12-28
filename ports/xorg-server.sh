@@ -4,8 +4,8 @@
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export CXX="${TOOLCHAIN_PREFIX:-}g++"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
-export CFLAGS="-g -O0"
-export CXXFLAGS="-g -O0"
+export CFLAGS="-g -O2"
+export CXXFLAGS="-g -O2"
 
 export CC_FOR_BUILD="gcc"
 export CXX_FOR_BUILD="g++"
@@ -30,6 +30,8 @@ meson setup build \
     --cross-file ../../../build/crossfile-$ARCH.txt \
     --prefix=/usr \
     --default-library=shared \
+    -Dxkb_bin_dir=/usr/bin \
+    -Dxkb_dir=/usr/share/X11/xkb \
     -Ddefault_font_path=/usr/share/fonts/X11 \
     -Dxorg=true \
     -Dxv=true \

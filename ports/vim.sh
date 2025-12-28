@@ -38,6 +38,7 @@ set -e
     --without-wayland \
     --with-tlib=ncurses \
     ac_cv_small_wchar_t=no \
+    ac_cv_func_strptime=no \
     vim_cv_toupper_broken=no \
     vim_cv_terminfo=yes \
     vim_cv_tgetent=non-zero \

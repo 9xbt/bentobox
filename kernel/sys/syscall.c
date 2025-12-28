@@ -110,7 +110,7 @@ long sys_openat(int dirfd, const char *pathname, int flags, unsigned int mode) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    long fd = file_open(dir, path, flags, mode);
+    int fd = file_open(dir, path, flags, mode);
     kfree(path);
     return fd;
 }
@@ -628,12 +628,13 @@ struct pollfd {
 long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, const sigset_t *sigmask, size_t sigmask_size) {
     (void)sigmask;
     (void)sigmask_size;
+    // TODO: apply the sigmask
 
     struct timespec to;
     if (timeout && copy_from_user(&to, timeout, sizeof to) < 0)
         return -EFAULT;
 
-    int ready = 0;
+    long ready = 0;
     for (int fd = 0; fd < nfds; fd++) {
         struct pollfd *pfd = &fds[fd];
         pfd->revents = 0;
@@ -644,9 +645,52 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
             continue;
         }
 
-        if ((pfd->revents = vfs_poll(file->node, pfd->events, timeout ? to.tv_sec * 1000000000 + to.tv_nsec : -1)))
+        if ((pfd->revents = vfs_poll(file->node, pfd->events, 0)))
             ready++;
     }
+    if (ready || (timeout && !to.tv_sec && !to.tv_nsec))
+        return ready;
+
+    vfs_node_t **nodes = kmalloc(nfds * sizeof(vfs_node_t *));
+    short *events = kmalloc(nfds * sizeof(short));
+    short *revents = kmalloc(nfds * sizeof(short));
+    for (int fd = 0; fd < nfds; fd++) {
+        struct pollfd *pfd = &fds[fd];
+        pfd->revents = 0;
+
+        struct file *file = file_get(pfd->fd);
+        if (!file) {
+            pfd->revents = POLLNVAL;
+            continue;
+        }
+
+        nodes[fd] = file->node;
+        events[fd] = pfd->events;
+    }
+
+    ready = vfs_poll_multiplexed(nodes, events, revents, nfds, timeout ? to.tv_sec * 1000000000 + to.tv_nsec : -1);
+    if (ready < 0) {
+        kfree(nodes);
+        kfree(events);
+        kfree(revents);
+        return ready;
+    }
+
+    for (int fd = 0; fd < nfds; fd++) {
+        struct pollfd *pfd = &fds[fd];
+    
+        struct file *file = file_get(pfd->fd);
+        if (!file) {
+            pfd->revents = POLLNVAL;
+            continue;
+        }
+
+        pfd->revents = revents[fd];
+    }
+
+    kfree(nodes);
+    kfree(events);
+    kfree(revents);
     return ready;
 }
 
@@ -1006,6 +1050,10 @@ long sys_futex_wake(int *pointer) {
     return futex_wake(pointer);
 }
 
+long sys_getsockopt(int fd, int level, int optname, char *optval, uint32_t *optlen) {
+    return socket_getsockopt(fd, level, optname, optval, optlen);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1077,7 +1125,8 @@ syscall_func syscalls[] = {
     [SYS_clone]       = (syscall_func)(uintptr_t)sys_clone,
     [SYS_exit_thread] = (syscall_func)(uintptr_t)sys_exit_thread,
     [SYS_futex_wait]  = (syscall_func)(uintptr_t)sys_futex_wait,
-    [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake
+    [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake,
+    [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt
 };
 
 long syscall_handler(size_t *args) {

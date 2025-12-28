@@ -1,4 +1,3 @@
-#include "kernel/mmu.h"
 #include <kernel/malloc.h>
 #include <kernel/futex.h>
 #include <kernel/errno.h>
@@ -36,7 +35,7 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
     if (time) {
         sched_sleep(time->tv_sec * 1000000000ULL + time->tv_nsec);
     } else {
-        this->state = THREAD_SLEEPING;
+        this->state = THREAD_PAUSED;
         sched_yield();
     }
 
@@ -46,7 +45,6 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
         struct futex_waiter *w = node->value;
         if (w == waiter) {
             list_remove(futex_waiters, node);
-            kfree(node);
             kfree(waiter);
             break;
         }
@@ -64,7 +62,6 @@ long futex_wake(int *pointer) {
         if (waiter->address == pointer) {
             waiter->thread->state = THREAD_RUNNING;
             list_remove(futex_waiters, node);
-            kfree(node);
             kfree(waiter);
         }
     }

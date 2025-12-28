@@ -161,7 +161,7 @@ int socket_bind(int fd, const void *addr, uint32_t addrlen) {
     struct socket *sock = file->node->device;
     switch (sock->domain) {
         case PF_LOCAL: {
-            struct sockaddr_un sa;
+            struct sockaddr_un sa = {0};
             if (copy_from_user(&sa, addr, addrlen) < 0)
                 return -EFAULT;
 
@@ -278,4 +278,40 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     if (sock->type & SOCK_NONBLOCK)
         flags |= O_NONBLOCK;
     return file_create(node, flags);
+}
+
+int socket_getsockopt(int fd, int level, int optname, void *optval, uint32_t *optlen) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (!file->node->device)
+        return -EINVAL;
+
+    // struct socket *sock = file->node->device;
+
+    uint32_t len;
+    if (copy_from_user(&len, optlen, sizeof(uint32_t)) < 0)
+        return -EFAULT;
+
+    if (level == SOL_SOCKET) {
+        switch (optname) {
+            case SO_SNDBUF:
+            case SO_RCVBUF: {
+                int bufsize = 65536;
+                if (len < sizeof(int))
+                    return -EINVAL;
+                if (copy_to_user(optval, &bufsize, sizeof(int)) < 0)
+                    return -EFAULT;
+                len = sizeof(int);
+                if (copy_to_user(optlen, &len, sizeof(uint32_t)) < 0)
+                    return -EFAULT;
+                return 0;
+            }
+            default:
+                dprintf(LOG_DEBUG, "\033[93mvfs:\033[0m unsupported optname %d\n", optname);
+                return -ENOPROTOOPT;
+        }
+    }
+
+    return -ENOSYS;
 }

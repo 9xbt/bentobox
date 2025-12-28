@@ -53,6 +53,25 @@
 #define PF_XDP		    44
 #define PF_MCTP		    45
 
+#define SO_DEBUG        1
+#define SO_REUSEADDR    2
+#define SO_TYPE         3
+#define SO_ERROR        4
+#define SO_DONTROUTE    5
+#define SO_BROADCAST    6
+#define SO_SNDBUF       7
+#define SO_RCVBUF       8
+#define SO_KEEPALIVE    9
+#define SO_OOBINLINE    10
+#define SO_LINGER       13
+#define SO_RCVLOWAT     18
+#define SO_SNDLOWAT     19
+#define SO_ACCEPTCONN   30
+#define SO_PROTOCOL     38
+#define SO_DOMAIN       39
+
+#define SOL_SOCKET      1
+
 #define SOCK_STREAM     1
 #define SOCK_DGRAM      2
 #define SOCK_RAW        3
@@ -113,3 +132,4 @@ int socket_bind(int fd, const void *addr, uint32_t addrlen);
 int socket_listen(int fd, int backlog);
 int socket_connect(int fd, const void *addr, uint32_t addrlen);
 int socket_accept(int fd, const void *addr, uint32_t *addrlen);
+int socket_getsockopt(int fd, int level, int optname, void *optval, uint32_t *optlen);

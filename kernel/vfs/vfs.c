@@ -296,8 +296,65 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
         release(&node->waiters_lock);
         sched_sleep(timeout);
     }
+    acquire(&node->waiters_lock);
     list_remove_value(node->waiters, this);
+    release(&node->waiters_lock);
     return node->ops->poll(node, events);
+}
+
+long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, long nfds, long timeout) {
+    if (!nfds)
+        return -EINVAL;
+    if (!nodes || !events || !revents)
+        return -EFAULT;
+
+    for (int fd = 0; fd < nfds; fd++) {
+        vfs_node_t *node = nodes[fd];
+        
+        acquire(&node->waiters_lock);
+        list_insert(node->waiters, this);
+        release(&node->waiters_lock);
+    }
+
+    size_t start;
+    uptime(NULL, &start);
+
+    int ready = 0;
+    for (;;) {
+        if (timeout == -1) {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+        } else if (timeout > 0) {
+            long ns = timeout - start;
+            sched_sleep(ns);
+        }
+
+        for (int fd = 0; fd < nfds; fd++) {
+            vfs_node_t *node = nodes[fd];
+            
+            if ((revents[fd] = node->ops->poll(node, events[fd]))) {
+                ready++;
+                acquire(&node->waiters_lock);
+                list_remove_value(node->waiters, this);
+                release(&node->waiters_lock);
+            }
+        }
+
+        if (ready)
+            break;
+    }
+
+    for (int fd = 0; fd < nfds; fd++) {
+        vfs_node_t *node = nodes[fd];
+        
+        acquire(&node->waiters_lock);
+        list_remove_value(node->waiters, this);
+        release(&node->waiters_lock);
+
+        revents[fd] = node->ops->poll(node, events[fd]);
+    }
+
+    return ready;
 }
 
 void vfs_wake_waiters(vfs_node_t *node) {

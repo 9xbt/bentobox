@@ -213,6 +213,10 @@ uint16_t *mmu_get_refcount(void *ptr) {
     if (!mmu_refcounts)
         return NULL;
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
+    if (page >= mmu_page_count)
+        return NULL;
+    if (mmu_refcounts[page] == 0)
+        return NULL;
     return &mmu_refcounts[page];
 }
 

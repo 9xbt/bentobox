@@ -72,6 +72,8 @@ void list_remove(list_t *list, node_t *node) {
     node->next = NULL;
     node->prev = NULL;
     release(&list->lock);
+
+    kfree(node);
 }
 
 node_t *list_find(list_t *list, void *value) {
@@ -89,7 +91,6 @@ void list_remove_value(list_t *list, void *value) {
     node_t *node = list_find(list, value);
     if (node) {
         list_remove(list, node);
-        kfree(node);
     }
 }
 
@@ -99,7 +100,6 @@ void *list_pop(list_t *list) {
     node_t *node = list->head;
     void *value = node->value;
     list_remove(list, node);
-    kfree(node);
     return value;
 }
 

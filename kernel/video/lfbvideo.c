@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
+#include <kernel/version.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -76,6 +77,16 @@ void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
     vinfo->green.length = framebuffer->green_mask_size;
     vinfo->blue.offset = framebuffer->blue_mask_shift;
     vinfo->blue.length = framebuffer->blue_mask_size;
+}
+
+void framebuffer_get_finfo(struct fb_fix_screeninfo *finfo) {
+    strcpy(finfo->id, __kernel_name);
+    finfo->smem_start = (unsigned long)framebuffer->address;
+    finfo->smem_len = framebuffer->width * framebuffer->height * (framebuffer->bpp / 8);
+    finfo->type = FB_TYPE_PACKED_PIXELS;
+    finfo->visual = FB_VISUAL_TRUECOLOR;
+    finfo->line_length = framebuffer->width * (framebuffer->bpp / 8);
+    finfo->accel = FB_ACCEL_NONE;
 }
 
 void framebuffer_get_font_size(size_t *width, size_t *height) {

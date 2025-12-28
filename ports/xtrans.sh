@@ -24,6 +24,7 @@ make distclean 2>/dev/null || true
 make clean 2>/dev/null || true
 
 set -e
+autoreconf -fvi
 cp ../../config.sub .
 ./configure --host=$ARCH-pc-bentobox --prefix=/usr
 

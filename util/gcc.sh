@@ -16,7 +16,3 @@ make all-target-libgcc -j$(nproc)
 make install-gcc
 make install-target-libgcc
 # make install-target-libstdc++-v3
-
-set +e
-ln -s $BASE/lib/crt1.o $BASE/lib/Scrt1.o
-cp -r $CWD/build/$TARGET/lib/* $BASE/usr/lib/

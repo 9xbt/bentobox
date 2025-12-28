@@ -73,5 +73,7 @@
 #define SYS_exit_thread 61
 #define SYS_futex_wait  62
 #define SYS_futex_wake  63
+#define SYS_getsockopt  64
+#define SYS_setsockopt  65
 
 long syscall_handler(size_t *args);

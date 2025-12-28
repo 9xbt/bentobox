@@ -4,7 +4,7 @@
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export CXX="${TOOLCHAIN_PREFIX:-}g++"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
-# export LDFLAGS="-Wl,--allow-shlib-undefined -Wl,-rpath,/usr/lib/xorg/modules -L$BASE/usr/lib/xorg/modules -lfbdevhw -lshadow"
+export LDFLAGS="-Wl,--allow-shlib-undefined -Wl,-rpath,/usr/lib/xorg/modules -L$BASE/usr/lib/xorg/modules -lfbdevhw -lshadow"
 export CFLAGS="-g -O2"
 export CXXFLAGS="-g -O2"
 
@@ -19,7 +19,7 @@ export ACLOCAL_PATH="$BASE/usr/share/aclocal"
 
 mkdir -p base/usr
 mkdir -p ports/src
-git clone https://gitlab.freedesktop.org/xorg/driver/xf86-video-fbdev.git ports/src/xf86-video-fbdev #--depth=1
+git clone https://gitlab.freedesktop.org/xorg/driver/xf86-video-fbdev.git ports/src/xf86-video-fbdev
 cd ports/src/xf86-video-fbdev
 git apply ../../xf86-video-fbdev.diff
 

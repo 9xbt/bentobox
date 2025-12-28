@@ -82,7 +82,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     ctx->regs.x16 = ctx->stack;
     if (user) {
         ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
-        ctx->user_stack = stack ? (uint64_t)stack : ctx->user_stack_bottom + (256 * PAGE_SIZE);
+        ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (256 * PAGE_SIZE);
     }
 }
 

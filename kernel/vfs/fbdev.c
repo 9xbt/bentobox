@@ -13,7 +13,7 @@
 long fbdev_mmap(vfs_node_t *node, void *addr, size_t pages, uint64_t prot, int flags, long offset) {
     (void)node;
     (void)offset;
-    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m offset is ignored\n", __func__);
+    // dprintf(LOG_DEBUG, "\033[93m%s:\033[0m offset is ignored\n", __func__);
 
     return (long)vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, (uintptr_t)PHYSICAL_HHDM(framebuffer->address), pages, prot);
 }
@@ -28,10 +28,20 @@ long fbdev_ioctl(vfs_node_t *node, int op, void *arg) {
     (void)node;
     switch (op) {
         case FBIOGET_VSCREENINFO: {
-            struct fb_var_screeninfo vinfo;
+            struct fb_var_screeninfo vinfo = {0};
             framebuffer_get_vinfo(&vinfo);
             return copy_to_user(arg, &vinfo, sizeof(struct fb_var_screeninfo));
         }
+        case FBIOGET_FSCREENINFO: {
+            struct fb_fix_screeninfo finfo = {0};
+            framebuffer_get_finfo(&finfo);
+            return copy_to_user(arg, &finfo, sizeof(struct fb_var_screeninfo));
+        }
+        case FBIOPUT_VSCREENINFO:
+        case FBIOPAN_DISPLAY:
+        case FBIOPUTCMAP:
+        case FBIOBLANK:
+            return 0;
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
@@ -41,7 +51,7 @@ long fbdev_ioctl(vfs_node_t *node, int op, void *arg) {
 
 long fbdev_close(vfs_node_t *node) {
     (void)node;
-    ft_ctx->full_refresh(ft_ctx);
+    // ft_ctx->full_refresh(ft_ctx);
     return 0;
 }
 

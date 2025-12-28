@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <kernel/time.h>
 
+#define EV_SYN     0x00
 #define EV_KEY     0x01
 #define EV_REL     0x02
 #define EV_ABS     0x03
@@ -10,6 +11,8 @@
 #define BTN_LEFT   0x110
 #define BTN_RIGHT  0x111
 #define BTN_MIDDLE 0x112
+
+#define SYN_REPORT		0
 
 #define KEY_A      0x1e
 #define KEY_B      0x30

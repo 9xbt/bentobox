@@ -259,12 +259,17 @@ void irq12_handler(struct registers *r) {
                 fifo_enqueue(dev->fifo, iev); \
             }
 
+        #define EMIT_SYN() \
+            struct input_event iev = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 }; \
+            fifo_enqueue(dev->fifo, iev);
+
         if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
             EMIT_REL(delta_x, REL_X);
             EMIT_REL(delta_y, REL_Y);
             EMIT_KEY(left, BTN_LEFT);
             EMIT_KEY(right, BTN_RIGHT);
             EMIT_KEY(middle, BTN_MIDDLE);
+            EMIT_SYN();
         }
 
         x += state.delta_x;

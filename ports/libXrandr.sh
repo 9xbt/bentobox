@@ -18,8 +18,8 @@ export ACLOCAL_PATH="$BASE/usr/share/aclocal"
 
 mkdir -p base/usr
 mkdir -p ports/src
-git clone https://gitlab.freedesktop.org/xorg/lib/libfontenc.git ports/src/libfontenc --depth=1
-cd ports/src/libfontenc
+git clone https://gitlab.freedesktop.org/xorg/lib/libxrandr.git ports/src/libXrandr --depth=1
+cd ports/src/libXrandr
 
 make distclean 2>/dev/null || true
 make clean 2>/dev/null || true
@@ -29,9 +29,7 @@ autoreconf -fvi
 cp ../../config.sub .
 ./configure --host=$ARCH-pc-bentobox \
     --prefix=/usr \
-    --disable-static \
-    --enable-shared \
-    --with-fontrootdir=/usr/share/fonts
+    --disable-static
 
 make -j"$(nproc)"
 make DESTDIR=$BASE install

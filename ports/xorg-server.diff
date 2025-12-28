@@ -1,3 +1,23 @@
+diff --git a/hw/xfree86/common/xf86Bus.c b/hw/xfree86/common/xf86Bus.c
+index af1a8d7..da061b2 100644
+--- a/hw/xfree86/common/xf86Bus.c
++++ b/hw/xfree86/common/xf86Bus.c
+@@ -558,6 +558,7 @@ xf86GetDevFromEntity(int entityIndex, int instance)
+ void
+ xf86PostProbe(void)
+ {
++/*
+     if (fbSlotClaimed && (
+ #if (defined(__sparc__) || defined(__sparc)) && !defined(__OpenBSD__)
+                              sbusSlotClaimed ||
+@@ -573,6 +574,7 @@ xf86PostProbe(void)
+         ))
+         FatalError("Cannot run in framebuffer mode. Please specify busIDs "
+                    "       for all framebuffer devices\n");
++*/
+ }
+ 
+ Bool
 diff --git a/hw/xfree86/common/xf86Xinput.c b/hw/xfree86/common/xf86Xinput.c
 index 2d310cc..9c51635 100644
 --- a/hw/xfree86/common/xf86Xinput.c
@@ -16,6 +36,122 @@ index 2d310cc..9c51635 100644
  /* Valuator verification macro */
  #define XI_VERIFY_VALUATORS(num_valuators)					\
  	if (num_valuators > MAX_VALUATORS) {					\
+diff --git a/hw/xfree86/fbdevhw/fbdevhw.c b/hw/xfree86/fbdevhw/fbdevhw.c
+index 7433608..3cd4dd4 100644
+--- a/hw/xfree86/fbdevhw/fbdevhw.c
++++ b/hw/xfree86/fbdevhw/fbdevhw.c
+@@ -11,7 +11,9 @@
+ #include "xf86_OSproc.h"
+ 
+ /* pci stuff */
++#ifdef XSERVER_LIBPCIACCESS
+ #include "xf86Pci.h"
++#endif
+ 
+ #include "xf86cmap.h"
+ 
+@@ -255,6 +257,7 @@ fbdev2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
+ /* -------------------------------------------------------------------- */
+ /* open correct framebuffer device                                      */
+ 
++#ifdef XSERVER_LIBPCIACCESS
+ /**
+  * Try to find the framebuffer device for a given PCI device
+  */
+@@ -302,6 +305,7 @@ fbdev_open_pci(struct pci_device *pPci, char **namep)
+     xf86DrvMsg(-1, X_ERROR, "Unable to find a valid framebuffer device\n");
+     return -1;
+ }
++#endif
+ 
+ /* *
+  * Try to resolve a filename as symbolic link.  If the file is not a link, the
+@@ -353,6 +357,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         return -1;
+     }
+ 
++#ifdef XSERVER_LIBPCIACCESS
+     /* only touch non-PCI devices on this path */
+     {
+         char device_path_buf[PATH_MAX];
+@@ -385,6 +390,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         }
+         free(sysfs_path);
+     }
++#endif
+ 
+     if (namep) {
+         if (-1 == ioctl(fd, FBIOGET_FSCREENINFO, (void *) (&fix))) {
+@@ -404,14 +410,18 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+ /* -------------------------------------------------------------------- */
+ 
+ Bool
+-fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
++fbdevHWProbe(void *pPci, char *device, char **namep)
+ {
+     int fd;
+ 
++#ifdef XSERVER_LIBPCIACCESS
+     if (pPci)
+         fd = fbdev_open_pci(pPci, namep);
+     else
+         fd = fbdev_open(-1, device, namep);
++#else
++    fd = fbdev_open(-1, device, namep);
++#endif
+ 
+     if (-1 == fd)
+         return FALSE;
+@@ -420,7 +430,7 @@ fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
+ }
+ 
+ Bool
+-fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
++fbdevHWInit(ScrnInfoPtr pScrn, void *pPci, char *device)
+ {
+     fbdevHWPtr fPtr;
+ 
+@@ -428,10 +438,14 @@ fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
+     fPtr = FBDEVHWPTR(pScrn);
+ 
+     /* open device */
++#ifdef XSERVER_LIBPCIACCESS
+     if (pPci)
+         fPtr->fd = fbdev_open_pci(pPci, NULL);
+     else
+         fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++#else
++    fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++#endif
+     if (-1 == fPtr->fd) {
+         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                    "Failed to open framebuffer device, consult warnings"
+diff --git a/hw/xfree86/fbdevhw/fbdevhw.h b/hw/xfree86/fbdevhw/fbdevhw.h
+index 4984ccf..bb3e2f8 100644
+--- a/hw/xfree86/fbdevhw/fbdevhw.h
++++ b/hw/xfree86/fbdevhw/fbdevhw.h
+@@ -16,9 +16,9 @@ extern _X_EXPORT void fbdevHWFreeRec(ScrnInfoPtr pScrn);
+ 
+ extern _X_EXPORT int fbdevHWGetFD(ScrnInfoPtr pScrn);
+ 
+-extern _X_EXPORT Bool fbdevHWProbe(struct pci_device *pPci, char *device,
++extern _X_EXPORT Bool fbdevHWProbe(void *pPci, char *device,
+                                    char **namep);
+-extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci,
++extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, void *pPci,
+                                   char *device);
+ 
+ extern _X_EXPORT char *fbdevHWGetName(ScrnInfoPtr pScrn);
+diff --git a/hw/xfree86/fbdevhw/meson.build b/hw/xfree86/fbdevhw/meson.build
+index f3146f3..f5f68fa 100644
+--- a/hw/xfree86/fbdevhw/meson.build
++++ b/hw/xfree86/fbdevhw/meson.build
+@@ -1,4 +1,4 @@
+-if host_machine.system() == 'linux'
++if host_machine.system() == 'linux' or host_machine.system() == 'bentobox'
+     srcs_fbdevhw = 'fbdevhw.c'
+ else
+     srcs_fbdevhw = 'fbdevhwstub.c'
 diff --git a/hw/xfree86/os-support/shared/posix_tty.c b/hw/xfree86/os-support/shared/posix_tty.c
 index b5a9c87..13c3746 100644
 --- a/hw/xfree86/os-support/shared/posix_tty.c
