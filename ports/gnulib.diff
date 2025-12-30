@@ -47,19 +47,4 @@ index ce9aff9..934e2d1 100644
  #if HAVE_SYS_SYSCTL_H && !(defined __GLIBC__ && defined __linux__) && !defined __minix
  # if HAVE_SYS_PARAM_H
  #  include <sys/param.h>
-diff --git a/lib/renameatu.c b/lib/renameatu.c
-index 29c4839..ca6f8e9 100644
---- a/lib/renameatu.c
-+++ b/lib/renameatu.c
-@@ -26,9 +26,11 @@
- #include <sys/stat.h>
- #include <unistd.h>
- 
-+#ifndef __bentobox__
- #ifdef __linux__
- # include <sys/syscall.h>
- #endif
-+#endif
- 
- #include "issymlink.h"
  

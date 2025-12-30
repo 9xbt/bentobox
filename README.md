@@ -13,49 +13,32 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 - Input devices: PS/2 (x86_64), virtio-input (aarch64)
 - Elf64 modules & binaries, VMM with CoW support
 
-## Tested build environments
-- Debian Trixie
-- Arch Linux (latest rolling release)
-- Ubuntu Server 24.04 LTS
-- Ubuntu 25.04
+## Building the toolchain
+### x86_64
+Packages required:
+- git
+- base-devel
+
+Start by building binutils. Run `./util/binutils.sh`.
+
+Then, install mlibc headers for the GCC cross compiler. Run `make -f build/mlibc.mk headers`.
+
+Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
 
 ## Building the userspace
 ### x86_64
 Packages required:
 - git
 - meson
-- clang
 
 Start by building mlibc. Run `make -f build/mlibc.mk setup build install`.
 
 Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 
 > [!TIP]
-> Run `./build/strip-bin` to strip the binaries and reduce the image size.
-
-Now copy `/etc/localtime` to `base/etc/localtime`.
+> Run `./build/strip-bin` after building the ports to reduce their size.
 
 Finally, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
-
-### aarch64
-Packages required:
-- git
-- meson
-- aarch64-linux-gnu-gcc
-
-Start by building mlibc. Run `make -f build/mlibc.mk setup build install ARCH=aarch64`.
-
-Now you can build the ports. Run `. build/mlibc-root aarch64` to source the environment.
-
-> [!TIP]
-> Run `./build/strip-bin` to strip the binaries and reduce the image size.
-
-Now copy `/etc/localtime` to `base/etc/localtime`.
-
-Finally, run `make livecd -j$(nproc) ARCH=aarch64` to make the initrd.
-
-> [!NOTE]
-> HDD images are not supported on ARM yet, only live CD images.
 
 ## Ports
 
@@ -120,6 +103,7 @@ Packages required:
 - binutils
 - xorriso
 - nasm
+- genext2fs
 
 First run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc)` to run it in QEMU.
 

@@ -3,9 +3,10 @@ export ARCH="${1:-${ARCH:-x86_64}}"
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ "$ARCH" == "x86_64" ]] && export TARGET=x86_64-pc-bentobox
 [[ "$ARCH" == "aarch64" ]] && export TARGET=aarch64-linux-gnu
-export TOOLCHAIN_PREFIX=$TARGET-
+export TOOLCHAIN_PREFIX="$TARGET-"
 export BASE="$CWD/base/$ARCH"
 export MLIBC_ROOT="$BASE/usr"
+export PATH="$CWD/../util/build/bin:$PATH"
 mkdir -p $BASE
 echo "BASE: $BASE"
 echo "MLIBC_ROOT: $MLIBC_ROOT"

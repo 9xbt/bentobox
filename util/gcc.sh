@@ -16,3 +16,5 @@ make all-target-libgcc -j$(nproc)
 make install-gcc
 make install-target-libgcc
 # make install-target-libstdc++-v3
+
+cp -r $PREFIX/$TARGET/lib/* $BASE/usr/lib/

@@ -16,8 +16,6 @@ git clone https://github.com/bminor/bash ports/src/bash
 cd ports/src/bash
 git checkout a8a1c2fac029404d3f42cd39f5a20f24b6e4fe4b
 
-git apply ../../bash.diff
-
 make clean
 set -e
 ./configure --host=x86_64-linux-gnu \
