@@ -1,0 +1,140 @@
+diff --git a/configure.ac b/configure.ac
+index 0124e42..ce7c9a4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -72,6 +72,10 @@ case $host_os in
+     IS_HURD="yes"
+     ;;
+ 
++  bentobox*)
++    IS_BENTOBOX="yes"
++    ;;
++
+   *)
+     AC_MSG_ERROR([Your operating system is not supported by the kbd driver.
+                   Contact xorg@lists.freedesktop.org if you are interested in
+@@ -94,6 +98,7 @@ case $host_os in
+ esac
+ AC_SUBST([OS_FLAGS])
+ 
++AM_CONDITIONAL(BENTOBOX, [test "x$IS_BENTOBOX" = xyes])
+ AM_CONDITIONAL(BSD, [test "x$IS_BSD" = xyes])
+ AM_CONDITIONAL(SOLARIS, [test "x$IS_SOLARIS" = xyes])
+ AM_CONDITIONAL(HURD, [test "x$IS_HURD" = xyes])
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 52f5f4d..d7f1a36 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -26,10 +26,15 @@ kbd_drv_la_SOURCES = kbd.c xf86OSKbd.h xf86Keymap.h atKeynames.h
+ kbd_drv_la_LIBADD = $(XORG_LIBS)
+ kbd_drv_ladir = @inputdir@
+ 
++BENTOBOX_SRCS = bentobox_kbd.c
+ BSD_SRCS = bsd_KbdMap.c bsd_kbd.c bsd_kbd.h at_scancode.c
+ HURD_SRCS = hurd_kbd.c at_scancode.c
+ SOLARIS_SRCS = sun_kbd.c sun_kbd.h sun_kbdMap.c
+ 
++if BENTOBOX
++kbd_drv_la_SOURCES += $(BENTOBOX_SRCS)
++endif
++
+ if BSD
+ kbd_drv_la_SOURCES += $(BSD_SRCS)
+ endif
+@@ -42,4 +47,4 @@ if HURD
+ kbd_drv_la_SOURCES += $(HURD_SRCS)
+ endif
+ 
+-EXTRA_DIST = $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
++EXTRA_DIST = $(BENTOBOX_SRCS) $(BSD_SRCS) $(HURD_SRCS) $(SOLARIS_SRCS)
+diff --git a/src/bentobox_kbd.c b/src/bentobox_kbd.c
+new file mode 100644
+index 0000000..34af394
+--- /dev/null
++++ b/src/bentobox_kbd.c
+@@ -0,0 +1,85 @@
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <xorg-server.h>
++#include <X11/X.h>
++
++#include "compiler.h"
++
++#include "xf86.h"
++#include "xf86Priv.h"
++#include "xf86_OSlib.h"
++
++#include "xf86Xinput.h"
++#include "xf86OSKbd.h"
++#include "atKeynames.h"
++#include "xf86Keymap.h"
++
++#include <stdio.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <linux/input.h>
++
++#define DEVICE_PATH "/dev/event0"
++
++static int nop(InputInfoPtr pInfo, int flags) {
++	return Success;
++}
++
++static void bell(InputInfoPtr pInfo, int flags, int a, int b) {}
++
++static void setleds(InputInfoPtr pInfo, int flags) {}
++
++static void getmapping(InputInfoPtr pInfo, KeySymsPtr syms, unsigned char *modmap) {}
++
++static void bentoboxReadInput(InputInfoPtr pInfo) {
++    struct input_event ev;
++    int fd = pInfo->fd;
++	
++    while (read(fd, &ev, sizeof(ev)) == sizeof(ev)) {
++        if (ev.type == EV_KEY) {
++            int xkeycode = ev.code + 8;
++	        xf86PostKeyboardEvent(pInfo->dev, xkeycode, ev.value);
++        }
++    }
++}
++
++static Bool openkeyboard(InputInfoPtr pInfo) {
++	char *kbdPath = xf86SetStrOption(pInfo->options, "Device", DEVICE_PATH);
++	pInfo->fd = open(DEVICE_PATH, O_NONBLOCK | O_RDONLY);
++	if (pInfo->fd < 0) {
++		xf86Msg(X_ERROR, "Failed to open %s: %s\n", DEVICE_PATH, strerror(errno));
++		return FALSE;
++	}
++
++	pInfo->read_input = bentoboxReadInput;
++	return TRUE;
++}
++
++static int init(InputInfoPtr pInfo, int flags) {
++    return Success;
++}
++
++static int getleds(InputInfoPtr pInfo) {
++    return 0;
++}
++
++Bool xf86OSKbdPreInit(InputInfoPtr pInfo) {
++	KbdDevPtr kbd = pInfo->private;
++
++	kbd->KbdInit 	   = init;
++	kbd->KbdOn 	       = nop;
++	kbd->KbdOff	       = nop;
++	kbd->Bell	       = bell;
++	kbd->SetLeds	   = setleds;
++	kbd->GetLeds	   = getleds;
++	kbd->KbdGetMapping = getmapping;
++	kbd->RemapScanCode = 0;
++	kbd->OpenKeyboard  = openkeyboard;
++
++	kbd->private 	   = NULL;
++
++	return TRUE;
++}
