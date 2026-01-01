@@ -14,10 +14,10 @@ index a800105..2ad10da 100644
  
 diff --git a/src/bentobox_mouse.c b/src/bentobox_mouse.c
 new file mode 100644
-index 0000000..20b5eba
+index 0000000..2328d93
 --- /dev/null
 +++ b/src/bentobox_mouse.c
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,143 @@
 +#ifdef HAVE_XORG_CONFIG_H
 +#include <xorg-config.h>
 +#endif
@@ -64,8 +64,19 @@ index 0000000..20b5eba
 +            }
 +        } else if (ev.type == EV_KEY) {
 +            if (ev.code >= BTN_LEFT && ev.code < BTN_LEFT + MAX_BUTTONS) {
-+                int button = ev.code - BTN_LEFT + 1;
-+                unsigned int bit = 1 << button;
++                int button = 0;
++                switch (ev.code) {
++                    case BTN_LEFT:
++                        button = 3;
++                        break;
++                    case BTN_MIDDLE: 
++                        button = 2;
++                        break;
++                    case BTN_RIGHT:  
++                        button = 1;
++                        break;
++                }
++                unsigned int bit = 1 << (button - 1);
 +
 +                if (ev.value)
 +                    mouse->lastButtons |= bit;
