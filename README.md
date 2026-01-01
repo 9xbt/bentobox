@@ -25,6 +25,10 @@ Then, install mlibc headers for the GCC cross compiler. Run `make -f build/mlibc
 
 Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
 
+Then build mlibc properly. Run `make -f build/mlibc.mk resetup build install`.
+
+Finally, rebuild libgcc. Run `./util/libgcc.sh`.
+
 ## Building the userspace
 ### x86_64
 Packages required:

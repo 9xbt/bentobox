@@ -1,2 +1,0 @@
-#!/bin/bash
-sed -i "s|libdir='/usr/lib'|libdir='$BASE/usr/lib'|g" $BASE/usr/lib/libfontenc.la

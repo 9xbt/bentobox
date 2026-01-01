@@ -100,6 +100,10 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     ctx->regs.cs = user ? 0x23 : 0x08;
     ctx->regs.ss = user ? 0x1b : 0x10;
     ctx->regs.rflags = 0x202;
+
+    asm volatile("fninit");
+    asm volatile("fxsave %0" : "=m"(ctx->fxsave));
+
     uint32_t *mxcsr = (uint32_t *)(ctx->fxsave + 24);
     *mxcsr = 0x1920;
     *mxcsr |= 0x8040;

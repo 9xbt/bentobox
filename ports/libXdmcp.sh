@@ -14,6 +14,7 @@ export LDFLAGS_FOR_BUILD=""
 
 export PKG_CONFIG_SYSROOT_DIR="$BASE"
 export PKG_CONFIG_LIBDIR="$BASE/usr/lib/pkgconfig:$BASE/usr/share/pkgconfig"
+export ACLOCAL_PATH="$BASE/usr/share/aclocal"
 
 mkdir -p base/usr
 mkdir -p ports/src

@@ -35,3 +35,5 @@ cp ../../config.sub .
 
 make -j"$(nproc)"
 make DESTDIR=$BASE install
+
+sed -i "s|libdir='/usr/lib'|libdir='$BASE/usr/lib'|g" $BASE/usr/lib/libfontenc.la
