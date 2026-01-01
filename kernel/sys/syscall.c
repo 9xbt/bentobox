@@ -1061,6 +1061,79 @@ long sys_getsockopt(int fd, int level, int optname, char *optval, uint32_t *optl
     return socket_getsockopt(fd, level, optname, optval, optlen);
 }
 
+struct iovec {
+    void *iov_base;
+    size_t iov_len;
+};
+
+#define IOV_MAX 1024
+
+static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool write) {
+    if (iovcnt < 0 || iovcnt > IOV_MAX)
+        return -EINVAL;
+    if (!iov && iovcnt > 0)
+        return -EFAULT;
+    
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+
+    struct iovec *kiov = kmalloc(iovcnt * sizeof(struct iovec));
+    if (copy_from_user(kiov, iov, iovcnt * sizeof(struct iovec)) < 0)
+        return -EFAULT;
+    
+    long count = 0;
+    for (int i = 0; i < iovcnt; i++) {
+        if (kiov[i].iov_len == 0)
+            continue;
+
+        void *buffer = kmalloc(kiov[i].iov_len);
+        if (write && copy_from_user(buffer, kiov[i].iov_base, kiov[i].iov_len) < 0) {
+            kfree(buffer);
+            return -EFAULT;
+        }
+
+        if (!(file->flags & O_NONBLOCK)) {
+        retry:
+            while (!(vfs_poll(file->node, write ? POLLOUT : POLLIN, -1) & (write ? POLLOUT : POLLIN)));
+        }
+
+        long ret = write ?
+            vfs_write(file->node, buffer, file->offset, kiov[i].iov_len) :
+            vfs_read(file->node, buffer, file->offset, kiov[i].iov_len);
+
+        if (ret == -EAGAIN && !(file->flags & O_NONBLOCK))
+            goto retry;
+        
+        if (ret < 0) {
+            kfree(buffer);
+            break;
+        }
+
+        file->offset += ret;
+        count += ret;
+
+        if (!write && copy_to_user(kiov[i].iov_base, buffer, ret) < 0) {
+            kfree(buffer);
+            return -EFAULT;
+        }
+        kfree(buffer);
+        
+        if ((size_t)ret < kiov[i].iov_len)
+            break;
+    }
+
+    return count;
+}
+
+long sys_writev(int fd, const struct iovec *iov, int iovcnt) {
+    return sys_read_writev(fd, iov, iovcnt, true);
+}
+
+long sys_readv(int fd, const struct iovec *iov, int iovcnt) {
+    return sys_read_writev(fd, iov, iovcnt, false);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1133,7 +1206,9 @@ syscall_func syscalls[] = {
     [SYS_exit_thread] = (syscall_func)(uintptr_t)sys_exit_thread,
     [SYS_futex_wait]  = (syscall_func)(uintptr_t)sys_futex_wait,
     [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake,
-    [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt
+    [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt,
+    [SYS_readv]       = (syscall_func)(uintptr_t)sys_readv,
+    [SYS_writev]      = (syscall_func)(uintptr_t)sys_writev
 };
 
 long syscall_handler(size_t *args) {

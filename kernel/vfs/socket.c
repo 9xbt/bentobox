@@ -64,29 +64,11 @@ long socket_poll(vfs_node_t *node, long events) {
         if (sock->state == SOCKET_CONNECTED && sock->recv_queue->length > 0)
             return POLLIN;
     }
-    return 0;
-}
-
-static void socket_free_buffers(list_t *queue) {
-    assert(queue);
-
-    while (queue->length > 0) {
-        struct socket_buffer *buf = list_pop(queue);
-        if (buf) {
-            kfree(buf->data);
-            kfree(buf);
-        }
+    if (events & POLLOUT) {
+        if (sock->state == SOCKET_CONNECTED && sock->peer)
+            return POLLOUT;
     }
-    list_free(queue);
-}
-
-static void socket_free(struct socket *sock) {
-    assert(sock);
-    if (sock->pending)
-        list_free(sock->pending);
-
-    socket_free_buffers(sock->recv_queue);
-    kfree(sock);
+    return 0;
 }
 
 long socket_remove(vfs_node_t *node) {
@@ -99,9 +81,24 @@ long socket_remove(vfs_node_t *node) {
         if (sock->peer->node)
             vfs_wake_waiters(sock->peer->node);
     }
+
     if (sock->node && sock->node != node && sock->state == SOCKET_LISTENING)
         sock->node->device = NULL;
-    socket_free(sock);
+
+    if (sock->pending)
+        list_free(sock->pending);
+
+    while (sock->recv_queue->length > 0) {
+        struct socket_buffer *buf = list_pop(sock->recv_queue);
+        if (buf) {
+            kfree(buf->data);
+            kfree(buf);
+        }
+    }
+
+    list_free(sock->recv_queue);
+    kfree(sock);
+
     node->device = NULL;
     return 0;
 }
@@ -114,8 +111,10 @@ vfs_ops_t local_socket_ops = {
 };
 
 int socket_new(int domain, int type, int protocol) {
-    if (protocol && protocol != SOCK_STREAM)
+    if (protocol && protocol != SOCK_STREAM) {
+        dprintf(LOG_DEBUG, "ENOSYS!\n");
         return -ENOSYS;
+    }
 
     vfs_node_t *node = vfs_create_node("[socket]", VFS_SOCKET);
     struct socket *sock = kmalloc(sizeof(struct socket));
