@@ -25,17 +25,17 @@ Then, install mlibc headers for the GCC cross compiler. Run `make -f build/mlibc
 
 Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
 
-Then build mlibc properly. Run `make -f build/mlibc.mk resetup build install`.
-
-Finally, rebuild libgcc. Run `./util/libgcc.sh`.
-
 ## Building the userspace
 ### x86_64
 Packages required:
 - git
 - meson
 
-Start by building mlibc. Run `make -f build/mlibc.mk setup build install`.
+Start by sourcing the environment. Run `. build/mlibc-root`.
+
+Then build mlibc. Run `make -f build/mlibc.mk resetup build install`.
+
+Afterwards, rebuild libgcc. Run `./util/libgcc.sh`.
 
 Now you can build the ports. Run `. build/mlibc-root` to source the environment.
 
@@ -78,7 +78,7 @@ Run `./ports/lua.sh`.
 Run `./ports/figlet.sh`.
 
 ### doomgeneric
-Get an [IWAD](https://archive.org/details/theultimatedoom_doom2_doom.wad), then run `./ports/doomgeneric.sh`.
+Run `./ports/doomgeneric.sh`.
 
 ### fastfetch
 Packages required:
@@ -97,6 +97,33 @@ Run `./ports/vim.sh`.
 
 ### nyancat
 Run `./ports/nyancat.sh`.
+
+### Xorg
+Run `./ports/Xorg.sh` to build all Xorg related libraries and `xorg-server`.
+
+### twm
+Dependencies:
+- Xorg
+
+Run `./ports/twm.sh`.
+
+### xev
+Dependencies:
+- Xorg
+
+Run `./ports/xev.sh`.
+
+### xeyes
+Dependencies:
+- Xorg
+
+Run `./ports/xeyes.sh`.
+
+### xclock
+Dependencies:
+- Xorg
+
+Run `./ports/xclock.sh`.
 
 ## Building the kernel
 ### x86_64

@@ -27,3 +27,15 @@ set -e
 ./ports/xf86-video-fbdev.sh
 ./ports/xf86-input-keyboard.sh
 ./ports/xf86-input-mouse.sh
+
+./ports/libXrandr.sh
+./ports/libXi.sh
+./ports/libICE.sh
+./ports/libSM.sh
+./ports/libXt.sh
+./ports/libXmu.sh
+./ports/libXpm.sh
+./ports/libXaw.sh
+./ports/expat.sh
+./ports/fontconfig.sh
+./ports/libXft.sh
