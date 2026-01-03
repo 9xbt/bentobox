@@ -15,6 +15,7 @@ mkdir -p ports/src
 git clone https://github.com/vim/vim.git ports/src/vim --depth=1
 cd ports/src/vim/src
 
+make distclean
 make clean
 set -e
 ./configure --host=x86_64-linux-gnu \
@@ -48,4 +49,4 @@ set -e
     vim_cv_stat_ignores_slash=no \
     vim_cv_memmove_handles_overlap=yes
 make -j"$(nproc)"
-make DESTDIR=$BASE install
+make DESTDIR=$BASE STRIP="${TOOLCHAIN_PREFIX:-}strip" install

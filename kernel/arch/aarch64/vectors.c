@@ -39,6 +39,7 @@ const char *esr_ec_reasons[0x40] = {
 
 void (*irq_handlers[80])(struct registers *);
 
+extern void aarch64_backtrace(void *x29);
 extern void arch_do_backtrace(void);
 extern void arch_fatal(void);
 
@@ -65,7 +66,7 @@ void do_regdump(const char *msg, struct registers *r) {
     dprintf(LOG_EMERG, "ESR_ELx:  0x%p\n", esr_el1);
     dprintf(LOG_EMERG, "FAR_ELx:  0x%p\n", far_el1);
     dprintf(LOG_EMERG, "SPSR_ELx: 0x%p\n", spsr_el1);
-    arch_do_backtrace();
+    aarch64_backtrace((void *)r->x29);
 }
 
 int do_cow(void) {
@@ -140,9 +141,9 @@ void el0_fault_handler(struct registers *r) {
     if (ec == 0x24 && (esr_el1 & (1 << 6)) && ((esr_el1 & 0x3C) == 0x0C) && !do_cow())
         return;
 
-    signal_send(this_proc, SIGSEGV);
-    sched_yield();
-    for (;;) {}
+    // signal_send(this_proc, SIGSEGV);
+    // sched_yield();
+    // for (;;) {}
 
     do_regdump("EL0-EL1 fault", r);
     arch_fatal();

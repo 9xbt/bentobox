@@ -14,30 +14,34 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 - Elf64 modules & binaries, VMM with CoW support
 
 ## Building the toolchain
-### x86_64
 Packages required:
 - git
 - base-devel
 
-Start by building binutils. Run `./util/binutils.sh`.
+Start by sourcing the environment. Run `. build/mlibc-root`.
+
+> [!NOTE]
+> To build an aarch64 toolchain, run `. build/mlibc-root aarch64` instead.
+
+Now build binutils. Run `./util/binutils.sh`.
 
 Then, install mlibc headers for the GCC cross compiler. Run `make -f build/mlibc.mk headers`.
 
 Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
 
 ## Building the userspace
-### x86_64
 Packages required:
 - git
 - meson
 
-Start by sourcing the environment. Run `. build/mlibc-root`.
+Start by building mlibc. Run `make -f build/mlibc.mk resetup build install`.
 
-Then build mlibc. Run `make -f build/mlibc.mk resetup build install`.
+> [!NOTE]
+> To build an aarch64 toolchain, append `ARCH=aarch64` to the make command.
 
 Afterwards, rebuild libgcc. Run `./util/libgcc.sh`.
 
-Now you can build the ports. Run `. build/mlibc-root` to source the environment.
+Now proceed to build the ports below.
 
 > [!TIP]
 > Run `./build/strip-bin` after building the ports to reduce their size.
@@ -142,8 +146,6 @@ First run `make kernel-deps` to get the dependencies, then run `make run -j$(npr
 Packages required:
 - git
 - gmake
-- aarch64-none-elf-gcc
-- aarch64-none-elf-binutils
 - xorriso
 
 Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) ARCH=aarch64` to run it in QEMU.

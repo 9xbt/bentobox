@@ -118,6 +118,6 @@ void pl011_initialize(void) {
     tty_t *tty = ttyS0->device;
 
     struct process *proc = sched_new_process("uart tty", false);
-    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL);
+    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
     sched_add_process(proc);
 }

@@ -561,9 +561,6 @@ long sys_sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
 extern long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame);
 
 long sys_sigreturn(void) {
-    if (!this->sigframe)
-        return -EINVAL;
-    
     struct sigframe *frame = this->sigframe;
     this->parent->blocked = frame->oldmask;
     this->sigframe = NULL;

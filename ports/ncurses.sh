@@ -33,4 +33,4 @@ set -e
     ac_cv_func_malloc_0_nonnull=yes \
     ac_cv_func_realloc_0_nonnull=yes
 make -j"$(nproc)"
-make DESTDIR=$BASE install
+make DESTDIR=$BASE INSTALL_PROG="/usr/bin/install -c" install

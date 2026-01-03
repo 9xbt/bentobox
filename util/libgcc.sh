@@ -2,12 +2,11 @@
 [ -z "$BASE" ] || [ -z "$TARGET" ] && echo "Please run . build/mlibc-root before building GCC!" && exit 1
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET=x86_64-pc-bentobox
-PREFIX="$CWD/build"
+PREFIX="$CWD/build/$ARCH"
 export PATH="$CWD/build/bin:$PATH"
 
 set -e
-cd /var/tmp/gcc
+cd /var/tmp/gcc-$ARCH
 make all-target-libgcc -j$(nproc)
 make install-target-libgcc
 

@@ -8,6 +8,7 @@
 #include <kernel/arch/aarch64/smp.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/version.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/malloc.h>
@@ -49,18 +50,22 @@ void arch_fatal(void) {
 	for (;;) asm ("wfi");
 }
 
-void arch_do_backtrace(void) {
+void aarch64_backtrace(void *x29) {
     struct stackframe {
         struct stackframe *fp;
         uint64_t lr;
-    } __attribute__((packed)) *frame_ptr = __builtin_frame_address(0);
+    } __attribute__((packed)) *frame_ptr = x29;
 
     dprintf(LOG_EMERG, "Call Trace:\n");
 
-    for (int i = 0; i < 8 && frame_ptr && mmu_get_flags(kernel_pd, frame_ptr) & PTE_VALID; i++) {
+    for (int i = 0; i < 8 && frame_ptr && mmu_get_flags(mmu_get_pm(), frame_ptr) & PTE_VALID; i++) {
         dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->lr, ksym_name(frame_ptr->lr));
         frame_ptr = frame_ptr->fp;
     }
+}
+
+void arch_do_backtrace(void) {
+    aarch64_backtrace(__builtin_frame_address(0));
 }
 
 void idle(void) {
@@ -115,17 +120,52 @@ void arch_context_fork(struct thread *tcb) {
     ctx->regs.x16 = ctx->stack;
 }
 
+// TODO: make this bullshit not crash the second time
+
 void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
-    (void)tcb;
-    (void)frame;
-    (void)action;
-    (void)sig;
+    struct context *ctx = &frame->ctx;
+    memset(ctx, 0, sizeof(struct context));
+    asm volatile("mrs %0, SP_EL0" : "=r"(ctx->user_stack));
+    ctx->user_stack_bottom = tcb->ctx.user_stack_bottom;
+    memcpy(&ctx->regs, tcb->syscall_regs, sizeof ctx->regs);
+
+    ctx->elr_elx = tcb->ctx.elr_el0;
+    ctx->spsr_elx = tcb->ctx.spsr_el0;
+    asm volatile("mrs %0, TPIDR_EL0" : "=r"(ctx->tpidr_el0));
+    uint64_t fpsr, fpcr;
+    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+    ctx->fpsr = (uint32_t)fpsr;
+    ctx->fpcr = (uint32_t)fpcr;
+    aarch64_save_fp(ctx->fp);
+
+    uint64_t x16 = tcb->ctx.regs.x16;
+    memcpy(&tcb->ctx.regs, tcb->syscall_regs, sizeof(struct registers));
+    tcb->ctx.regs.x16 = x16;
+
+    tcb->ctx.elr_elx = (uint64_t)action->sa_handler;
+    tcb->ctx.spsr_elx = 0x0;
+    tcb->ctx.regs.x0 = sig;
+    tcb->ctx.regs.x30 = frame->pretcode;
+
+    uintptr_t sp = (uintptr_t)frame;
+    sp &= ~15;
+    tcb->ctx.user_stack = sp;
 }
 
 long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
-    (void)tcb;
-    (void)frame;
-    return 0;
+    memcpy(tcb->syscall_regs, &frame->ctx.regs, sizeof(struct registers));
+    memcpy(tcb->ctx.fp, frame->ctx.fp, sizeof(tcb->ctx.fp));
+
+    tcb->ctx.elr_el0 = frame->ctx.elr_elx;
+    tcb->ctx.spsr_el0 = frame->ctx.spsr_elx;
+    tcb->ctx.user_stack = frame->ctx.user_stack;
+    tcb->ctx.user_stack_bottom = frame->ctx.user_stack_bottom;
+    tcb->ctx.tpidr_el0 = frame->ctx.tpidr_el0;
+    tcb->ctx.fpsr = frame->ctx.fpsr;
+    tcb->ctx.fpcr = frame->ctx.fpcr;
+
+    return frame->ctx.regs.x0;
 }
 
 void arch_save_context(void) {
@@ -183,7 +223,7 @@ void arch_jumpstart(void) {
     
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL);
+        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL, NULL, 0, NULL);
         tcb->state = THREAD_PAUSED;
         core->idle_tcb = list_insert(core->threads, tcb);
     }

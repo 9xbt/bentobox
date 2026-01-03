@@ -78,3 +78,10 @@ aarch64_restore_fp:
     ldp q28, q29, [x0, #448]
     ldp q30, q31, [x0, #480]
     ret
+
+.balign 4096
+.globl signal_leave
+signal_leave:
+    mov x8, #25
+    svc #0
+    brk #0

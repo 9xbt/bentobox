@@ -11,9 +11,9 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-c = '/usr/bin/aarch64-linux-gnu-gcc'
-cpp = '/usr/bin/aarch64-linux-gnu-g++'
-ar = '/usr/bin/aarch64-linux-gnu-ar'
-ld = '/usr/bin/aarch64-linux-gnu-ld'
-strip = '/usr/bin/aarch64-linux-gnu-strip'
-c_args = ['-mlong-double-64']
+c = 'aarch64-pc-bentobox-gcc'
+cpp = 'aarch64-pc-bentobox-g++'
+ar = 'aarch64-pc-bentobox-ar'
+ld = 'aarch64-pc-bentobox-ld'
+strip = 'aarch64-pc-bentobox-strip'
+pkg-config = 'pkg-config'

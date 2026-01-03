@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <kernel/arch/aarch64/mmu.h>
+#include <kernel/signal.h>
 #include <kernel/assert.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -202,6 +203,8 @@ uintptr_t *mmu_create_pagemap(void) {
         pm[i] = kernel_pd[i];
     }
 
+    extern void signal_leave();
+    mmu_map(pm, (void *)SIGNAL_TRAMPOLINE_BASE, (void *)mmu_get_physical(kernel_pd, signal_leave), PTE_VALID | PTE_AF | PTE_USER_RO | PTE_PXN);
     return pm;
 }
 
