@@ -139,9 +139,7 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
     memcpy(ctx, &tcb->ctx, 7 * sizeof(uint64_t));
     memcpy(&ctx->regs, this->syscall_regs, 15 * sizeof(uint64_t));
     asm volatile ("fxsave %0" :: "m"(ctx->fxsave));
-    
-    memcpy(&tcb->ctx.regs, this->syscall_regs, 15 * sizeof(uint64_t));
-    
+        
     tcb->ctx.regs.rip = (uint64_t)action->sa_handler;
     tcb->ctx.regs.rdi = sig;
     tcb->ctx.regs.cs = 0x23;

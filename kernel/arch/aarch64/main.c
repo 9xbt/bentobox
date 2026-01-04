@@ -120,27 +120,10 @@ void arch_context_fork(struct thread *tcb) {
     ctx->regs.x16 = ctx->stack;
 }
 
-// TODO: make this bullshit not crash the second time
-
 void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
     struct context *ctx = &frame->ctx;
-    memset(ctx, 0, sizeof(struct context));
-    ctx->user_stack = tcb->ctx.user_stack;
-    ctx->user_stack_bottom = tcb->ctx.user_stack_bottom;
-    memcpy(&ctx->regs, tcb->syscall_regs, sizeof ctx->regs);
-    ctx->elr_elx = tcb->ctx.elr_el0;
-    ctx->spsr_elx = tcb->ctx.spsr_el0;
-    asm volatile("mrs %0, TPIDR_EL0" : "=r"(ctx->tpidr_el0));
-    uint64_t fpsr, fpcr;
-    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
-    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
-    ctx->fpsr = (uint32_t)fpsr;
-    ctx->fpcr = (uint32_t)fpcr;
-    aarch64_save_fp(ctx->fp);
-
-    uint64_t x16 = tcb->ctx.regs.x16;
-    memcpy(&tcb->ctx.regs, tcb->syscall_regs, sizeof(struct registers));
-    tcb->ctx.regs.x16 = x16;
+    memcpy(ctx, &tcb->ctx, sizeof tcb->ctx);
+    memcpy(&ctx->regs, tcb->syscall_regs, sizeof(struct registers));
 
     tcb->ctx.elr_elx = (uint64_t)action->sa_handler;
     tcb->ctx.spsr_elx = 0x0;
@@ -153,16 +136,20 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
 }
 
 long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
+    memcpy(&tcb->ctx, &frame->ctx, sizeof tcb->ctx);
     memcpy(tcb->syscall_regs, &frame->ctx.regs, sizeof(struct registers));
-    memcpy(tcb->ctx.fp, frame->ctx.fp, sizeof(tcb->ctx.fp));
+    aarch64_restore_fp(tcb->ctx.fp);
 
-    tcb->ctx.elr_el0 = frame->ctx.elr_elx;
-    tcb->ctx.spsr_el0 = frame->ctx.spsr_elx;
-    tcb->ctx.user_stack = frame->ctx.user_stack;
-    tcb->ctx.user_stack_bottom = frame->ctx.user_stack_bottom;
-    tcb->ctx.tpidr_el0 = frame->ctx.tpidr_el0;
-    tcb->ctx.fpsr = frame->ctx.fpsr;
-    tcb->ctx.fpcr = frame->ctx.fpcr;
+    uint64_t fpsr = tcb->ctx.fpsr, fpcr = tcb->ctx.fpcr;
+    asm volatile("msr fpsr, %0" :: "r"(fpsr));
+    asm volatile("msr fpcr, %0" :: "r"(fpcr));
+
+    asm volatile("msr TPIDR_EL0, %0" :: "r"(this->ctx.tpidr_el0));
+
+    asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
+
+    asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
+    asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
 
     return frame->ctx.regs.x0;
 }
