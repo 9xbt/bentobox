@@ -38,7 +38,7 @@ Packages required:
 Start by building mlibc. Run `make -f build/mlibc.mk resetup build install`.
 
 > [!NOTE]
-> To build an aarch64 toolchain, append `ARCH=aarch64` to the make command.
+> To build mlibc for aarch64, append `ARCH=aarch64` to the make command.
 
 Afterwards, rebuild libgcc. Run `./util/libgcc.sh`.
 
@@ -104,7 +104,7 @@ Run `./ports/vim.sh`.
 Run `./ports/nyancat.sh`.
 
 ### Xorg
-Run `./ports/Xorg.sh` to build all Xorg related libraries and `xorg-server`.
+Run `./ports/Xorg.sh` to build all Xorg-related libraries and `xorg-server`.
 
 ### twm
 Dependencies:
