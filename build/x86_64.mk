@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-QEMUFLAGS :=
+QEMUFLAGS := -display sdl -accel kvm
 
 ARCH := x86_64
 IMAGE_NAME := bin/$(ARCH)/image

@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-QEMUFLAGS :=
+QEMUFLAGS := -display sdl
 
 ARCH := aarch64
 IMAGE_NAME := bin/$(ARCH)/image
@@ -21,7 +21,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-device -device virtio-tablet-device -global virtio-mmio.force-legacy=false -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-device -device virtio-tablet-device -global virtio-mmio.force-legacy=false -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-device ich9-ahci,id=sata -drive file=$(IMAGE_NAME).hdd,format=raw,if=none,id=disk0 -device ide-hd,drive=disk0,bus=sata.0" ) $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
@@ -42,7 +42,7 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
 	@cp bin/$(ARCH)/kernel iso_root/boot/
-	@cp bin/$(ARCH)/initrd.tar iso_root/boot/
+	@cp bin/$(ARCH)/initrd.tar iso_root/boot/ 2>/dev/null || true
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
 	@mkdir -p iso_root/boot/limine
 	@if [ -f bin/$(ARCH)/initrd.tar ]; then \

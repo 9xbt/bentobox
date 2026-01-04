@@ -2,14 +2,15 @@
 bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 
 ## Features
-- SMP capable preemptive kernel with full multi-architecture support
+- SMP capable preemptive modular kernel with full multi-architecture support
 - POSIX compatibility
 - IPC: Pipes, UNIX domain sockets, signals
-- Ports: bash, coreutils, vim, fastfetch & more
+- Ports: Xorg, bash, coreutils, vim, fastfetch & more
 - Filesystems: ext2, devfs, tmpfs, procfs
+- Block devices: AHCI
 - Interrupt controllers: APIC (x86_64), GICv2 (aarch64)
 - ACPI table parsing & full ACPI mode using LAI
-- PCI scanning
+- PCI & PCIe support
 - Input devices: PS/2 (x86_64), virtio-input (aarch64)
 - Elf64 modules & binaries, VMM with CoW support
 
