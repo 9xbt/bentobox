@@ -750,8 +750,6 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
 }
 
 long sys_unlinkat(int dirfd, const char *pathname, int flags) {
-    (void)flags; // TODO: handle AT_REMOVEDIR
-
     vfs_node_t *dir = this_proc->cwd;
     if (dirfd != AT_FDCWD) {
         struct file *file = file_get(dirfd);
@@ -765,12 +763,15 @@ long sys_unlinkat(int dirfd, const char *pathname, int flags) {
     kfree(path);
     if (!node)
         return -ENOENT;
+    if ((flags & AT_REMOVEDIR) && node->type != VFS_DIRECTORY)
+        return -ENOTDIR;
+    if (!(flags & AT_REMOVEDIR) && node->type == VFS_DIRECTORY)
+        return -EISDIR;
 
     return vfs_remove(node);
 }
 
 long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
-    (void)mode;
     vfs_node_t *dir = this_proc->cwd;
     if (dirfd != AT_FDCWD) {
         struct file *file = file_get(dirfd);
@@ -785,7 +786,7 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     if (!node)
         return -EPERM;
 
-    node->perms = mode & ~this_proc->umask;
+    vfs_chmod(node, mode & ~this_proc->umask);
     return 0;
 }
 

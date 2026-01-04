@@ -1,4 +1,3 @@
-#include "sys/stat.h"
 #include <abi-bits/syscall.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -31,6 +30,7 @@ int main(int argc, char *argv[]) {
     umask(0);
     mkdir("/tmp", 0777);
     mkdir("/proc", 0755);
+    umask(022);
     mount("/tmp", "tmp", "tmp", 0);
     mount("/proc", "proc", "proc", 0);
 
