@@ -1,3 +1,4 @@
+#include <kernel/ringbuffer.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/mmu.h>
@@ -5,7 +6,7 @@
 
 vfs_node_t *procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
 
-long meminfo_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+long meminfo_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
 
     char buf[1024];
@@ -26,7 +27,7 @@ long meminfo_read(struct vfs_node *node, void *buffer, long offset, size_t len) 
     return n;
 }
 
-long uptime_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
+long uptime_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
 
     size_t secs = 0, nanos = 0;
@@ -43,12 +44,21 @@ long uptime_read(struct vfs_node *node, void *buffer, long offset, size_t len) {
     return n;
 }
 
+long kmsg_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
+    (void)node;
+    return ringbuffer_peek(kernel_rb, buffer, len, (size_t)offset);
+}
+
 vfs_ops_t meminfo_ops = {
     .read = meminfo_read
 };
 
 vfs_ops_t uptime_ops = {
     .read = uptime_read
+};
+
+vfs_ops_t kmsg_ops = {
+    .read = kmsg_read
 };
 
 vfs_ops_t procfs_ops = {
@@ -77,6 +87,11 @@ long procfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     uptime->perms = 0444;
     uptime->ops = &uptime_ops;
     vfs_add_node(node, uptime);
+
+    vfs_node_t *kmsg = vfs_create_node("kmsg", VFS_FILE);
+    kmsg->perms = 0444;
+    kmsg->ops = &kmsg_ops;
+    vfs_add_node(node, kmsg);
     
     return 0;
 }

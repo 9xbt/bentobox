@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 #include <kernel/assert.h>
 #include <kernel/bitmap.h>
@@ -160,6 +161,7 @@ void mmu_initialize(void) {
 
     kernel_vma = vma_create(VMA_KERNEL_BASE, 256 * 1024 * 1024);
     mmu_refcounts = vmalloc(kernel_vma, kernel_pd, 0, 0, ALIGN_UP(mmu_page_count * sizeof(uint16_t), PAGE_SIZE) / PAGE_SIZE, data_flags);
+    kernel_rb = ringbuffer_clone(kernel_rb);
 }
 
 static uint64_t last_page = 0;

@@ -13,7 +13,9 @@ enum {
     LOG_DEBUG
 };
 
-void write(const char *s, size_t len);
+extern struct ringbuffer *kernel_rb;
+
+void early_log_initialize(void);
 void putchar(char c);
 void puts(char *s);
 

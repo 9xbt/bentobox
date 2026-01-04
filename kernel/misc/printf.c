@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/x86_64/serial.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>
@@ -11,17 +12,16 @@
 int loglevel = LOG_INFO;
 spinlock_t flanterm_lock = 0;
 
-void write(const char *s, size_t len) {
-    #ifdef __x86_64__
-    serial_write(s, len);
-    #elif __aarch64__
-    uart_write(s, len);
-    #endif
+static struct ringbuffer early_rb;
+static unsigned char early_rb_buffer[4096];
 
-    framebuffer_draw_cursor(-1, -1);
-    acquire(&flanterm_lock);
-    flanterm_write(ft_ctx, s, len);
-    release(&flanterm_lock);
+struct ringbuffer *kernel_rb = &early_rb;
+
+void early_log_initialize(void) {
+    early_rb.buffer = early_rb_buffer;
+    early_rb.write_ptr = 0;
+    early_rb.read_ptr = 0;
+    early_rb.size = sizeof(early_rb_buffer);
 }
 
 void putchar(char c) {
@@ -179,6 +179,7 @@ int dprintf(int level, const char *fmt, ...) {
     uptime(&secs, &nanos);
 
     int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
+    ringbuffer_write(kernel_rb, (unsigned char *)buf, strlen(buf));
 
     #ifdef __x86_64__
     serial_puts(buf);

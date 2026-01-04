@@ -232,8 +232,10 @@ long tty_ioctl(vfs_node_t *node, int op, void *arg) {
 long console_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     (void)node;
     (void)offset;
-    dprintf(LOG_INFO, "");
-    write(buffer, len);
+    char *s = kmalloc(len + 1);
+    memcpy(s, buffer, len);
+    s[len] = 0;
+    dprintf(LOG_INFO, "%s", s);
     return len;
 }
 

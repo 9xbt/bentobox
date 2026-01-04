@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <kernel/ringbuffer.h>
+#include <kernel/string.h>
 #include <kernel/malloc.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
@@ -7,11 +8,19 @@
 struct ringbuffer *ringbuffer_create(size_t size) {
     struct ringbuffer *rb = kmalloc(sizeof(struct ringbuffer));
     rb->buffer = kmalloc(size);
-    rb->write_ptr = 0;
     rb->read_ptr = 0;
+    rb->write_ptr = 0;
     rb->size = size;
     return rb;
 };
+
+struct ringbuffer *ringbuffer_clone(struct ringbuffer *rb) {
+    struct ringbuffer *clone = ringbuffer_create(rb->size);
+    memcpy(clone->buffer, rb->buffer, rb->size);
+    clone->read_ptr = rb->read_ptr;
+    clone->write_ptr = rb->write_ptr;
+    return clone;
+}
 
 void ringbuffer_destroy(struct ringbuffer *rb) {
     kfree(rb->buffer);
@@ -41,6 +50,17 @@ size_t ringbuffer_write(struct ringbuffer *rb, unsigned const char *buffer, size
     while (i < size && (rb->write_ptr + 1) % rb->size != rb->read_ptr) {
         rb->buffer[rb->write_ptr] = buffer[i];
         rb->write_ptr = (rb->write_ptr + 1) % rb->size;
+        i++;
+    }
+    return i;
+}
+
+size_t ringbuffer_peek(struct ringbuffer *rb, unsigned char *buffer, size_t size, size_t offset) {
+    size_t i = 0;
+    size_t read_ptr = rb->read_ptr + offset;
+    while (i < size && read_ptr != rb->write_ptr) {
+        buffer[i] = rb->buffer[read_ptr];
+        read_ptr = (read_ptr + 1) % rb->size;
         i++;
     }
     return i;

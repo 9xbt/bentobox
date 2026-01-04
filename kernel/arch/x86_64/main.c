@@ -212,6 +212,7 @@ void kmain(void) {
         arch_fatal();
     }
 
+    early_log_initialize();
     serial_install();
     framebuffer_initialize();
 

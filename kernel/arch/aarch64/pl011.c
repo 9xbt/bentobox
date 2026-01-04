@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/mmu.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -100,6 +101,8 @@ void pl011_irq_handler(struct registers *r) {
 void pl011_install(void) {
     pl011_base = VIRTUAL_HHDM(0x09000000);
     mmu_map(kernel_pd, (void *)pl011_base, (void *)0x09000000, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
+    
+    uart_puts((char *)kernel_rb->buffer);
     dprintf(LOG_INFO, "\033[93muart:\033[0m mapped pl011 base\n");
 }
 

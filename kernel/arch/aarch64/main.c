@@ -223,6 +223,7 @@ void kmain(void) {
         arch_fatal();
     }
 
+    early_log_initialize();
     framebuffer_initialize();
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
