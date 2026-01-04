@@ -1,11 +1,14 @@
 #include <stddef.h>
 #include <stdint.h>
+#ifdef __x86_64__
 #include <kernel/arch/x86_64/io.h>
+#endif
 #include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/list.h>
 #include <kernel/pci.h>
+#include <kernel/mmu.h>
 
 list_t *pci_devices = NULL;
 
@@ -13,12 +16,8 @@ uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset)
 #ifdef __x86_64__
     outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
     return inl(PCI_CONFIG_DATA);
-#else
-    (void)bus;
-    (void)device;
-    (void)function;
-    (void)offset;
-    return 0xFFFFFFFF;
+#elif defined (__aarch64__)
+    return *(volatile uint32_t *)VIRTUAL_HHDM(pcie_addr(bus, device, function, offset & ~3));
 #endif
 }
 
@@ -26,12 +25,8 @@ void pci_write(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, ui
 #ifdef __x86_64__
     outl(PCI_CONFIG_ADDRESS, pci_config_addr(bus, device, function, offset));
     outl(PCI_CONFIG_DATA, value);
-#else
-    (void)bus;
-    (void)device;
-    (void)function;
-    (void)offset;
-    (void)value;
+#elif defined (__aarch64__)
+    *(volatile uint32_t *)VIRTUAL_HHDM(pcie_addr(bus, device, function, offset & ~3)) = value;
 #endif
 }
 
@@ -43,14 +38,13 @@ void pci_config_write_word(uint8_t bus, uint8_t device, uint8_t function, uint8_
     pci_write(bus, device, function, offset & ~3, (pci_read(bus, device, function, offset & ~3) & (offset & 2 ? 0x0000FFFF : 0xFFFF0000)) | (offset & 2 ? (uint32_t)value << 16 : value));
 }
 
-
 uint8_t pci_find_cap(pci_device_t *dev, uint8_t cap_id) {
     uint8_t status = pci_config_read_word(dev->bus, dev->device, dev->function, 0x06);
     if (!(status & (1 << 4))) return 0;
 
-    uint8_t offset = pci_read(dev->bus, dev->device, 0x00, 0x34) & 0xFF;
+    uint8_t offset = pci_read(dev->bus, dev->device, dev->function, 0x34) & 0xFF;
     while (offset) {
-        uint32_t cap = pci_read(dev->bus, dev->device, 0x00, offset);
+        uint32_t cap = pci_read(dev->bus, dev->device, dev->function, offset);
         if ((cap & 0xFF) == cap_id) return offset;
         offset = (cap >> 8) & 0xFF;
     }
@@ -116,6 +110,12 @@ pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t device) {
 
 void pci_scan(void) {
     pci_devices = list_create();
+
+    #ifdef __aarch64__
+    for (uintptr_t i = 0; i < 0x10000000; i += PAGE_SIZE) {
+        mmu_map(kernel_pd, VIRTUAL_HHDM(PCIE_BASE + i), (void *)(PCIE_BASE + i), PTE_VALID | PTE_AF | PTE_RW | PTE_UXN | PTE_PXN);
+    }
+    #endif
 
     dprintf(LOG_INFO, "\033[93mpci:\033[0m finding PCI devices\n");
 

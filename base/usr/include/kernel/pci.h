@@ -8,6 +8,8 @@
 #define PCI_BUS_MASTER      (1 << 2)
 #define PCI_SERR_ENABLE     (1 << 8)
 
+#define PCIE_BASE       0x4010000000
+
 typedef struct pci_device {
     uint8_t  bus;
     uint8_t  device;
@@ -20,6 +22,10 @@ typedef struct pci_device {
 
 static inline uint32_t pci_config_addr(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
     return (uint32_t)((bus << 16) | (device << 11) | (function << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
+}
+
+static inline uintptr_t pcie_addr(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    return PCIE_BASE + (((uintptr_t)bus << 20) | ((uintptr_t)device << 15) | ((uintptr_t)function << 12) | offset);
 }
 
 uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset);
