@@ -125,10 +125,9 @@ void arch_context_fork(struct thread *tcb) {
 void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
     struct context *ctx = &frame->ctx;
     memset(ctx, 0, sizeof(struct context));
-    asm volatile("mrs %0, SP_EL0" : "=r"(ctx->user_stack));
+    ctx->user_stack = tcb->ctx.user_stack;
     ctx->user_stack_bottom = tcb->ctx.user_stack_bottom;
     memcpy(&ctx->regs, tcb->syscall_regs, sizeof ctx->regs);
-
     ctx->elr_elx = tcb->ctx.elr_el0;
     ctx->spsr_elx = tcb->ctx.spsr_el0;
     asm volatile("mrs %0, TPIDR_EL0" : "=r"(ctx->tpidr_el0));
