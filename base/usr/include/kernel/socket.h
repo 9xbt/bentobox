@@ -113,10 +113,10 @@ struct socket {
     int backlog;
     enum socket_state state;
     vfs_node_t *node;
+    vfs_node_t *fd_node;
     list_t *pending;
     list_t *recv_queue;
     struct socket *peer;
-    void *device;
 };
 
 struct socket_buffer {

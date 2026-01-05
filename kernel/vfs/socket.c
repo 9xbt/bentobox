@@ -26,8 +26,8 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     memcpy(buf->data, buffer, len);
 
     list_insert(sock->peer->recv_queue, buf);
-    if (sock->peer->node)
-        vfs_wake_waiters(sock->peer->node);
+    vfs_wake_waiters(sock->peer->fd_node);
+    vfs_wake_waiters(sock->peer->node);
     return len;
 }
 
@@ -116,7 +116,7 @@ int socket_new(int domain, int type, int protocol) {
         return -ENOSYS;
     }
 
-    vfs_node_t *node = vfs_create_node("[socket]", VFS_SOCKET);
+    vfs_node_t *node = vfs_create_node("[socket_new]", VFS_SOCKET);
     struct socket *sock = kmalloc(sizeof(struct socket));
     sock->domain = domain;
     sock->type = type;
@@ -126,6 +126,7 @@ int socket_new(int domain, int type, int protocol) {
     sock->recv_queue = list_create();
     sock->peer = NULL;
     sock->node = node;
+    sock->fd_node = node;
     node->device = sock;
 
     int flags = 0;
@@ -202,6 +203,7 @@ static struct socket *socket_alloc(int domain, int type) {
     sock->recv_queue = list_create();
     sock->peer = NULL;
     sock->node = NULL;
+    sock->fd_node = NULL;
     return sock;
 }
 
@@ -236,7 +238,8 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             sock->state = SOCKET_CONNECTED;
             
             list_insert(server_sock->pending, server_child);
-            vfs_wake_waiters(bind);
+            vfs_wake_waiters(server_sock->fd_node);
+            vfs_wake_waiters(server_sock->node);
             return 0;
         }
         default:
@@ -259,17 +262,15 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     if (sock->state != SOCKET_LISTENING)
         return -EINVAL;
 
-    if (!(file->flags & O_NONBLOCK))
-        vfs_poll(sock->node, POLLIN, -1);
-
     struct socket *client_sock = list_pop(sock->pending);
     if (!client_sock)
         return -EAGAIN;
 
-    vfs_node_t *node = vfs_create_node("[socket]", VFS_SOCKET);
+    vfs_node_t *node = vfs_create_node("[socket_accept]", VFS_SOCKET);
     node->ops = &local_socket_ops;
     node->device = client_sock;
     client_sock->node = node;
+    client_sock->fd_node = node;
 
     int flags = 0;
     if (sock->type & SOCK_CLOEXEC)
