@@ -130,6 +130,12 @@ Dependencies:
 
 Run `./ports/xclock.sh`.
 
+### nes_emu
+Dependencies:
+- Xorg
+
+Run `./ports/nes_emu.sh`.
+
 ## Building the kernel
 ### x86_64
 Packages required:
@@ -156,3 +162,4 @@ Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) AR
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/c643893e-ee9d-4128-b287-bb40586367c8" />
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/dc871600-422f-437b-9314-55be789b59a5" />
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/ff71dada-6f75-45ea-b6a4-9f68cef57855" />
+<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/0b738dbe-49c3-4595-b06b-9b4d014bc3b9" />
