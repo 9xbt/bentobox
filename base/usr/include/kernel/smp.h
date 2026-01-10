@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stddef.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 #include <kernel/acpi.h>
 #include <kernel/list.h>
@@ -15,7 +16,8 @@ struct cpu {
     node_t *current_tcb;
     node_t *idle_tcb;
 
-    void *tlb_va;
+    ringbuffer_t *tlb_invl_rb;
+    bool tlb_pending;
 
     struct madt_gicc *gicc;
     int current_irq;

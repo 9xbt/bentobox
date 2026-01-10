@@ -4,13 +4,13 @@
 #include <kernel/spinlock.h>
 #include <kernel/list.h>
 
-struct ringbuffer {
+typedef struct ringbuffer {
     unsigned char *buffer;
     size_t write_ptr;
     size_t read_ptr;
     size_t size;
     spinlock_t lock;
-};
+} ringbuffer_t;
 
 struct ringbuffer *ringbuffer_create(size_t size);
 struct ringbuffer *ringbuffer_clone(struct ringbuffer *rb);

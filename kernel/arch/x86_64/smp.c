@@ -4,6 +4,7 @@
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/smp.h>
 #include <kernel/arch/x86_64/tss.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
 #include <kernel/acpi.h>
@@ -39,8 +40,11 @@ void ap_startup() {
 }
 
 void smp_tlb_invalidate() {
-    asm volatile ("invlpg (%0)" ::"r"(this_cpu->tlb_va) : "memory");
-    this_cpu->tlb_va = 0;
+    uint64_t va;
+    while (ringbuffer_read(this_cpu->tlb_invl_rb, (unsigned char *)&va, sizeof va)) {
+        asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
+    }
+    __atomic_store_n(&this_cpu->tlb_pending, false, __ATOMIC_SEQ_CST);
     lapic_eoi();
 }
 
@@ -76,7 +80,8 @@ void smp_initialize(void) {
         core->threads = list_create();
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
-        core->tlb_va = NULL;
+        core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
+        core->tlb_pending = false;
         cpu_list[core->logical_id] = core;
     }
     
@@ -91,13 +96,9 @@ struct cpu *get_core(size_t core) {
     return cpu_list[core];
 }
 
-struct cpu * __attribute__((noinline)) this_core(void) {
+struct cpu *this_core(void) {
     uint32_t eax = 1, bspid, _;
-    asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax) : "memory");
+    asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     bspid >>= 24;
-    
-    // Force compiler to treat cpu_list as volatile
-    struct cpu *result = ((struct cpu * volatile *)cpu_list)[bspid];
-    asm volatile("" : :: "memory");  // Memory barrier
-    return result;
+    return cpu_list[bspid];
 }

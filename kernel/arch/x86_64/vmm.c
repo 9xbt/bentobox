@@ -6,6 +6,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/signal.h>
+#include <kernel/sched.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -58,13 +59,14 @@ void tlb_invalidate(void *va) {
 
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        if (core != this_cpu && core->current_tcb) {
-            core->tlb_va = va;
+        if (core == this_cpu || !core->current_tcb || core->current_tcb == core->idle_tcb)
+            continue;
+        // if (va < (void *)hhdm_offset && ((struct thread *)core->current_tcb->value)->parent != this_proc)
+        //    continue;
+
+        ringbuffer_write(core->tlb_invl_rb, (unsigned char *)&va, sizeof va);
+        if (!__atomic_exchange_n(&core->tlb_pending, true, __ATOMIC_SEQ_CST))
             lapic_ipi(core->logical_id, 0x81);
-            while (__atomic_load_n(&core->tlb_va, __ATOMIC_ACQUIRE) != 0) {
-                __builtin_ia32_pause();
-            }
-        }
     }
 }
 

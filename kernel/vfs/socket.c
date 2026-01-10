@@ -15,19 +15,36 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     struct socket *sock = node->device;
     if (sock->domain != PF_LOCAL)
         return -EOPNOTSUPP;
-    if (!sock->peer || sock->state != SOCKET_CONNECTED)
+    
+    acquire(&sock->lock);
+    if (!sock->peer || sock->state != SOCKET_CONNECTED) {
+        release(&sock->lock);
         return -ENOTCONN;
+    }
+    
+    acquire(&sock->peer->lock);
+    if (sock->peer->recv_queue->length >= SOCKET_MAX_QUEUE_ENTRIES) {
+        release(&sock->peer->lock);
+        release(&sock->lock);
+        return -EAGAIN;
+    }
     
     struct socket_buffer *buf = kmalloc(sizeof(struct socket_buffer));
     buf->data = kmalloc(len);
     buf->len = len;
     buf->offset = 0;
-    
     memcpy(buf->data, buffer, len);
-
+    
     list_insert(sock->peer->recv_queue, buf);
-    vfs_wake_waiters(sock->peer->fd_node);
-    vfs_wake_waiters(sock->peer->node);
+    vfs_node_t *peer_fd = sock->peer->fd_node;
+    vfs_node_t *peer_node = sock->peer->node;
+    
+    release(&sock->peer->lock);
+    release(&sock->lock);
+    
+    vfs_wake_waiters(peer_fd);
+    vfs_wake_waiters(peer_node);
+    
     return len;
 }
 
@@ -38,9 +55,9 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         return -EOPNOTSUPP;
     if (sock->state != SOCKET_CONNECTED)
         return -ENOTCONN;
-    
     if (!sock->recv_queue->length)
         return -EAGAIN;
+
     struct socket_buffer *buf = sock->recv_queue->head->value;
     
     size_t n = (buf->len - buf->offset) < len ? (buf->len - buf->offset) : len;
@@ -52,7 +69,12 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         list_pop(sock->recv_queue);
         kfree(buf->data);
         kfree(buf);
+        if (sock->peer) {
+            vfs_wake_waiters(sock->peer->fd_node);
+            vfs_wake_waiters(sock->peer->node);
+        }
     }
+    
     return n;
 }
 
@@ -65,7 +87,7 @@ long socket_poll(vfs_node_t *node, long events) {
             return POLLIN;
     }
     if (events & POLLOUT) {
-        if (sock->state == SOCKET_CONNECTED && sock->peer)
+        if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             return POLLOUT;
     }
     return 0;
@@ -110,13 +132,7 @@ vfs_ops_t local_socket_ops = {
     .poll = socket_poll
 };
 
-int socket_new(int domain, int type, int protocol) {
-    if (protocol && protocol != SOCK_STREAM) {
-        dprintf(LOG_DEBUG, "ENOSYS!\n");
-        return -ENOSYS;
-    }
-
-    vfs_node_t *node = vfs_create_node("[socket_new]", VFS_SOCKET);
+static struct socket *socket_create(int domain, int type) {
     struct socket *sock = kmalloc(sizeof(struct socket));
     sock->domain = domain;
     sock->type = type;
@@ -125,6 +141,20 @@ int socket_new(int domain, int type, int protocol) {
     sock->pending = list_create();
     sock->recv_queue = list_create();
     sock->peer = NULL;
+    sock->node = NULL;
+    sock->fd_node = NULL;
+    sock->lock = 0;
+    return sock;
+}
+
+int socket_new(int domain, int type, int protocol) {
+    if (protocol && protocol != SOCK_STREAM) {
+        dprintf(LOG_DEBUG, "ENOSYS!\n");
+        return -ENOSYS;
+    }
+
+    vfs_node_t *node = vfs_create_node("[socket_new]", VFS_SOCKET);
+    struct socket *sock = socket_create(domain, type);
     sock->node = node;
     sock->fd_node = node;
     node->device = sock;
@@ -193,20 +223,6 @@ int socket_listen(int fd, int backlog) {
     return 0;
 }
 
-static struct socket *socket_alloc(int domain, int type) {
-    struct socket *sock = kmalloc(sizeof(struct socket));
-    sock->domain = domain;
-    sock->type = type;
-    sock->backlog = 0;
-    sock->state = SOCKET_NONE;
-    sock->pending = list_create();
-    sock->recv_queue = list_create();
-    sock->peer = NULL;
-    sock->node = NULL;
-    sock->fd_node = NULL;
-    return sock;
-}
-
 int socket_connect(int fd, const void *addr, uint32_t addrlen) {
     struct file *file = file_get(fd);
     if (!file)
@@ -230,7 +246,7 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             if (!server_sock || server_sock->state != SOCKET_LISTENING)
                 return -ECONNREFUSED;
             
-            struct socket *server_child = socket_alloc(sock->domain, sock->type);
+            struct socket *server_child = socket_create(sock->domain, sock->type);
             server_child->state = SOCKET_CONNECTED;
             server_child->peer = sock;
             

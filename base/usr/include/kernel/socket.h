@@ -117,6 +117,7 @@ struct socket {
     list_t *pending;
     list_t *recv_queue;
     struct socket *peer;
+    spinlock_t lock;
 };
 
 struct socket_buffer {
@@ -126,6 +127,8 @@ struct socket_buffer {
 };
 
 struct unix_socket;
+
+#define SOCKET_MAX_QUEUE_ENTRIES 256
 
 int socket_new(int domain, int type, int protocol);
 int socket_bind(int fd, const void *addr, uint32_t addrlen);
