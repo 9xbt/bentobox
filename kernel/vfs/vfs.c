@@ -360,12 +360,10 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 void vfs_wake_waiters(vfs_node_t *node) {
     if (!node)
         return;
-    acquire(&node->waiters_lock);
-    foreach(i, node->waiters) {
+    foreach_safe(i, node->waiters) {
         struct thread *tcb = i->value;
         tcb->state = THREAD_RUNNING;
     }
-    release(&node->waiters_lock);
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {

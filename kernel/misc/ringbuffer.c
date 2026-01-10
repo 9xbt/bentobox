@@ -11,6 +11,7 @@ struct ringbuffer *ringbuffer_create(size_t size) {
     rb->read_ptr = 0;
     rb->write_ptr = 0;
     rb->size = size;
+    rb->lock = 0;
     return rb;
 };
 
@@ -36,26 +37,31 @@ bool ringbuffer_full(struct ringbuffer *rb) {
 }
 
 size_t ringbuffer_read(struct ringbuffer *rb, unsigned char *buffer, size_t size) {
+    acquire(&rb->lock);
     size_t i = 0;
     while (i < size && rb->read_ptr != rb->write_ptr) {
         buffer[i] = rb->buffer[rb->read_ptr];
         rb->read_ptr = (rb->read_ptr + 1) % rb->size;
         i++;
     }
+    release(&rb->lock);
     return i;
 }
 
 size_t ringbuffer_write(struct ringbuffer *rb, unsigned const char *buffer, size_t size) {
+    acquire(&rb->lock);
     size_t i = 0;
     while (i < size && (rb->write_ptr + 1) % rb->size != rb->read_ptr) {
         rb->buffer[rb->write_ptr] = buffer[i];
         rb->write_ptr = (rb->write_ptr + 1) % rb->size;
         i++;
     }
+    release(&rb->lock);
     return i;
 }
 
 size_t ringbuffer_peek(struct ringbuffer *rb, unsigned char *buffer, size_t size, size_t offset) {
+    acquire(&rb->lock);
     size_t i = 0;
     size_t read_ptr = rb->read_ptr + offset;
     while (i < size && read_ptr != rb->write_ptr) {
@@ -63,5 +69,6 @@ size_t ringbuffer_peek(struct ringbuffer *rb, unsigned char *buffer, size_t size
         read_ptr = (read_ptr + 1) % rb->size;
         i++;
     }
+    release(&rb->lock);
     return i;
 }

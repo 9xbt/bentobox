@@ -1,6 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdbool.h>
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 
 struct ringbuffer {
@@ -8,6 +9,7 @@ struct ringbuffer {
     size_t write_ptr;
     size_t read_ptr;
     size_t size;
+    spinlock_t lock;
 };
 
 struct ringbuffer *ringbuffer_create(size_t size);

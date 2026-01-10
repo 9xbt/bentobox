@@ -22,6 +22,7 @@ void early_log_initialize(void) {
     early_rb.write_ptr = 0;
     early_rb.read_ptr = 0;
     early_rb.size = sizeof(early_rb_buffer);
+    early_rb.lock = 0;
 }
 
 void putchar(char c) {

@@ -213,6 +213,7 @@ long sys_dup(int oldfd, int newfd, int flags) {
 #define F_SETLKW    7
 
 #define F_DUPFD_CLOEXEC 1030
+#define F_GETPIPE_SZ	1032
 
 #define FD_CLOEXEC  1
 
@@ -239,6 +240,8 @@ long sys_fcntl(int fd, int op, long arg) {
         case F_SETFL:
             file->flags = arg;
             return 0;
+        case F_GETPIPE_SZ:
+            return UNIXPIPE_BUFFER_SIZE;
         default:
             dprintf(LOG_DEBUG, "%s: function %d not implemented\n", __func__, op);
             return -EINVAL;
@@ -355,8 +358,10 @@ long sys_waitpid(int pid, int *wstatus, int options) {
                 }
             } else if (pid == -1) {
                 dp = list_pop(this_proc->dead_children);
+            } else {
+                // TODO: handle pid == 0 & pid < -1
+                dprintf(LOG_DEBUG, "\033[93muser:\033[0m waitpid is not implemented properly!\n");
             }
-            // TODO: handle pid == 0 & pid < -1
             
             if (dp) {
                 *wstatus = dp->status;
@@ -715,6 +720,7 @@ long sys_gettime(int clock, struct timespec *ts) {
     switch (clock) {
         case CLOCK_REALTIME:
             tv.tv_sec = now();
+            uptime(NULL, (size_t *)&tv.tv_nsec);
             break;
         case CLOCK_MONOTONIC:
             uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
