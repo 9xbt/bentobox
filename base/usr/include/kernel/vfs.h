@@ -146,7 +146,6 @@ typedef struct vfs_tty_ops {
 
 typedef struct vfs_node {
     char name[MAX_PATH];
-    bool busy;
     enum vfs_node_type type;
     size_t size;
     size_t blocks;
@@ -166,6 +165,7 @@ typedef struct vfs_node {
     void *device;
     char *target;
     struct vfs_mountpoint *mount;
+    int refcount;
 } vfs_node_t;
 
 typedef struct vfs_mount_ops {

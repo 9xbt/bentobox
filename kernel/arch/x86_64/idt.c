@@ -136,19 +136,19 @@ void isr_handler(struct registers *r) {
         return;
     }
     
-    // if (r->cs == 0x23) {
-    //     switch (r->int_no) {
-    //         case 6:
-    //             signal_send(this_proc, SIGILL);
-    //             break;
-    //         case 14:
-    //         default:
-    //             signal_send(this_proc, SIGSEGV);
-    //             break;
-    //     }
-    //     sched_yield();
-    //     return;
-    // }
+    if (r->cs == 0x23) {
+        switch (r->int_no) {
+            case 6:
+                signal_send(this_proc, SIGILL);
+                break;
+            case 14:
+            default:
+                signal_send(this_proc, SIGSEGV);
+                break;
+        }
+        sched_yield();
+        return;
+    }
 
     arch_fatal_prepare();
 

@@ -71,7 +71,7 @@ void arch_do_backtrace(void) {
 
     dprintf(LOG_EMERG, "Call Trace:\n");
 
-    for (int i = 0; i < 8 && frame_ptr->rbp && mmu_get_flags(kernel_pd, frame_ptr) & PTE_PRESENT; i++) {
+    for (int i = 0; i < 8 && frame_ptr->rbp && mmu_get_flags(mmu_get_pm(), frame_ptr) & PTE_PRESENT; i++) {
         dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
         frame_ptr = frame_ptr->rbp;
     }

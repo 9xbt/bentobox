@@ -1144,7 +1144,8 @@ void ext2_unmount_recursive(vfs_node_t *node) {
         vfs_node_t *child = i->value;
         if (child->type == VFS_DIRECTORY && strcmp(child->name, ".") && strcmp(child->name, ".."))
             ext2_unmount_recursive(child);
-        vfs_remove_node(child);
+        if (child->device == node->device)
+            vfs_remove_node(child);
     }
 }
 

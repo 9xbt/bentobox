@@ -24,7 +24,6 @@ vfs_node_t *vfs_get_root(void) {
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
     strcpy(node->name, name);
-    node->busy = false;
     node->type = type;
     node->size = 0;
     node->blocks = 0;
@@ -42,6 +41,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->device = NULL;
     node->target = NULL;
     node->mount = NULL;
+    node->refcount = 0;
     return node;
 }
 
@@ -57,6 +57,7 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
         parent = vfs_get_root();
     if (parent->type != VFS_DIRECTORY)
         return NULL;
+    node->refcount++;
     node->parent = parent;
     return list_insert(parent->children, node)->value;
 }
@@ -64,21 +65,25 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
 long vfs_remove_node(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
-    if (node->parent)
+    
+    dprintf(LOG_DEBUG, "%s: refcount %d\n", node->name, node->refcount);
+    if (node->parent) {
         list_remove_value(node->parent->children, node);
-    if (node->type == VFS_SYMLINK && node->target)
-        kfree((void *)node->target);
+        node->refcount--;
+    }
 
-    list_free(node->children);
-    kfree(node);
+    if (node->refcount <= 0) {
+        if (node->type == VFS_SYMLINK && node->target)
+            kfree((void *)node->target);
+        list_free(node->children);
+        kfree(node);
+    }
     return 0;
 }
 
 long vfs_remove(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
-    if (node->busy)
-        return -EBUSY;
     if (!node->ops || !node->ops->remove)
         return -EINVAL;
 
@@ -216,6 +221,7 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
     vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
     if (!node)
         return NULL;
+    node->refcount++;
     if (node->ops && node->ops->open && node->ops->open(node, flags) < 0)
         return NULL;
     return node;
@@ -226,6 +232,7 @@ long vfs_close(vfs_node_t *node) {
         return -ENOENT;
     if (node->ops && node->ops->close)
         return node->ops->close(node);
+    node->refcount--;
     return 0;
 }
 
@@ -234,8 +241,6 @@ long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EFAULT;
     if (!node)
         return -ENOENT;
-    if (node->busy)
-        return -EBUSY;
     if (node->type == VFS_DIRECTORY)
         return -EISDIR;
     if (node->ops && node->ops->read)
@@ -248,8 +253,6 @@ long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
         return -EFAULT;
     if (!node)
         return -ENOENT;
-    if (node->busy)
-        return -EBUSY;
     if (node->type == VFS_DIRECTORY)
         return -EISDIR;
     if (node->ops && node->ops->write)
