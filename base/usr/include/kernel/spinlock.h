@@ -1,7 +1,9 @@
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef volatile uint32_t spinlock_t;
 
 void acquire(spinlock_t *lock);
 void release(spinlock_t *lock);
+bool try_acquire(spinlock_t *lock);

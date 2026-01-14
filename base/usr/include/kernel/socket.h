@@ -117,7 +117,7 @@ struct socket {
     list_t *pending;
     list_t *recv_queue;
     struct socket *peer;
-    spinlock_t lock;
+    spinlock_t *lock;
 };
 
 struct socket_buffer {

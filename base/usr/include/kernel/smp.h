@@ -16,11 +16,17 @@ struct cpu {
     node_t *current_tcb;
     node_t *idle_tcb;
 
+    uint64_t idle_time;
+    uint64_t total_time;
+    uint64_t last_reset;
+
     ringbuffer_t *tlb_invl_rb;
     bool tlb_pending;
 
+    #ifdef __aarch64__
     struct madt_gicc *gicc;
     int current_irq;
+    #endif
 };
 
 extern struct cpu *cpu_list[SMP_MAX_CORES];

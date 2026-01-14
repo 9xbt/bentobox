@@ -3,6 +3,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
+#include <kernel/sched.h>
 #include <kernel/mmu.h>
 
 #define MSPACES 0
@@ -102,26 +103,32 @@ static int munmap(void *addr, size_t length) {
 
 void *kmalloc(size_t n) {
     assert(n);
+    cli();
     acquire(&lock);
     void *ptr = dlmalloc(n);
     assert(ptr);
     release(&lock);
+    sti();
     return ptr;
 }
 
 void kfree(void *ptr) {
     assert(ptr);
+    cli();
     acquire(&lock);
     size_t n = malloc_usable_size(ptr);
     memset(ptr, 0xCC, n);
     dlfree(ptr);
     release(&lock);
+    sti();
 }
 
 void *krealloc(void *ptr, size_t size) {
     assert(size);
+    cli();
     acquire(&lock);
     void *p = dlrealloc(ptr, size);
     release(&lock);
+    sti();
     return p;
 }

@@ -80,6 +80,8 @@ void smp_initialize(void) {
         core->threads = list_create();
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
+        core->idle_time = 0;
+        core->total_time = 0;
         core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
         core->tlb_pending = false;
         cpu_list[core->logical_id] = core;

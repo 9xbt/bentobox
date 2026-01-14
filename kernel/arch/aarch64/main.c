@@ -68,13 +68,6 @@ void arch_do_backtrace(void) {
     aarch64_backtrace(__builtin_frame_address(0));
 }
 
-void idle(void) {
-    for (;;) {
-        //dprintf(LOG_INFO, "a\n");
-        asm ("wfi");
-    }
-}
-
 void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
@@ -205,14 +198,6 @@ void arch_set_tls(uint64_t base) {
 }
 
 void arch_jumpstart(void) {
-    node_t *idle_proc = sched_add_process(sched_new_process("idle angel", false));
-    
-    for (size_t i = 0; i < cpu_count; i++) {
-        struct cpu *core = get_core(i);
-        struct thread *tcb = sched_new_thread(idle_proc->value, idle, 0, NULL, NULL, NULL, 0, NULL);
-        tcb->state = THREAD_PAUSED;
-        core->idle_tcb = list_insert(core->threads, tcb);
-    }
     gic_send_sgi(0, 0xff);
 }
 

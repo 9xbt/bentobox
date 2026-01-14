@@ -30,6 +30,7 @@ uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
 spinlock_t pid_lock = 0;
 spinlock_t tid_lock = 0;
+spinlock_t balance_lock = 0;
 
 struct process *init_proc = NULL;
 struct thread  *cleaner_tcb = NULL;
@@ -72,17 +73,36 @@ void sched_free_tid(int tid) {
     release(&tid_lock);
 }
 
+int sched_get_idle_usage(struct cpu *cpu) {
+    return cpu->total_time == 0 ? 100 : (cpu->idle_time * 100 / cpu->total_time);
+}
+
+int sched_get_busy_usage(struct cpu *cpu) {
+    return 100 - sched_get_idle_usage(cpu);
+}
+
 struct cpu *sched_find_cpu(void) {
-    static size_t id = 0;
-    struct cpu *c = cpu_list[id];
-    id = (id + 1) % cpu_count;
-    return c;
+    if (cpu_count == 1)
+        return this_cpu;
+
+    struct cpu *target = this_cpu;
+    int min = sched_get_busy_usage(target);
+
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        int usage = sched_get_busy_usage(core);
+        if (usage < min) {
+            min = usage;
+            target = core;
+        }
+    }
+
+    return target;
 }
 
 node_t *sched_add_process(struct process *proc) {
     foreach(thread, proc->threads) {
         struct cpu *cpu = sched_find_cpu();
-        ((struct thread *)thread->value)->cpu = cpu;
         list_insert(cpu->threads, thread->value);
     }
     return list_insert(processes, proc);
@@ -176,6 +196,9 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->sleep_end = 0;
     tcb->sigframe = NULL;
     tcb->status = 0;
+    tcb->start_time = 0;
+    tcb->end_time = 0;
+    tcb->last_cpu_time = 0;
 
     arch_context_init(tcb, entry, parent->user, stack);
 
@@ -323,6 +346,47 @@ void sched_exit_group(struct process *proc, int status) {
         cleaner_tcb->state = THREAD_RUNNING;
 }
 
+void sched_balance(void) {
+    if (!try_acquire(&balance_lock))
+        return;
+    
+    if (cpu_count == 1) {
+        release(&balance_lock);
+        return;
+    }
+
+    struct cpu *max_cpu = NULL, *min_cpu = NULL;
+    int max_load = 0, min_load = 100;
+    
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        int load = sched_get_busy_usage(core);
+        
+        if (load > max_load) {
+            max_load = load;
+            max_cpu = core;
+        }
+        if (load < min_load) {
+            min_load = load;
+            min_cpu = core;
+        }
+    }
+    
+    if (max_load - min_load >= SCHED_IMBALANCE_THRESHOLD && max_cpu && min_cpu && max_cpu->threads->length > 1) {
+        foreach_safe(node, max_cpu->threads) {
+            struct thread *tcb = node->value;
+            
+            if (tcb->state == THREAD_RUNNING && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
+                list_remove(max_cpu->threads, node);
+                list_insert(min_cpu->threads, tcb);
+                break;
+            }
+        }
+    }
+    
+    release(&balance_lock);
+}
+
 node_t *sched_find_next(void) {
     size_t sec, nsec;
     uptime(&sec, &nsec);
@@ -343,12 +407,31 @@ node_t *sched_find_next(void) {
 }
 
 void sched_schedule(struct registers *r) {
+    size_t sec, nsec;
+    uptime(&sec, &nsec);
+    uint64_t now = sec * 1000000000UL + nsec;
+
+    if (now - this_cpu->last_reset >= 200000000UL) {
+        this_cpu->idle_time = 0;
+        this_cpu->total_time = 0;
+        this_cpu->last_reset = now;
+        
+        sched_balance();
+    }
+
     if (this_cpu->current_tcb) {
         if (this->state == THREAD_ZOMBIE)
             __atomic_store_n(&this->state, THREAD_ZOMBIE_ACK, __ATOMIC_SEQ_CST);
 
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
+
+        this->end_time = now;
+        this->last_cpu_time = this->end_time - this->start_time;
+        
+        if (this_cpu->current_tcb == this_cpu->idle_tcb)
+            this_cpu->idle_time += this->last_cpu_time;
+        this_cpu->total_time += this->last_cpu_time;
 
         this_cpu->current_tcb = sched_find_next();
     } else {
@@ -362,8 +445,16 @@ void sched_schedule(struct registers *r) {
     if (this->state != state)
         goto find_next;
 
+    this->start_time = now;
+
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();
+}
+
+void idle(void) {
+    for (;;) {
+        wfi();
+    }
 }
 
 static void sched_cleanup_thread(struct thread *tcb) {
@@ -471,6 +562,14 @@ void sched_install(void) {
     memset(pid_bitmap, 0, SCHED_BITMAP_SIZE);
     memset(tid_bitmap, 0, SCHED_BITMAP_SIZE);
     bitmap_set(pid_bitmap, 1);
+
+    struct process *idle_proc = sched_new_process("idle angel", false);
+    for (size_t i = 0; i < cpu_count; i++) {
+        struct cpu *core = get_core(i);
+        struct thread *tcb = sched_new_thread(idle_proc, idle, 0, NULL, NULL, NULL, 0, NULL);
+        tcb->state = THREAD_PAUSED;
+        core->idle_tcb = list_insert(core->threads, tcb);
+    }
 
     struct process *cleaner = sched_new_process("psycho killer", false);
     cleaner_tcb = sched_new_thread(cleaner, sched_cleaner, 0, NULL, NULL, NULL, 0, NULL);

@@ -66,7 +66,6 @@ long vfs_remove_node(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
     
-    dprintf(LOG_DEBUG, "%s: refcount %d\n", node->name, node->refcount);
     if (node->parent) {
         list_remove_value(node->parent->children, node);
         node->refcount--;

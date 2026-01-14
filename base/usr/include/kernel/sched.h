@@ -13,6 +13,15 @@
 #define SCHED_BITMAP_SIZE   4096
 #define SCHED_VMA_BASE      0x555555554000
 #define SCHED_VMA_SIZE      256 * 1024 * 1024
+#define SCHED_IMBALANCE_THRESHOLD 20
+
+#ifdef __x86_64__
+#define wfi() asm ("hlt");
+#define cli() asm ("cli");
+#define sti() asm ("sti");
+#elif __aarch64__
+#define wfi() asm ("wfi");
+#endif
 
 enum thread_state {
     THREAD_RUNNING,
@@ -45,6 +54,9 @@ struct thread {
     size_t sleep_end;
     struct sigframe *sigframe;
     int status;
+    uint64_t start_time;
+    uint64_t end_time;
+    uint64_t last_cpu_time;
 };
 
 struct process {
