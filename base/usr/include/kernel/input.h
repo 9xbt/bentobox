@@ -69,6 +69,7 @@
 #define KEY_LEFTCTRL   0x1d
 #define KEY_LEFTSHIFT  0x2a
 #define KEY_RIGHTSHIFT 0x36
+#define KEY_LEFTALT    0x38
 #define KEY_CAPSLOCK   0x3a
 #define KEY_UP         0x67
 #define KEY_DOWN       0x6c

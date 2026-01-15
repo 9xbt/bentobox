@@ -79,7 +79,7 @@ static const int kb_map_keys_caps[256] = {
 
 static const int16_t keycode_map[128] = {
     [0x0D] = KEY_TAB,       [0x0E] = KEY_GRAVE,
-    [0x12] = KEY_LEFTSHIFT, [0x14] = KEY_LEFTCTRL,
+    [0x12] = KEY_LEFTSHIFT, [0x14] = KEY_LEFTCTRL,  [0x11] = KEY_LEFTALT,
     [0x15] = KEY_Q,         [0x16] = KEY_1,         [0x1A] = KEY_Z,
     [0x1B] = KEY_S,         [0x1C] = KEY_A,         [0x1D] = KEY_W,
     [0x1E] = KEY_2,         [0x21] = KEY_C,         [0x22] = KEY_X,
