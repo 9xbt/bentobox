@@ -15,7 +15,7 @@ endif
 
 CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
-CFLAGS += -g -O0 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\"
+CFLAGS += -g -O0 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\" -DFLANTERM_FB_DISABLE_BUMP_ALLOC
 CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -I lib/lai/include -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
 LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
@@ -40,7 +40,7 @@ MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 APPS_CC := $(ARCH)-pc-bentobox-gcc
 
 APPS_CFLAGS := -g -O2 -Ibase/usr/include/
-APPS_LDFLAGS := -Wl,--start-group -Lbin/$(ARCH)/lib -l:list.a -l:compositor.a -Wl,--end-group
+APPS_LDFLAGS := -Wl,--start-group -Lbin/$(ARCH)/lib -l:list.a -Wl,--end-group
 APPS_SOURCES := $(shell find apps -type f)
 
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
@@ -60,7 +60,7 @@ APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
 endif
 
 LIB_CFLAGS := -g -O2 -Ibase/usr/include/ -I$(CURDIR)/build/mlibc/$(ARCH)/include
-LIB_CFILES := lib/list.c lib/compositor.c
+LIB_CFILES := lib/list.c
 LIB_OBJS = $(addprefix obj/$(ARCH)/,$(LIB_CFILES:.c=.o))
 LIB_LIBS = $(addprefix bin/$(ARCH)/,$(LIB_CFILES:.c=.a))
 

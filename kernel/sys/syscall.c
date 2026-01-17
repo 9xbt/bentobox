@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <bentobox/reboot.h>
 #include <kernel/unixpipe.h>
 #include <kernel/syscall.h>
 #include <kernel/version.h>
@@ -837,6 +838,11 @@ long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *
     return sys_read_write(fd, (void *)buffer, size, true, false);
 }
 
+long sys_shutdown(void) {
+    dprintf(LOG_DEBUG, "\033[93muser:\033[0m %s is a stub\n", __func__);
+    return -ENOSYS;
+}
+
 long sys_fchdir(int fd) {
     struct file *file = file_get(fd);
     if (!file)
@@ -877,14 +883,20 @@ long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const cha
     return ret;
 }
 
-long sys_reboot(void) {
-    acpi_reboot();
-    __builtin_unreachable();
-}
+long sys_reboot(unsigned int magic, int op) {
+    if (magic != BENTOBOX_REBOOT_MAGIC)
+        return -EINVAL;
 
-long sys_shutdown(void) {
-    acpi_shutdown();
-    __builtin_unreachable();
+    switch (op) {
+        case BENTOBOX_REBOOT_OP_RESTART:
+            acpi_reboot();
+            __builtin_unreachable();
+        case BENTOBOX_REBOOT_OP_SHUTDOWN:
+            acpi_shutdown();
+            __builtin_unreachable();
+        default:
+            return -EINVAL;
+    }
 }
 
 long sys_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz) {
@@ -1191,10 +1203,9 @@ syscall_func syscalls[] = {
     [SYS_accept]      = (syscall_func)(uintptr_t)sys_accept,
     [SYS_recvfrom]    = (syscall_func)(uintptr_t)sys_recvfrom,
     [SYS_sendto]      = (syscall_func)(uintptr_t)sys_sendto,
-
-    [SYS_reboot]      = (syscall_func)(uintptr_t)sys_reboot,
     [SYS_shutdown]    = (syscall_func)(uintptr_t)sys_shutdown,
 
+    [SYS_reboot]      = (syscall_func)(uintptr_t)sys_reboot,
     [SYS_fchdir]      = (syscall_func)(uintptr_t)sys_fchdir,
     [SYS_renameat]    = (syscall_func)(uintptr_t)sys_renameat,
     [SYS_readlinkat]  = (syscall_func)(uintptr_t)sys_readlinkat,

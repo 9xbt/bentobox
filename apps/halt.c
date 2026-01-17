@@ -1,4 +1,5 @@
 #include <abi-bits/syscall.h>
+#include <bentobox/reboot.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -7,7 +8,7 @@
 char *name;
 
 void reboot(void) {
-    errno = -__syscall0(SYS_reboot);
+    errno = -__syscall2(SYS_reboot, BENTOBOX_REBOOT_MAGIC, BENTOBOX_REBOOT_OP_RESTART);
     if (errno) {
         perror(name);
         exit(EXIT_FAILURE);
@@ -15,7 +16,7 @@ void reboot(void) {
 }
 
 void shutdown(void) {
-    errno = -__syscall0(SYS_shutdown);
+    errno = -__syscall2(SYS_reboot, BENTOBOX_REBOOT_MAGIC, BENTOBOX_REBOOT_OP_SHUTDOWN);
     if (errno) {
         perror(name);
         exit(EXIT_FAILURE);

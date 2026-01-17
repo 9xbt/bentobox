@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <bentobox/setfont.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
 #include <kernel/printf.h>
@@ -306,7 +307,10 @@ void tty_destroy(vfs_node_t *node) {
 }
 
 void tty_spawn_worker(void) {
-    tty_t *tty = vfs_open(NULL, "/dev/tty1", 0)->device;
+    vfs_node_t *node = vfs_open(NULL, "/dev/tty1", 0);
+    if (!node)
+        return;
+    tty_t *tty = node->device;
 
     struct process *proc = sched_new_process("tty", false);
     tty->worker = sched_new_thread(proc, tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
@@ -320,9 +324,11 @@ void tty_initialize(void) {
     console->tty_ops = &console_tty_ops;
     vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), console);
 
-    vfs_node_t *tty1 = vfs_create_node("tty1", VFS_CHARDEVICE);
-    tty1->perms = 0600;
-    tty1->device = tty_create(tty1);
-    ((tty_t *)tty1->device)->ioctl = tty1_ioctl;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty1);
+    if (framebuffer) {
+        vfs_node_t *tty1 = vfs_create_node("tty1", VFS_CHARDEVICE);
+        tty1->perms = 0600;
+        tty1->device = tty_create(tty1);
+        ((tty_t *)tty1->device)->ioctl = tty1_ioctl;
+        vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), tty1);
+    }
 }

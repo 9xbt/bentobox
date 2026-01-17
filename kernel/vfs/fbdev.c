@@ -66,6 +66,9 @@ vfs_tty_ops_t fbdev_tty_ops = {
 };
 
 void fbdev_initialize(void) {
+    if (!framebuffer)
+        return;
+
     vfs_node_t *fb0 = vfs_create_node("fb0", VFS_CHARDEVICE);
     fb0->size = framebuffer->pitch * framebuffer->height;
     fb0->perms = 0660;

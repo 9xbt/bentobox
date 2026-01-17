@@ -1,6 +1,7 @@
 #include <limine.h>
 #include <stddef.h>
 #include <stddef.h>
+#include <kernel/ringbuffer.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
 #include <kernel/version.h>
@@ -25,6 +26,15 @@ static volatile struct limine_framebuffer_request framebuffer_request = {
     .revision = 0
 };
 
+static void *ft_malloc(size_t n) {
+    return kmalloc(n);
+}
+
+static void ft_free(void *ptr, size_t n) {
+    (void)n;
+    kfree(ptr);
+}
+
 void framebuffer_initialize(void) {
     if (framebuffer_request.response == NULL
      || framebuffer_request.response->framebuffer_count < 1) {
@@ -34,8 +44,8 @@ void framebuffer_initialize(void) {
     framebuffer = framebuffer_request.response->framebuffers[0];
 
     ft_ctx = flanterm_fb_init(
-        NULL,
-        NULL,
+        ft_malloc,
+        ft_free,
         framebuffer->address,
         framebuffer->width,
         framebuffer->height,
@@ -54,10 +64,13 @@ void framebuffer_initialize(void) {
         0, 0,
         0
     );
+
+    puts((char *)kernel_rb->buffer);
 }
 
 void framebuffer_get_winsize(struct winsize *ws) {
-    if (!ws) return;
+    if (!ws || !ft_ctx || !framebuffer)
+        return;
 
     ws->ws_row = ft_ctx->rows;
     ws->ws_col = ft_ctx->cols;
@@ -155,10 +168,10 @@ void framebuffer_setfont(const void *fontdata, size_t fontlen) {
     struct flanterm_fb_char *grid = kmalloc(grid_size);
     memcpy(grid, fb_ctx->grid, grid_size);
 
-    flanterm_deinit(ft_ctx, NULL);
+    flanterm_deinit(ft_ctx, ft_free);
     ft_ctx = flanterm_fb_init(
-        NULL,
-        NULL,
+        ft_malloc,
+        ft_free,
         framebuffer->address,
         framebuffer->width,
         framebuffer->height,

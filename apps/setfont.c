@@ -1,3 +1,4 @@
+#include <bentobox/setfont.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -5,13 +6,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-
-#define BBLOADFONT  0xF001
-
-struct bb_font_op {
-    size_t fontlen;
-    void  *fontdata;
-};
 
 char *name;
 

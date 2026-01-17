@@ -26,6 +26,8 @@ void early_log_initialize(void) {
 }
 
 void putchar(char c) {
+    if (!ft_ctx)
+        return;
     framebuffer_draw_cursor(-1, -1);
     acquire(&flanterm_lock);
     flanterm_write(ft_ctx, &c, 1);
@@ -33,6 +35,8 @@ void putchar(char c) {
 }
 
 void puts(char *s) {
+    if (!ft_ctx)
+        return;
     framebuffer_draw_cursor(-1, -1);
     acquire(&flanterm_lock);
 	flanterm_write(ft_ctx, s, strlen(s));

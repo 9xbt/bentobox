@@ -2,13 +2,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define BBLOADFONT	0xF001
-
-#define KD_FONT_OP_SET          0
-#define KD_FONT_OP_GET          1
-#define KD_FONT_OP_SET_DEFAULT  2
-#define KD_FONT_OP_COPY         3
-
 struct winsize {
 	unsigned short ws_row;
 	unsigned short ws_col;
@@ -70,8 +63,3 @@ struct termios {
 #define TIOCSWINSZ 0x5414
 #define TIOCGPGRP  0x540F
 #define TIOCSPGRP  0x5410
-
-struct bb_font_op {
-	size_t fontlen;
-	void  *fontdata;
-};

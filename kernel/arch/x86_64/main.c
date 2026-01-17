@@ -94,12 +94,8 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     ctx->regs.ss = user ? 0x1b : 0x10;
     ctx->regs.rflags = 0x202;
 
-    asm volatile("fninit");
-    asm volatile("fxsave %0" : "=m"(ctx->fxsave));
-
-    uint32_t *mxcsr = (uint32_t *)(ctx->fxsave + 24);
-    *mxcsr = 0x1920;
-    *mxcsr |= 0x8040;
+    asm volatile("fninit" ::: "memory");
+    asm volatile("fxsave %0" : "=m"(*ctx->fxsave) :: "memory");
 }
 
 void arch_context_free(struct thread *tcb) {
@@ -202,7 +198,6 @@ void kmain(void) {
 
     early_log_initialize();
     serial_install();
-    framebuffer_initialize();
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
@@ -211,6 +206,7 @@ void kmain(void) {
     gdt_install();
     idt_install();
     mmu_initialize();
+    framebuffer_initialize();
     tss_install();
     elf64_module(ksym_request.response->executable_file);
     acpi_install();
