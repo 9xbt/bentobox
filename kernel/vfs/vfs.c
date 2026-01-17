@@ -23,7 +23,7 @@ vfs_node_t *vfs_get_root(void) {
 
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     vfs_node_t *node = (vfs_node_t *)kmalloc(sizeof(vfs_node_t));
-    strcpy(node->name, name);
+    strncpy(node->name, name, MAX_PATH);
     node->type = type;
     node->size = 0;
     node->blocks = 0;

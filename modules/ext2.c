@@ -162,11 +162,14 @@ void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
 }
 
 void ext2_write_sb(ext2_fs *fs) {
-    vfs_write(fs->device, fs->sb, 1024, sizeof(ext2_sb));
+    char buf[512];
+    memcpy(buf, fs->sb, sizeof(ext2_sb));
+    vfs_write(fs->device, buf, 1024, sizeof buf);
 }
 
 void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     assert(inode);
+    // assert(fs->inode_size == sizeof(ext2_inode));
 
     inode--;
     uint32_t block_group = inode / fs->sb->inodes_per_group;
@@ -177,7 +180,8 @@ void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
 
     uint8_t buffer[fs->block_size];
     ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
-    memcpy(in, buffer + (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size, fs->inode_size);
+    // NOTE: we're ignoring the extra bytes of the inode here.
+    memcpy(in, buffer + (inode_index % (fs->block_size / fs->inode_size)) * fs->inode_size, sizeof(ext2_inode));
 }
 
 void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
@@ -194,7 +198,8 @@ void ext2_write_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
     acquire(&fs->bg_locks[block_group]);
     uint8_t buffer[fs->block_size];
     ext2_read_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
-    memcpy(buffer + inode_offset, in, fs->inode_size);
+    // NOTE: we're ignoring the extra bytes of the inode here.
+    memcpy(buffer + inode_offset, in, sizeof(ext2_inode));
     ext2_write_block(fs, fs->bgd_table[block_group].inode_table + inode_block, buffer, fs->block_size);
     release(&fs->bg_locks[block_group]);
 }
@@ -1035,7 +1040,7 @@ void ext2_mount_directory(ext2_fs *fs, uint8_t *block_data, size_t block_size, v
         ext2_dirent *entry = (ext2_dirent *)(block_data + offset);
         if (entry->inode == 0 || entry->total_size == 0)
             break;
-
+        
         char name[entry->name_len + 1];
         memcpy(name, entry->name, entry->name_len);
         name[entry->name_len] = '\0';
@@ -1123,9 +1128,9 @@ long ext2_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     fs->block_size = 1024 << fs->sb->log2_block;
     fs->bgd_count = (fs->sb->blocks_count / fs->sb->blocks_per_group) ?: 1;
     fs->bgd_block = fs->sb->block_num + 1;
-    fs->bgd_table = (ext2_bgd *)kmalloc(fs->bgd_count * sizeof(ext2_bgd));
+    fs->bgd_table = (ext2_bgd *)kmalloc(ALIGN_UP(fs->bgd_count * sizeof(ext2_bgd), 512));
     fs->inode_size = fs->sb->inode_size;
-    ext2_read_block(fs, fs->bgd_block, fs->bgd_table, fs->bgd_count * sizeof(ext2_bgd));
+    ext2_read_block(fs, fs->bgd_block, fs->bgd_table, ALIGN_UP(fs->bgd_count * sizeof(ext2_bgd), 512));
     fs->sb_lock = 0;
     fs->bg_locks = kmalloc(fs->bgd_count * sizeof(spinlock_t));
     memset((void *)fs->bg_locks, 0, fs->bgd_count * sizeof(spinlock_t));

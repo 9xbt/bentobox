@@ -360,7 +360,7 @@ long ahci_vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return 0;
 
     size_t lba = offset / 512;
-    size_t count = ALIGN_UP(len, 512) / 512;
+    size_t count = ALIGN_DOWN(len, 512) / 512;
 
     if (ahci_op_read(node->device, lba, count, buffer) < 0)
         return -EIO;
@@ -372,7 +372,7 @@ long ahci_vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t le
         return 0;
 
     size_t lba = offset / 512;
-    size_t count = ALIGN_UP(len, 512) / 512;
+    size_t count = ALIGN_DOWN(len, 512) / 512;
 
     if (ahci_op_write(node->device, lba, count, buffer) < 0)
         return -EIO;

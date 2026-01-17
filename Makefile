@@ -13,9 +13,11 @@ ifneq ($(TOOLCHAIN),)
     endif
 endif
 
+GIT_HASH := $(shell git describe --always --dirty)
+
 CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
-CFLAGS += -g -O0 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(shell git describe --always --dirty)\" -DFLANTERM_FB_DISABLE_BUMP_ALLOC
+CFLAGS += -g -O0 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(GIT_HASH)\" -DFLANTERM_FB_DISABLE_BUMP_ALLOC
 CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -I lib/lai/include -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
 LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
@@ -159,14 +161,12 @@ $(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -t
 	@cp -r base/* bin/$(ARCH)/base/
 	@cp -r build/base/$(ARCH)/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
-# 	@truncate -s 4000M $@
-# 	@mkfs.ext2 -b 1024 -O ^filetype -F $@
-# 	@sudo mkdir -p /mnt/bentobox
-# 	@sudo mount -o loop $@ /mnt/bentobox
-# 	@sudo rsync -a --info=progress2 bin/$(ARCH)/base /mnt/bentobox/
-# 	@sudo umount /mnt/bentobox
-	@rm -f $@
-	@genext2fs -d bin/$(ARCH)/base -b 4194304 -L bentobox -N 20000 $@ 2>&1 >/dev/null | grep -v copying | cat
+	@truncate -s 4000M $@
+	@mkfs.ext2 -b 1024 -O ^filetype -F $@
+	@sudo mkdir -p /mnt/bentobox
+	@sudo mount -o loop $@ /mnt/bentobox
+	@sudo rsync -a --info=progress2 bin/$(ARCH)/base/* /mnt/bentobox/
+	@sudo umount /mnt/bentobox
 
 .PHONY: clean
 clean:
