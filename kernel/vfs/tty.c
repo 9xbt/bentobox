@@ -294,6 +294,7 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->mouse_tracking = false;
     node->ops = &tty_ops;
     node->tty_ops = &tty_tty_ops;
+    node->inode = 100000;
     return tty;
 }
 

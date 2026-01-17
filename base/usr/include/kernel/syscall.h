@@ -78,5 +78,6 @@
 #define SYS_getpeername 67
 #define SYS_readv       68
 #define SYS_writev      69
+#define SYS_getrlimit   70
 
 long syscall_handler(size_t *args);

@@ -1150,6 +1150,35 @@ long sys_readv(int fd, const struct iovec *iov, int iovcnt) {
     return sys_read_writev(fd, iov, iovcnt, false);
 }
 
+#define RLIM_INFINITY (~0UL)
+
+#define RLIMIT_NOFILE 7
+#define RLIMIT_STACK  3
+
+struct rlimit {
+    unsigned long rlim_cur;
+    unsigned long rlim_max;
+};
+
+long sys_getrlimit(int resource, struct rlimit *rlim) {
+    struct rlimit limit = {0};
+    switch (resource) {
+        case RLIMIT_NOFILE:
+            limit.rlim_cur = 1024;
+            limit.rlim_cur = 4096;
+            break;
+        case RLIMIT_STACK:
+            limit.rlim_cur = 1 * 1024 * 1024;
+            limit.rlim_max = 1 * 1024 * 1024;
+            break;
+        default:
+            limit.rlim_cur = RLIM_INFINITY;
+            limit.rlim_cur = RLIM_INFINITY;
+            break;
+    }
+    return copy_to_user(rlim, &limit, sizeof limit);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1223,7 +1252,8 @@ syscall_func syscalls[] = {
     [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake,
     [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt,
     [SYS_readv]       = (syscall_func)(uintptr_t)sys_readv,
-    [SYS_writev]      = (syscall_func)(uintptr_t)sys_writev
+    [SYS_writev]      = (syscall_func)(uintptr_t)sys_writev,
+    [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit
 };
 
 long syscall_handler(size_t *args) {
