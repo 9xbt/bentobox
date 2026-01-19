@@ -342,7 +342,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             }
         }
 
-        if (ready)
+        if (ready || !timeout)
             break;
     }
 

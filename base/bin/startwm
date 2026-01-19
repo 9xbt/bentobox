@@ -1,7 +1,10 @@
 #!/bin/bash
 clear
 X -retro &
-sleep 3
+sleep 2
+export DISPLAY=:0
+twm &
+sleep 1
 xkbcomp -w 0 -I/usr/share/X11/xkb - :0 <<'EOF'
 xkb_keymap {
     xkb_keycodes  { include "evdev+aliases(qwerty)" };
@@ -11,6 +14,4 @@ xkb_keymap {
     xkb_geometry  { include "pc(pc105)" };
 };
 EOF
-export DISPLAY=:0
-twm &
 wait

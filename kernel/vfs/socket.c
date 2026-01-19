@@ -21,6 +21,10 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
         release(sock->lock);
         return -ENOTCONN;
     }
+    if (sock->shutdown != -1 && (sock->shutdown == SHUT_WR || sock->shutdown == SHUT_RDWR)) {
+        release(sock->lock);
+        return -EPIPE;
+    }
     if (sock->peer->recv_queue->length >= SOCKET_MAX_QUEUE_ENTRIES) {
         release(sock->lock);
         return -EAGAIN;
@@ -51,6 +55,10 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
     if (sock->state != SOCKET_CONNECTED) {
         release(sock->lock);
         return -ENOTCONN;
+    }
+    if (sock->shutdown != -1 && (sock->shutdown == SHUT_RD || sock->shutdown == SHUT_RDWR)) {
+        release(sock->lock);
+        return 0;
     }
     if (!sock->recv_queue->length) {
         release(sock->lock);
@@ -93,8 +101,12 @@ long socket_poll(vfs_node_t *node, long events) {
         if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             revents |= POLLOUT;
     }
-    release(sock->lock);
+    if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
+        (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {
+        revents |= POLLHUP;
+    }
     
+    release(sock->lock);
     return revents;
 }
 
@@ -142,6 +154,7 @@ static struct socket *socket_create(int domain, int type) {
     sock->domain = domain;
     sock->type = type;
     sock->backlog = 0;
+    sock->shutdown = -1;
     sock->state = SOCKET_NONE;
     sock->pending = list_create();
     sock->recv_queue = list_create();
@@ -336,4 +349,34 @@ int socket_getsockopt(int fd, int level, int optname, void *optval, uint32_t *op
     }
 
     return -ENOSYS;
+}
+
+int socket_shutdown(int fd, int how) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+    if (!file->node->device)
+        return -EINVAL;
+    if (how < SHUT_RD || how > SHUT_RDWR)
+        return -EINVAL;
+    
+    struct socket *sock = file->node->device;
+    
+    acquire(sock->lock);
+    if (sock->state != SOCKET_CONNECTED) {
+        release(sock->lock);
+        return -ENOTCONN;
+    }
+    
+    sock->shutdown = how;
+
+    vfs_wake_waiters(sock->fd_node);
+    vfs_wake_waiters(sock->node);
+    if ((how == SHUT_WR || how == SHUT_RDWR) && sock->peer) {
+        vfs_wake_waiters(sock->peer->fd_node);
+        vfs_wake_waiters(sock->peer->node);
+    }
+    
+    release(sock->lock);
+    return 0;
 }

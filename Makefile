@@ -42,7 +42,7 @@ MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 APPS_CC := $(ARCH)-pc-bentobox-gcc
 
 APPS_CFLAGS := -g -O2 -Ibase/usr/include/
-APPS_LDFLAGS := -Wl,--start-group -Lbin/$(ARCH)/lib -l:list.a -Wl,--end-group
+APPS_LDFLAGS := -Wl,--start-group -lX11 -Lbin/$(ARCH)/lib -l:list.a -Wl,--end-group
 APPS_SOURCES := $(shell find apps -type f)
 
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))

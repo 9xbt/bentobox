@@ -83,6 +83,10 @@
 #define SOCK_CLOEXEC    02000000
 #define SOCK_NONBLOCK   00004000
 
+#define SHUT_RD     0
+#define SHUT_WR     1
+#define SHUT_RDWR   2
+
 typedef unsigned short sa_family_t;
 typedef unsigned int socklen_t;
 
@@ -111,6 +115,7 @@ struct socket {
     int domain;
     int type;
     int backlog;
+    int shutdown;
     enum socket_state state;
     vfs_node_t *node;
     vfs_node_t *fd_node;
@@ -136,3 +141,4 @@ int socket_listen(int fd, int backlog);
 int socket_connect(int fd, const void *addr, uint32_t addrlen);
 int socket_accept(int fd, const void *addr, uint32_t *addrlen);
 int socket_getsockopt(int fd, int level, int optname, void *optval, uint32_t *optlen);
+int socket_shutdown(int fd, int how);

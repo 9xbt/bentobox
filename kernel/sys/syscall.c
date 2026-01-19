@@ -644,9 +644,26 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
     if (timeout && copy_from_user(&to, timeout, sizeof to) < 0)
         return -EFAULT;
 
+    if (!nfds) {
+        if (!timeout) {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+            return 0;
+        } else if (!to.tv_sec && !to.tv_nsec) {
+            return 0;
+        } else {
+            sched_sleep(to.tv_sec * 1000000000 + to.tv_nsec);
+            return 0;
+        }
+    }
+
+    struct pollfd *kfds = kmalloc(nfds * sizeof(struct pollfd));
+    if (copy_from_user(kfds, fds, nfds * sizeof(struct pollfd)) < 0)
+        return -EFAULT;
+
     long ready = 0;
     for (int fd = 0; fd < nfds; fd++) {
-        struct pollfd *pfd = &fds[fd];
+        struct pollfd *pfd = &kfds[fd];
         pfd->revents = 0;
 
         struct file *file = file_get(pfd->fd);
@@ -658,14 +675,21 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
         if ((pfd->revents = vfs_poll(file->node, pfd->events, 0)))
             ready++;
     }
-    if (ready || (timeout && !to.tv_sec && !to.tv_nsec))
+    if (ready || (timeout && !to.tv_sec && !to.tv_nsec)) {
+        if (copy_to_user(fds, kfds, nfds * sizeof(struct pollfd))) {
+            kfree(kfds);
+            return -EFAULT;
+        }
+
+        kfree(kfds);
         return ready;
+    }
 
     vfs_node_t **nodes = kmalloc(nfds * sizeof(vfs_node_t *));
     short *events = kmalloc(nfds * sizeof(short));
     short *revents = kmalloc(nfds * sizeof(short));
     for (int fd = 0; fd < nfds; fd++) {
-        struct pollfd *pfd = &fds[fd];
+        struct pollfd *pfd = &kfds[fd];
         pfd->revents = 0;
 
         struct file *file = file_get(pfd->fd);
@@ -687,7 +711,7 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
     }
 
     for (int fd = 0; fd < nfds; fd++) {
-        struct pollfd *pfd = &fds[fd];
+        struct pollfd *pfd = &kfds[fd];
     
         struct file *file = file_get(pfd->fd);
         if (!file) {
@@ -701,6 +725,13 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
     kfree(nodes);
     kfree(events);
     kfree(revents);
+
+    if (copy_to_user(fds, kfds, nfds * sizeof(struct pollfd))) {
+        kfree(kfds);
+        return -EFAULT;
+    }
+
+    kfree(kfds);
     return ready;
 }
 
@@ -838,9 +869,24 @@ long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *
     return sys_read_write(fd, (void *)buffer, size, true, false);
 }
 
-long sys_shutdown(void) {
-    dprintf(LOG_DEBUG, "\033[93muser:\033[0m %s is a stub\n", __func__);
-    return -ENOSYS;
+long sys_shutdown(int sockfd, int how) {
+    return socket_shutdown(sockfd, how);
+}
+
+long sys_reboot(unsigned int magic, int op) {
+    if (magic != BENTOBOX_REBOOT_MAGIC)
+        return -EINVAL;
+
+    switch (op) {
+        case BENTOBOX_REBOOT_OP_RESTART:
+            acpi_reboot();
+            __builtin_unreachable();
+        case BENTOBOX_REBOOT_OP_SHUTDOWN:
+            acpi_shutdown();
+            __builtin_unreachable();
+        default:
+            return -EINVAL;
+    }
 }
 
 long sys_fchdir(int fd) {
@@ -881,22 +927,6 @@ long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const cha
     long ret = vfs_rename(node, newdir, newpath);
     kfree(newpath);
     return ret;
-}
-
-long sys_reboot(unsigned int magic, int op) {
-    if (magic != BENTOBOX_REBOOT_MAGIC)
-        return -EINVAL;
-
-    switch (op) {
-        case BENTOBOX_REBOOT_OP_RESTART:
-            acpi_reboot();
-            __builtin_unreachable();
-        case BENTOBOX_REBOOT_OP_SHUTDOWN:
-            acpi_shutdown();
-            __builtin_unreachable();
-        default:
-            return -EINVAL;
-    }
 }
 
 long sys_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz) {
