@@ -282,8 +282,8 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     
     if (timeout == -1) {
         for (;;) {
-            this->state = THREAD_PAUSED;
             release(&node->waiters_lock);
+            this->state = THREAD_PAUSED;
             sched_yield();
             acquire(&node->waiters_lock);
             
@@ -362,9 +362,24 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 void vfs_wake_waiters(vfs_node_t *node) {
     if (!node)
         return;
+    
+    acquire(&node->waiters_lock);
+    acquire(&node->waiters->lock);
     foreach_safe(i, node->waiters) {
         struct thread *tcb = i->value;
-        tcb->state = THREAD_RUNNING;
+        __atomic_store_n(&tcb->state, THREAD_RUNNING, __ATOMIC_RELEASE);
+    }
+    release(&node->waiters->lock);
+    release(&node->waiters_lock);
+}
+
+void vfs_wake_waiters_irqsafe(vfs_node_t *node) {
+    if (!node)
+        return;
+    
+    foreach_safe(i, node->waiters) {
+        struct thread *tcb = i->value;
+        __atomic_store_n(&tcb->state, THREAD_RUNNING, __ATOMIC_RELEASE);
     }
 }
 

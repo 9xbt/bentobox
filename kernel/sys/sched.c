@@ -395,9 +395,10 @@ node_t *sched_find_next(void) {
     node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
-        if (t->state == THREAD_SLEEPING && now >= t->sleep_end)
-            t->state = THREAD_RUNNING;
-        if (t->state == THREAD_RUNNING)
+        enum thread_state state = __atomic_load_n(&t->state, __ATOMIC_ACQUIRE);
+        if (state == THREAD_SLEEPING && now >= t->sleep_end)
+            __atomic_store_n(&t->state, THREAD_RUNNING, __ATOMIC_RELEASE);
+        if (state == THREAD_RUNNING)
             return node;
 
         node = node->next ? node->next : this_cpu->threads->head;

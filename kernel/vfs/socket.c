@@ -27,6 +27,10 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     }
     if (sock->peer->recv_queue->length >= SOCKET_MAX_QUEUE_ENTRIES) {
         release(sock->lock);
+        vfs_wake_waiters(sock->fd_node);
+        vfs_wake_waiters(sock->node);
+        vfs_wake_waiters(sock->peer->fd_node);
+        vfs_wake_waiters(sock->peer->node);
         return -EAGAIN;
     }
     
@@ -39,6 +43,8 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     list_insert(sock->peer->recv_queue, buf);
     release(sock->lock);
     
+    vfs_wake_waiters(sock->fd_node);
+    vfs_wake_waiters(sock->node);
     vfs_wake_waiters(sock->peer->fd_node);
     vfs_wake_waiters(sock->peer->node);
     
@@ -76,6 +82,8 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         list_pop(sock->recv_queue);
         kfree(buf->data);
         kfree(buf);
+        vfs_wake_waiters(sock->fd_node);
+        vfs_wake_waiters(sock->node);
         if (sock->peer) {
             vfs_wake_waiters(sock->peer->fd_node);
             vfs_wake_waiters(sock->peer->node);
@@ -100,6 +108,12 @@ long socket_poll(vfs_node_t *node, long events) {
     if (events & POLLOUT) {
         if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             revents |= POLLOUT;
+        else {
+            vfs_wake_waiters(sock->fd_node);
+            vfs_wake_waiters(sock->node);
+            vfs_wake_waiters(sock->peer->fd_node);
+            vfs_wake_waiters(sock->peer->node);
+        }
     }
     if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
         (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {

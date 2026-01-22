@@ -309,7 +309,7 @@ void irq12_handler(struct registers *r) {
         memset(&state, 0, sizeof state);
         pi = 0;
 
-        vfs_wake_waiters(mouse);
+        vfs_wake_waiters_irqsafe(mouse);
     }
 
     lapic_eoi();
