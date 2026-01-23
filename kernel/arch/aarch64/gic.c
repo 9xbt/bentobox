@@ -32,6 +32,15 @@ void gic_send_sgi(uint8_t sgiid, uint8_t mask) {
     gicd_write(madt_gicd_list[0], GICD_SGIR, (sgiid & 0xF) | ((mask & 0xFF) << 16));
 }
 
+void gic_initialize(void) {
+    gicc_write(this_cpu->gicc, GICC_PMR, 0xFF);
+    gicc_write(this_cpu->gicc, GICC_CTLR, 1);
+
+    struct madt_gicd *gicd = madt_gicd_list[0];
+    gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
+    gicd_write(gicd, GICD_ISENABLER0 + 4, 1 << 1);
+}
+
 void gic_install(void) {
     if (!madt_gicds || !madt_giccs)
         panic("couldn't find GIC");
@@ -51,13 +60,8 @@ void gic_install(void) {
         cpu_list[i]->gicc = gicc;
     }
 
-    gicc_write(this_cpu->gicc, GICC_PMR, 0xFF);
-    gicc_write(this_cpu->gicc, GICC_CTLR, 1);
-
+    gic_initialize();
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized CPU interfaces\n");
     
     asm volatile ("msr daifclr, #2");
-
-    gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
-    gicd_write(gicd, GICD_ISENABLER0 + 4, 1 << 1);
 }

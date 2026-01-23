@@ -28,12 +28,7 @@ extern void _ap_trampoline();
 void ap_startup(void) {
     vectors_install();
     mmu_switch_pm(kernel_pd);
-    
-    gicc_write(this_cpu->gicc, GICC_PMR, 0xFF);
-    gicc_write(this_cpu->gicc, GICC_CTLR, 1);
-
-    struct madt_gicd *gicd = madt_gicd_list[0];
-    gicd_write(gicd, GICD_ISENABLER0, 1 << 30);
+    gic_initialize();
 
     asm volatile ("msr daifclr, #2");
     for (;;) asm ("wfi");

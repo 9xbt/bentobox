@@ -14,6 +14,7 @@
 #define GICC_EOIR       0x10
 
 void gic_install(void);
+void gic_initialize(void);
 void gic_send_sgi(uint8_t sgiid, uint8_t mask);
 void gicd_write(struct madt_gicd *gicd, uint32_t offset, uint32_t value);
 void gicc_write(struct madt_gicc *gicc, uint32_t offset, uint32_t value);
