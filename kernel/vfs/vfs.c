@@ -312,6 +312,10 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
+        if (!node->ops || !node->ops->poll || !node->waiters) {
+            revents[fd] = -1;
+            continue;
+        }
         
         acquire(&node->waiters_lock);
         list_insert(node->waiters, this);

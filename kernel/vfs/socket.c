@@ -16,20 +16,18 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     if (sock->domain != PF_LOCAL)
         return -EOPNOTSUPP;
     
-    acquire(sock->lock);
+    acquire(&sock->lock);
     if (!sock->peer || sock->state != SOCKET_CONNECTED) {
-        release(sock->lock);
+        release(&sock->lock);
         return -ENOTCONN;
     }
     if (sock->shutdown != -1 && (sock->shutdown == SHUT_WR || sock->shutdown == SHUT_RDWR)) {
-        release(sock->lock);
+        release(&sock->lock);
         return -EPIPE;
     }
     if (sock->peer->recv_queue->length >= SOCKET_MAX_QUEUE_ENTRIES) {
-        release(sock->lock);
-        vfs_wake_waiters(sock->fd_node);
+        release(&sock->lock);
         vfs_wake_waiters(sock->node);
-        vfs_wake_waiters(sock->peer->fd_node);
         vfs_wake_waiters(sock->peer->node);
         return -EAGAIN;
     }
@@ -41,11 +39,9 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     memcpy(buf->data, buffer, len);
     
     list_insert(sock->peer->recv_queue, buf);
-    release(sock->lock);
+    release(&sock->lock);
     
-    vfs_wake_waiters(sock->fd_node);
     vfs_wake_waiters(sock->node);
-    vfs_wake_waiters(sock->peer->fd_node);
     vfs_wake_waiters(sock->peer->node);
     
     return len;
@@ -57,17 +53,17 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
     if (sock->domain != PF_LOCAL)
         return -EOPNOTSUPP;
 
-    acquire(sock->lock);
+    acquire(&sock->lock);
     if (sock->state != SOCKET_CONNECTED) {
-        release(sock->lock);
+        release(&sock->lock);
         return -ENOTCONN;
     }
     if (sock->shutdown != -1 && (sock->shutdown == SHUT_RD || sock->shutdown == SHUT_RDWR)) {
-        release(sock->lock);
+        release(&sock->lock);
         return 0;
     }
     if (!sock->recv_queue->length) {
-        release(sock->lock);
+        release(&sock->lock);
         return -EAGAIN;
     }
 
@@ -82,14 +78,12 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         list_pop(sock->recv_queue);
         kfree(buf->data);
         kfree(buf);
-        vfs_wake_waiters(sock->fd_node);
         vfs_wake_waiters(sock->node);
         if (sock->peer) {
-            vfs_wake_waiters(sock->peer->fd_node);
             vfs_wake_waiters(sock->peer->node);
         }
     }
-    release(sock->lock);
+    release(&sock->lock);
     
     return n;
 }
@@ -98,7 +92,7 @@ long socket_poll(vfs_node_t *node, long events) {
     struct socket *sock = node->device;
     long revents = 0;
     
-    acquire(sock->lock);
+    acquire(&sock->lock);
     if (events & POLLIN) {
         if (sock->state == SOCKET_LISTENING && sock->pending->length > 0)
             revents |= POLLIN;
@@ -109,9 +103,7 @@ long socket_poll(vfs_node_t *node, long events) {
         if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             revents |= POLLOUT;
         else {
-            vfs_wake_waiters(sock->fd_node);
             vfs_wake_waiters(sock->node);
-            vfs_wake_waiters(sock->peer->fd_node);
             vfs_wake_waiters(sock->peer->node);
         }
     }
@@ -120,7 +112,7 @@ long socket_poll(vfs_node_t *node, long events) {
         revents |= POLLHUP;
     }
     
-    release(sock->lock);
+    release(&sock->lock);
     return revents;
 }
 
@@ -174,9 +166,7 @@ static struct socket *socket_create(int domain, int type) {
     sock->recv_queue = list_create();
     sock->peer = NULL;
     sock->node = NULL;
-    sock->fd_node = NULL;
-    sock->lock = kmalloc(sizeof(spinlock_t));
-    *sock->lock = 0;
+    sock->lock = 0;
     return sock;
 }
 
@@ -187,7 +177,6 @@ int socket_new(int domain, int type, int protocol) {
     vfs_node_t *node = vfs_create_node("[socket]", VFS_SOCKET);
     struct socket *sock = socket_create(domain, type);
     sock->node = node;
-    sock->fd_node = node;
     node->device = sock;
 
     int flags = 0;
@@ -280,14 +269,13 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             struct socket *server_child = socket_create(sock->domain, sock->type);
             server_child->state = SOCKET_CONNECTED;
             server_child->peer = sock;
-            kfree((void *)server_child->lock);
-            server_child->lock = sock->lock;
+            // kfree((void *)server_child->lock);
+            // server_child->lock = sock->lock;
             
             sock->peer = server_child;
             sock->state = SOCKET_CONNECTED;
             
             list_insert(server_sock->pending, server_child);
-            vfs_wake_waiters(server_sock->fd_node);
             vfs_wake_waiters(server_sock->node);
             return 0;
         }
@@ -319,7 +307,6 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     node->ops = &local_socket_ops;
     node->device = client_sock;
     client_sock->node = node;
-    client_sock->fd_node = node;
 
     int flags = 0;
     if (sock->type & SOCK_CLOEXEC)
@@ -376,21 +363,19 @@ int socket_shutdown(int fd, int how) {
     
     struct socket *sock = file->node->device;
     
-    acquire(sock->lock);
+    acquire(&sock->lock);
     if (sock->state != SOCKET_CONNECTED) {
-        release(sock->lock);
+        release(&sock->lock);
         return -ENOTCONN;
     }
     
     sock->shutdown = how;
 
-    vfs_wake_waiters(sock->fd_node);
     vfs_wake_waiters(sock->node);
     if ((how == SHUT_WR || how == SHUT_RDWR) && sock->peer) {
-        vfs_wake_waiters(sock->peer->fd_node);
         vfs_wake_waiters(sock->peer->node);
     }
     
-    release(sock->lock);
+    release(&sock->lock);
     return 0;
 }
