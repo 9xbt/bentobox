@@ -209,7 +209,6 @@ void kmain(void) {
     }
 
     early_log_initialize();
-    framebuffer_initialize();
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
@@ -219,6 +218,7 @@ void kmain(void) {
 
     vectors_install();
     mmu_initialize();
+    framebuffer_initialize();
     pl011_install();
     elf64_module(ksym_request.response->executable_file);
     acpi_install();

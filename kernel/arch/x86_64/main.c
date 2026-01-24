@@ -205,12 +205,11 @@ void kmain(void) {
 
     gdt_install();
     idt_install();
+    tss_install();
     mmu_initialize();
     framebuffer_initialize();
-    tss_install();
     elf64_module(ksym_request.response->executable_file);
     acpi_install();
-    hpet_install();
     lapic_install();
     ioapic_install();
     smp_initialize();

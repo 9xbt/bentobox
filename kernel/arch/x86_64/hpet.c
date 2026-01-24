@@ -47,8 +47,8 @@ void hpet_install(void) {
     if (!(hpet = acpi_find_table("HPET")))
         return;
 
-    hpet_address = (uint64_t)VIRTUAL_HHDM(hpet->address);
-    mmu_map(kernel_pd, (void *)hpet_address, (void *)hpet->address, PTE_PRESENT | PTE_WRITABLE);
+    hpet_address = (uint64_t)VIRTUAL_HHDM(hpet->address.address);
+    mmu_map(kernel_pd, (void *)hpet_address, (void *)hpet->address.address, PTE_PRESENT | PTE_WRITABLE);
     hpet_period = hpet_read(HPET_REG_CAP) >> 32;
 
     hpet_write(HPET_REG_CONFIG, 0x0);

@@ -23,8 +23,8 @@ void madt_init(void) {
         panic("couldn't find MADT");
 
     uint32_t i = 0;
-    while (i < madt->length - sizeof(struct acpi_madt)) {
-        struct madt_entry *entry = (struct madt_entry *)(madt->table + i);
+    while (i < madt->hdr.length - sizeof(struct acpi_madt)) {
+        struct madt_entry *entry = (struct madt_entry *)((uint8_t *)madt->entries + i);
 
         switch (entry->type) {
             case 0:

@@ -2,6 +2,8 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+#define KERNEL_LOG_SIZE (64 * 1024)
+
 enum {
     LOG_EMERG,
     LOG_ALERT,
@@ -16,6 +18,7 @@ enum {
 extern struct ringbuffer *kernel_rb;
 
 void early_log_initialize(void);
+void early_log_extend(void);
 void putchar(char c);
 void puts(char *s);
 

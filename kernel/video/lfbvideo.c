@@ -66,6 +66,7 @@ void framebuffer_initialize(void) {
     );
 
     puts((char *)kernel_rb->buffer);
+    early_log_extend();
 }
 
 void framebuffer_get_winsize(struct winsize *ws) {

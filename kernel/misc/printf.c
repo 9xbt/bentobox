@@ -25,6 +25,14 @@ void early_log_initialize(void) {
     early_rb.lock = 0;
 }
 
+void early_log_extend(void) {
+    struct ringbuffer *rb = ringbuffer_create(KERNEL_LOG_SIZE);
+    memcpy(rb->buffer, early_rb.buffer, early_rb.size);
+    rb->read_ptr = early_rb.read_ptr;
+    rb->write_ptr = early_rb.write_ptr;
+    kernel_rb = rb;
+}
+
 void putchar(char c) {
     if (!ft_ctx)
         return;
