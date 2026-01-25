@@ -11,9 +11,9 @@ cd /var/tmp/gcc-$ARCH
 CC="ccache gcc" CXX="ccache g++" $CWD/gcc/configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$BASE --disable-nls --disable-multilib --enable-languages=c,c++ --enable-shared --enable-host-shared --enable-default-pie
 make all-gcc -j$(nproc)
 make all-target-libgcc -j$(nproc)
-# make all-target-libstdc++-v3 -j$(nproc)
+make all-target-libstdc++-v3 -j$(nproc)
 make install-gcc
 make install-target-libgcc
-# make install-target-libstdc++-v3
+make install-target-libstdc++-v3
 
 cp -r $PREFIX/$TARGET/lib/* $BASE/usr/lib/
