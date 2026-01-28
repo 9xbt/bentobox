@@ -2,10 +2,8 @@
 
 OUTPUT := kernel
 ARCH := x86_64
+TOOLCHAIN := $(ARCH)-pc-bentobox
 
-ifeq ($(ARCH),aarch64)
-    TOOLCHAIN ?= aarch64-pc-bentobox
-endif
 TOOLCHAIN_PREFIX :=
 ifneq ($(TOOLCHAIN),)
     ifeq ($(TOOLCHAIN_PREFIX),)
@@ -26,7 +24,6 @@ include build/${ARCH}.mk
 SOURCES := $(shell find -L kernel cc-runtime/src -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find -L kernel/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find lib/flanterm -type f -name '*.c')
-# SOURCES += $(shell find lib/lai -type f -name '*.c')
 SOURCES += $(shell find lib/uACPI/source -type f -name '*.c')
 
 CFILES := $(filter %.c,$(SOURCES))

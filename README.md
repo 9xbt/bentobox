@@ -9,7 +9,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 - Filesystems: ext2, devfs, tmpfs, procfs
 - Block devices: AHCI
 - Interrupt controllers: APIC (x86_64), GICv2 (aarch64)
-- ACPI table parsing & full ACPI mode using LAI
+- ACPI table parsing & full ACPI mode using uACPI
 - PCI & PCIe support
 - Input devices: PS/2 (x86_64), virtio-input (aarch64)
 - Elf64 modules & binaries, VMM with CoW support
@@ -17,6 +17,8 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 ## Building the toolchain
 Packages required:
 - git
+- gcc
+- binutils
 - base-devel
 
 Start by sourcing the environment. Run `. build/mlibc-root`.
@@ -34,6 +36,7 @@ Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
 Packages required:
 - git
 - meson
+- rsync
 
 Start by building mlibc. Run `make -f build/mlibc.mk resetup build install`.
 
@@ -59,7 +62,6 @@ Packages required:
 - autoconf
 - automake
 - gettext
-- autopoint
 - m4
 - wget
 
@@ -141,11 +143,9 @@ Run `./ports/nes_emu.sh`.
 Packages required:
 - git
 - gmake
-- gcc
-- binutils
 - xorriso
 - nasm
-- genext2fs
+- qemu-system-x86
 
 First run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc)` to run it in QEMU.
 
@@ -154,6 +154,7 @@ Packages required:
 - git
 - gmake
 - xorriso
+- qemu-system-aarch64
 
 Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) ARCH=aarch64` to run it in QEMU.
 

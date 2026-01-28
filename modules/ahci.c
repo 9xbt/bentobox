@@ -457,7 +457,7 @@ int init() {
         if (bitmap_get((uint8_t *)&pi, i)) {
             switch (ahci_get_type(i)) {
                 case SATA_SIG_ATA: {
-                    vfs_node_t *node = devfs_create_disk();
+                    vfs_node_t *node = devfs_create_numbered(DEVFS_SSD);
                     node->perms = 0660;
                     node->ops = &ops;
                     node->device = ahci_init_drive(i);

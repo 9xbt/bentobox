@@ -35,13 +35,11 @@ vfs_ops_t null_ops = {
 };
 
 void zero_initialize(void) {
-    vfs_node_t *zero = vfs_create_node("zero", VFS_CHARDEVICE);
+    vfs_node_t *zero = devfs_create_node("zero", VFS_CHARDEVICE);
     zero->perms = 0666;
     zero->ops = &zero_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), zero);
 
-    vfs_node_t *null = vfs_create_node("null", VFS_CHARDEVICE);
+    vfs_node_t *null = devfs_create_node("null", VFS_CHARDEVICE);
     null->perms = 0666;
     null->ops = &null_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), null);
 }

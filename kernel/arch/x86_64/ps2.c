@@ -162,6 +162,7 @@ void irq1_handler(struct registers *r) {
     } else {
         switch (key) {
             case 0xe0:
+            case 0xf0:
                 break;
             case 0x12:
             case 0x59:
@@ -401,11 +402,10 @@ void ps2_hid_install(void) {
     ps2_config_write((ps2_config_read() & ~PS2_CONFIG_PORT1_TRANSLATE) | PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT2_IRQ);
     
     tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
-    kb = vfs_create_node("event0", VFS_CHARDEVICE);
+    kb = devfs_create_numbered(DEVFS_EVENT);
     kb->ops = &ps2_ops;
     kb->device = &keyboard_device;
     keyboard_device.fifo = fifo_create(256, struct input_event);
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), kb);
     irq_register(1, irq1_handler);
     ioapic_redirect_irq(0, 33, 1, false);
     
@@ -420,11 +420,10 @@ void ps2_hid_install(void) {
     ps2_send_mouse_command(100);
     ps2_read_data();
     
-    mouse = vfs_create_node("event1", VFS_CHARDEVICE);
+    mouse = devfs_create_numbered(DEVFS_EVENT);
     mouse->ops = &ps2_ops;
     mouse->device = &mouse_device;
     mouse_device.fifo = fifo_create(256, struct input_event);;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), mouse);
     irq_register(12, irq12_handler);
     ioapic_redirect_irq(0, 44, 12, false);
     

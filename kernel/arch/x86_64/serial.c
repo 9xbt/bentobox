@@ -61,6 +61,8 @@ void serial_puts(const char *str) {
     serial_write(str, strlen(str));
 }
 
+static struct thread *serial_tty_worker = NULL;
+
 static void serial_tty_worker_thread(void) {
     vfs_node_t *node = vfs_open(NULL, "/dev/ttyS0", 0);
     tty_t *tty = node->device;
@@ -73,11 +75,28 @@ static void serial_tty_worker_thread(void) {
 
         acquire(&serial_lock);
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
-            serial_putchar(c);
+            switch (c) {
+                case 0x03:
+                    serial_puts("^C");
+                    continue;
+                case 0x1A:
+                    serial_puts("^Z");
+                    continue;
+                case 0x0C:
+                    serial_puts("\033[H\033[J");
+                    continue;
+                case 0x1C:
+                    serial_puts("^\\");
+                    continue;
+                default:
+                    serial_putchar(c);
+                    continue;
+            }
         }
         release(&serial_lock);
 
-        vfs_wake_waiters(node);
+        this->state = THREAD_PAUSED;
+        sched_yield();
     }
 }
 
@@ -97,6 +116,11 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
     }
 }
 
+static void serial_tty_flush(vfs_node_t *node) {
+    (void)node;
+    serial_tty_worker->state = THREAD_RUNNING;
+}
+
 void irq4_handler(struct registers *r) {
     (void)r;
     uint8_t iir = inb(COM1 + 2);
@@ -110,19 +134,17 @@ void serial_initialize(void) {
     if (!serial_works)
         return;
 
-    ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    ttyS0 = devfs_create_numbered(DEVFS_STTY);
     ttyS0->perms = 0600;
     ttyS0->device = tty_create(ttyS0);
+    ttyS0->tty_ops->flush = serial_tty_flush;
     ((tty_t *)ttyS0->device)->ioctl = serial_tty_ioctl;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
     
     irq_register(4, irq4_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 
-    tty_t *tty = ttyS0->device;
-
-    struct process *proc = sched_new_process("serial tty", false);
-    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
+    struct process *proc = sched_new_process("stty", false);
+    serial_tty_worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
     sched_add_process(proc);
 }

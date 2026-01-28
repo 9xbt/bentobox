@@ -69,10 +69,9 @@ void fbdev_initialize(void) {
     if (!framebuffer)
         return;
 
-    vfs_node_t *fb0 = vfs_create_node("fb0", VFS_CHARDEVICE);
+    vfs_node_t *fb0 = devfs_create_numbered(DEVFS_FB);
     fb0->size = framebuffer->pitch * framebuffer->height;
     fb0->perms = 0660;
     fb0->ops = &fbdev_ops;
     fb0->tty_ops = &fbdev_tty_ops;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), fb0);
 }

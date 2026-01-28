@@ -17,8 +17,9 @@ export PKG_CONFIG_LIBDIR="$BASE/usr/lib/pkgconfig:$BASE/usr/share/pkgconfig"
 export ACLOCAL_PATH="$BASE/usr/share/aclocal"
 
 mkdir -p ports/src
-git clone https://github.com/9xbt/dwm ports/src/dwm -b bentobox --depth=1
-cd ports/src/dwm
+git clone https://git.suckless.org/st ports/src/st --depth=1
+cd ports/src/st
+git apply ../../st.diff
 
 make clean
 set -e
