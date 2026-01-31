@@ -82,7 +82,7 @@ void framebuffer_get_winsize(struct winsize *ws) {
 void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
     vinfo->xres = framebuffer->width;
     vinfo->yres = framebuffer->height;
-    vinfo->xres_virtual = framebuffer->width;
+    vinfo->xres_virtual = framebuffer->pitch / (framebuffer->bpp / 8);
     vinfo->yres_virtual = framebuffer->height;
     vinfo->bits_per_pixel = framebuffer->bpp;
     vinfo->red.offset = framebuffer->red_mask_shift;
@@ -96,10 +96,10 @@ void framebuffer_get_vinfo(struct fb_var_screeninfo *vinfo) {
 void framebuffer_get_finfo(struct fb_fix_screeninfo *finfo) {
     strcpy(finfo->id, __kernel_name);
     finfo->smem_start = (unsigned long)framebuffer->address;
-    finfo->smem_len = framebuffer->width * framebuffer->height * (framebuffer->bpp / 8);
+    finfo->smem_len = framebuffer->pitch * framebuffer->height;
     finfo->type = FB_TYPE_PACKED_PIXELS;
     finfo->visual = FB_VISUAL_TRUECOLOR;
-    finfo->line_length = framebuffer->width * (framebuffer->bpp / 8);
+    finfo->line_length = framebuffer->pitch;
     finfo->accel = FB_ACCEL_NONE;
 }
 

@@ -11,7 +11,7 @@
 #include <errno.h>
 
 #define swap(src, dest) memcpy(dest, src, fb_size);
-#define plot(cv, x, y, c) if ((c) >> 24 && x < vinfo.xres && y < vinfo.yres) cv[y * vinfo.xres + x] = c;
+#define plot(cv, x, y, c) if ((c) >> 24 && x < vinfo.xres && y < vinfo.yres) cv[y * vinfo.xres_virtual + x] = c;
 #define rectangle(cv, x, y, w, h, c) _rectangle(cv, x, y, w, h, c);
 
 struct fb_var_screeninfo vinfo;
