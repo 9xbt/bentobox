@@ -11,6 +11,19 @@ index 15db421..51f44cd 100644
  	@echo Please see the README file regarding the terminfo entry of st.
  
  uninstall:
+diff --git a/config.def.h b/config.def.h
+index 2cd740a..fab578d 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -5,7 +5,7 @@
+  *
+  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
+  */
+-static char *font = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
++static char *font = "IBM Plex Mono:style=Medium:pixelsize=13:antialias=true:autohint=true";
+ static int borderpx = 2;
+ 
+ /*
 diff --git a/config.mk b/config.mk
 index 2fc854e..13c295d 100644
 --- a/config.mk

@@ -138,6 +138,25 @@ Dependencies:
 
 Run `./ports/nes_emu.sh`.
 
+### dwm
+Dependencies:
+- Xorg
+
+> [!NOTE]
+> This port is currently broken.
+
+Run `./ports/dwm.sh`.
+
+### ttf-ibm-plex
+Run `./ports/ttf-ibm-plex`.
+
+### st
+Dependencies:
+- Xorg
+- ttf-ibm-plex
+
+Run `./ports/st.sh`.
+
 ## Building the kernel
 ### x86_64
 Packages required:
