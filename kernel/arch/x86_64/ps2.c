@@ -339,11 +339,11 @@ long ps2_poll(vfs_node_t *node, long events) {
     return 0;
 }
 
-long ps2_open(vfs_node_t *node, int flags) {
+vfs_node_t *ps2_open(vfs_node_t *node, int flags) {
     (void)flags;
     struct ps2_device *dev = node->device;
     __atomic_add_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
-    return 0;
+    return node;
 }
 
 long ps2_close(vfs_node_t *node) {

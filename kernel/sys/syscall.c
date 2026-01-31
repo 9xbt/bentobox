@@ -866,7 +866,7 @@ long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *
     (void)flags;
     (void)addr;
     (void)addrlen;
-    return sys_read_write(fd, (void *)buffer, size, true, false);
+    return sys_read_write(fd, (void *)buffer, size, true, true);
 }
 
 long sys_shutdown(int sockfd, int how) {
@@ -1209,6 +1209,13 @@ long sys_getrlimit(int resource, struct rlimit *rlim) {
     return copy_to_user(rlim, &limit, sizeof limit);
 }
 
+long sys_setsid(void) {
+    if (this_proc->pid == this_proc->pgid)
+        return -EPERM;
+
+    return this_proc->sid = this_proc->pgid = this_proc->pid;
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1283,7 +1290,9 @@ syscall_func syscalls[] = {
     [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt,
     [SYS_readv]       = (syscall_func)(uintptr_t)sys_readv,
     [SYS_writev]      = (syscall_func)(uintptr_t)sys_writev,
-    [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit
+
+    [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit,
+    [SYS_setsid]      = (syscall_func)(uintptr_t)sys_setsid
 };
 
 long syscall_handler(size_t *args) {

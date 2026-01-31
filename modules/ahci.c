@@ -356,32 +356,58 @@ uint32_t ahci_get_type(int port) {
 }
 
 long ahci_vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
+    ahci_port_t *port = node->device;
+    if (!port)
+        return -EINVAL;
     if (!len)
         return 0;
+    if (__atomic_load_n(&ahci_lock[port->port_num], __ATOMIC_SEQ_CST))
+        return -EAGAIN;
 
     size_t lba = offset / 512;
     size_t count = ALIGN_DOWN(len, 512) / 512;
 
     if (ahci_op_read(node->device, lba, count, buffer) < 0)
         return -EIO;
+    vfs_wake_waiters(node);
     return len;
 }
 
 long ahci_vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
+    ahci_port_t *port = node->device;
+    if (!port)
+        return -EINVAL;
     if (!len)
         return 0;
+    if (__atomic_load_n(&ahci_lock[port->port_num], __ATOMIC_SEQ_CST))
+        return -EAGAIN;
 
     size_t lba = offset / 512;
     size_t count = ALIGN_DOWN(len, 512) / 512;
 
     if (ahci_op_write(node->device, lba, count, buffer) < 0)
         return -EIO;
+    vfs_wake_waiters(node);
     return len;
+}
+
+long ahci_vfs_poll(vfs_node_t *node, long events) {
+    ahci_port_t *port = node->device;
+    if (!port)
+        return -EINVAL;
+
+    (void)events;
+    long revents = 0;
+    if (!__atomic_load_n(&ahci_lock[port->port_num], __ATOMIC_SEQ_CST)) {
+        revents |= POLLIN | POLLOUT;
+    }
+    return revents;
 }
 
 vfs_ops_t ops = {
     .read = ahci_vfs_read,
-    .write = ahci_vfs_write
+    .write = ahci_vfs_write,
+    .poll = ahci_vfs_poll
 };
 
 int init() {

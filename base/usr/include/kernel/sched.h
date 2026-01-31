@@ -64,6 +64,7 @@ struct process {
     uint64_t *pm;
     int pid;
     int pgid;
+    int sid;
     bool user;
     enum process_state state;
     struct vma *vma;

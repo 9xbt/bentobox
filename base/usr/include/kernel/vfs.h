@@ -118,7 +118,8 @@ typedef enum vfs_node_type {
     VFS_BLOCKDEVICE,
     VFS_SYMLINK,
     VFS_UNIXPIPE,
-    VFS_SOCKET
+    VFS_SOCKET,
+    VFS_PTY
 } vfs_node_type_t;
 
 typedef enum devfs_node_type {
@@ -134,7 +135,7 @@ struct vfs_node;
 struct vfs_mountpoint;
 
 typedef struct vfs_ops {
-    long(*open)(struct vfs_node *node, int flags);
+    struct vfs_node *(*open)(struct vfs_node *node, int flags);
     long(*close)(struct vfs_node *node);
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);

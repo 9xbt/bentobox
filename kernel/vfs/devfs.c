@@ -12,9 +12,9 @@ vfs_ops_t devfs_ops = {
 
 vfs_node_t *devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     vfs_node_t *node = vfs_create_node(name, type);
-    node->size = 0;
-    vfs_add_node(parent, node);
-    return node;
+    if (type == VFS_DIRECTORY)
+        node->ops = &devfs_ops;
+    return vfs_add_node(parent, node);
 }
 
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type) {

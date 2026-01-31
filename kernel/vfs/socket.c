@@ -102,10 +102,6 @@ long socket_poll(vfs_node_t *node, long events) {
     if (events & POLLOUT) {
         if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             revents |= POLLOUT;
-        else {
-            vfs_wake_waiters(sock->node);
-            vfs_wake_waiters(sock->peer->node);
-        }
     }
     if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
         (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {

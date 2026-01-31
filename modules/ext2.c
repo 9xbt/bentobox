@@ -128,7 +128,7 @@ typedef struct {
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms);
 
-long ext2_open(vfs_node_t *node, int flags);
+vfs_node_t *ext2_open(vfs_node_t *node, int flags);
 long ext2_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
@@ -148,12 +148,20 @@ vfs_ops_t ext2_ops = {
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
     assert(block);
-    vfs_read(fs->device, buffer, block * fs->block_size, count);
+retry:
+    if (vfs_read(fs->device, buffer, block * fs->block_size, count) == -EAGAIN) {
+        vfs_poll(fs->device, POLLIN, -1);
+        goto retry;
+    }
 }
 
 void ext2_write_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
     assert(block);
-    vfs_write(fs->device, buffer, block * fs->block_size, count);
+retry:
+    if (vfs_write(fs->device, buffer, block * fs->block_size, count) == -EAGAIN) {
+        vfs_poll(fs->device, POLLOUT, -1);
+        goto retry;
+    }
 }
 
 void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
@@ -164,7 +172,11 @@ void ext2_write_bgd(ext2_fs *fs, uint32_t group, ext2_bgd bgd) {
 void ext2_write_sb(ext2_fs *fs) {
     char buf[512];
     memcpy(buf, fs->sb, sizeof(ext2_sb));
-    vfs_write(fs->device, buf, 1024, sizeof buf);
+retry:
+    if (vfs_write(fs->device, buf, 1024, sizeof buf) == -EAGAIN) {
+        vfs_poll(fs->device, POLLOUT, -1);
+        goto retry;
+    }
 }
 
 void ext2_read_inode(ext2_fs *fs, uint32_t inode, ext2_inode *in) {
@@ -1084,19 +1096,19 @@ void ext2_mount_node(ext2_fs *fs, vfs_node_t *parent, uint32_t in) {
     kfree(blocks);
 }
 
-long ext2_open(vfs_node_t *node, int flags) {
+vfs_node_t *ext2_open(vfs_node_t *node, int flags) {
     (void)flags;
     if (node->type != VFS_DIRECTORY)
-        return 0;
+        return node;
 
     ext2_fs *fs = node->device;
     if (!fs)
-        return -EINVAL;
+        return NULL;
     assert(fs->sb->signature == 0xef53);
 
     if (!(node->flags & EXT2_FS_FLAGS_MOUNTED))
         ext2_mount_node(fs, node, node->inode);
-    return 0;
+    return node;
 }
 
 long ext2_mount(vfs_node_t *node, vfs_node_t *device, long flags) {

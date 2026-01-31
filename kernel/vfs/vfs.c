@@ -13,6 +13,7 @@ extern void tty_initialize(void);
 extern void fbdev_initialize(void);
 extern void tmpfs_initialize(void);
 extern void procfs_initialize(void);
+extern void pty_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 list_t *vfs_mount_ops = NULL;
@@ -59,7 +60,8 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
         return NULL;
     node->refcount++;
     node->parent = parent;
-    return list_insert(parent->children, node)->value;
+    list_insert(parent->children, node);
+    return node;
 }
 
 long vfs_remove_node(vfs_node_t *node) {
@@ -220,9 +222,12 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
     vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
     if (!node)
         return NULL;
+    if (!node->ops || !node->ops->open) {
+        node->refcount++;
+        return node;
+    }
+    node = node->ops->open(node, flags);
     node->refcount++;
-    if (node->ops && node->ops->open && node->ops->open(node, flags) < 0)
-        return NULL;
     return node;
 }
 
@@ -507,6 +512,7 @@ void vfs_install(void) {
     fbdev_initialize();
     tmpfs_initialize();
     procfs_initialize();
+    pty_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

@@ -59,11 +59,8 @@ void user_initialize(void) {
     wrmsr(IA32_CSTAR + 1, 0x200);
 }
 
-// #include <kernel/printf.h>
-
 void do_syscall(struct registers *r) {
     this->syscall_regs = r;
-    // dprintf(LOG_DEBUG, "%lu", r->rax);
     size_t args[] = { r->rax, r->rdi, r->rsi, r->rdx, r->r10, r->r8, r->r9 };
     r->rax = syscall_handler(args);
     this->syscall_regs = NULL;

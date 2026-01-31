@@ -217,6 +217,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->pm = mmu_create_pagemap();
     proc->pid = sched_allocate_pid();
     proc->pgid = 0;
+    proc->sid = 0;
     proc->user = user;
     proc->state = PROCESS_ALIVE;
     proc->parent = NULL;
@@ -247,6 +248,7 @@ long fork(void) {
     proc->pm = mmu_create_pagemap();
     proc->pid = sched_allocate_pid();
     proc->pgid = this_proc->pgid;
+    proc->sid = this_proc->sid;
     proc->user = true;
     proc->state = PROCESS_ALIVE;
     proc->parent = this_proc;
