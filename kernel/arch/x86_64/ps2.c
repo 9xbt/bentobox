@@ -107,7 +107,7 @@ enum {
     PS2_COMMAND = 0x64
 };
 
-static vfs_node_t *tty, *kb, *mouse;
+static vfs_node_t *tty1, *kb, *mouse;
 
 static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
     struct ps2_device *dev = kb->device;
@@ -145,16 +145,16 @@ void irq1_handler(struct registers *r) {
     } else if (last_key == 0xe0) {
         switch (key) {
             case 0x75: // up
-                tty_enqueue_string(tty, "\033[A");
+                tty_enqueue_string(tty1, "\033[A");
                 break;
             case 0x72: // down
-                tty_enqueue_string(tty, "\033[B");
+                tty_enqueue_string(tty1, "\033[B");
                 break;
             case 0x74: // right
-                tty_enqueue_string(tty, "\033[C");
+                tty_enqueue_string(tty1, "\033[C");
                 break;
             case 0x6b: // left
-                tty_enqueue_string(tty, "\033[D");
+                tty_enqueue_string(tty1, "\033[D");
                 break;
         }
         ps2_keyboard_enqueue_key(key, 1);
@@ -185,7 +185,7 @@ void irq1_handler(struct registers *r) {
                     c = kb_map_keys[key];
                 }
 
-                tty->tty_ops->enqueue(tty, c);
+                tty_enqueue(tty1, c);
                 break;
         }
         ps2_keyboard_enqueue_key(key, 1);
@@ -199,7 +199,7 @@ void irq1_handler(struct registers *r) {
 static inline void ps2_send_sgr_event(int button, int col, int row, bool release) {
     char buf[32];
     snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
-    tty_enqueue_string(tty, buf);
+    tty_enqueue_string(tty1, buf);
 }
 
 void irq12_handler(struct registers *r) {
@@ -280,7 +280,7 @@ void irq12_handler(struct registers *r) {
         if (x > (int)framebuffer->width) x = (int)framebuffer->width - 1;
         if (y > (int)framebuffer->height) y = (int)framebuffer->height - 1;
 
-        tty_t *t = tty->device;
+        tty_t *t = tty1->device;
         if (t->mouse_tracking && t->sgr_mode) {
             size_t font_width, font_height;
             framebuffer_get_font_size(&font_width, &font_height);
@@ -401,7 +401,7 @@ void ps2_hid_install(void) {
     ps2_flush_buffer();
     ps2_config_write((ps2_config_read() & ~PS2_CONFIG_PORT1_TRANSLATE) | PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT2_IRQ);
     
-    tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
+    tty1 = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
     kb = devfs_create_numbered(DEVFS_EVENT);
     kb->ops = &ps2_ops;
     kb->device = &keyboard_device;

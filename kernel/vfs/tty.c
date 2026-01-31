@@ -42,6 +42,7 @@ static void tty1_worker_thread(void) {
                     continue;
             }
         }
+        vfs_wake_waiters(node);
         this->state = THREAD_PAUSED;
         sched_yield();
     }
@@ -77,21 +78,13 @@ static void tty1_flush(vfs_node_t *node) {
     tty1_worker->state = THREAD_RUNNING;
 }
 
-long tty_poll(vfs_node_t *node, long events) {
-    tty_t *tty = node->device;
-    long revents = 0;
-    if (events & POLLIN && !fifo_is_empty(tty->ififo))
-        revents |= POLLIN;
-    if (events & POLLOUT && !fifo_is_full(tty->ofifo))
-        revents |= POLLOUT;
-    return revents;
-}
-
 long tty_enqueue(vfs_node_t *node, unsigned char c) {
-    if (!node->tty_ops->flush || !c)
+    tty_t *tty = node->device;
+    if (!tty)
+        return -EINVAL;
+    if (!tty->flush || !c)
         return 0;
 
-    tty_t *tty = node->device;
     switch (c) {
         case 0x03:
             signal_send_pgrp(tty->pgid, SIGINT);
@@ -104,12 +97,15 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
         case 0x1C:
             signal_send_pgrp(tty->pgid, SIGQUIT);
             break;
+        case '\r':
+            c = '\n';
+            /* fallthrough */
         default:
-            return ({ long n = fifo_enqueue(tty->ififo, c); node->tty_ops->flush(node); vfs_wake_waiters(node); n; });
+            return ({ long n = fifo_enqueue(tty->ififo, c); tty->flush(node); vfs_wake_waiters(node); n; });
     }
 
     fifo_enqueue(tty->ofifo, c);
-    node->tty_ops->flush(node);
+    tty->flush(node);
     return 0;
 }
 
@@ -120,106 +116,83 @@ long tty_enqueue_string(vfs_node_t *node, const char *s) {
     return n;
 }
 
-long tty_dequeue(vfs_node_t *node) {
+long tty_poll(vfs_node_t *node, long events) {
     tty_t *tty = node->device;
-    int c = 0;
-    if (fifo_dequeue(tty->ififo, &c) <= 0)
-        return -EAGAIN;
-    return c;
+    if (!tty)
+        return -EINVAL;
+
+    long revents = 0;
+    if (events & POLLIN && !fifo_is_empty(tty->ififo))
+        revents |= POLLIN;
+    if (events & POLLOUT && !fifo_is_full(tty->ofifo))
+        revents |= POLLOUT;
+    return revents;
 }
 
 static void tty_handle_sgr(tty_t *tty, const char *buf, size_t len) {
     for (size_t i = 0; i + 8 <= len; i++) {
         if (!memcmp(&buf[i], "\e[?1006", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
-            tty->sgr_mode = buf[i + 7] == 'h';
+            tty->sgr_mode = buf[i+7] == 'h';
         else if (!memcmp(&buf[i], "\e[?1000", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
-            tty->mouse_tracking = buf[i + 7] == 'h';
+            tty->mouse_tracking = buf[i+7] == 'h';
         else if (!memcmp(&buf[i], "\e[?1002", 7) && (buf[i+7] == 'h' || buf[i+7] == 'l'))
-            tty->mouse_tracking = buf[i + 7] == 'h';
+            tty->mouse_tracking = buf[i+7] == 'h';
     }
 }
 
 long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     (void)offset;
-    if (!node->tty_ops)
-        return -ENOTTY;
-    if (!node->tty_ops->enqueue || !node->tty_ops->flush)
-        return -EINVAL;
-
     tty_t *tty = node->device;
+    if (!tty)
+        return -EINVAL;
+    if (fifo_is_full(tty->ofifo)) {
+        vfs_wake_waiters(node);
+        return -EAGAIN;
+    }
+
     char *buf = (char *)buffer;
     if (len >= 8)
         tty_handle_sgr(tty, buf, len);
+
     long i;
     for (i = 0; (unsigned)i < len; i++) {
-        while (fifo_enqueue(tty->ofifo, buf[i]) < 0) {
-            node->tty_ops->flush(node);
-            vfs_poll(node, POLLOUT, -1);
+        if (tty->tio.c_oflag & OPOST) {
+            char c = buf[i];
+            if ((tty->tio.c_oflag & ONLCR) && c == '\n') {
+                if (fifo_enqueue(tty->ofifo, '\r') < 0)
+                    break;
+            }
         }
+        
+        if (fifo_enqueue(tty->ofifo, buf[i]) < 0)
+            break;
     }
 
-    node->tty_ops->flush(node);
+    tty->flush(node);
+    vfs_wake_waiters(node);
     return i;
 }
 
 long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)offset;
-    if (!node->tty_ops)
-        return -ENOTTY;
-
-    char *str = buffer;
     tty_t *tty = node->device;
-    struct termios *tio = &tty->tio;
-
-    if ((tio->c_lflag & ICANON) == 0) {
-        long c = node->tty_ops->dequeue(node);
-        if (c < 0)
-            return c;
-        str[0] = c;
-
-        if (tio->c_lflag & ECHO)
-            vfs_write(node, &str[0], 0, 1);
-        return 1;
+    if (!tty)
+        return -EINVAL;
+    if (fifo_is_empty(tty->ififo)) {
+        vfs_wake_waiters(node);
+        return -EAGAIN;
     }
 
-    size_t i = 0;
-    while (i < len) {
-        int c = node->tty_ops->dequeue(node);
-        if (c > 0) str[i] = c;
-        else continue;
-        
-        switch (c) {
-            case '\033':
-                for (int j = 0; j < 2; j++)
-                    node->tty_ops->dequeue(node);
-                break;
-            case '\0':
-            case '\t':
-                break;
-            case '\n':
-            case '\r':
-                if (tio->c_lflag & ECHO)
-                    vfs_write(node, "\n", 0, 1);
-                str[i++] = '\n';
-                str[i] = '\0';
-                return i;
-            case '\b':
-            case 127:
-                if (i > 0) {
-                    if (tio->c_lflag & ECHO)
-                        vfs_write(node, "\b \b", 0, 3);
-                    str[i] = '\0';
-                    i--;
-                }
-                break;
-            default:
-                if (tio->c_lflag & ECHO)
-                    vfs_write(node, &c, 0, 1);
-                i++;
-                break;
-        }
+    char *buf = (char *)buffer;
+    long i;
+    for (i = 0; (unsigned)i < len; i++) {
+        if (fifo_dequeue(tty->ififo, &buf[i]) < 0)
+            break;
+        if (tty->tio.c_lflag & ECHO && fifo_enqueue(tty->ofifo, buf[i]) < 0)
+            break;
     }
-
+    
+    vfs_wake_waiters(node);
     return i;
 }
 
@@ -238,6 +211,7 @@ long tty_ioctl(vfs_node_t *node, int op, void *arg) {
         case TIOCSPGRP:
             return copy_from_user(&tty->pgid, arg, sizeof tty->pgid);
         case TCXONC:
+            // TODO
             return 0;
         default:
             if (!tty->ioctl)
@@ -264,32 +238,25 @@ long console_ioctl(vfs_node_t *node, int op, void *arg) {
 }
 
 vfs_ops_t console_ops = {
-    .write = console_write
-};
-
-vfs_tty_ops_t console_tty_ops = {
+    .write = console_write,
     .ioctl = console_ioctl
 };
 
 vfs_ops_t tty_ops = {
     .read = tty_read,
     .write = tty_write,
-    .poll = tty_poll
-};
-
-vfs_tty_ops_t tty_tty_ops = {
-    .ioctl = tty_ioctl,
-    .enqueue = tty_enqueue,
-    .dequeue = tty_dequeue,
-    .flush = NULL
+    .poll = tty_poll,
+    .ioctl = tty_ioctl
 };
 
 tty_t *tty_create(vfs_node_t *node) {
     tty_t *tty = kmalloc(sizeof(tty_t));
-    tty->ififo = fifo_create(512, char);
-    tty->ofifo = fifo_create(4096, char);
-    tty->node = node;
+    tty->ioctl = NULL;
+    tty->flush = NULL;
+    tty->locked = 0;
     tty->pgid = 0;
+    tty->sgr_mode = false;
+    tty->mouse_tracking = false;
     tty->tio.c_iflag = BRKINT | ICRNL | IXON;
     tty->tio.c_oflag = OPOST | ONLCR;
     tty->tio.c_cflag = CS8 | CREAD;
@@ -304,12 +271,11 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->tio.c_cc[VSTART] = 17;
     tty->tio.c_cc[VSTOP] = 19;
     tty->tio.c_cc[VSUSP] = 26;
-    tty->ioctl = NULL;
-    tty->sgr_mode = false;
-    tty->mouse_tracking = false;
+    memset(&tty->ws, 0, sizeof tty->ws);
+    tty->ififo = fifo_create(4096, char);
+    tty->ofifo = fifo_create(4096, char);
+
     node->ops = &tty_ops;
-    node->tty_ops = kmalloc(sizeof(vfs_tty_ops_t));
-    memcpy(node->tty_ops, &tty_tty_ops, sizeof(vfs_tty_ops_t));
     node->inode = 100000;
     return tty;
 }
@@ -318,29 +284,29 @@ void tty_destroy(vfs_node_t *node) {
     tty_t *tty = node->device;
     fifo_destroy(tty->ififo);
     fifo_destroy(tty->ofifo);
-    kfree(node->tty_ops);
     kfree(node->device);
     node->device = NULL;
     return;
 }
 
 void tty_spawn_worker(void) {
-    struct process *proc = sched_new_process("tty", false);
-    tty1_worker = sched_new_thread(proc, tty1_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
-    sched_add_process(proc);
+    if (framebuffer) {
+        struct process *proc = sched_new_process("tty worker", false);
+        tty1_worker = sched_new_thread(proc, tty1_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
+        sched_add_process(proc);
+    }
 }
 
 void tty_initialize(void) {
     vfs_node_t *console = devfs_create_node("console", VFS_CHARDEVICE);
     console->perms = 0600;
     console->ops = &console_ops;
-    console->tty_ops = &console_tty_ops;
 
     if (framebuffer) {
         vfs_node_t *tty1 = devfs_create_numbered(DEVFS_TTY);
         tty1->perms = 0600;
         tty1->device = tty_create(tty1);
-        tty1->tty_ops->flush = tty1_flush;
         ((tty_t *)tty1->device)->ioctl = tty1_ioctl;
+        ((tty_t *)tty1->device)->flush = tty1_flush;
     }
 }

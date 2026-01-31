@@ -195,9 +195,9 @@ long sys_ioctl(int fd, int op, void *arg) {
     struct file *file = file_get(fd);
     if (!file)
         return -EBADF;
-    if (!file->node->tty_ops || !file->node->tty_ops->ioctl)
+    if (!file->node->ops || !file->node->ops->ioctl)
         return -ENOTTY;
-    return file->node->tty_ops->ioctl(file->node, op, arg);
+    return file->node->ops->ioctl(file->node, op, arg);
 }
 
 long sys_dup(int oldfd, int newfd, int flags) {

@@ -146,14 +146,8 @@ typedef struct vfs_ops {
     long(*poll)(struct vfs_node *node, long events);
     long(*chmod)(struct vfs_node *node, unsigned int mode);
     long(*link)(struct vfs_node *old_node, struct vfs_node *new_node);
+    long(*ioctl)(struct vfs_node *node, int op, void *arg);
 } vfs_ops_t;
-
-typedef struct vfs_tty_ops {
-    long (*ioctl)(struct vfs_node *node, int op, void *arg);
-    long (*enqueue)(struct vfs_node *node, unsigned char c);
-    long (*dequeue)(struct vfs_node *node);
-    void (*flush)(struct vfs_node *node);
-} vfs_tty_ops_t;
 
 typedef struct vfs_node {
     char name[MAX_PATH];
@@ -172,7 +166,6 @@ typedef struct vfs_node {
     struct vfs_node *parent;
     struct vfs_node *symlink;
     struct vfs_ops *ops;
-    struct vfs_tty_ops *tty_ops;
     void *device;
     char *target;
     struct vfs_mountpoint *mount;

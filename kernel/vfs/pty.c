@@ -1,15 +1,16 @@
 #include <kernel/spinlock.h>
 #include <kernel/termios.h>
-#include <kernel/assert.h>
+#include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
-#include <kernel/bitmap.h>
+#include <kernel/signal.h>
+#include <kernel/sched.h>
 #include <kernel/errno.h>
 #include <kernel/fifo.h>
-#include <kernel/tty.h>
 #include <kernel/pty.h>
 #include <kernel/vfs.h>
+#include <kernel/mmu.h>
 
 uint8_t *pty_bitmap = NULL;
 spinlock_t pty_bitmap_lock = 0;
@@ -18,7 +19,7 @@ vfs_node_t *ptmx_open(vfs_node_t *node, int flags);
 
 int pty_allocate_pid(void) {
     acquire(&pty_bitmap_lock);
-    for (int pid = 0; pid < SCHED_BITMAP_SIZE * 8; pid++) {
+    for (int pid = 0; pid < PTY_BITMAP_SIZE * 8; pid++) {
         if (!bitmap_get(pty_bitmap, pid)) {
             bitmap_set(pty_bitmap, pid);
             release(&pty_bitmap_lock);
@@ -257,20 +258,19 @@ long ptmx_ioctl(struct vfs_node *node, int op, void *arg) {
 vfs_ops_t slave_ops = {
     .read = slave_read,
     .write = slave_write,
-    .poll = slave_poll
+    .poll = slave_poll,
+    .ioctl = ptmx_ioctl
 };
 
 vfs_ops_t master_ops = {
     .read = master_read,
     .write = master_write,
-    .poll = master_poll
+    .poll = master_poll,
+    .ioctl = ptmx_ioctl
 };
 
 vfs_ops_t ptmx_ops = {
-    .open = ptmx_open
-};
-
-vfs_tty_ops_t ptmx_tty_ops = {
+    .open = ptmx_open,
     .ioctl = ptmx_ioctl
 };
 
@@ -283,13 +283,11 @@ vfs_node_t *ptmx_open(vfs_node_t *node, int flags) {
     
     vfs_node_t *slave = devfs_create_numbered(DEVFS_PTY);
     slave->ops = &slave_ops;
-    slave->tty_ops = &ptmx_tty_ops;
     slave->device = pty;
     pty->slave = slave;
 
     vfs_node_t *master = vfs_create_node("[pty]", VFS_PTY);
     master->ops = &master_ops;
-    master->tty_ops = &ptmx_tty_ops;
     master->device = pty;
     pty->master = master;
 

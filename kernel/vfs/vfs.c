@@ -38,7 +38,6 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->parent = NULL;
     node->symlink = NULL;
     node->ops = NULL;
-    node->tty_ops = NULL;
     node->device = NULL;
     node->target = NULL;
     node->mount = NULL;

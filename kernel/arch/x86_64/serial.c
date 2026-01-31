@@ -44,14 +44,14 @@ int serial_is_data_ready(void) {
 void serial_putchar(char c) {
     while (serial_is_bus_empty() == 0)
         __builtin_ia32_pause();
-    if (c == '\n')
-        outb(COM1, '\r');
     outb(COM1, c);
 }
 
 void serial_write(const char *s, size_t len) {
     acquire(&serial_lock);
     for (size_t i = 0; i < len; i++) {
+        if (s[i] == '\n')
+            serial_putchar('\r');
         serial_putchar(s[i]);
     }
     release(&serial_lock);
@@ -73,7 +73,6 @@ static void serial_tty_worker_thread(void) {
             sched_yield();
         }
 
-        acquire(&serial_lock);
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
             switch (c) {
                 case 0x03:
@@ -93,8 +92,8 @@ static void serial_tty_worker_thread(void) {
                     continue;
             }
         }
-        release(&serial_lock);
 
+        vfs_wake_waiters(node);
         this->state = THREAD_PAUSED;
         sched_yield();
     }
@@ -125,7 +124,7 @@ void irq4_handler(struct registers *r) {
     (void)r;
     uint8_t iir = inb(COM1 + 2);
     if ((iir & 0x06) == 0x04) {
-        ttyS0->tty_ops->enqueue(ttyS0, inb(COM1));
+        tty_enqueue(ttyS0, inb(COM1));
     }
     lapic_eoi();
 }
@@ -137,14 +136,14 @@ void serial_initialize(void) {
     ttyS0 = devfs_create_numbered(DEVFS_STTY);
     ttyS0->perms = 0600;
     ttyS0->device = tty_create(ttyS0);
-    ttyS0->tty_ops->flush = serial_tty_flush;
     ((tty_t *)ttyS0->device)->ioctl = serial_tty_ioctl;
+    ((tty_t *)ttyS0->device)->flush = serial_tty_flush;
     
     irq_register(4, irq4_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 
-    struct process *proc = sched_new_process("stty", false);
+    struct process *proc = sched_new_process("ttyS0 worker", false);
     serial_tty_worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
     sched_add_process(proc);
 }

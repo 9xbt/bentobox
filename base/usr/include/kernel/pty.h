@@ -2,7 +2,6 @@
 #include <kernel/termios.h>
 #include <kernel/fifo.h>
 #include <kernel/vfs.h>
-#include <kernel/tty.h>
 
 #define PTY_BITMAP_SIZE 512
 

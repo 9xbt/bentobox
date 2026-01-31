@@ -58,10 +58,7 @@ long fbdev_close(vfs_node_t *node) {
 vfs_ops_t fbdev_ops = {
     .close = fbdev_close,
     .write = fbdev_write,
-    .mmap = fbdev_mmap
-};
-
-vfs_tty_ops_t fbdev_tty_ops = {
+    .mmap = fbdev_mmap,
     .ioctl = fbdev_ioctl
 };
 
@@ -73,5 +70,4 @@ void fbdev_initialize(void) {
     fb0->size = framebuffer->pitch * framebuffer->height;
     fb0->perms = 0660;
     fb0->ops = &fbdev_ops;
-    fb0->tty_ops = &fbdev_tty_ops;
 }
