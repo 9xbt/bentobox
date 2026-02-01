@@ -1,0 +1,12 @@
+diff --git a/tools/interactive-evdev.c b/tools/interactive-evdev.c
+index cf641f9..b93332b 100644
+--- a/tools/interactive-evdev.c
++++ b/tools/interactive-evdev.c
+@@ -22,6 +22,7 @@
+ #include <unistd.h>
+ 
+ #include <linux/input.h>
++#include <asm-generic/ioctl.h>
+ 
+ #include "xkbcommon/xkbcommon.h"
+ 

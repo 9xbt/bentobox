@@ -33,7 +33,7 @@ index 2fc854e..13c295d 100644
  
  # paths
 -PREFIX = /usr/local
-+PREFIX = $(BASE)/usr/local
++PREFIX = $(BASE)/usr
  MANPREFIX = $(PREFIX)/share/man
  
 -X11INC = /usr/X11R6/include
