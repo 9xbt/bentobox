@@ -320,7 +320,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             revents[fd] = -1;
             continue;
         }
-        
+
         acquire(&node->waiters_lock);
         list_insert(node->waiters, this);
         release(&node->waiters_lock);
@@ -331,37 +331,41 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 
     int ready = 0;
     for (;;) {
-        if (timeout == -1) {
-            this->state = THREAD_PAUSED;
-            sched_yield();
-        } else if (timeout > 0) {
-            long ns = timeout - start;
-            sched_sleep(ns);
-        }
-
         for (int fd = 0; fd < nfds; fd++) {
             vfs_node_t *node = nodes[fd];
-            
-            if ((revents[fd] = node->ops->poll(node, events[fd]))) {
+            if (!node->ops || !node->ops->poll)
+                continue;
+
+            if ((revents[fd] = node->ops->poll(node, events[fd])))
                 ready++;
-                acquire(&node->waiters_lock);
-                list_remove_value(node->waiters, this);
-                release(&node->waiters_lock);
-            }
         }
 
         if (ready || !timeout)
             break;
+
+        if (timeout > 0) {
+            size_t now;
+            uptime(NULL, &now);
+            long remaining = timeout - (now - start);
+            if (remaining <= 0)
+                break;
+            sched_sleep(remaining);
+        } else {
+            this->state = THREAD_PAUSED;
+            sched_yield();
+        }
     }
 
+    ready = 0;
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
-        
+
         acquire(&node->waiters_lock);
         list_remove_value(node->waiters, this);
         release(&node->waiters_lock);
 
-        revents[fd] = node->ops->poll(node, events[fd]);
+        if (revents[fd])
+            ready++;
     }
 
     return ready;

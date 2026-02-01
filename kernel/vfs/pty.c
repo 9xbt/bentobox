@@ -82,10 +82,8 @@ long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_full(pty->ofifo)) {
-        vfs_wake_waiters(pty->master);
+    if (fifo_is_full(pty->ofifo))
         return -EAGAIN;
-    }
 
     char *buf = (char *)buffer;
     long i;
@@ -102,7 +100,8 @@ long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
             break;
     }
 
-    vfs_wake_waiters(pty->master);
+    if (i > 0)
+        vfs_wake_waiters(pty->master);
     return i;
 }
 
@@ -111,10 +110,8 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_empty(pty->ififo)) {
-        vfs_wake_waiters(pty->master);
+    if (fifo_is_empty(pty->ififo))
         return -EAGAIN;
-    }
 
     char *buf = (char *)buffer;
     long i;
@@ -125,7 +122,8 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
             break;
     }
     
-    vfs_wake_waiters(pty->master);
+    if (i > 0)
+        vfs_wake_waiters(pty->master);
     return i;
 }
 
@@ -147,10 +145,8 @@ long master_write(vfs_node_t *node, const void *buffer, long offset, size_t len)
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_full(pty->ififo)) {
-        vfs_wake_waiters(pty->slave);
+    if (fifo_is_full(pty->ififo))
         return -EAGAIN;
-    }
 
     char *buf = (char *)buffer;
     long i;
@@ -169,7 +165,7 @@ long master_write(vfs_node_t *node, const void *buffer, long offset, size_t len)
                 break;
             default:
                 if (fifo_enqueue(pty->ififo, buf[i]) < 0)
-                    goto error;
+                    goto done;
                 continue;
         }
 
@@ -177,8 +173,9 @@ long master_write(vfs_node_t *node, const void *buffer, long offset, size_t len)
             break;
     }
 
-error:
-    vfs_wake_waiters(pty->slave);
+done:
+    if (i > 0)
+        vfs_wake_waiters(pty->slave);
     return i;
 }
 
@@ -187,10 +184,8 @@ long master_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_empty(pty->ofifo)) {
-        vfs_wake_waiters(pty->slave);
+    if (fifo_is_empty(pty->ofifo))
         return -EAGAIN;
-    }
 
     char *buf = (char *)buffer;
     long i;
@@ -199,7 +194,8 @@ long master_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
             break;
     }
     
-    vfs_wake_waiters(pty->slave);
+    if (i > 0)
+        vfs_wake_waiters(pty->slave);
     return i;
 }
 

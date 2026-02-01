@@ -136,6 +136,9 @@ Run `./ports/xclock.sh`.
 Dependencies:
 - Xorg
 
+> [!NOTE]
+> This port is unstable when running the kernel with SMP.
+
 Run `./ports/nes_emu.sh`.
 
 ### dwm
