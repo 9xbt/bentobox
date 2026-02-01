@@ -280,11 +280,13 @@ vfs_node_t *ptmx_open(vfs_node_t *node, int flags) {
     vfs_node_t *slave = devfs_create_numbered(DEVFS_PTY);
     slave->ops = &slave_ops;
     slave->device = pty;
+    slave->inode = 100000;
     pty->slave = slave;
 
     vfs_node_t *master = vfs_create_node("[pty]", VFS_PTY);
     master->ops = &master_ops;
     master->device = pty;
+    master->inode = 100000;
     pty->master = master;
 
     return master;
