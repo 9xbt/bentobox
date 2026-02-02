@@ -40,10 +40,10 @@ int wait_for_x() {
     return 0;
 }
 
-int main() {
-    pid_t xorg_pid, twm_pid, xkb_pid;
-    char *x_argv[] = {"Xorg", "-retro", NULL};
-    char *twm_argv[] = {"twm", NULL};
+int main(int argc, char *argv[]) {
+    pid_t xorg_pid, wm_pid, xkb_pid;
+    char *x_argv[] = { "Xorg", "-retro", NULL};
+    char *wm_argv[] = { argc < 2 ? "twm" : argv[1], NULL};
     
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
@@ -61,7 +61,7 @@ int main() {
     }
 
     setenv("DISPLAY", ":0", 1);
-    posix_spawnp(&twm_pid, "twm", &actions, NULL, twm_argv, environ);
+    posix_spawnp(&wm_pid, wm_argv[0], &actions, NULL, wm_argv, environ);
     
     posix_spawn_file_actions_destroy(&actions);
     close(logfd);
@@ -85,7 +85,7 @@ int main() {
     }
     
     waitpid(xkb_pid, NULL, 0);
-    waitpid(twm_pid, NULL, 0);
+    waitpid(wm_pid, NULL, 0);
     waitpid(xorg_pid, NULL, 0);
     return 0;
 }

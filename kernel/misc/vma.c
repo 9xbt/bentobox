@@ -87,8 +87,8 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
 
         for (size_t j = 0; j < region->pages; j++) {
             void *vaddr = (void *)region->va + (j * PAGE_SIZE);
-            void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
-            uint64_t va_flags = mmu_get_flags(this_proc->pm, vaddr);
+            void *phys = (void *)mmu_get_physical(mmu_get_pm(), vaddr);
+            uint64_t va_flags = mmu_get_flags(mmu_get_pm(), vaddr);
             
             #ifdef __x86_64__
             bool writable = va_flags & PTE_WRITABLE;
@@ -104,7 +104,7 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
                 #endif
                 
                 mmu_map(pm, vaddr, phys, flags);
-                mmu_map(this_proc->pm, vaddr, phys, flags);
+                mmu_map(mmu_get_pm(), vaddr, phys, flags);
             } else {
                 mmu_map(pm, vaddr, phys, va_flags);
             }
@@ -124,8 +124,8 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
     for (uint64_t page = 0; page < src->pages; page++) {
         if (bitmap_get(src->bitmap, page)) {
             void *vaddr = (void *)(src->base + page * PAGE_SIZE);
-            void *phys = (void *)mmu_get_physical(this_proc->pm, vaddr);
-            uint64_t va_flags = mmu_get_flags(this_proc->pm, vaddr);
+            void *phys = (void *)mmu_get_physical(mmu_get_pm(), vaddr);
+            uint64_t va_flags = mmu_get_flags(mmu_get_pm(), vaddr);
             
             #ifdef __x86_64__
             uint64_t flags = (va_flags & ~PTE_WRITABLE) | PTE_COW;
@@ -134,7 +134,7 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
             #endif
 
             mmu_map(pm, vaddr, phys, flags);
-            mmu_map(this_proc->pm, vaddr, phys, flags);
+            mmu_map(mmu_get_pm(), vaddr, phys, flags);
             
             uint16_t *refcount = mmu_get_refcount(phys);
             if (refcount) (*refcount)++;

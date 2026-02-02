@@ -179,6 +179,7 @@ int socket_new(int domain, int type, int protocol) {
     struct socket *sock = socket_create(domain, type);
     sock->node = node;
     node->device = sock;
+    node->refcount++;
 
     int flags = 0;
     if (type & SOCK_CLOEXEC)
@@ -308,6 +309,7 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     vfs_node_t *node = vfs_create_node("[socket]", VFS_SOCKET);
     node->ops = &local_socket_ops;
     node->device = client_sock;
+    node->refcount++;
     client_sock->node = node;
 
     int flags = 0;
@@ -377,6 +379,28 @@ int socket_shutdown(int fd, int how) {
     if ((how == SHUT_WR || how == SHUT_RDWR) && sock->peer) {
         vfs_wake_waiters(sock->peer->node);
     }
+    
+    release(&sock->lock);
+    return 0;
+}
+
+int socket_shutdown_node(vfs_node_t *node) {
+    if (!node)
+        return -EINVAL;
+    
+    struct socket *sock = node->device;
+    
+    acquire(&sock->lock);
+    if (sock->state != SOCKET_CONNECTED) {
+        release(&sock->lock);
+        return -ENOTCONN;
+    }
+    
+    sock->shutdown = SHUT_RDWR;
+
+    vfs_wake_waiters(sock->node);
+    if (sock->peer)
+        vfs_wake_waiters(sock->peer->node);
     
     release(&sock->lock);
     return 0;

@@ -142,3 +142,4 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen);
 int socket_accept(int fd, const void *addr, uint32_t *addrlen);
 int socket_getsockopt(int fd, int level, int optname, void *optval, uint32_t *optlen);
 int socket_shutdown(int fd, int how);
+int socket_shutdown_node(vfs_node_t *node);

@@ -141,6 +141,7 @@ int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
     
     this_proc->files[newfd] = oldfile;
     this_proc->files[newfd].flags = flags;
+    oldfile.node->refcount++;
 
     if (oldfile.node->type == VFS_UNIXPIPE) {
         struct unix_pipe *pipe = oldfile.node->device;

@@ -128,6 +128,7 @@ void *krealloc(void *ptr, size_t size) {
     cli();
     acquire(&lock);
     void *p = dlrealloc(ptr, size);
+    assert(p);
     release(&lock);
     sti();
     return p;

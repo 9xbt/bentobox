@@ -390,9 +390,6 @@ void sched_balance(void) {
     if (max_load - min_load >= SCHED_IMBALANCE_THRESHOLD && max_cpu && min_cpu && max_cpu->threads->length > 1) {
         foreach_safe(node, max_cpu->threads) {
             struct thread *tcb = node->value;
-            
-            if (!try_acquire(&tcb->lock))
-                continue;
 
             if (tcb->state == THREAD_RUNNING && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
                 list_remove(max_cpu->threads, node);
@@ -400,7 +397,6 @@ void sched_balance(void) {
                 release(&tcb->lock);
                 break;
             }
-            release(&tcb->lock);
         }
     }
     
@@ -557,10 +553,15 @@ void sched_cleaner(void) {
             }
             list_free(proc->children);
 
+            #include <kernel/socket.h>
+
             for (int j = 0; j < proc->max_files; j++) {
                 struct file *file = &proc->files[j];
-                if (file->open && file->node)
+                if (file->open && file->node) {
+                    if (file->node->type == VFS_SOCKET)
+                        socket_shutdown_node(file->node);
                     vfs_close(file->node);
+                }
             }
 
             vma_destroy(proc->vma, proc->pm);

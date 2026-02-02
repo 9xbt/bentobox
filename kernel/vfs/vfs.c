@@ -233,10 +233,11 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
 long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
+    long ret = 0;
     if (node->ops && node->ops->close)
-        return node->ops->close(node);
+        ret = node->ops->close(node);
     node->refcount--;
-    return 0;
+    return ret;
 }
 
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -383,7 +384,7 @@ void vfs_wake_waiters(vfs_node_t *node) {
     acquire(&node->waiters_lock);
     foreach_safe(i, node->waiters) {
         struct thread *tcb = i->value;
-        acquire(&tcb->lock);
+        try_acquire(&tcb->lock);
         tcb->state = THREAD_RUNNING;
         release(&tcb->lock);
     }
