@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -83,7 +84,16 @@ int main(int argc, char *argv[]) {
         pclose(p);
         exit(0);
     }
+
+    struct termios tio;
+    if (tcgetattr(STDIN_FILENO, &tio) == -1)
+        goto error;
+
+    tio.c_lflag &= ~ISIG;
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &tio);
     
+error:
     waitpid(xkb_pid, NULL, 0);
     waitpid(wm_pid, NULL, 0);
     waitpid(xorg_pid, NULL, 0);

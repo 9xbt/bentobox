@@ -87,14 +87,20 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
 
     switch (c) {
         case 0x03:
+            if (!(tty->tio.c_lflag & ISIG))
+                return 0;
             signal_send_pgrp(tty->pgid, SIGINT);
             break;
         case 0x1A:
+            if (!(tty->tio.c_lflag & ISIG))
+                return 0;
             signal_send_pgrp(tty->pgid, SIGTSTP);
             break;
         case 0x0C:
             break;
         case 0x1C:
+            if (!(tty->tio.c_lflag & ISIG))
+                return 0;
             signal_send_pgrp(tty->pgid, SIGQUIT);
             break;
         case '\r':
