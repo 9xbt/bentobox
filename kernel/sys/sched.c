@@ -5,6 +5,7 @@
 #include <kernel/printf.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
+#include <kernel/socket.h>
 #include <kernel/elf64.h>
 #include <kernel/panic.h>
 #include <kernel/sched.h>
@@ -552,8 +553,6 @@ void sched_cleaner(void) {
                 child->parent = init_proc;
             }
             list_free(proc->children);
-
-            #include <kernel/socket.h>
 
             for (int j = 0; j < proc->max_files; j++) {
                 struct file *file = &proc->files[j];

@@ -39,3 +39,8 @@ set -e
 ./ports/expat.sh
 ./ports/fontconfig.sh
 ./ports/libXft.sh
+./ports/libevent.sh
+./ports/libxkbcommon.sh
+./ports/libxml2.sh
+./ports/libiconv.sh
+./ports/libpng.sh

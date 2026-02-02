@@ -136,9 +136,6 @@ Run `./ports/xclock.sh`.
 Dependencies:
 - Xorg
 
-> [!NOTE]
-> This port is unstable when running the kernel with SMP.
-
 Run `./ports/nes_emu.sh`.
 
 ### dwm
@@ -159,6 +156,15 @@ Dependencies:
 - ttf-ibm-plex
 
 Run `./ports/st.sh`.
+
+### fvwm3
+Dependencies:
+- Xorg
+
+> [!NOTE]
+> This port may fail to start when running the kernel with SMP.
+
+Run `./ports/fvwm3.sh`.
 
 ## Building the kernel
 ### x86_64
