@@ -464,9 +464,6 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node)
         return -ENOENT;
-    if (!strcmp(node->name, "testsh")) {
-        dprintf(LOG_INFO, "spawned the right shell!\n");
-    }
     if (node->type == VFS_DIRECTORY) {
         vfs_close(node);
         return -EISDIR;

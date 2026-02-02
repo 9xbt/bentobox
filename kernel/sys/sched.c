@@ -199,6 +199,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->start_time = 0;
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
+    tcb->lock = 0;
 
     arch_context_init(tcb, entry, parent->user, stack);
 
@@ -289,6 +290,10 @@ long fork(void) {
     tcb->sleep_end = 0;
     tcb->sigframe = NULL;
     tcb->status = 0;
+    tcb->start_time = 0;
+    tcb->end_time = 0;
+    tcb->last_cpu_time = 0;
+    tcb->lock = 0;
     arch_context_fork(tcb);
     
     list_insert(proc->threads, tcb);
@@ -316,13 +321,17 @@ void sched_exit(struct thread *tcb, int status) {
         this->status = status;
         this->state = THREAD_ZOMBIE;
         __atomic_add_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
+        acquire(&cleaner_tcb->lock);
         if (cleaner_tcb->state == THREAD_PAUSED)
             cleaner_tcb->state = THREAD_RUNNING;
+        release(&cleaner_tcb->lock);
         sched_yield();
         for (;;) {}
     }
+    release(&cleaner_tcb->lock);
     if (cleaner_tcb->state == THREAD_PAUSED)
         cleaner_tcb->state = THREAD_RUNNING;
+    release(&cleaner_tcb->lock);
 }
 
 void sched_exit_group(struct process *proc, int status) {
@@ -339,13 +348,17 @@ void sched_exit_group(struct process *proc, int status) {
         this->status = status;
         this->state = THREAD_ZOMBIE;
         __atomic_add_fetch(&zombies_pending, threads, __ATOMIC_SEQ_CST);
+        acquire(&cleaner_tcb->lock);
         if (cleaner_tcb->state == THREAD_PAUSED)
             cleaner_tcb->state = THREAD_RUNNING;
+        release(&cleaner_tcb->lock);
         sched_yield();
         for (;;) {}
     }
+    acquire(&cleaner_tcb->lock);
     if (cleaner_tcb->state == THREAD_PAUSED)
         cleaner_tcb->state = THREAD_RUNNING;
+    release(&cleaner_tcb->lock);
 }
 
 void sched_balance(void) {
@@ -378,11 +391,16 @@ void sched_balance(void) {
         foreach_safe(node, max_cpu->threads) {
             struct thread *tcb = node->value;
             
+            if (!try_acquire(&tcb->lock))
+                continue;
+
             if (tcb->state == THREAD_RUNNING && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
                 list_remove(max_cpu->threads, node);
                 list_insert(min_cpu->threads, tcb);
+                release(&tcb->lock);
                 break;
             }
+            release(&tcb->lock);
         }
     }
     
@@ -397,11 +415,14 @@ node_t *sched_find_next(void) {
     node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
+
+        try_acquire(&t->lock);
         enum thread_state state = __atomic_load_n(&t->state, __ATOMIC_ACQUIRE);
         if (state == THREAD_SLEEPING && now >= t->sleep_end)
             __atomic_store_n(&t->state, THREAD_RUNNING, __ATOMIC_RELEASE);
         if (state == THREAD_RUNNING)
             return node;
+        release(&t->lock);
 
         node = node->next ? node->next : this_cpu->threads->head;
     } while (node != start);
@@ -445,10 +466,13 @@ void sched_schedule(struct registers *r) {
     enum thread_state state = this->state;
     this->cpu = this_cpu;
     signal_check_pending(this);
-    if (this->state != state)
+    if (this->state != state) {
+        release(&this->lock);
         goto find_next;
+    }
 
     this->start_time = now;
+    release(&this->lock);
 
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     arch_restore_context();

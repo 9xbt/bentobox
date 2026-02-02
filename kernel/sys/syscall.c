@@ -375,7 +375,9 @@ long sys_waitpid(int pid, int *wstatus, int options) {
         if (options & WNOHANG)
             return 0;
 
+        acquire(&this->lock);
         this->state = THREAD_PAUSED;
+        release(&this->lock);
         sched_yield();
     }
     return pid;

@@ -73,12 +73,17 @@ int signal_handle(struct thread *tcb, int sig) {
             case SIGTSTP:
             case SIGTTIN:
             case SIGTTOU:
-                if (tcb->parent != init_proc)
+                if (tcb->parent != init_proc) {
+                    acquire(&tcb->lock);
                     tcb->state = THREAD_PAUSED;
+                    release(&tcb->lock);
+                }
                 return 0;
             case SIGCONT:
+                acquire(&tcb->lock);
                 if (tcb->state == THREAD_PAUSED)
                     tcb->state = THREAD_RUNNING;
+                release(&tcb->lock);
                 return 0;
             default:
                 dprintf(LOG_DEBUG, "\033[93m%s:\033[0m unhandled signal %d\n", proc->name, sig);
@@ -105,8 +110,10 @@ int signal_send(struct process *proc, int sig) {
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
+    acquire(&tcb->lock);
     if (tcb->state == THREAD_PAUSED || tcb->state == THREAD_SLEEPING)
         tcb->state = THREAD_RUNNING;
+    release(&tcb->lock);
     
     return 0;
 }

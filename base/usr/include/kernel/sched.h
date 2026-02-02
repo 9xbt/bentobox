@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include <kernel/spinlock.h>
 #include <kernel/context.h>
 #include <kernel/signal.h>
 #include <kernel/elf64.h>
@@ -57,6 +58,7 @@ struct thread {
     uint64_t start_time;
     uint64_t end_time;
     uint64_t last_cpu_time;
+    spinlock_t lock;
 };
 
 struct process {

@@ -15,7 +15,7 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     struct socket *sock = node->device;
     if (sock->domain != PF_LOCAL)
         return -EOPNOTSUPP;
-
+    
     acquire(&sock->lock);
     if (!sock->peer || sock->state != SOCKET_CONNECTED) {
         release(&sock->lock);
@@ -25,27 +25,24 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
         release(&sock->lock);
         return -EPIPE;
     }
-    release(&sock->lock);
-
-    acquire(&sock->peer->lock);
     if (sock->peer->recv_queue->length >= SOCKET_MAX_QUEUE_ENTRIES) {
-        release(&sock->peer->lock);
+        release(&sock->lock);
         vfs_wake_waiters(sock->node);
         vfs_wake_waiters(sock->peer->node);
         return -EAGAIN;
     }
-
+    
     struct socket_buffer *buf = kmalloc(sizeof(struct socket_buffer));
     buf->data = kmalloc(len);
     buf->len = len;
     buf->offset = 0;
     memcpy(buf->data, buffer, len);
-
+    
     list_insert(sock->peer->recv_queue, buf);
-    release(&sock->peer->lock);
-
     vfs_wake_waiters(sock->node);
     vfs_wake_waiters(sock->peer->node);
+    
+    release(&sock->lock);
     return len;
 }
 
@@ -70,28 +67,31 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
     }
 
     struct socket_buffer *buf = sock->recv_queue->head->value;
-
+    
     size_t n = (buf->len - buf->offset) < len ? (buf->len - buf->offset) : len;
     memcpy(buffer, buf->data + buf->offset, n);
-
+    
     buf->offset += n;
-
+    
     if (buf->offset >= buf->len) {
         list_pop(sock->recv_queue);
         kfree(buf->data);
         kfree(buf);
     }
-    release(&sock->lock);
-    vfs_wake_waiters(sock->node);
-    vfs_wake_waiters(sock->peer->node);
 
+    vfs_wake_waiters(sock->node);
+    if (sock->peer) {
+        vfs_wake_waiters(sock->peer->node);
+    }
+
+    release(&sock->lock);
     return n;
 }
 
 long socket_poll(vfs_node_t *node, long events) {
     struct socket *sock = node->device;
     long revents = 0;
-
+    
     acquire(&sock->lock);
     if (events & POLLIN) {
         if (sock->state == SOCKET_LISTENING && sock->pending->length > 0)
@@ -99,19 +99,20 @@ long socket_poll(vfs_node_t *node, long events) {
         if (sock->state == SOCKET_CONNECTED && sock->recv_queue->length > 0)
             revents |= POLLIN;
     }
-    release(&sock->lock);
-
-    if (sock->peer) {
-        acquire(&sock->peer->lock);
-        if (events & POLLOUT) {
-            if (sock->state == SOCKET_CONNECTED && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
-                revents |= POLLOUT;
+    if (events & POLLOUT) {
+        if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
+            revents |= POLLOUT;
+        else {
+            // vfs_wake_waiters(sock->node);
+            // vfs_wake_waiters(sock->peer->node);
         }
-        if (sock->state == SOCKET_CONNECTED && sock->peer->shutdown != -1 && (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR))
-            revents |= POLLHUP;
-        release(&sock->peer->lock);
     }
-
+    if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
+        (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {
+        revents |= POLLHUP;
+    }
+    
+    release(&sock->lock);
     return revents;
 }
 
@@ -126,8 +127,8 @@ long socket_remove(vfs_node_t *node) {
             vfs_wake_waiters(sock->peer->node);
     }
 
-    if (sock->node && sock->node != node && sock->state == SOCKET_LISTENING)
-        sock->node->device = NULL;
+    if (sock->bind_node && sock->state == SOCKET_LISTENING)
+        sock->bind_node->device = NULL;
 
     if (sock->pending)
         list_free(sock->pending);
@@ -165,6 +166,7 @@ static struct socket *socket_create(int domain, int type) {
     sock->recv_queue = list_create();
     sock->peer = NULL;
     sock->node = NULL;
+    sock->bind_node = NULL;
     sock->lock = 0;
     return sock;
 }
@@ -219,7 +221,7 @@ int socket_bind(int fd, const void *addr, uint32_t addrlen) {
                 return -EINVAL;
             bind->ops = &local_socket_ops;
             bind->device = sock;
-            sock->node = bind;
+            sock->bind_node = bind;
             return 0;
         }
         default:
@@ -276,6 +278,7 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             
             list_insert(server_sock->pending, server_child);
             vfs_wake_waiters(server_sock->node);
+            vfs_wake_waiters(server_sock->bind_node);
             return 0;
         }
         default:

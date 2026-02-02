@@ -118,6 +118,7 @@ struct socket {
     int shutdown;
     enum socket_state state;
     vfs_node_t *node;
+    vfs_node_t *bind_node;
     list_t *pending;
     list_t *recv_queue;
     struct socket *peer;
