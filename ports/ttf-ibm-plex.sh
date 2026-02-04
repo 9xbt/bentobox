@@ -3,6 +3,8 @@
 
 mkdir -p ports/src
 cd ports/src
-wget -O https://github.com/IBM/plex/releases/download/%40ibm%2Fplex-mono%401.1.0/ibm-plex-mono.zip
+set -e
+wget https://github.com/IBM/plex/releases/download/%40ibm%2Fplex-mono%401.1.0/ibm-plex-mono.zip
 unzip -o ibm-plex-mono.zip
+mkdir -p $BASE/usr/share/fonts/TTF/
 cp ibm-plex-mono/fonts/complete/ttf/*.ttf $BASE/usr/share/fonts/TTF/

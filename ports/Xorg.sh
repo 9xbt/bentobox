@@ -40,7 +40,7 @@ set -e
 ./ports/fontconfig.sh
 ./ports/libXft.sh
 ./ports/libevent.sh
-./ports/libxkbcommon.sh
-./ports/libxml2.sh
 ./ports/libiconv.sh
+./ports/libxml2.sh
+./ports/libxkbcommon.sh
 ./ports/libpng.sh

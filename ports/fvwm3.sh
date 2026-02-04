@@ -30,5 +30,6 @@ meson setup build \
     --prefix=/usr \
     --default-library=shared
 
+export CGO_ENABLED=0
 ninja -C build
 DESTDIR="$BASE" ninja -C build install
