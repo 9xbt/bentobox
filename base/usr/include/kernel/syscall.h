@@ -72,14 +72,17 @@
 #define SYS_exit_thread 61
 #define SYS_futex_wait  62
 #define SYS_futex_wake  63
+
 #define SYS_getsockopt  64
 #define SYS_setsockopt  65
 #define SYS_getsockname 66
 #define SYS_getpeername 67
 #define SYS_readv       68
 #define SYS_writev      69
+#define SYS_recvmsg     70
+#define SYS_sendmsg     71
 
-#define SYS_getrlimit   70
-#define SYS_setsid      71
+#define SYS_getrlimit   72
+#define SYS_setsid      73
 
 long syscall_handler(size_t *args);

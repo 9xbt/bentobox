@@ -99,9 +99,11 @@ struct msghdr {
 	void         *msg_name;
 	socklen_t     msg_namelen;
 	struct iovec *msg_iov;
-	size_t        msg_iovlen;
+	int           msg_iovlen;
+	int           __pad0;
 	void         *msg_control;
-	size_t        msg_controllen;
+	socklen_t     msg_controllen;
+	int           __pad1;
 	int           msg_flags;
 };
 

@@ -857,22 +857,23 @@ long sys_accept(int fd, const void *addr, uint32_t *addrlen) {
     return socket_accept(fd, addr, addrlen);
 }
 
-long sys_recvfrom(int fd, void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {
+static long sys_recvfrom_sendto(int fd, void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen, bool write) {
     (void)flags;
     (void)addr;
     (void)addrlen;
-    return sys_read_write(fd, buffer, size, false, true);
+    return sys_read_write(fd, buffer, size, write, true);
+}
+
+long sys_recvfrom(int fd, void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {
+    return sys_recvfrom_sendto(fd, buffer, size, flags, addr, addrlen, false);
 }
 
 long sys_sendto(int fd, const void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {
-    (void)flags;
-    (void)addr;
-    (void)addrlen;
-    return sys_read_write(fd, (void *)buffer, size, true, true);
+    return sys_recvfrom_sendto(fd, (void *)buffer, size, flags, addr, addrlen, true);
 }
 
-long sys_shutdown(int sockfd, int how) {
-    return socket_shutdown(sockfd, how);
+long sys_shutdown(int fd, int how) {
+    return socket_shutdown(fd, how);
 }
 
 long sys_reboot(unsigned int magic, int op) {
@@ -1171,6 +1172,7 @@ static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool wr
             break;
     }
 
+    kfree(kiov);
     return count;
 }
 
@@ -1180,6 +1182,52 @@ long sys_writev(int fd, const struct iovec *iov, int iovcnt) {
 
 long sys_readv(int fd, const struct iovec *iov, int iovcnt) {
     return sys_read_writev(fd, iov, iovcnt, false);
+}
+
+static long sys_recv_sendmsg(int fd, struct msghdr *msg, int flags, bool write) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+
+    struct msghdr *hdr = kmalloc(sizeof(struct msghdr));
+    if (copy_from_user(hdr, msg, sizeof(struct msghdr)) < 0)
+        return -EFAULT;
+
+    long count = 0;
+    for (int i = 0; i < hdr->msg_iovlen; i++) {
+        struct iovec *iov = &hdr->msg_iov[i];
+        if (iov[i].iov_len == 0)
+            continue;
+
+        long ret = sys_recvfrom_sendto(fd, iov->iov_base, iov->iov_len, flags, NULL, 0, write);
+        if (ret < 0) {
+            kfree(hdr);
+            return ret;
+        }
+
+        count += ret;
+        if ((size_t)ret < iov->iov_len)
+            break;
+    }
+
+    if (!write)
+        hdr->msg_controllen = 0;
+
+    if (copy_to_user(msg, hdr, sizeof(struct msghdr)) < 0) {
+        kfree(hdr);
+        return -EFAULT;
+    }
+
+    kfree(hdr);
+    return count;
+}
+
+long sys_recvmsg(int fd, struct msghdr *msg, int flags) {
+    return sys_recv_sendmsg(fd, msg, flags, false);
+}
+
+long sys_sendmsg(int fd, struct msghdr *msg, int flags) {
+    return sys_recv_sendmsg(fd, msg, flags, true);
 }
 
 #define RLIM_INFINITY (~0UL)
@@ -1289,9 +1337,12 @@ syscall_func syscalls[] = {
     [SYS_exit_thread] = (syscall_func)(uintptr_t)sys_exit_thread,
     [SYS_futex_wait]  = (syscall_func)(uintptr_t)sys_futex_wait,
     [SYS_futex_wake]  = (syscall_func)(uintptr_t)sys_futex_wake,
+
     [SYS_getsockopt]  = (syscall_func)(uintptr_t)sys_getsockopt,
     [SYS_readv]       = (syscall_func)(uintptr_t)sys_readv,
     [SYS_writev]      = (syscall_func)(uintptr_t)sys_writev,
+    [SYS_recvmsg]     = (syscall_func)(uintptr_t)sys_recvmsg,
+    [SYS_sendmsg]     = (syscall_func)(uintptr_t)sys_sendmsg,
 
     [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit,
     [SYS_setsid]      = (syscall_func)(uintptr_t)sys_setsid
