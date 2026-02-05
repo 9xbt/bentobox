@@ -1118,10 +1118,8 @@ struct iovec {
 #define IOV_MAX 1024
 
 static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool write) {
-    if (iovcnt < 0 || iovcnt > IOV_MAX)
+    if (iovcnt <= 0 || iovcnt > IOV_MAX)
         return -EINVAL;
-    if (!iov && iovcnt > 0)
-        return -EFAULT;
     
     struct file *file = file_get(fd);
     if (!file)
@@ -1189,36 +1187,39 @@ static long sys_recv_sendmsg(int fd, struct msghdr *msg, int flags, bool write) 
     if (!file)
         return -EBADF;
 
-    struct msghdr *hdr = kmalloc(sizeof(struct msghdr));
-    if (copy_from_user(hdr, msg, sizeof(struct msghdr)) < 0)
+    struct msghdr hdr;
+    if (copy_from_user(&hdr, msg, sizeof(struct msghdr)) < 0)
+        return -EFAULT;
+
+    if (hdr.msg_iovlen <= 0 || hdr.msg_iovlen > IOV_MAX)
+        return -EINVAL;
+
+    struct iovec *kiov = kmalloc(hdr.msg_iovlen * sizeof(struct iovec));
+    if (copy_from_user(kiov, hdr.msg_iov, hdr.msg_iovlen * sizeof(struct iovec)) < 0)
         return -EFAULT;
 
     long count = 0;
-    for (int i = 0; i < hdr->msg_iovlen; i++) {
-        struct iovec *iov = &hdr->msg_iov[i];
-        if (iov[i].iov_len == 0)
+    for (int i = 0; i < hdr.msg_iovlen; i++) {
+        if (kiov[i].iov_len == 0)
             continue;
 
-        long ret = sys_recvfrom_sendto(fd, iov->iov_base, iov->iov_len, flags, NULL, 0, write);
-        if (ret < 0) {
-            kfree(hdr);
+        long ret = sys_recvfrom_sendto(fd, kiov[i].iov_base, kiov[i].iov_len, flags, NULL, 0, write);
+        if (ret < 0)
             return ret;
-        }
 
         count += ret;
-        if ((size_t)ret < iov->iov_len)
+        if ((size_t)ret < kiov[i].iov_len)
             break;
     }
 
-    if (!write)
-        hdr->msg_controllen = 0;
+    kfree(kiov);
 
-    if (copy_to_user(msg, hdr, sizeof(struct msghdr)) < 0) {
-        kfree(hdr);
-        return -EFAULT;
+    if (!write) {
+        hdr.msg_controllen = 0;
+        if (copy_to_user(msg, &hdr, sizeof(struct msghdr)) < 0)
+            return -EFAULT;
     }
 
-    kfree(hdr);
     return count;
 }
 
