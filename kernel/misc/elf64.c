@@ -406,21 +406,6 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
 
-    if (!memcmp(buffer, "#!", 2)) {
-        long shebang_len = memchr(buffer, '\n', node->size) - buffer;
-        char shebang[shebang_len + 1];
-        shebang[shebang_len] = 0;
-        memcpy(shebang, buffer, shebang_len);
-        kfree(buffer);
-        vfs_close(node);
-
-        char **_argv = kmalloc((argc + 2) * sizeof(char *));
-        memcpy(_argv + 1, argv, (argc + 1) * sizeof(char *));
-        _argv[0] = shebang + 2;
-        
-        return exec(_argv[0], argc + 1, _argv, envp);
-    }
-
     if (!elf64_is_executable(ehdr)) {
         kfree(buffer);
         vfs_close(node);
@@ -460,6 +445,63 @@ int spawn(const char *file, int argc, char *argv[], char *envp[]) {
     return 0;
 }
 
+int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
+    
+    if (!elf64_is_executable(ehdr))
+        return -ENOEXEC;
+
+    foreach(i, this_proc->threads) {
+        struct thread *tcb = i->value;
+        if (tcb != this) {
+            tcb->state = THREAD_ZOMBIE;
+            while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
+                #ifdef __x86_64__
+                __builtin_ia32_pause();
+                #endif
+            }
+        }
+    }
+
+    for (int fd = 0; fd < this_proc->max_files; fd++) {
+        struct file *f = &this_proc->files[fd];
+        if (f->open && (f->flags & O_CLOEXEC))
+            file_close(fd);
+    }
+
+    kfree(this_proc->name);
+    this_proc->name = strdup(argv[0]);
+    
+    vma_destroy(this_proc->vma, this_proc->pm);
+    this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
+
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
+    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;
+    elf64_load_sections(this_proc, ehdr, phdr, base);
+
+    char *interp = NULL;
+    for (int j = 0; j < ehdr->e_phnum; j++) {
+        if (phdr[j].p_type == PT_INTERP) {
+            interp = (char *)buffer + phdr[j].p_offset;
+            break;
+        }
+    }
+    
+    uintptr_t entry = interp ? elf64_load_interp(this_proc, interp) : ehdr->e_entry + base;
+    if ((long)entry < 0) {
+        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(entry));
+        return (int)entry;
+    }
+    Elf64_auxv_t *auxv = elf64_setup_auxv(ehdr, phdr, interp, base);
+
+    struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
+    list_insert(sched_find_cpu()->threads, tcb);
+
+    // dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
+    kfree(auxv);
+    return 0;
+}
+
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
     vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
     if (!node)
@@ -481,98 +523,96 @@ int exec(const char *file, int argc, char *argv[], char *envp[]) {
         return len;
     }
 
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)buffer;
-
-    if (!memcmp(buffer, "#!", 2)) {
-        long shebang_len = memchr(buffer, '\n', node->size) - buffer;
-        char shebang[shebang_len + 1];
-        shebang[shebang_len] = 0;
-        memcpy(shebang, buffer, shebang_len);
-        kfree(buffer);
-        vfs_close(node);
-
-        char **_argv = kmalloc((argc + 2) * sizeof(char *));
-        memcpy(_argv + 1, argv, (argc + 1) * sizeof(char *));
-        _argv[0] = shebang + 2;
-        
-        return exec(_argv[0], argc + 1, _argv, envp);
-    }
-
-    if (!elf64_is_executable(ehdr)) {
-        kfree(buffer);
-        vfs_close(node);
-        return -ENOEXEC;
-    }
-
-    foreach(i, this_proc->threads) {
-        struct thread *tcb = i->value;
-        if (tcb != this) {
-            tcb->state = THREAD_ZOMBIE;
-            while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
-                #ifdef __x86_64__
-                __builtin_ia32_pause();
-                #endif
-            }
-        }
-    }
-
-    for (int fd = 0; fd < this_proc->max_files; fd++) {
-        struct file *f = &this_proc->files[fd];
-        if (f->open && (f->flags & O_CLOEXEC))
-            file_close(fd);
-    }
-
-    int envc = 0;
+    int envc = 0, _argc = 0;
     if (envp) for (; envp[envc]; envc++);
 
-    char **_argv = kmalloc((argc + 1) * sizeof(char *));
-    char **_envp = kmalloc((envc + 1) * sizeof(char *));
-    _argv[argc] = NULL;
-    _envp[envc] = NULL;
-
-    int i;
-    for (i = 0; i < argc; i++) {
-        _argv[i] = strdup(argv[i]);
-    }
-    for (i = 0; i < envc; i++) {
-        _envp[i] = strdup(envp[i]);
-    }
-
-    kfree(this_proc->name);
-    this_proc->name = strdup(_argv[0]);
+    char **_argv = NULL;
+    char **_envp = NULL;
     
-    vma_destroy(this_proc->vma, this_proc->pm);
-    this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
-
-    Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
-    uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;
-    elf64_load_sections(this_proc, ehdr, phdr, base);
-
-    char *interp = NULL;
-    for (int j = 0; j < ehdr->e_phnum; j++) {
-        if (phdr[j].p_type == PT_INTERP) {
-            interp = (char *)buffer + phdr[j].p_offset;
-            break;
+restart_exec:
+    if (len > 2 && !memcmp(buffer, "#!", 2)) {
+        long sb_len = memchr(buffer + 2, '\n', node->size) - (buffer + 2);
+        if (sb_len > MAX_PATH) {
+            kfree(buffer);
+            vfs_close(node);
+            return -ENOEXEC;
         }
-    }
-    
-    uintptr_t entry = interp ? elf64_load_interp(this_proc, interp) : ehdr->e_entry + base;
-    if ((long)entry < 0) {
-        dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", interp, strerror(entry));
+        char sb[sb_len + 1];
+        sb[sb_len] = 0;
+        memcpy(sb, buffer + 2, sb_len);
+
         kfree(buffer);
         vfs_close(node);
-        this_proc->state = PROCESS_ZOMBIE;
-        return (int)entry;
+
+        bool has_argument = strchr(sb, ' ');
+        _argc = has_argument ? argc + 2 : argc + 1;
+        long path_len = has_argument ? strchr(sb, ' ') - sb : sb_len;
+        char path[path_len + 1];
+        memcpy(path, sb, path_len);
+        path[path_len] = 0;
+
+        node = vfs_open(this_proc->cwd, path, 0);
+        if (!node)
+            return -ENOENT;
+        if (node->type == VFS_DIRECTORY) {
+            vfs_close(node);
+            return -EISDIR;
+        }
+        if (node->type != VFS_FILE) {
+            vfs_close(node);
+            return -EACCES;
+        }
+
+        buffer = kmalloc(node->size);
+        len = vfs_read(node, buffer, 0, node->size);
+        if (len < 0) {
+            kfree(buffer);
+            vfs_close(node);
+            return len;
+        }
+
+        if (len > 2 && !memcmp(buffer, "#!", 2))
+            goto restart_exec;
+
+        _argv = kmalloc((_argc + 1) * sizeof(char *));
+        _envp = kmalloc((envc + 1) * sizeof(char *));
+        _argv[_argc] = NULL;
+        _envp[envc] = NULL;
+
+        _argv[0] = strdup(path);
+        if (has_argument)
+            _argv[1] = strdup(strchr(sb, ' ') + 1);
+
+        int i, offset = has_argument ? 2 : 1;
+        for (i = 0; i < argc; i++)
+            _argv[i + offset] = strdup(argv[i]);
+        for (i = 0; i < envc; i++)
+            _envp[i] = strdup(envp[i]);
+    } else {
+        _argc = argc;
+        _argv = kmalloc((argc + 1) * sizeof(char *));
+        _envp = kmalloc((envc + 1) * sizeof(char *));
+        _argv[_argc] = NULL;
+        _envp[envc] = NULL;
+
+        int i;
+        for (i = 0; i < _argc; i++)
+            _argv[i] = strdup(argv[i]);
+        for (i = 0; i < envc; i++)
+            _envp[i] = strdup(envp[i]);
     }
-    Elf64_auxv_t *auxv = elf64_setup_auxv(ehdr, phdr, interp, base);
 
-    struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, _argv, _envp, auxv, AUXV_COUNT, NULL);    
-    list_insert(sched_find_cpu()->threads, tcb);
+    int i, ret = _exec(buffer, _argc, _argv, _envp);
+    for (i = 0; i < _argc; i++)
+        kfree(_argv[i]);
+    for (i = 0; i < envc; i++)
+        kfree(_envp[i]);
 
-    // dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
-    kfree(auxv);
+    kfree(_argv);
+    kfree(_envp);
     kfree(buffer);
     vfs_close(node);
-    sched_exit(this, 0);
-    return -1;
+    if (!ret)
+        sched_exit(this, 0);
+    return ret;
 }
