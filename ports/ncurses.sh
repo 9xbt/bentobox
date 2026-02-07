@@ -3,7 +3,7 @@
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export LD="${TOOLCHAIN_PREFIX:-}ld"
-export CFLAGS="-I$MLIBC_ROOT/include -g -O2 -Wno-error"
+export CFLAGS="-I$MLIBC_ROOT/include -g -O2 -Wno-error -D_GNU_SOURCE"
 
 export CC_FOR_BUILD="gcc"
 export CFLAGS_FOR_BUILD="-O2"
@@ -26,6 +26,7 @@ set -e
     --without-cxx-binding \
     --without-ada \
     --disable-echo \
+    --enable-widec \
     --enable-pc-files \
     --with-pkg-config-libdir=/usr/lib/pkgconfig \
     --with-terminfo-dirs=/usr/share/terminfo:/etc/terminfo \

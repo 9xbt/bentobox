@@ -102,6 +102,12 @@ Dependencies:
 
 Run `./ports/vim.sh`.
 
+### cmatrix
+Dependencies:
+- ncurses
+
+Run `./ports/cmatrix.sh`.
+
 ### nyancat
 Run `./ports/nyancat.sh`.
 

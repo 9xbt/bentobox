@@ -1,0 +1,30 @@
+#!/bin/bash
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
+
+export CC="${TOOLCHAIN_PREFIX:-}gcc"
+export CXX="${TOOLCHAIN_PREFIX:-}g++"
+export LD="${TOOLCHAIN_PREFIX:-}ld"
+export CFLAGS="-I$MLIBC_ROOT/include -g -D_DEFAULT_SOURCE"
+
+mkdir -p $BASE/usr/bin
+mkdir -p ports/src
+git clone https://github.com/abishekvashok/cmatrix ports/src/cmatrix --depth=1
+cd ports/src/cmatrix
+git apply ../../cmatrix.diff
+
+rm -rf build
+mkdir -p build
+cd build
+
+set -e
+cmake .. \
+    -DCMAKE_C_COMPILER="$CC" \
+    -DCMAKE_C_COMPILER_WORKS=1 \
+    -DCMAKE_C_FLAGS="$CFLAGS" \
+    -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DUSE_TIOCSTI=false
+make -j$(nproc)
+make DESTDIR=$BASE install
