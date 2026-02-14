@@ -25,7 +25,7 @@ extern void arch_jumpstart(void);
 extern void arch_yield(struct cpu *cpu);
 
 list_t *processes = NULL;
-int zombies_pending = 0;
+list_t *zombie_threads = NULL;
 
 uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
@@ -196,7 +196,6 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->sigframe = NULL;
-    tcb->status = 0;
     tcb->start_time = 0;
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
@@ -233,6 +232,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
     proc->cwd = NULL;
     proc->umask = 022;
+    proc->exit_status = 0;
     memset(&proc->psig, 0, sizeof proc->psig);
     memset(&proc->sighand, 0, sizeof proc->sighand);
     memset(&proc->blocked, 0, sizeof proc->blocked);
@@ -264,13 +264,16 @@ long fork(void) {
     memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
     for (int i = 0; i < proc->max_files; i++) {
         struct file *file = &proc->files[i];
-        if (!file || !file->open || !file->node || file->node->type != VFS_UNIXPIPE)
+        if (!file || !file->open || !file->node)
             continue;
-        struct unix_pipe *pipe = file->node->device;
-        if (!strcmp(file->node->name, "[pipe::read]"))
-            pipe->read_refs++;
-        else if (!strcmp(file->node->name, "[pipe::write]"))
-            pipe->write_refs++;
+        file->node->refcount++;
+        if (file->node->type == VFS_UNIXPIPE) {
+            struct unix_pipe *pipe = file->node->device;
+            if (!strcmp(file->node->name, "[pipe::read]"))
+                pipe->read_refs++;
+            else if (!strcmp(file->node->name, "[pipe::write]"))
+                pipe->write_refs++;
+        }
     }
     proc->cwd = this_proc->cwd;
     proc->umask = this_proc->umask;
@@ -290,7 +293,6 @@ long fork(void) {
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->sigframe = NULL;
-    tcb->status = 0;
     tcb->start_time = 0;
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
@@ -316,50 +318,22 @@ void sched_sleep(size_t ns) {
     sched_yield();
 }
 
-void sched_exit(struct thread *tcb, int status) {
-    tcb->parent->state = PROCESS_ZOMBIE;
+void sched_exit(struct thread *tcb) {
+    tcb->state = THREAD_ZOMBIE;
     if (tcb == this) {
-        this->status = status;
-        this->state = THREAD_ZOMBIE;
-        __atomic_add_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
-        acquire(&cleaner_tcb->lock);
-        if (cleaner_tcb->state == THREAD_PAUSED)
-            cleaner_tcb->state = THREAD_RUNNING;
-        release(&cleaner_tcb->lock);
         sched_yield();
         for (;;) {}
     }
-    release(&cleaner_tcb->lock);
-    if (cleaner_tcb->state == THREAD_PAUSED)
-        cleaner_tcb->state = THREAD_RUNNING;
-    release(&cleaner_tcb->lock);
 }
 
 void sched_exit_group(struct process *proc, int status) {
-    proc->state = PROCESS_ZOMBIE_ALL;
-
-    int threads = 0;
-    foreach(i, proc->threads) {
-        struct thread *tcb = i->value;
-        if (tcb->state != THREAD_ZOMBIE && tcb->state != THREAD_ZOMBIE_ACK)
-            threads++;
-    }
+    proc->state = PROCESS_ZOMBIE;
+    proc->exit_status = status;
     
     if (proc == this_proc) {
-        this->status = status;
-        this->state = THREAD_ZOMBIE;
-        __atomic_add_fetch(&zombies_pending, threads, __ATOMIC_SEQ_CST);
-        acquire(&cleaner_tcb->lock);
-        if (cleaner_tcb->state == THREAD_PAUSED)
-            cleaner_tcb->state = THREAD_RUNNING;
-        release(&cleaner_tcb->lock);
-        sched_yield();
-        for (;;) {}
+        sched_exit(this);
+        __builtin_unreachable();
     }
-    acquire(&cleaner_tcb->lock);
-    if (cleaner_tcb->state == THREAD_PAUSED)
-        cleaner_tcb->state = THREAD_RUNNING;
-    release(&cleaner_tcb->lock);
 }
 
 void sched_balance(void) {
@@ -412,16 +386,25 @@ node_t *sched_find_next(void) {
     node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
+        node_t *next = node->next ? node->next : this_cpu->threads->head;
 
         try_acquire(&t->lock);
-        enum thread_state state = __atomic_load_n(&t->state, __ATOMIC_ACQUIRE);
-        if (state == THREAD_SLEEPING && now >= t->sleep_end)
-            __atomic_store_n(&t->state, THREAD_RUNNING, __ATOMIC_RELEASE);
-        if (state == THREAD_RUNNING)
+        if (t->state == THREAD_ZOMBIE) {
+            list_remove(this_cpu->threads, node);
+            list_insert(zombie_threads, t);
+            release(&t->lock);
+            if (cleaner_tcb->state == THREAD_PAUSED)
+                cleaner_tcb->state = THREAD_RUNNING;
+            node = next;
+            continue;
+        }
+        if (t->state == THREAD_SLEEPING && now >= t->sleep_end)
+            t->state = THREAD_RUNNING;
+        if (t->state == THREAD_RUNNING)
             return node;
         release(&t->lock);
 
-        node = node->next ? node->next : this_cpu->threads->head;
+        node = next;
     } while (node != start);
 
     return this_cpu->idle_tcb;
@@ -441,14 +424,22 @@ void sched_schedule(struct registers *r) {
     }
 
     if (this_cpu->current_tcb) {
-        if (this->state == THREAD_ZOMBIE)
-            __atomic_store_n(&this->state, THREAD_ZOMBIE_ACK, __ATOMIC_SEQ_CST);
-
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
+
+        if (this_proc->state == PROCESS_ZOMBIE)
+            this->state = THREAD_ZOMBIE;
+        if (this->state == THREAD_ZOMBIE) {
+            struct thread *tcb = this;
+            list_remove_value(this_cpu->threads, tcb);
+            list_insert(zombie_threads, tcb);
+            this_cpu->current_tcb = this_cpu->threads->head;
+            if (cleaner_tcb->state == THREAD_PAUSED)
+                cleaner_tcb->state = THREAD_RUNNING;
+        }
         
         if (this_cpu->current_tcb == this_cpu->idle_tcb)
             this_cpu->idle_time += this->last_cpu_time;
@@ -481,101 +472,60 @@ void idle(void) {
     }
 }
 
-static void sched_cleanup_thread(struct thread *tcb) {
-    if (tcb->cpu && tcb->cpu->current_tcb->value == tcb) {
-        tcb->state = THREAD_ZOMBIE;
-        arch_yield(tcb->cpu);
-        while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
-            #ifdef __x86_64__
-            __builtin_ia32_pause();
-            #endif
-        }
-    }
-    
-    arch_context_free(tcb);
-    sched_free_tid(tcb->tid);
-    if (tcb->cpu)
-        list_remove_value(tcb->cpu->threads, tcb);
-    kfree(tcb);
-    __atomic_sub_fetch(&zombies_pending, 1, __ATOMIC_SEQ_CST);
-}
-
 void sched_cleaner(void) {
     for (;;) {
         sched_sleep(10000000);
 
-        foreach_safe(i, processes) {
-            struct process *proc = i->value;
-            if (proc->state != PROCESS_ZOMBIE && proc->state != PROCESS_ZOMBIE_ALL)
-                continue;
-            
-            int status = 0;
-            if (proc->state == PROCESS_ZOMBIE) {
-                foreach_safe(j, proc->threads) {
-                    struct thread *tcb = j->value;
-                    if (tcb->state == THREAD_ZOMBIE ||
-                        tcb->state == THREAD_ZOMBIE_ACK) {
-                        status = tcb->status;
-                        list_remove(proc->threads, j);
-                        sched_cleanup_thread(tcb);
+        foreach_safe(i, zombie_threads) {
+            struct thread *tcb = i->value;
+            struct process *proc = tcb->parent;
+
+            if (proc->threads->length == 1) {
+                if (init_proc == proc)
+                    panic("Tried to kill init!");
+
+                if (proc->parent) {
+                    struct dead_process *dp = kmalloc(sizeof(struct dead_process));
+                    dp->pid = proc->pid;
+                    dp->status = proc->exit_status;
+                    list_insert(proc->parent->dead_children, dp);
+                    signal_send(proc->parent, SIGCHLD);
+                    list_remove_value(proc->parent->children, proc);
+                }
+
+                foreach(j, proc->children) {
+                    struct process *child = j->value;
+                    child->parent = init_proc;
+                }
+                list_free(proc->children);
+
+                for (int j = 0; j < proc->max_files; j++) {
+                    struct file *file = &proc->files[j];
+                    if (file->open && file->node) {
+                        if (file->node->type == VFS_SOCKET)
+                            socket_shutdown_node(file->node);
+                        vfs_close(file->node);
                     }
                 }
 
-                if (proc->threads->length > 0) 
-                    continue;
-            } else if (proc->state == PROCESS_ZOMBIE_ALL) {
-                struct thread *tcb = proc->threads->head->value;
-                status = tcb->status;
+                vma_destroy(proc->vma, proc->pm);
+                mmu_destroy_pagemap(proc->pm);
+                kfree(proc->files);
+                kfree(proc->name);
+                sched_free_pid(proc->pid);
+
+                list_remove_value(processes, proc);
+                kfree(proc);
             }
 
-            // dprintf(LOG_DEBUG, "\033[93msched:\033[0m reaping %s\n", proc->name);
-
-            if (init_proc == proc)
-                panic("Tried to kill init!");
-
-            if (proc->parent) {
-                struct dead_process *dp = kmalloc(sizeof(struct dead_process));
-                dp->pid = proc->pid;
-                dp->status = status;
-                list_insert(proc->parent->dead_children, dp);
-                signal_send(proc->parent, SIGCHLD);
-                list_remove_value(proc->parent->children, proc);
-            }
-
-            foreach(j, proc->threads) {
-                struct thread *tcb = j->value;
-                sched_cleanup_thread(tcb);
-            }
-            list_free(proc->threads);
-
-            foreach(j, proc->children) {
-                struct process *child = j->value;
-                child->parent = init_proc;
-            }
-            list_free(proc->children);
-
-            for (int j = 0; j < proc->max_files; j++) {
-                struct file *file = &proc->files[j];
-                if (file->open && file->node) {
-                    if (file->node->type == VFS_SOCKET)
-                        socket_shutdown_node(file->node);
-                    vfs_close(file->node);
-                }
-            }
-
-            vma_destroy(proc->vma, proc->pm);
-            mmu_destroy_pagemap(proc->pm);
-            kfree(proc->files);
-            kfree(proc->name);
-            sched_free_pid(proc->pid);
-
-            list_remove(processes, i);
-            kfree(proc);
-
-            // mmu_print_memory();
+            list_remove_value(proc->threads, tcb);
+            arch_context_free(tcb);
+            sched_free_tid(tcb->tid);
+            kfree(tcb);
+            list_remove(zombie_threads, i);
         }
 
-        if (__atomic_load_n(&zombies_pending, __ATOMIC_SEQ_CST) == 0) {
+        if (!zombie_threads->length) {
             this->state = THREAD_PAUSED;
             sched_yield();
         }
@@ -583,7 +533,8 @@ void sched_cleaner(void) {
 }
 
 void sched_install(void) {
-    processes  = list_create();
+    processes      = list_create();
+    zombie_threads = list_create();
     pid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
     tid_bitmap = kmalloc(SCHED_BITMAP_SIZE);
     memset(pid_bitmap, 0, SCHED_BITMAP_SIZE);

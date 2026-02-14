@@ -26,5 +26,5 @@ void    list_remove_value(list_t *list, void *value);
 void   *list_pop(list_t *list);
 void    list_clear(list_t *list);
 
-#define foreach(__i, list) for (node_t *__i = (list)->head; __i; __i = __i->next)
-#define foreach_safe(__i, list) for (node_t *__i = (list)->head, *__next_##__i = __i ? __i->next : NULL; __i; __i = __next_##__i, __next_##__i = __i ? __i->next : NULL)
+#define foreach(__i, list) for (node_t *__i = (list)->head; __i; __i = __i->next) if (__i->value)
+#define foreach_safe(__i, list) for (node_t *__i = (list)->head, *__next_##__i = __i ? __i->next : NULL; __i; __i = __next_##__i, __next_##__i = __i ? __i->next : NULL) if (__i->value)

@@ -365,7 +365,8 @@ long sys_waitpid(int pid, int *wstatus, int options) {
             }
             
             if (dp) {
-                *wstatus = dp->status;
+                if (copy_to_user(wstatus, &dp->status, sizeof(int)) < 0)
+                    return -EFAULT;
                 int ret_pid = dp->pid;
                 kfree(dp);
                 return ret_pid;
@@ -1094,7 +1095,7 @@ long sys_clone(void *entry, void *stack) {
 }
 
 long sys_exit_thread(void) {
-    sched_exit(this, 0);
+    sched_exit(this);
     __builtin_unreachable();
 }
 

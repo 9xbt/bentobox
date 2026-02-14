@@ -453,14 +453,12 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
 
     foreach(i, this_proc->threads) {
         struct thread *tcb = i->value;
-        if (tcb != this) {
-            tcb->state = THREAD_ZOMBIE;
-            while (__atomic_load_n(&tcb->state, __ATOMIC_ACQUIRE) != THREAD_ZOMBIE_ACK) {
-                #ifdef __x86_64__
-                __builtin_ia32_pause();
-                #endif
-            }
-        }
+        if (tcb != this)
+            sched_exit(tcb);
+    }
+    
+    while (this_proc->threads->length > 1) {
+        sched_yield();
     }
 
     for (int fd = 0; fd < this_proc->max_files; fd++) {
@@ -613,6 +611,6 @@ restart_exec:
     kfree(buffer);
     vfs_close(node);
     if (!ret)
-        sched_exit(this, 0);
+        sched_exit(this);
     return ret;
 }

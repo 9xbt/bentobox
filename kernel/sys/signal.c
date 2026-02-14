@@ -110,10 +110,8 @@ int signal_send(struct process *proc, int sig) {
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
-    acquire(&tcb->lock);
     if (tcb->state == THREAD_PAUSED || tcb->state == THREAD_SLEEPING)
         tcb->state = THREAD_RUNNING;
-    release(&tcb->lock);
     
     return 0;
 }
