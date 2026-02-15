@@ -122,14 +122,17 @@ typedef enum vfs_node_type {
     VFS_PTY
 } vfs_node_type_t;
 
-typedef enum devfs_node_type {
+#define DEVFS_BITMAP_SIZE 32
+
+typedef enum devfs_type {
     DEVFS_EVENT,
     DEVFS_FB,
     DEVFS_SSD,
     DEVFS_PTY,
     DEVFS_TTY,
     DEVFS_STTY,
-} devfs_node_type_t;
+    DEVFS_MAX
+} devfs_type_t;
 
 struct vfs_node;
 struct vfs_mountpoint;
@@ -214,4 +217,5 @@ long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type);
-vfs_node_t *devfs_create_numbered(devfs_node_type_t type);
+vfs_node_t *devfs_create_numbered(devfs_type_t type);
+void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node);

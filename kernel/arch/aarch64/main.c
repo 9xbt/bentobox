@@ -75,12 +75,12 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     ctx->elr_elx = (uint64_t)entry;
     ctx->spsr_elx = user ? 0x0 : 0x345;
 
-    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
-    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
+    ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
+    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
     ctx->regs.x16 = ctx->stack;
     if (user) {
-        ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, 256, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
-        ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (256 * PAGE_SIZE);
+        ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, SCHED_USER_STACK_PAGES, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
+        ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (SCHED_USER_STACK_SIZE);
     }
 }
 
@@ -105,9 +105,9 @@ void arch_context_fork(struct thread *tcb) {
     ctx->fpcr = (uint32_t)fpcr;
     aarch64_save_fp(tcb->ctx.fp);
 
-    ctx->stack_bottom = (uint64_t)kmalloc(4 * PAGE_SIZE);
-    ctx->stack = ctx->stack_bottom + (4 * PAGE_SIZE) - 8;
-    memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, 4 * PAGE_SIZE);
+    ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
+    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
+    memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, SCHED_KERNEL_STACK_SIZE);
 
     ctx->regs.x0 = 0;
     ctx->regs.x16 = ctx->stack;

@@ -106,9 +106,11 @@ int unixpipe_new(int fds[2], int flags) {
 
     pipes[0]->ops = &unixpipe_read_ops;
     pipes[0]->device = device;
+    pipes[0]->refcount = 1;
     
     pipes[1]->ops = &unixpipe_write_ops;
     pipes[1]->device = device;
+    pipes[1]->refcount = 1;
 
     return 0;
 }

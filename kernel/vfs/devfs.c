@@ -1,8 +1,14 @@
+#include <kernel/spinlock.h>
+#include <kernel/bitmap.h>
+#include <kernel/malloc.h>
 #include <kernel/printf.h>
+#include <kernel/string.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 
 vfs_node_t *dev = NULL;
+uint8_t *devfs_bitmap[DEVFS_MAX];
+spinlock_t devfs_bitmap_lock = 0;
 
 vfs_node_t *devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
 
@@ -21,12 +27,32 @@ vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type) {
     return devfs_create(dev, name, type);
 }
 
-vfs_node_t *devfs_create_numbered(devfs_node_type_t type) {
-    static int i[16] = { [DEVFS_SSD] = 'a', [DEVFS_TTY] = 1 };
+static int devfs_allocate_id(devfs_type_t type) {
+    acquire(&devfs_bitmap_lock);
+    for (int id = 0; id < DEVFS_BITMAP_SIZE * 8; id++) {
+        if (!bitmap_get(devfs_bitmap[type], id)) {
+            bitmap_set(devfs_bitmap[type], id);
+            release(&devfs_bitmap_lock);
+            return id;
+        }
+    }
+    release(&devfs_bitmap_lock);
+    return -1;
+}
+
+static void devfs_free_id(devfs_type_t type, int id) {
+    acquire(&devfs_bitmap_lock);
+    bitmap_clear(devfs_bitmap[type], id);
+    release(&devfs_bitmap_lock);
+}
+
+vfs_node_t *devfs_create_numbered(devfs_type_t type) {
     char name[MAX_PATH];
     char *fmt = NULL;
     vfs_node_t *parent = dev;
+    vfs_node_type_t node_type = VFS_CHARDEVICE;
 
+    int id = devfs_allocate_id(type);
     switch (type) {
         case DEVFS_EVENT:
             fmt = "event%d";
@@ -36,6 +62,8 @@ vfs_node_t *devfs_create_numbered(devfs_node_type_t type) {
             break;
         case DEVFS_SSD:
             fmt = "sd%c";
+            id += 'a';
+            node_type = VFS_BLOCKDEVICE;
             break;
         case DEVFS_PTY:
             fmt = "%d";
@@ -47,10 +75,19 @@ vfs_node_t *devfs_create_numbered(devfs_node_type_t type) {
         case DEVFS_STTY:
             fmt = "ttyS%d";
             break;
+        default:
+            break;
     }
     
-    snprintf(name, sizeof name, fmt, i[type]++);
-    return devfs_create(parent, name, type == DEVFS_SSD ? VFS_BLOCKDEVICE : VFS_CHARDEVICE);
+    snprintf(name, sizeof name, fmt, id);
+    vfs_node_t *node = devfs_create(parent, name, node_type);
+    node->inode = 1000000 + id;
+    return node;
+}
+
+void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node) {
+    devfs_free_id(type, node->inode - 1000000);
+    vfs_remove(node);
 }
 
 long devfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
@@ -76,4 +113,10 @@ void devfs_initialize(void) {
     dev = vfs_create_node("dev", VFS_DIRECTORY);
     dev->ops = &devfs_ops;
     vfs_add_node(NULL, dev);
+
+    for (int i = 0; i < DEVFS_MAX; i++) {
+        devfs_bitmap[i] = kmalloc(DEVFS_BITMAP_SIZE);
+        memset(devfs_bitmap[i], 0, DEVFS_BITMAP_SIZE);
+    }
+    bitmap_set(devfs_bitmap[DEVFS_TTY], 0);
 }

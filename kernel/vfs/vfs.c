@@ -226,7 +226,8 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
         return node;
     }
     node = node->ops->open(node, flags);
-    node->refcount++;
+    if (node)
+        node->refcount++;
     return node;
 }
 
@@ -237,6 +238,10 @@ long vfs_close(vfs_node_t *node) {
     if (node->ops && node->ops->close)
         ret = node->ops->close(node);
     node->refcount--;
+    // TODO
+    // dprintf(LOG_DEBUG, "%s: refcount %d\n", node->name, node->refcount);
+    // if (node->refcount <= 0)
+        // vfs_remove(node);
     return ret;
 }
 

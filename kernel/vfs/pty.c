@@ -17,22 +17,22 @@ spinlock_t pty_bitmap_lock = 0;
 
 vfs_node_t *ptmx_open(vfs_node_t *node, int flags);
 
-int pty_allocate_pid(void) {
+int pty_allocate_id(void) {
     acquire(&pty_bitmap_lock);
-    for (int pid = 0; pid < PTY_BITMAP_SIZE * 8; pid++) {
-        if (!bitmap_get(pty_bitmap, pid)) {
-            bitmap_set(pty_bitmap, pid);
+    for (int id = 0; id < PTY_BITMAP_SIZE * 8; id++) {
+        if (!bitmap_get(pty_bitmap, id)) {
+            bitmap_set(pty_bitmap, id);
             release(&pty_bitmap_lock);
-            return pid;
+            return id;
         }
     }
     release(&pty_bitmap_lock);
     return -1;
 }
 
-void pty_free_pid(int pid) {
+void pty_free_id(int id) {
     acquire(&pty_bitmap_lock);
-    bitmap_clear(pty_bitmap, pid);
+    bitmap_clear(pty_bitmap, id);
     release(&pty_bitmap_lock);
 }
 
@@ -40,7 +40,7 @@ pty_t *pty_create(void) {
     pty_t *pty = kmalloc(sizeof(pty_t));
     pty->master = NULL;
     pty->slave = NULL;
-    pty->id = pty_allocate_pid();
+    pty->id = pty_allocate_id();
     if (pty->id == -1) {
         kfree(pty);
         return NULL;
@@ -67,6 +67,21 @@ pty_t *pty_create(void) {
     return pty;
 }
 
+void pty_destroy(pty_t *pty) {
+    if (!pty)
+        return;
+    
+    if (pty->ififo)
+        fifo_destroy(pty->ififo);
+    if (pty->ofifo)
+        fifo_destroy(pty->ofifo);
+
+    pty_free_id(pty->id);
+    devfs_remove_numbered(DEVFS_PTY, pty->slave);
+    vfs_remove_node(pty->master);
+    kfree(pty);
+}
+
 vfs_node_t *slave_open(vfs_node_t *node, int flags) {
     (void)flags;
     pty_t *pty = node->device;
@@ -75,6 +90,25 @@ vfs_node_t *slave_open(vfs_node_t *node, int flags) {
     if (pty->locked)
         return NULL;
     return node;
+}
+
+long slave_close(vfs_node_t *node) {
+    pty_t *pty = node->device;
+    if (!pty)
+        return -EINVAL;
+    return 0;
+}
+
+long master_close(vfs_node_t *node) {
+    pty_t *pty = node->device;
+    if (!pty)
+        return -EINVAL;
+
+    if (node->refcount <= 1) {
+        // TODO
+        // pty_destroy(pty);
+    }
+    return 0;
 }
 
 long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
@@ -252,6 +286,8 @@ long ptmx_ioctl(struct vfs_node *node, int op, void *arg) {
 }
 
 vfs_ops_t slave_ops = {
+    .open = slave_open,
+    .close = slave_close,
     .read = slave_read,
     .write = slave_write,
     .poll = slave_poll,
@@ -259,6 +295,7 @@ vfs_ops_t slave_ops = {
 };
 
 vfs_ops_t master_ops = {
+    .close = master_close,
     .read = master_read,
     .write = master_write,
     .poll = master_poll,
