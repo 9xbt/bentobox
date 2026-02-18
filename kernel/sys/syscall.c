@@ -747,8 +747,17 @@ long sys_sleep(struct timespec *ts) {
     return 0;
 }
 
-#define CLOCK_REALTIME  0
-#define CLOCK_MONOTONIC 1
+#define CLOCK_REALTIME           0
+#define CLOCK_MONOTONIC          1
+#define CLOCK_PROCESS_CPUTIME_ID 2
+#define CLOCK_THREAD_CPUTIME_ID  3
+#define CLOCK_MONOTONIC_RAW      4
+#define CLOCK_REALTIME_COARSE    5
+#define CLOCK_MONOTONIC_COARSE   6
+#define CLOCK_BOOTTIME           7
+#define CLOCK_REALTIME_ALARM     8
+#define CLOCK_BOOTTIME_ALARM     9
+#define CLOCK_TAI                11
 
 long sys_gettime(int clock, struct timespec *ts) {
     struct timespec tv;
@@ -758,7 +767,12 @@ long sys_gettime(int clock, struct timespec *ts) {
             uptime(NULL, (size_t *)&tv.tv_nsec);
             break;
         case CLOCK_MONOTONIC:
+        case CLOCK_MONOTONIC_COARSE:
             uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
+            break;
+        default:
+            memset(&tv, 0, sizeof tv);
+            dprintf(LOG_DEBUG, "\033[93muser:\033[0m unsupported clocksource %d\n", clock);
             break;
     }
     return copy_to_user(ts, &tv, sizeof tv);
