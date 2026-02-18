@@ -104,10 +104,8 @@ long master_close(vfs_node_t *node) {
     if (!pty)
         return -EINVAL;
 
-    if (node->refcount <= 1) {
-        // TODO
-        // pty_destroy(pty);
-    }
+    if (!node->refcount)
+        pty_destroy(pty);
     return 0;
 }
 
@@ -317,7 +315,6 @@ vfs_node_t *ptmx_open(vfs_node_t *node, int flags) {
     vfs_node_t *slave = devfs_create_numbered(DEVFS_PTY);
     slave->ops = &slave_ops;
     slave->device = pty;
-    slave->inode = 100000;
     pty->slave = slave;
 
     vfs_node_t *master = vfs_create_node("[pty]", VFS_PTY);

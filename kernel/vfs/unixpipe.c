@@ -51,6 +51,8 @@ long unixpipe_poll(vfs_node_t *node, long events) {
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
+    vfs_remove(pipe->read_end);
+    vfs_remove(pipe->write_end);
     ringbuffer_destroy(pipe->buffer);
     kfree(pipe);
 }

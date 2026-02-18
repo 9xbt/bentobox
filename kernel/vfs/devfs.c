@@ -1,4 +1,5 @@
 #include <kernel/spinlock.h>
+#include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
@@ -86,6 +87,7 @@ vfs_node_t *devfs_create_numbered(devfs_type_t type) {
 }
 
 void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node) {
+    assert(node->inode >= 1000000);
     devfs_free_id(type, node->inode - 1000000);
     vfs_remove(node);
 }

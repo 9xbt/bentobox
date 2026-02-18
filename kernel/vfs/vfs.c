@@ -234,15 +234,10 @@ vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
 long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
-    long ret = 0;
-    if (node->ops && node->ops->close)
-        ret = node->ops->close(node);
     node->refcount--;
-    // TODO
-    // dprintf(LOG_DEBUG, "%s: refcount %d\n", node->name, node->refcount);
-    // if (node->refcount <= 0)
-        // vfs_remove(node);
-    return ret;
+    if (!node->ops || !node->ops->close)
+        return 0;
+    return node->ops->close(node);
 }
 
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
