@@ -479,8 +479,9 @@ void sched_cleaner(void) {
         foreach_safe(i, zombie_threads) {
             struct thread *tcb = i->value;
             struct process *proc = tcb->parent;
+            list_remove_value(proc->threads, tcb);
 
-            if (proc->threads->length == 1) {
+            if (proc->threads->length == 0) {
                 if (init_proc == proc)
                     panic("Tried to kill init!");
 
@@ -499,6 +500,13 @@ void sched_cleaner(void) {
                 }
                 list_free(proc->children);
 
+                foreach(j, proc->dead_children) {
+                    struct dead_process *dp = j->value;
+                    if (dp)
+                        kfree(dp);
+                }
+                list_free(proc->dead_children);
+
                 for (int j = 0; j < proc->max_files; j++) {
                     struct file *file = &proc->files[j];
                     if (file->open && file->node) {
@@ -515,10 +523,10 @@ void sched_cleaner(void) {
                 sched_free_pid(proc->pid);
 
                 list_remove_value(processes, proc);
+                list_free(proc->threads);
                 kfree(proc);
             }
 
-            list_remove_value(proc->threads, tcb);
             arch_context_free(tcb);
             sched_free_tid(tcb->tid);
             kfree(tcb);

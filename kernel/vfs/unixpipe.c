@@ -51,6 +51,8 @@ long unixpipe_poll(vfs_node_t *node, long events) {
 }
 
 void unixpipe_destroy(struct unix_pipe *pipe) {
+    vfs_remove(pipe->read_end);
+    vfs_remove(pipe->write_end);
     ringbuffer_destroy(pipe->buffer);
     kfree(pipe);
 }
@@ -106,9 +108,11 @@ int unixpipe_new(int fds[2], int flags) {
 
     pipes[0]->ops = &unixpipe_read_ops;
     pipes[0]->device = device;
+    pipes[0]->refcount = 1;
     
     pipes[1]->ops = &unixpipe_write_ops;
     pipes[1]->device = device;
+    pipes[1]->refcount = 1;
 
     return 0;
 }
