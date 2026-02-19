@@ -82,14 +82,14 @@ vfs_node_t *devfs_create_numbered(devfs_type_t type) {
     
     snprintf(name, sizeof name, fmt, id);
     vfs_node_t *node = devfs_create(parent, name, node_type);
-    node->inode = 1000000 + id;
+    node->inode = DEVFS_INODE_BASE + id;
     return node;
 }
 
 void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node) {
-    assert(node->inode >= 1000000);
-    devfs_free_id(type, node->inode - 1000000);
-    vfs_remove(node);
+    assert(node->inode >= DEVFS_INODE_BASE);
+    devfs_free_id(type, node->inode - DEVFS_INODE_BASE);
+    vfs_remove_node(node);
 }
 
 long devfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {

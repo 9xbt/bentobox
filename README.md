@@ -148,9 +148,6 @@ Run `./ports/nes_emu.sh`.
 Dependencies:
 - Xorg
 
-> [!NOTE]
-> This port is currently broken.
-
 Run `./ports/dwm.sh`.
 
 ### ttf-ibm-plex

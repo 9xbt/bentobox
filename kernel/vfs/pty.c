@@ -92,13 +92,6 @@ vfs_node_t *slave_open(vfs_node_t *node, int flags) {
     return node;
 }
 
-long slave_close(vfs_node_t *node) {
-    pty_t *pty = node->device;
-    if (!pty)
-        return -EINVAL;
-    return 0;
-}
-
 long master_close(vfs_node_t *node) {
     pty_t *pty = node->device;
     if (!pty)
@@ -285,7 +278,6 @@ long ptmx_ioctl(struct vfs_node *node, int op, void *arg) {
 
 vfs_ops_t slave_ops = {
     .open = slave_open,
-    .close = slave_close,
     .read = slave_read,
     .write = slave_write,
     .poll = slave_poll,

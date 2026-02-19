@@ -123,6 +123,7 @@ typedef enum vfs_node_type {
 } vfs_node_type_t;
 
 #define DEVFS_BITMAP_SIZE 32
+#define DEVFS_INODE_BASE  1000000
 
 typedef enum devfs_type {
     DEVFS_EVENT,
