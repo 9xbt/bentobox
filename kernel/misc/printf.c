@@ -7,6 +7,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
+#include <kernel/args.h>
 #include <kernel/time.h>
 
 int loglevel = LOG_INFO;
@@ -23,6 +24,8 @@ void early_log_initialize(void) {
     early_rb.read_ptr = 0;
     early_rb.size = sizeof(early_rb_buffer);
     early_rb.lock = 0;
+    if (args_contains("loglevel"))
+        loglevel = atoi(args_value("loglevel"));
 }
 
 void early_log_extend(void) {
