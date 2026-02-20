@@ -1,5 +1,5 @@
 #!/bin/bash
-[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run .  build/mlibc-root before building ports!" && exit 1
+[ -z "$MLIBC_ROOT" ] || [ -z "$BASE" ] && echo "Please run . build/mlibc-root before building ports!" && exit 1
 
 export CC="${TOOLCHAIN_PREFIX:-}gcc"
 export CXX="${TOOLCHAIN_PREFIX:-}g++"
