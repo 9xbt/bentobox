@@ -192,5 +192,5 @@ Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) AR
 ## Screenshots
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/c18b1f3e-f838-4839-a352-ecd221ba8f36" />
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/239b33eb-6ab2-4b9e-8823-98448d572106" />
-<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/2289bfdc-362d-4337-bb1b-86c034ab8924" />
-
+<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/da003f5a-bba1-4cf2-a492-7f55995f3329" />
+<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/bdfea070-c49b-49c3-bae4-af7e5ffc40c6" />
