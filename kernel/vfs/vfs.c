@@ -409,7 +409,7 @@ void vfs_unregister(vfs_mount_ops_t *ops) {
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags) {
     if (!node || node->type != VFS_DIRECTORY || !type)
         return -EINVAL;
-    if (node->mount || node->children->length > 0)
+    if (node->mount)
         return -EBUSY;
 
     foreach(i, vfs_mount_ops) {
