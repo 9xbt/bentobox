@@ -376,10 +376,7 @@ long sys_waitpid(int pid, int *wstatus, int options) {
         if (options & WNOHANG)
             return 0;
 
-        acquire(&this->lock);
-        this->state = THREAD_PAUSED;
-        release(&this->lock);
-        sched_yield();
+        sched_block(this);
     }
     return pid;
 }
@@ -649,8 +646,7 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
 
     if (!nfds) {
         if (!timeout) {
-            this->state = THREAD_PAUSED;
-            sched_yield();
+            sched_block(this);
             return 0;
         } else if (!to.tv_sec && !to.tv_nsec) {
             return 0;

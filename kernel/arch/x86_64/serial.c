@@ -69,8 +69,7 @@ static void serial_tty_worker_thread(void) {
     char c;
     for (;;) {
         if (fifo_is_empty(tty->ofifo)) {
-            this->state = THREAD_PAUSED;
-            sched_yield();
+            sched_block(this);
         }
 
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
@@ -94,8 +93,7 @@ static void serial_tty_worker_thread(void) {
         }
 
         vfs_wake_waiters(node);
-        this->state = THREAD_PAUSED;
-        sched_yield();
+        sched_block(this);
     }
 }
 
@@ -117,7 +115,7 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
 
 static void serial_tty_flush(vfs_node_t *node) {
     (void)node;
-    serial_tty_worker->state = THREAD_RUNNING;
+    sched_wake(serial_tty_worker);
 }
 
 void irq4_handler(struct registers *r) {

@@ -288,10 +288,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (timeout == -1) {
         for (;;) {
             release(&node->waiters_lock);
-            acquire(&this->lock);
-            this->state = THREAD_PAUSED;
-            release(&this->lock);
-            sched_yield();
+            sched_block(this);
             acquire(&node->waiters_lock);
             
             poll = node->ops->poll(node, events);
@@ -355,10 +352,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
                 break;
             sched_sleep(remaining);
         } else {
-            acquire(&this->lock);
-            this->state = THREAD_PAUSED;
-            release(&this->lock);
-            sched_yield();
+            sched_block(this);
         }
     }
 
@@ -384,23 +378,9 @@ void vfs_wake_waiters(vfs_node_t *node) {
     acquire(&node->waiters_lock);
     foreach_safe(i, node->waiters) {
         struct thread *tcb = i->value;
-        try_acquire(&tcb->lock);
-        tcb->state = THREAD_RUNNING;
-        release(&tcb->lock);
+        sched_wake(tcb);
     }
     release(&node->waiters_lock);
-}
-
-void vfs_wake_waiters_irqsafe(vfs_node_t *node) {
-    if (!node)
-        return;
-    
-    foreach_safe(i, node->waiters) {
-        struct thread *tcb = i->value;
-        acquire(&tcb->lock);
-        tcb->state = THREAD_RUNNING;
-        release(&tcb->lock);
-    }
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {

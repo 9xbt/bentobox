@@ -29,6 +29,7 @@
 
 enum thread_state {
     THREAD_RUNNING,
+    THREAD_READY,
     THREAD_PAUSED,
     THREAD_ZOMBIE,
     THREAD_SLEEPING
@@ -54,6 +55,7 @@ struct thread {
     bool doing_user_copy;
     long user_copy_status;
     size_t sleep_end;
+    bool wakeup_pending;
     struct sigframe *sigframe;
     uint64_t start_time;
     uint64_t end_time;
@@ -102,6 +104,8 @@ struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);
 void sched_sleep(size_t ns);
+void sched_block(struct thread *tcb);
+void sched_wake(struct thread *tcb);
 void sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);
 void sched_schedule(struct registers *r);

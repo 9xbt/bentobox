@@ -15,6 +15,16 @@
 #define PS2_MOUSE_SET_SAMPLE_RATE   0xF3
 #define PS2_MOUSE_ENABLE_REPORTING  0xF4
 
+struct ps2_mouse_packet {
+    bool left;
+    bool right;
+    bool middle;
+    bool xs;
+    bool ys;
+    short delta_x;
+    short delta_y;
+};
+
 struct ps2_device {
     int refcount;
     bool caps;

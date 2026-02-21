@@ -1,4 +1,5 @@
 #include <kernel/unixpipe.h>
+#include <kernel/spinlock.h>
 #include <kernel/assert.h>
 #include <kernel/bitmap.h>
 #include <kernel/malloc.h>
@@ -188,13 +189,14 @@ void sched_setup_stack(struct thread *tcb, int argc, char *argv[], char *envp[],
 struct thread *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], Elf64_auxv_t *auxv, int auxc, void *stack) {
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
-    tcb->state = THREAD_RUNNING;
+    tcb->state = THREAD_READY;
     tcb->parent = parent;
     tcb->cpu = NULL;
     tcb->syscall_regs = NULL;
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
+    tcb->wakeup_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -285,13 +287,14 @@ long fork(void) {
 
     struct thread *tcb = kmalloc(sizeof(struct thread));
     tcb->tid = sched_allocate_tid();
-    tcb->state = THREAD_RUNNING;
+    tcb->state = THREAD_READY;
     tcb->parent = proc;
     tcb->cpu = NULL;
     tcb->syscall_regs = NULL;
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
+    tcb->wakeup_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -316,6 +319,29 @@ void sched_sleep(size_t ns) {
     this->sleep_end = sec * 1000000000UL + nsec + ns;
     this->state = THREAD_SLEEPING;
     sched_yield();
+}
+
+void sched_block(struct thread *tcb) {
+    acquire(&tcb->lock);
+    if (tcb->wakeup_pending) {
+        tcb->wakeup_pending = false;
+        release(&tcb->lock);
+        return;
+    }
+    tcb->state = THREAD_PAUSED;
+
+    if (tcb == this)
+        sched_yield();
+    else
+        release(&tcb->lock);
+}
+
+void sched_wake(struct thread *tcb) {
+    acquire(&tcb->lock);
+    tcb->wakeup_pending = true;
+    if (tcb->state != THREAD_RUNNING)
+        tcb->state = THREAD_READY;
+    release(&tcb->lock);
 }
 
 void sched_exit(struct thread *tcb) {
@@ -366,7 +392,7 @@ void sched_balance(void) {
         foreach_safe(node, max_cpu->threads) {
             struct thread *tcb = node->value;
 
-            if (tcb->state == THREAD_RUNNING && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
+            if (tcb->state == THREAD_READY && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
                 list_remove(max_cpu->threads, node);
                 list_insert(min_cpu->threads, tcb);
                 release(&tcb->lock);
@@ -394,13 +420,13 @@ node_t *sched_find_next(void) {
             list_insert(zombie_threads, t);
             release(&t->lock);
             if (cleaner_tcb->state == THREAD_PAUSED)
-                cleaner_tcb->state = THREAD_RUNNING;
+                cleaner_tcb->state = THREAD_READY;
             node = next;
             continue;
         }
         if (t->state == THREAD_SLEEPING && now >= t->sleep_end)
-            t->state = THREAD_RUNNING;
-        if (t->state == THREAD_RUNNING)
+            t->state = THREAD_READY;
+        if (t->state == THREAD_READY)
             return node;
         release(&t->lock);
 
@@ -427,6 +453,8 @@ void sched_schedule(struct registers *r) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 
+        if (this->state == THREAD_RUNNING)
+            this->state = THREAD_READY;
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
 
@@ -438,13 +466,14 @@ void sched_schedule(struct registers *r) {
             list_insert(zombie_threads, tcb);
             this_cpu->current_tcb = this_cpu->threads->head;
             if (cleaner_tcb->state == THREAD_PAUSED)
-                cleaner_tcb->state = THREAD_RUNNING;
+                cleaner_tcb->state = THREAD_READY;
         }
         
         if (this_cpu->current_tcb == this_cpu->idle_tcb)
             this_cpu->idle_time += this->last_cpu_time;
         this_cpu->total_time += this->last_cpu_time;
 
+        release(&this->lock);
         this_cpu->current_tcb = sched_find_next();
     } else {
     find_next:
@@ -460,6 +489,8 @@ void sched_schedule(struct registers *r) {
     }
 
     this->start_time = now;
+    if (this->state == THREAD_READY)
+        this->state = THREAD_RUNNING;
     release(&this->lock);
 
     memcpy(r, &(this->ctx.regs), sizeof(struct registers));
@@ -494,13 +525,13 @@ void sched_cleaner(void) {
                     list_remove_value(proc->parent->children, proc);
                 }
 
-                foreach(j, proc->children) {
+                foreach_safe(j, proc->children) {
                     struct process *child = j->value;
                     child->parent = init_proc;
                 }
                 list_free(proc->children);
 
-                foreach(j, proc->dead_children) {
+                foreach_safe(j, proc->dead_children) {
                     struct dead_process *dp = j->value;
                     if (dp)
                         kfree(dp);

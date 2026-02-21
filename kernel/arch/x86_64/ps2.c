@@ -108,6 +108,8 @@ enum {
 };
 
 static vfs_node_t *tty1, *kb, *mouse;
+static fifo_t *mouse_fifo;
+static struct thread *mouse_worker;
 
 static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
     struct ps2_device *dev = kb->device;
@@ -196,25 +198,10 @@ void irq1_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static inline void ps2_send_sgr_event(int button, int col, int row, bool release) {
-    char buf[32];
-    snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
-    tty_enqueue_string(tty1, buf);
-}
-
 void irq12_handler(struct registers *r) {
     (void)r;
-    static int pi = 0, x = 0, y = 0, last_col = -1, last_row = -1;
-
-    static struct {
-        bool left;
-        bool right;
-        bool middle;
-        bool xs;
-        bool ys;
-        short delta_x;
-        short delta_y;
-    } state = {0}, last_state = {0};
+    static int pi = 0;
+    static struct ps2_mouse_packet state = {0};
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
         dprintf(LOG_ERR, "\033[93mi8042:\033[0m not a mouse packet\n");
@@ -246,7 +233,29 @@ void irq12_handler(struct registers *r) {
     }
 
     if (++pi >= 3) {
-        struct ps2_device *dev = mouse->device;
+        fifo_enqueue(mouse_fifo, state);
+        sched_wake(mouse_worker);
+        pi = 0;
+    }
+
+    lapic_eoi();
+}
+
+static void ps2_send_sgr_event(int button, int col, int row, bool release) {
+    char buf[32];
+    snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
+    tty_enqueue_string(tty1, buf);
+}
+
+void ps2_mouse_worker(void) {
+    struct ps2_device *dev = mouse->device;
+    struct ps2_mouse_packet state = {0}, last_state = {0};
+    int x = 0, y = 0, last_col = -1, last_row = -1;
+
+    for (;;) {
+        if (fifo_dequeue(mouse_fifo, &state) < 0) {
+            sched_block(this);
+        }
 
         #define EMIT_REL(f, c) \
             if (state.f) { \
@@ -271,6 +280,7 @@ void irq12_handler(struct registers *r) {
             EMIT_KEY(right, BTN_RIGHT);
             EMIT_KEY(middle, BTN_MIDDLE);
             EMIT_SYN();
+            vfs_wake_waiters(mouse);
         }
 
         x += state.delta_x;
@@ -307,13 +317,7 @@ void irq12_handler(struct registers *r) {
         }
 
         memcpy(&last_state, &state, sizeof state);
-        memset(&state, 0, sizeof state);
-        pi = 0;
-
-        vfs_wake_waiters_irqsafe(mouse);
     }
-
-    lapic_eoi();
 }
 
 long ps2_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -423,7 +427,14 @@ void ps2_hid_install(void) {
     mouse = devfs_create_numbered(DEVFS_EVENT);
     mouse->ops = &ps2_ops;
     mouse->device = &mouse_device;
-    mouse_device.fifo = fifo_create(256, struct input_event);;
+    mouse_device.fifo = fifo_create(256, struct input_event);
+    mouse_fifo = fifo_create(256, struct ps2_mouse_packet);
+
+    struct process *proc = sched_new_process("ps2 worker", false);
+    mouse_worker = sched_new_thread(proc, ps2_mouse_worker, 0, NULL, NULL, NULL, 0, NULL);
+    mouse_worker->state = THREAD_PAUSED;
+    sched_add_process(proc);
+
     irq_register(12, irq12_handler);
     ioapic_redirect_irq(0, 44, 12, false);
     

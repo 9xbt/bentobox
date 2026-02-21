@@ -20,8 +20,7 @@ static void tty1_worker_thread(void) {
     char c;
     for (;;) {
         if (fifo_is_empty(tty->ofifo)) {
-            this->state = THREAD_PAUSED;
-            sched_yield();
+            sched_block(this);
         }
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
             switch (c) {
@@ -43,7 +42,7 @@ static void tty1_worker_thread(void) {
             }
         }
         vfs_wake_waiters(node);
-        this->state = THREAD_PAUSED;
+        sched_block(this);
         sched_yield();
     }
 }
@@ -75,7 +74,7 @@ static long tty1_ioctl(vfs_node_t *node, int op, void *arg) {
 
 static void tty1_flush(vfs_node_t *node) {
     (void)node;
-    tty1_worker->state = THREAD_RUNNING;
+    sched_wake(tty1_worker);
 }
 
 long tty_enqueue(vfs_node_t *node, unsigned char c) {

@@ -208,7 +208,6 @@ long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long vfs_poll(vfs_node_t *node, long events, long timeout);
 long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, long nfds, long timeout);
 void vfs_wake_waiters(vfs_node_t *node);
-void vfs_wake_waiters_irqsafe(vfs_node_t *node);
 void vfs_register(vfs_mount_ops_t *ops);
 void vfs_unregister(vfs_mount_ops_t *ops);
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags);

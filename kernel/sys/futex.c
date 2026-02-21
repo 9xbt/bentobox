@@ -35,10 +35,7 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
     if (time) {
         sched_sleep(time->tv_sec * 1000000000ULL + time->tv_nsec);
     } else {
-        acquire(&this->lock);
-        this->state = THREAD_PAUSED;
-        release(&this->lock);
-        sched_yield();
+        sched_block(this);
     }
 
     acquire(&futex_lock);
@@ -62,9 +59,7 @@ long futex_wake(int *pointer) {
     foreach_safe(node, futex_waiters) {
         struct futex_waiter *waiter = node->value;
         if (waiter->address == pointer) {
-            acquire(&waiter->thread->lock);
-            waiter->thread->state = THREAD_RUNNING;
-            release(&waiter->thread->lock);
+            sched_wake(waiter->thread);
             list_remove(futex_waiters, node);
             kfree(waiter);
         }
