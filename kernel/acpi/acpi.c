@@ -10,6 +10,7 @@
 #include <kernel/sched.h>
 #include <kernel/panic.h>
 #include <kernel/acpi.h>
+#include <kernel/args.h>
 #include <kernel/mmu.h>
 #include <limine.h>
 
@@ -92,7 +93,8 @@ void acpi_install(void) {
     #ifdef __x86_64__
     hpet_install();
     #endif
-    uacpi_init();
+    if (!args_contains("noacpi"))
+        uacpi_init();
 }
 
 uint64_t acpi_get_rsdp(void) {
