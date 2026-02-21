@@ -84,10 +84,11 @@ long vfs_remove_node(vfs_node_t *node) {
 long vfs_remove(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
+    if (node->mount)
+        return -EBUSY;
     if (!node->ops || !node->ops->remove)
         return -EINVAL;
-
-    // TODO: this will use the wrong ops if its a mountpoint
+    
     long ret = node->ops->remove(node);
     if (ret < 0)
         return ret;
@@ -196,7 +197,6 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
         if (!child) {
             if (create_type != VFS_NONE && !next && node->type == VFS_DIRECTORY) {
-                //node->ops = vfs_get_root()->ops;
                 child = vfs_touch(node, token, create_type);
                 if (!child) {
                     kfree(copy);
@@ -409,7 +409,7 @@ void vfs_unregister(vfs_mount_ops_t *ops) {
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags) {
     if (!node || node->type != VFS_DIRECTORY || !type)
         return -EINVAL;
-    if (node->mount)
+    if (node->mount || node->children->length > 0)
         return -EBUSY;
 
     foreach(i, vfs_mount_ops) {
