@@ -9,7 +9,7 @@ typedef struct tmpfs {
     int refcount;
 } tmpfs_t;
 
-vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
+vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 long tmpfs_remove(vfs_node_t *node);
@@ -58,10 +58,8 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
     return len;
 }
 
-vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
+vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     vfs_node_t *node = vfs_create_node(name, type);
-    if (!node)
-        return NULL;
     if (type == VFS_DIRECTORY) {
         node->ops = &tmpfs_ops;
     } else if (type == VFS_FILE) {
@@ -73,7 +71,7 @@ vfs_node_t *tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t t
         node->device = file;
     }
     vfs_add_node(parent, node);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
 long tmpfs_remove(vfs_node_t *node) {

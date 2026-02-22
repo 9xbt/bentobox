@@ -263,10 +263,11 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
 }
 
 static uintptr_t elf64_load_interp(struct process *proc, char *interp) {
-    vfs_node_t *node = vfs_open(NULL, interp, 0);
-    if (!node)
-        return -ENOENT;
+    vfs_result_t r = vfs_open(NULL, interp, 0);
+    if (!r.node)
+        return r.error;
 
+    vfs_node_t *node = r.node;
     void *buffer = kmalloc(node->size);
     long len = vfs_read(node, buffer, 0, node->size);
     if (len < 0) {
@@ -379,11 +380,12 @@ static Elf64_auxv_t *elf64_setup_auxv(Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, char *
 }
 
 int spawn(const char *file, int argc, char *argv[], char *envp[]) {
-    vfs_node_t *node = vfs_open(NULL, file, 0);
-    if (!node) {
+    vfs_result_t r = vfs_open(NULL, file, 0);
+    if (!r.node) {
         dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(ENOENT));
-        return -ENOENT;
+        return r.error;
     }
+    vfs_node_t *node = r.node;
     if (node->type == VFS_DIRECTORY) {
         dprintf(LOG_ERR, "\033[93melf:\033[0m %s: %s\n", file, strerror(EISDIR));
         vfs_close(node);
@@ -501,9 +503,10 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
 }
 
 int exec(const char *file, int argc, char *argv[], char *envp[]) {
-    vfs_node_t *node = vfs_open(this_proc->cwd, file, 0);
+    vfs_result_t r = vfs_open(this_proc->cwd, file, 0);
+    vfs_node_t *node = r.node;
     if (!node)
-        return -ENOENT;
+        return r.error;
     if (node->type == VFS_DIRECTORY) {
         vfs_close(node);
         return -EISDIR;
@@ -549,9 +552,10 @@ restart_exec:
         memcpy(path, sb, path_len);
         path[path_len] = 0;
 
-        node = vfs_open(this_proc->cwd, path, 0);
+        r = vfs_open(this_proc->cwd, path, 0);
+        node = r.node;
         if (!node)
-            return -ENOENT;
+            return r.error;
         if (node->type == VFS_DIRECTORY) {
             vfs_close(node);
             return -EISDIR;

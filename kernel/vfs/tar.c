@@ -6,11 +6,11 @@
 #include <kernel/vfs.h>
 #include <limine.h>
 
-vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+vfs_result_t tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
 long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long tar_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
 
-vfs_node_t *root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+vfs_result_t root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
 long root_remove(vfs_node_t *node);
 
 vfs_ops_t tar_ops = {
@@ -24,10 +24,10 @@ vfs_ops_t root_ops = {
     .remove = root_remove
 };
 
-vfs_node_t *root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
+vfs_result_t root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     vfs_node_t *node = vfs_create_node(name, type);
     node->ops = &root_ops;
-    return vfs_add_node(parent, node);
+    return (vfs_result_t){ vfs_add_node(parent, node), 0 };
 }
 
 long root_remove(vfs_node_t *node) {
@@ -35,10 +35,10 @@ long root_remove(vfs_node_t *node) {
     return 0;
 }
 
-vfs_node_t *tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
+vfs_result_t tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     vfs_node_t *node = vfs_create_node(name, type);
     node->ops = &tar_ops;
-    return vfs_add_node(parent, node);
+    return (vfs_result_t){ vfs_add_node(parent, node), 0 };
 }
 
 long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -100,9 +100,10 @@ void tar_module(struct limine_file *mod) {
                 continue;
         }
 
-        vfs_node_t *node = vfs_lookup(NULL, tar->name, true, type);
+        vfs_result_t r = vfs_lookup(NULL, tar->name, true, type);
+        vfs_node_t *node = r.node;
         if (!node) {
-            dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s\n", tar->name);
+            dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s: %s\n", tar->name, strerror(r.error));
         } else if (type == VFS_FILE) {
             node->device = tar;
             node->size = filesize;

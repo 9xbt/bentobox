@@ -11,21 +11,21 @@ vfs_node_t *dev = NULL;
 uint8_t *devfs_bitmap[DEVFS_MAX];
 spinlock_t devfs_bitmap_lock = 0;
 
-vfs_node_t *devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
+vfs_result_t devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
 
 vfs_ops_t devfs_ops = {
     .create = devfs_create
 };
 
-vfs_node_t *devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
+vfs_result_t devfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     vfs_node_t *node = vfs_create_node(name, type);
     if (type == VFS_DIRECTORY)
         node->ops = &devfs_ops;
-    return vfs_add_node(parent, node);
+    return (vfs_result_t){ vfs_add_node(parent, node), 0 };
 }
 
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type) {
-    return devfs_create(dev, name, type);
+    return devfs_create(dev, name, type).node;
 }
 
 static int devfs_allocate_id(devfs_type_t type) {
@@ -68,7 +68,8 @@ vfs_node_t *devfs_create_numbered(devfs_type_t type) {
             break;
         case DEVFS_PTY:
             fmt = "%d";
-            parent = vfs_lookup(NULL, "/dev/pts", true, VFS_DIRECTORY);
+            parent = vfs_lookup(NULL, "/dev/pts", true, VFS_DIRECTORY).node;
+            assert(parent);
             break;
         case DEVFS_TTY:
             fmt = "tty%d";
@@ -81,9 +82,9 @@ vfs_node_t *devfs_create_numbered(devfs_type_t type) {
     }
     
     snprintf(name, sizeof name, fmt, id);
-    vfs_node_t *node = devfs_create(parent, name, node_type);
-    node->inode = DEVFS_INODE_BASE + id;
-    return node;
+    vfs_result_t r = devfs_create(parent, name, node_type);
+    r.node->inode = DEVFS_INODE_BASE + id;
+    return r.node;
 }
 
 void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node) {

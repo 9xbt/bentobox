@@ -4,7 +4,6 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
-vfs_node_t *procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
 
 long meminfo_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
@@ -61,16 +60,18 @@ vfs_ops_t kmsg_ops = {
     .read = kmsg_read
 };
 
+vfs_result_t procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
+
 vfs_ops_t procfs_ops = {
     .create = procfs_create
 };
 
-vfs_node_t *procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
+vfs_result_t procfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     vfs_node_t *node = vfs_create_node(name, type);
     node->size = 0;
     node->ops = &procfs_ops;
     vfs_add_node(parent, node);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
 long procfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {

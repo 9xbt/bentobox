@@ -15,8 +15,6 @@
 uint8_t *pty_bitmap = NULL;
 spinlock_t pty_bitmap_lock = 0;
 
-vfs_node_t *ptmx_open(vfs_node_t *node, int flags);
-
 int pty_allocate_id(void) {
     acquire(&pty_bitmap_lock);
     for (int id = 0; id < PTY_BITMAP_SIZE * 8; id++) {
@@ -82,14 +80,14 @@ void pty_destroy(pty_t *pty) {
     kfree(pty);
 }
 
-vfs_node_t *slave_open(vfs_node_t *node, int flags) {
+vfs_result_t slave_open(vfs_node_t *node, int flags) {
     (void)flags;
     pty_t *pty = node->device;
     if (!pty)
-        return NULL;
+        return (vfs_result_t){ NULL, -ENODEV };
     if (pty->locked)
-        return NULL;
-    return node;
+        return (vfs_result_t){ NULL, -EIO };
+    return (vfs_result_t){ node, 0 };
 }
 
 long master_close(vfs_node_t *node) {
@@ -292,17 +290,19 @@ vfs_ops_t master_ops = {
     .ioctl = ptmx_ioctl
 };
 
+vfs_result_t ptmx_open(vfs_node_t *node, int flags);
+
 vfs_ops_t ptmx_ops = {
     .open = ptmx_open,
     .ioctl = ptmx_ioctl
 };
 
-vfs_node_t *ptmx_open(vfs_node_t *node, int flags) {
+vfs_result_t ptmx_open(vfs_node_t *node, int flags) {
     (void)node;
     (void)flags;
     pty_t *pty = pty_create();
     if (!pty)
-        return NULL;
+        return (vfs_result_t){ NULL, -EIO };
     
     vfs_node_t *slave = devfs_create_numbered(DEVFS_PTY);
     slave->ops = &slave_ops;
@@ -315,7 +315,7 @@ vfs_node_t *ptmx_open(vfs_node_t *node, int flags) {
     master->inode = 100000;
     pty->master = master;
 
-    return master;
+    return (vfs_result_t){ master, 0 };
 }
 
 void pty_initialize(void) {

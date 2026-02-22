@@ -5,6 +5,7 @@
 #include <kernel/arch/x86_64/ps2.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/lfbvideo.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -343,11 +344,11 @@ long ps2_poll(vfs_node_t *node, long events) {
     return 0;
 }
 
-vfs_node_t *ps2_open(vfs_node_t *node, int flags) {
+vfs_result_t ps2_open(vfs_node_t *node, int flags) {
     (void)flags;
     struct ps2_device *dev = node->device;
     __atomic_add_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
 long ps2_close(vfs_node_t *node) {
@@ -405,7 +406,8 @@ void ps2_hid_install(void) {
     ps2_flush_buffer();
     ps2_config_write((ps2_config_read() & ~PS2_CONFIG_PORT1_TRANSLATE) | PS2_CONFIG_PORT1_IRQ | PS2_CONFIG_PORT2_IRQ);
     
-    tty1 = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE);
+    tty1 = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE).node;
+    assert(tty1);
     kb = devfs_create_numbered(DEVFS_EVENT);
     kb->ops = &ps2_ops;
     kb->device = &keyboard_device;

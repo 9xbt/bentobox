@@ -6,6 +6,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/termios.h>
 #include <kernel/context.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/errno.h>
@@ -64,7 +65,8 @@ void serial_puts(const char *str) {
 static struct thread *serial_tty_worker = NULL;
 
 static void serial_tty_worker_thread(void) {
-    vfs_node_t *node = vfs_open(NULL, "/dev/ttyS0", 0);
+    vfs_node_t *node = vfs_open(NULL, "/dev/ttyS0", 0).node;
+    assert(node);
     tty_t *tty = node->device;
     char c;
     for (;;) {

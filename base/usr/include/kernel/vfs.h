@@ -137,13 +137,14 @@ typedef enum devfs_type {
 
 struct vfs_node;
 struct vfs_mountpoint;
+struct vfs_result;
 
 typedef struct vfs_ops {
-    struct vfs_node *(*open)(struct vfs_node *node, int flags);
+    struct vfs_result(*open)(struct vfs_node *node, int flags);
     long(*close)(struct vfs_node *node);
     long(*read)(struct vfs_node *node, void *buffer, long offset, size_t len);
     long(*write)(struct vfs_node *node, const void *buffer, long offset, size_t len);
-    struct vfs_node *(*create)(struct vfs_node *parent, const char *name, enum vfs_node_type type);
+    struct vfs_result(*create)(struct vfs_node *parent, const char *name, enum vfs_node_type type);
     long(*remove)(struct vfs_node *node);
     long(*rename)(struct vfs_node *node, struct vfs_node *parent, const char *name);
     long(*mmap)(struct vfs_node *node, void *addr, size_t pages, uint64_t prot, int flags, long offset);
@@ -190,6 +191,11 @@ typedef struct vfs_mountpoint {
     long flags;
 } vfs_mountpoint_t;
 
+typedef struct vfs_result {
+    struct vfs_node *node;
+    long error;
+} vfs_result_t;
+
 void vfs_install(void);
 vfs_node_t *vfs_get_root(void);
 vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type);
@@ -198,10 +204,11 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node);
 long vfs_remove_node(vfs_node_t *node);
 long vfs_remove(vfs_node_t *node);
 long vfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *path);
-vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth);
-vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow);
-vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type);
-vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags);
+vfs_result_t vfs_resolve_symlink(vfs_node_t *node, int depth);
+vfs_result_t vfs_find_child(vfs_node_t *parent, const char *name, bool follow);
+vfs_result_t vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type);
+vfs_result_t vfs_open(vfs_node_t *cwd, const char *path, long flags);
 long vfs_close(vfs_node_t *node);
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len);

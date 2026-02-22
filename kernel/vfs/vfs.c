@@ -109,10 +109,11 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
     if (last_token) {
         *last_token = '\0';
         name = last_token + 1;
-        parent = vfs_lookup(cwd, *copy ? copy : "/", true, VFS_NONE);
+        vfs_result_t r = vfs_lookup(cwd, *copy ? copy : "/", true, VFS_NONE);
+        parent = r.node;
         if (!parent) {
             kfree(copy);
-            return -ENOENT;
+            return r.error;
         }
     } else {
         parent = cwd;
@@ -124,7 +125,8 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
     if (node->device != parent->device)
         return -EXDEV;
 
-    vfs_node_t *target = vfs_lookup(parent, name, true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(parent, name, true, VFS_NONE);
+    vfs_node_t *target = r.node;
     if (target) {
         if (target->type == VFS_DIRECTORY && node->type != VFS_DIRECTORY)
             return -EISDIR;
@@ -146,31 +148,38 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
     return 0;
 }
 
-vfs_node_t *vfs_resolve_symlink(vfs_node_t *node, int depth) {
+vfs_result_t vfs_resolve_symlink(vfs_node_t *node, int depth) {
     if (!node || node->type != VFS_SYMLINK || !node->target || depth <= 0)
-        return NULL;
-    if (!node->symlink && !(node->symlink = vfs_lookup(node->parent, node->target, true, VFS_NONE)))
-        return NULL;
+        return (vfs_result_t){ NULL, -EINVAL };
+    if (!node->symlink) {
+        vfs_result_t r = vfs_lookup(node->parent, node->target, true, VFS_NONE);
+        if (!r.node)
+            return r;
+        node->symlink = r.node;
+    }
     if (node->symlink->type == VFS_SYMLINK)
         return vfs_resolve_symlink(node->symlink, depth - 1);
-    return node->symlink;
+    return (vfs_result_t){ node->symlink, 0 };
 }
 
-vfs_node_t *vfs_find_child(vfs_node_t *parent, const char *name, bool follow_symlinks) {
+vfs_result_t vfs_find_child(vfs_node_t *parent, const char *name, bool follow_symlinks) {
     foreach(item, parent->children) {
         vfs_node_t *child = item->value;
-        if (!strcmp(child->name, name))
-            return (child->type == VFS_SYMLINK && follow_symlinks) ? vfs_resolve_symlink(child, MAX_SYMLINKS) : child;
+        if (!strcmp(child->name, name)) {
+            if (child->type == VFS_SYMLINK && follow_symlinks)
+                return vfs_resolve_symlink(child, MAX_SYMLINKS);
+            return (vfs_result_t){ child, 0 };
+        }
     }
-    return NULL;
+    return (vfs_result_t){ NULL, -ENOENT };
 }
 
-vfs_node_t *vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
-    return parent->ops && parent->ops->create ? parent->ops->create(parent, name, type) : NULL;
+vfs_result_t vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
+    return (parent->ops && parent->ops->create) ? parent->ops->create(parent, name, type) : (vfs_result_t){ NULL, -EINVAL };
 }
 
-vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type) {
-    if (!path) return NULL;
+vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type) {
+    if (!path) return (vfs_result_t){ NULL, -ENOENT };
     if (!cwd || path[0] == '/') cwd = vfs_get_root();
 
     char *copy = strdup(path);
@@ -185,7 +194,8 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         }
 
         if (!strcmp(token, "..")) {
-            if (node->parent) node = node->parent;
+            if (node->parent)
+                node = node->parent;
             token = next;
             next = strtok(NULL, "/");
             continue;
@@ -194,17 +204,23 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
         if (node->type == VFS_DIRECTORY && node->ops && node->ops->open)
             node->ops->open(node, O_RDONLY);
         
-        vfs_node_t *child = vfs_find_child(node, token, follow_symlinks);
+        vfs_result_t r = vfs_find_child(node, token, follow_symlinks);
+        if (!r.node && r.error != -ENOENT) {
+            kfree(copy);
+            return r;
+        }
+        vfs_node_t *child = r.node;
         if (!child) {
             if (create_type != VFS_NONE && !next && node->type == VFS_DIRECTORY) {
-                child = vfs_touch(node, token, create_type);
-                if (!child) {
+                r = vfs_touch(node, token, create_type);
+                if (!r.node) {
                     kfree(copy);
-                    return NULL;
+                    return r;
                 }
+                child = r.node;
             } else {
                 kfree(copy);
-                return NULL;
+                return (vfs_result_t){ NULL, -ENOENT };
             }
         }
         node = child;
@@ -214,21 +230,23 @@ vfs_node_t *vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, 
     }
 
     kfree(copy);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
-vfs_node_t *vfs_open(vfs_node_t *cwd, const char *path, long flags) {
-    vfs_node_t *node = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
-    if (!node)
-        return NULL;
+vfs_result_t vfs_open(vfs_node_t *cwd, const char *path, long flags) {
+    vfs_result_t r = vfs_lookup(cwd, path, true, (flags & O_CREAT) ? VFS_FILE : VFS_NONE);
+    if (!r.node)
+        return r;
+    vfs_node_t *node = r.node;
     if (!node->ops || !node->ops->open) {
         node->refcount++;
-        return node;
+        return (vfs_result_t){ node, 0 };
     }
-    node = node->ops->open(node, flags);
+    r = node->ops->open(node, flags);
+    node = r.node;
     if (node)
         node->refcount++;
-    return node;
+    return r;
 }
 
 long vfs_close(vfs_node_t *node) {

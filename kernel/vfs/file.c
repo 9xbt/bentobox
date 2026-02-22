@@ -48,14 +48,15 @@ int file_create(vfs_node_t *node, int flags) {
 }
 
 int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {
-    vfs_node_t *node = vfs_open(cwd, path, 0);
-    if (!node && flags & O_CREAT) {
-        node = vfs_open(cwd, path, flags);
-        if (node)
-            node->perms = mode & ~this_proc->umask;
+    vfs_result_t r = vfs_open(cwd, path, 0);
+    if (!r.node && r.error == -ENOENT && flags & O_CREAT) {
+        r = vfs_open(cwd, path, flags);
+        if (r.node)
+            r.node->perms = mode & ~this_proc->umask;
     }
+    vfs_node_t *node = r.node;
     if (!node)
-        return -ENOENT;
+        return r.error;
     if (flags & O_DIRECTORY && node->type != VFS_DIRECTORY)
         return -ENOTDIR;
 

@@ -231,7 +231,9 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     memset(proc->files, 0, sizeof(struct file) * proc->max_files);
-    proc->files[0] = proc->files[1] = proc->files[2] = file_new(vfs_open(NULL, "/dev/tty1", 0), 0);
+    vfs_result_t r = vfs_open(NULL, "/dev/tty1", 0);
+    assert(r.node);
+    proc->files[0] = proc->files[1] = proc->files[2] = file_new(r.node, 0);
     proc->cwd = NULL;
     proc->umask = 022;
     proc->exit_status = 0;
@@ -278,6 +280,7 @@ long fork(void) {
         }
     }
     proc->cwd = this_proc->cwd;
+    proc->cwd->refcount++;
     proc->umask = this_proc->umask;
     memset(&proc->psig, 0, sizeof proc->psig);
     memcpy(&proc->sighand, &this_proc->sighand, sizeof proc->sighand);
@@ -547,6 +550,7 @@ void sched_cleaner(void) {
                     }
                 }
 
+                vfs_close(proc->cwd);
                 vma_destroy(proc->vma, proc->pm);
                 mmu_destroy_pagemap(proc->pm);
                 kfree(proc->files);

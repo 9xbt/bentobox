@@ -217,9 +217,11 @@ int socket_bind(int fd, const void *addr, uint32_t addrlen) {
             if (copy_from_user(&sa, addr, addrlen) < 0)
                 return -EFAULT;
 
-            vfs_node_t *bind = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_SOCKET);
-            if (!bind)
+            vfs_result_t r = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_SOCKET);
+            if (!r.node)
                 return -EINVAL;
+
+            vfs_node_t *bind = r.node;
             bind->ops = &local_socket_ops;
             bind->device = sock;
             sock->bind_node = bind;
@@ -260,10 +262,11 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             if (copy_from_user(&sa, addr, addrlen) < 0)
                 return -EFAULT;
             
-            vfs_node_t *bind = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_NONE);
-            if (!bind)
-                return -ENOENT;
+            vfs_result_t r = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_NONE);
+            if (!r.node)
+                return r.error;
             
+            vfs_node_t *bind = r.node;
             struct socket *server_sock = bind->device;
             if (!server_sock || server_sock->state != SOCKET_LISTENING)
                 return -ECONNREFUSED;
@@ -271,8 +274,6 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             struct socket *server_child = socket_create(sock->domain, sock->type);
             server_child->state = SOCKET_CONNECTED;
             server_child->peer = sock;
-            // kfree((void *)server_child->lock);
-            // server_child->lock = sock->lock;
             
             sock->peer = server_child;
             sock->state = SOCKET_CONNECTED;

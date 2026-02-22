@@ -137,11 +137,12 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
     kfree(path);
-    if (!node)
+    if (!r.node)
         return -ENOENT;
 
+    vfs_node_t *node = r.node;
     struct stat st;
     memset(&st, 0, sizeof st);
     switch (node->type) {
@@ -611,11 +612,11 @@ long sys_getcwd(char *buf, size_t bufsiz) {
 
 long sys_chdir(const char *pathname) {
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *dir = vfs_open(this_proc->cwd, path, 0);
+    vfs_result_t r = vfs_open(this_proc->cwd, path, 0);
     kfree(path);
-    if (!dir)
-        return -ENOENT;
-    this_proc->cwd = dir;
+    if (!r.node)
+        return r.error;
+    this_proc->cwd = r.node;
     return 0;
 }
 
@@ -784,11 +785,12 @@ long sys_faccessat(int dirfd, const char *pathname, int mode, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
     kfree(path);
-    if (!node)
-        return -ENOENT;
+    if (!r.node)
+        return r.error;
 
+    vfs_node_t *node = r.node;
     if (mode == F_OK)
         return 0;
     if (mode & R_OK && !(node->perms & (S_IRUSR | S_IRGRP | S_IROTH)))
@@ -810,10 +812,12 @@ long sys_unlinkat(int dirfd, const char *pathname, int flags) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, false, VFS_NONE);
+    vfs_result_t r = vfs_lookup(dir, path, false, VFS_NONE);
     kfree(path);
-    if (!node)
-        return -ENOENT;
+    if (!r.node)
+        return r.error;
+
+    vfs_node_t *node = r.node;
     if ((flags & AT_REMOVEDIR) && node->type != VFS_DIRECTORY)
         return -ENOTDIR;
     if (!(flags & AT_REMOVEDIR) && node->type == VFS_DIRECTORY)
@@ -832,12 +836,12 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, true, VFS_DIRECTORY);
+    vfs_result_t r = vfs_lookup(dir, path, true, VFS_DIRECTORY);
     kfree(path);
-    if (!node)
-        return -EPERM;
+    if (!r.node)
+        return r.error;
 
-    vfs_chmod(node, mode & ~this_proc->umask);
+    vfs_chmod(r.node, mode & ~this_proc->umask);
     return 0;
 }
 
@@ -931,14 +935,13 @@ long sys_renameat(int olddirfd, const char *oldpathname, int newdirfd, const cha
     }
 
     COPY_USER_STRING(oldpath, oldpathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(olddir, oldpath, true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(olddir, oldpath, true, VFS_NONE);
     kfree(oldpath);
-    if (!node)
+    if (!r.node)
         return -ENOENT;
 
     COPY_USER_STRING(newpath, newpathname, MAX_PATH);
-    
-    long ret = vfs_rename(node, newdir, newpath);
+    long ret = vfs_rename(r.node, newdir, newpath);
     kfree(newpath);
     return ret;
 }
@@ -953,10 +956,12 @@ long sys_readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz) {
     }
 
     COPY_USER_STRING(path, pathname, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, false, VFS_NONE);
+    vfs_result_t r = vfs_lookup(dir, path, false, VFS_NONE);
     kfree(path);
-    if (!node)
+    if (!r.node)
         return -ENOENT;
+    
+    vfs_node_t *node = r.node;
     if (node->type != VFS_SYMLINK)
         return -EINVAL;
 
@@ -978,16 +983,17 @@ long sys_symlinkat(const char *target, int dirfd, const char *linkpath) {
     
     COPY_USER_STRING(path, linkpath, MAX_PATH);
 
-    vfs_node_t *node = vfs_lookup(dir, path, true, VFS_NONE);
-    if (node) {
+    vfs_result_t r = vfs_lookup(dir, path, true, VFS_NONE);
+    if (r.node) {
         kfree(path);
         return -EEXIST;
     }
-    node = vfs_lookup(dir, path, true, VFS_SYMLINK);
+    r = vfs_lookup(dir, path, true, VFS_SYMLINK);
     kfree(path);
-    if (!node)
-        return -EPERM;
+    if (!r.node)
+        return r.error;
 
+    vfs_node_t *node = r.node;
     COPY_USER_STRING(ktarget, target, MAX_PATH);
     node->target = strdup(ktarget);
     node->size = strlen(ktarget);
@@ -1002,14 +1008,16 @@ long sys_mount(const char *path, const char *type, const char *device_path, long
     COPY_USER_STRING(_type, type, MAX_PATH);
     COPY_USER_STRING(_device, device_path, MAX_PATH);
 
-    vfs_node_t *node = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
+    vfs_node_t *node = r.node;
     if (!node) {
         kfree(_path);
         kfree(_type);
         kfree(_device);
         return -ENOENT;
     }
-    vfs_node_t *device = vfs_lookup(this_proc->cwd, _device, true, VFS_NONE);
+    r = vfs_lookup(this_proc->cwd, _device, true, VFS_NONE);
+    vfs_node_t *device = r.node;
 
     long ret = vfs_mount(node, _type, device, flags);
 
@@ -1021,15 +1029,12 @@ long sys_mount(const char *path, const char *type, const char *device_path, long
 
 long sys_umount(const char *path, long flags) {
     COPY_USER_STRING(_path, path, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
-    if (!node) {
-        kfree(_path);
-        return -ENOENT;
-    }
-
-    long ret = vfs_unmount(node, flags);
+    vfs_result_t r = vfs_lookup(this_proc->cwd, _path, true, VFS_NONE);
     kfree(_path);
-    return ret;
+    if (!r.node)
+        return -ENOENT;
+
+    return vfs_unmount(r.node, flags);
 }
 
 long sys_umask(unsigned int mask) {
@@ -1056,12 +1061,12 @@ long sys_chmodat(int dirfd, const char *filename, unsigned int mode, unsigned in
     }
 
     COPY_USER_STRING(path, filename, MAX_PATH);
-    vfs_node_t *node = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
+    vfs_result_t r = vfs_lookup(dir, path, (flags & AT_SYMLINK_NOFOLLOW) ? false : true, VFS_NONE);
     kfree(path);
-    if (!node)
+    if (!r.node)
         return -ENOENT;
 
-    return vfs_chmod(node, mode);
+    return vfs_chmod(r.node, mode);
 }
 
 long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char *newpathname, int flags) {
@@ -1082,7 +1087,8 @@ long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char 
     }
 
     COPY_USER_STRING(oldpath, oldpathname, MAX_PATH);
-    vfs_node_t *old_node = vfs_lookup(olddir, oldpath, flags & AT_SYMLINK_FOLLOW, VFS_NONE);
+    vfs_result_t r = vfs_lookup(olddir, oldpath, flags & AT_SYMLINK_FOLLOW, VFS_NONE);
+    vfs_node_t *old_node = r.node;
     kfree(oldpath);
     if (!old_node)
         return -ENOENT;
@@ -1090,7 +1096,8 @@ long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char 
         return -EINVAL;
 
     COPY_USER_STRING(newpath, newpathname, MAX_PATH);
-    vfs_node_t *new_node = vfs_lookup( newdir, newpath, flags & AT_SYMLINK_FOLLOW, old_node->type);
+    r = vfs_lookup( newdir, newpath, flags & AT_SYMLINK_FOLLOW, old_node->type);
+    vfs_node_t *new_node = r.node;
     kfree(newpath);
     if (!new_node)
         return -ENOENT;

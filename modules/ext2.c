@@ -128,10 +128,10 @@ typedef struct {
 
 enum vfs_node_type ext2_get_type(uint16_t type_perms);
 
-vfs_node_t *ext2_open(vfs_node_t *node, int flags);
+vfs_result_t ext2_open(vfs_node_t *node, int flags);
 long ext2_read(vfs_node_t *node, void *buffer, long offset, size_t len);
 long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
-vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+vfs_result_t ext2_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
 long ext2_remove(vfs_node_t *node);
 long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
 long ext2_chmod(vfs_node_t *node, unsigned int mode);
@@ -842,7 +842,6 @@ long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
         inode.size = len;
         memcpy((char *)inode.direct_block_ptr, buffer, len);
         ext2_write_inode(fs, node->inode, &inode);
-        dprintf(LOG_DEBUG, "wrote fast symlink for %s\n", node->name);
         return len;
     }
 
@@ -872,10 +871,10 @@ long ext2_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     return len;
 }
 
-vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
+vfs_result_t ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     ext2_fs *fs = parent->device;
     if (!fs)
-        return NULL;
+        return (vfs_result_t){ NULL, -ENODEV };
     assert(fs->sb->signature == 0xef53);
 
     ext2_inode inode;
@@ -914,7 +913,7 @@ vfs_node_t *ext2_create(vfs_node_t *parent, const char *name, vfs_node_type_t ty
     }
 
     vfs_add_node(parent, node);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
 long ext2_remove(vfs_node_t *node) {
@@ -1096,23 +1095,24 @@ void ext2_mount_node(ext2_fs *fs, vfs_node_t *parent, uint32_t in) {
     kfree(blocks);
 }
 
-vfs_node_t *ext2_open(vfs_node_t *node, int flags) {
+vfs_result_t ext2_open(vfs_node_t *node, int flags) {
     (void)flags;
-    if (node->type != VFS_DIRECTORY)
-        return node;
-
     ext2_fs *fs = node->device;
     if (!fs)
-        return NULL;
+        return (vfs_result_t){ NULL, -ENODEV };
     assert(fs->sb->signature == 0xef53);
 
+    if (node->type != VFS_DIRECTORY)
+        return (vfs_result_t){ node, 0 };
     if (!(node->flags & EXT2_FS_FLAGS_MOUNTED))
         ext2_mount_node(fs, node, node->inode);
-    return node;
+    return (vfs_result_t){ node, 0 };
 }
 
 long ext2_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)flags;
+    if (!device)
+        return -EINVAL;
 
     ext2_fs *fs = kmalloc(sizeof(ext2_fs));
     fs->device = device;
@@ -1203,7 +1203,7 @@ int init() {
 
     if (!args_contains("root"))
         return 0;
-    return vfs_mount(vfs_get_root(), "ext2", vfs_lookup(NULL, args_value("root"), false, VFS_NONE), 0);
+    return vfs_mount(vfs_get_root(), "ext2", vfs_lookup(NULL, args_value("root"), false, VFS_NONE).node, 0);
 }
 
 int fini() {

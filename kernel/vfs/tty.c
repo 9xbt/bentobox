@@ -2,6 +2,7 @@
 #include <bentobox/setfont.h>
 #include <kernel/lfbvideo.h>
 #include <kernel/termios.h>
+#include <kernel/assert.h>
 #include <kernel/printf.h>
 #include <kernel/malloc.h>
 #include <kernel/signal.h>
@@ -15,7 +16,8 @@
 static struct thread *tty1_worker = NULL;
 
 static void tty1_worker_thread(void) {
-    vfs_node_t *node = vfs_open(NULL, "/dev/tty1", 0);
+    vfs_node_t *node = vfs_open(NULL, "/dev/tty1", 0).node;
+    assert(node);
     tty_t *tty = node->device;
     char c;
     for (;;) {
