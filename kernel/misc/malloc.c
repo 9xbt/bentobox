@@ -133,3 +133,12 @@ void *krealloc(void *ptr, size_t size) {
     sti();
     return p;
 }
+
+size_t __get_heap_usage(void) {
+    cli();
+    acquire(&lock);
+    struct mallinfo mi = dlmallinfo();
+    release(&lock);
+    sti();
+    return mi.uordblks;
+}

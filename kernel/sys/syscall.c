@@ -658,8 +658,10 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
     }
 
     struct pollfd *kfds = kmalloc(nfds * sizeof(struct pollfd));
-    if (copy_from_user(kfds, fds, nfds * sizeof(struct pollfd)) < 0)
+    if (copy_from_user(kfds, fds, nfds * sizeof(struct pollfd)) < 0) {
+        kfree(kfds);
         return -EFAULT;
+    }
 
     long ready = 0;
     for (int fd = 0; fd < nfds; fd++) {
@@ -707,6 +709,7 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
         kfree(nodes);
         kfree(events);
         kfree(revents);
+        kfree(kfds);
         return ready;
     }
 
@@ -1144,8 +1147,10 @@ static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool wr
         return -EBADF;
 
     struct iovec *kiov = kmalloc(iovcnt * sizeof(struct iovec));
-    if (copy_from_user(kiov, iov, iovcnt * sizeof(struct iovec)) < 0)
+    if (copy_from_user(kiov, iov, iovcnt * sizeof(struct iovec)) < 0) {
+        kfree(kiov);
         return -EFAULT;
+    }
     
     long count = 0;
     for (int i = 0; i < iovcnt; i++) {
@@ -1155,6 +1160,7 @@ static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool wr
         void *buffer = kmalloc(kiov[i].iov_len);
         if (write && copy_from_user(buffer, kiov[i].iov_base, kiov[i].iov_len) < 0) {
             kfree(buffer);
+            kfree(kiov);
             return -EFAULT;
         }
 
@@ -1180,6 +1186,7 @@ static long sys_read_writev(int fd, const struct iovec *iov, int iovcnt, bool wr
 
         if (!write && copy_to_user(kiov[i].iov_base, buffer, ret) < 0) {
             kfree(buffer);
+            kfree(kiov);
             return -EFAULT;
         }
         kfree(buffer);
@@ -1213,8 +1220,10 @@ static long sys_recv_sendmsg(int fd, struct msghdr *msg, int flags, bool write) 
         return -EINVAL;
 
     struct iovec *kiov = kmalloc(hdr.msg_iovlen * sizeof(struct iovec));
-    if (copy_from_user(kiov, hdr.msg_iov, hdr.msg_iovlen * sizeof(struct iovec)) < 0)
+    if (copy_from_user(kiov, hdr.msg_iov, hdr.msg_iovlen * sizeof(struct iovec)) < 0) {
+        kfree(kiov);
         return -EFAULT;
+    }
 
     long count = 0;
     for (int i = 0; i < hdr.msg_iovlen; i++) {
@@ -1222,8 +1231,10 @@ static long sys_recv_sendmsg(int fd, struct msghdr *msg, int flags, bool write) 
             continue;
 
         long ret = sys_recvfrom_sendto(fd, kiov[i].iov_base, kiov[i].iov_len, flags, NULL, 0, write);
-        if (ret < 0)
+        if (ret < 0) {
+            kfree(kiov);
             return ret;
+        }
 
         count += ret;
         if ((size_t)ret < kiov[i].iov_len)

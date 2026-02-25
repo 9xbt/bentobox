@@ -4,7 +4,6 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
-
 long meminfo_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
 

@@ -262,10 +262,12 @@ void mmu_print_memory(void) {
     dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m %luK/%luK\n", mmu_used_pages * 4, mmu_usable_mem / 1024);
 }
 
+size_t __get_heap_usage(void);
+
 void mmu_get_memory(struct mmu_memory_info *info) {
     info->mem_total = mmu_usable_mem;
     info->mem_free = mmu_usable_mem - mmu_used_pages * PAGE_SIZE;
     info->mem_available = mmu_usable_mem - mmu_used_pages * PAGE_SIZE;
-    info->mem_slab = 0;
+    info->mem_slab = __get_heap_usage();
     info->mem_cached = 0;
 }
