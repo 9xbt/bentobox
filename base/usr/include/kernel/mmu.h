@@ -36,10 +36,19 @@ extern struct vma *kernel_vma;
 extern size_t mmu_usable_mem;
 extern size_t mmu_used_pages;
 
+struct mmu_memory_info {
+    size_t mem_total;
+    size_t mem_free;
+    size_t mem_available;
+    size_t mem_slab;
+    size_t mem_cached;
+};
+
 void  mmu_initialize(void);
 void  mmu_print_memory(void);
 void *mmu_alloc(void);
 void  mmu_free(void *ptr);
+void  mmu_get_memory(struct mmu_memory_info *info);
 void  mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags);
 void  mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags);
 void  mmu_unmap_2mb(uintptr_t *pm, void *virt);
@@ -92,18 +101,10 @@ long check_user_address(const void *addr);
 long copy_from_user(void *restrict dest, const void *restrict src, size_t n);
 long copy_to_user(void *restrict dest, const void *restrict src, size_t n);
 long strnlen_user(const char *s, size_t maxlen);
+long __user_string_copy(const char *s, size_t maxlen, char **out);
 
 #define COPY_USER_STRING(name, user_ptr, max_len) \
-    long name##_len = strnlen_user(user_ptr, max_len); \
-    if (name##_len < 0) \
-        return name##_len; \
-    if (name##_len >= max_len) \
-        return -ENAMETOOLONG; \
-    char *name = kmalloc(name##_len + 1); \
-    if (!name) \
-        return -ENOMEM; \
-    if (copy_from_user(name, user_ptr, name##_len + 1)) { \
-        kfree(name); \
-        return -EFAULT; \
-    } \
-    name[name##_len] = '\0';
+    char *name; \
+    long name##_err = __user_string_copy(user_ptr, max_len, &name); \
+    if (name##_err < 0) \
+        return name##_err;

@@ -4,6 +4,7 @@
 #include <kernel/syscall.h>
 #include <kernel/string.h>
 #include <kernel/signal.h>
+#include <kernel/malloc.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/mmu.h>
@@ -101,4 +102,21 @@ long strnlen_user(const char *s, size_t maxlen) {
     if (this->user_copy_status != 0)
         return this->user_copy_status;
     return len;
+}
+
+long __user_string_copy(const char *s, size_t maxlen, char **out) {
+    long len = strnlen_user(s, maxlen);
+    if (len < 0)
+        return len;
+    if ((size_t)len > maxlen)
+        return -ENAMETOOLONG;
+    
+    char *str = kmalloc(len + 1);
+    if (copy_from_user(str, s, len) < 0) {
+        kfree(str);
+        return -EFAULT;
+    }
+    str[len] = 0;
+    *out = str;
+    return 0;
 }

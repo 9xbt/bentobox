@@ -229,13 +229,13 @@ void *mmu_map_module(uintptr_t base, size_t len) {
     uint64_t flags = PTE_VALID | PTE_AF | PTE_RW;
     #endif
 
-    len = ALIGN_UP(len, PAGE_SIZE);
-    for (uint32_t i = 0; i < len; i += PAGE_SIZE) {
+    size_t length = ALIGN_UP(len, PAGE_SIZE);
+    for (size_t i = 0; i < length; i += PAGE_SIZE) {
         mmu_map(kernel_pd, (void *)((uintptr_t)module_base + i), (void *)(mmu_get_physical(kernel_pd, (void *)base + i)), flags);
     }
 
-    module_base += len;
-    return (void *)(module_base - len);
+    module_base += length;
+    return (void *)(module_base - length);
 }
 
 void *mmu_map_module_bss(size_t pages) {
@@ -246,9 +246,9 @@ void *mmu_map_module_bss(size_t pages) {
     #endif
 
     size_t length = pages * PAGE_SIZE;
-    for (size_t page = 0; page < pages; page++) {
+    for (size_t i = 0; i < length; i += PAGE_SIZE) {
         void *paddr = mmu_alloc();
-        void *vaddr = (void *)(module_base + page * PAGE_SIZE);
+        void *vaddr = (void *)(module_base + i);
 
         mmu_map(kernel_pd, vaddr, paddr, flags);
         memset(vaddr, 0, PAGE_SIZE);
@@ -260,4 +260,12 @@ void *mmu_map_module_bss(size_t pages) {
 
 void mmu_print_memory(void) {
     dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m %luK/%luK\n", mmu_used_pages * 4, mmu_usable_mem / 1024);
+}
+
+void mmu_get_memory(struct mmu_memory_info *info) {
+    info->mem_total = mmu_usable_mem;
+    info->mem_free = mmu_usable_mem - mmu_used_pages * PAGE_SIZE;
+    info->mem_available = mmu_usable_mem - mmu_used_pages * PAGE_SIZE;
+    info->mem_slab = 0;
+    info->mem_cached = 0;
 }

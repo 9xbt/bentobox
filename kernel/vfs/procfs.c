@@ -8,14 +8,21 @@
 long meminfo_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)node;
 
+    struct mmu_memory_info info;
+    mmu_get_memory(&info);
+
     char buf[1024];
     size_t i = snprintf(buf, sizeof buf, ""
         "MemTotal:      %lu kB\n"
         "MemFree:       %lu kB\n"
-        "MemAvailable:  %lu kB\n",
-        mmu_usable_mem / 1024,
-        mmu_usable_mem / 1024 - mmu_used_pages * 4,
-        mmu_usable_mem / 1024 - mmu_used_pages * 4
+        "MemAvailable:  %lu kB\n"
+        "Cached:        %lu kB\n"
+        "Slab:          %lu kB\n",
+        info.mem_total / 1024,
+        info.mem_free / 1024,
+        info.mem_available / 1024,
+        info.mem_cached / 1024,
+        info.mem_slab / 1024
     );
 
     if ((size_t)offset > i)
