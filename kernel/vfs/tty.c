@@ -98,6 +98,8 @@ long tty_enqueue(vfs_node_t *node, unsigned char c) {
             signal_send_pgrp(tty->pgid, SIGTSTP);
             break;
         case 0x0C:
+            if (!(tty->tio.c_lflag & ISIG))
+                return 0;
             break;
         case 0x1C:
             if (!(tty->tio.c_lflag & ISIG))
@@ -191,14 +193,66 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     }
 
     char *buf = (char *)buffer;
-    long i;
-    for (i = 0; (unsigned)i < len; i++) {
-        if (fifo_dequeue(tty->ififo, &buf[i]) < 0)
-            break;
-        if (tty->tio.c_lflag & ECHO && fifo_enqueue(tty->ofifo, buf[i]) < 0)
-            break;
+
+    if (!(tty->tio.c_lflag & ICANON)) {
+        long i;
+        for (i = 0; (unsigned)i < len; i++) {
+            if (fifo_dequeue(tty->ififo, &buf[i]) < 0)
+                break;
+            if (tty->tio.c_lflag & ECHO && fifo_enqueue(tty->ofifo, buf[i]) < 0)
+                break;
+        }
+        
+        vfs_wake_waiters(node);
+        return i;
     }
     
+    size_t i = 0;
+    while (i < len) {
+        char c;
+        if (fifo_dequeue(tty->ififo, &c) < 0) {
+            vfs_poll(node, POLLIN, -1);
+            continue;
+        }
+
+        if (c == '\r')
+            c = '\n';
+        else if (c == 127)
+            c = '\b';
+        if (c == '\b' && !i)
+            c = '\0';
+
+        if (tty->tio.c_lflag & ECHO) {
+            if (c == '\b') {
+                fifo_enqueue(tty->ofifo, '\b');
+                fifo_enqueue(tty->ofifo, ' ');
+                fifo_enqueue(tty->ofifo, '\b');
+            } else {
+                fifo_enqueue(tty->ofifo, c);
+            }
+            tty->flush(node);
+        }
+
+        switch (c) {
+            case '\0':
+                break;
+            case '\n':
+                buf[i++] = c;
+                buf[i] = '\0';
+
+                vfs_wake_waiters(node);
+                return i;
+            case '\b':
+                if (!i)
+                    break;
+                buf[i--] = '\0';
+                break;
+            default:
+                buf[i++] = c;
+                break;
+        }
+    }
+
     vfs_wake_waiters(node);
     return i;
 }

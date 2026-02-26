@@ -137,16 +137,69 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EAGAIN;
 
     char *buf = (char *)buffer;
-    long i;
-    for (i = 0; (unsigned)i < len; i++) {
-        if (fifo_dequeue(pty->ififo, &buf[i]) < 0)
-            break;
-        if (pty->tio.c_lflag & ECHO && fifo_enqueue(pty->ofifo, buf[i]) < 0)
-            break;
+
+    if (!(pty->tio.c_lflag & ICANON)) {
+        long i;
+        for (i = 0; (unsigned)i < len; i++) {
+            if (fifo_dequeue(pty->ififo, &buf[i]) < 0)
+                break;
+            if (pty->tio.c_lflag & ECHO && fifo_enqueue(pty->ofifo, buf[i]) < 0)
+                break;
+        }
+        if (i > 0)
+            vfs_wake_waiters(pty->master);
+        return i;
     }
     
-    if (i > 0)
-        vfs_wake_waiters(pty->master);
+    size_t i = 0;
+    while (i < len) {
+        char c;
+        if (fifo_dequeue(pty->ififo, &c) < 0) {
+            vfs_poll(node, POLLIN, -1);
+            continue;
+        }
+
+        if (c == '\r')
+            c = '\n';
+        else if (c == 127)
+            c = '\b';
+        if (c == '\b' && !i)
+            c = '\0';
+
+        if (pty->tio.c_lflag & ECHO) {
+            if (c == '\b') {
+                fifo_enqueue(pty->ofifo, '\b');
+                fifo_enqueue(pty->ofifo, ' ');
+                fifo_enqueue(pty->ofifo, '\b');
+            } else if (c == '\n') {
+                fifo_enqueue(pty->ofifo, '\r');
+                fifo_enqueue(pty->ofifo, '\n');
+            } else {
+                fifo_enqueue(pty->ofifo, c);
+            }
+            vfs_wake_waiters(pty->master);
+        }
+
+        switch (c) {
+            case '\0':
+                break;
+            case '\n':
+                buf[i++] = c;
+                buf[i] = '\0';
+
+                vfs_wake_waiters(node);
+                return i;
+            case '\b':
+                if (!i)
+                    break;
+                buf[i--] = '\0';
+                break;
+            default:
+                buf[i++] = c;
+                break;
+        }
+    }
+
     return i;
 }
 
