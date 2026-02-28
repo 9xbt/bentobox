@@ -354,11 +354,15 @@ void sched_wake(struct thread *tcb) {
 }
 
 void sched_exit(struct thread *tcb) {
+    acquire(&tcb->lock);
+    if (tcb->wakeup_pending)
+        tcb->wakeup_pending = false;
     tcb->state = THREAD_ZOMBIE;
     if (tcb == this) {
         sched_yield();
         for (;;) {}
     }
+    release(&tcb->lock);
 }
 
 void sched_exit_group(struct process *proc, int status) {
@@ -604,4 +608,14 @@ void sched_install(void) {
     sched_add_process(cleaner);
 
     dprintf(LOG_INFO, "\033[93msched:\033[0m initialized scheduler\n");
+}
+
+void sched_shutdown(void) {
+    foreach_safe(i, processes) {
+        struct process *proc = i->value;
+        if (proc != this_proc)
+            signal_send(proc, SIGKILL);
+    }
+
+    dprintf(LOG_DEBUG, "\033[93msched:\033[0m Goodbye!\n");
 }

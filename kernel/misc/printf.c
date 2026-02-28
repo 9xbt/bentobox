@@ -54,6 +54,20 @@ void puts(char *s) {
     release(&flanterm_lock);
 }
 
+void dputs(int level, char *s) {
+    ringbuffer_write(kernel_rb, (unsigned char *)s, strlen(s));
+
+    #ifdef __x86_64__
+    serial_puts(s);
+    #elif __aarch64__
+    uart_puts(s);
+    #endif
+    
+    if (level <= loglevel) {
+        puts(s);
+    }
+}
+
 int hex_length(uint64_t val) {
     int len = 0;
     do {
@@ -195,17 +209,8 @@ int dprintf(int level, const char *fmt, ...) {
     uptime(&secs, &nanos);
 
     int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
-    ringbuffer_write(kernel_rb, (unsigned char *)buf, strlen(buf));
-
-    #ifdef __x86_64__
-    serial_puts(buf);
-    #elif __aarch64__
-    uart_puts(buf);
-    #endif
+    dputs(level, buf);
     
-    if (level <= loglevel) {
-        puts(buf);
-    }
     va_end(args);
     return ret;
 }

@@ -21,6 +21,7 @@ void early_log_initialize(void);
 void early_log_extend(void);
 void putchar(char c);
 void puts(char *s);
+void dputs(int level, char *s);
 
 int vsprintf(char *s, const char *fmt, va_list args);
 int snprintf(char *str, size_t n, const char *fmt, ...);

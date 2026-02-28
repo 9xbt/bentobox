@@ -11,6 +11,7 @@
 #include <kernel/socket.h>
 #include <kernel/errno.h>
 #include <kernel/elf64.h>
+#include <kernel/power.h>
 #include <kernel/sched.h>
 #include <kernel/futex.h>
 #include <kernel/acpi.h>
@@ -900,10 +901,10 @@ long sys_reboot(unsigned int magic, int op) {
 
     switch (op) {
         case BENTOBOX_REBOOT_OP_RESTART:
-            acpi_reboot();
+            reboot();
             __builtin_unreachable();
         case BENTOBOX_REBOOT_OP_SHUTDOWN:
-            acpi_shutdown();
+            shutdown();
             __builtin_unreachable();
         default:
             return -EINVAL;

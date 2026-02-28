@@ -15,6 +15,8 @@
 #include <limine.h>
 #include <stddef.h>
 
+list_t *elf64_modules = NULL;
+
 static Elf64_Addr elf64_find_symbol(Elf64_Sym *symtab, const char *strtab, int symbol_count, const char *str) {
     for (int i = 0; i < symbol_count; i++) {
         if (!strcmp(&strtab[symtab[i].st_name], str)) {
@@ -68,6 +70,9 @@ static bool elf64_is_executable(Elf64_Ehdr *ehdr) {
 
 __attribute__((no_sanitize("alignment")))
 int elf64_module(struct limine_file *mod) {
+    if (!elf64_modules)
+        elf64_modules = list_create();
+
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(uintptr_t)mod->address;
 
     if (memcmp(ehdr->e_ident, "\x7f""ELF", 4)) {
@@ -206,7 +211,18 @@ int elf64_module(struct limine_file *mod) {
         }
     }
 
+    list_insert(elf64_modules, metadata);
     return metadata->init();
+}
+
+void elf64_shutdown_modules(void) {
+    if (!elf64_modules)
+        return;
+
+    foreach(i, elf64_modules) {
+        struct Module *metadata = i->value;
+        metadata->fini();
+    }
 }
 
 static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, uintptr_t base) {
