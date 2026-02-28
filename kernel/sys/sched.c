@@ -317,6 +317,12 @@ void sched_yield(void) {
 }
 
 void sched_sleep(size_t ns) {
+    acquire(&this->lock);
+    if (this->wakeup_pending) {
+        this->wakeup_pending = false;
+        release(&this->lock);
+        return;
+    }
     size_t sec, nsec;
     uptime(&sec, &nsec);
     this->sleep_end = sec * 1000000000UL + nsec + ns;
