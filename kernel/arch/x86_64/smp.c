@@ -7,6 +7,7 @@
 #include <kernel/ringbuffer.h>
 #include <kernel/malloc.h>
 #include <kernel/printf.h>
+#include <kernel/sched.h>
 #include <kernel/acpi.h>
 #include <kernel/args.h>
 #include <kernel/list.h>
@@ -67,7 +68,7 @@ void smp_bootstrap(void) {
             smp_request.response->cpus[i]->goto_address = (limine_goto_address)ap_startup;
     }
 
-    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);
+    dprintf(LOG_INFO, "\033[93msmp:\033[0m started %lu processor(s)\n", cpu_count - 1);    
 }
 
 void smp_initialize(void) {
