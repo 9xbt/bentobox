@@ -41,6 +41,8 @@ int signal_handle(struct thread *tcb, int sig) {
     int word = (sig - 1) / LONG_BIT;
     int bit = (sig - 1) % LONG_BIT;
     proc->psig.sig[word] &= ~(1UL << bit);
+
+    release(&tcb->lock);
     
     if (action->sa_handler == SIG_IGN)
         return 1;
