@@ -378,7 +378,7 @@ long sys_waitpid(int pid, int *wstatus, int options) {
         if (options & WNOHANG)
             return 0;
 
-        sched_block(this);
+        sched_block(this, 0);
     }
     return pid;
 }
@@ -648,12 +648,12 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
 
     if (!nfds) {
         if (!timeout) {
-            sched_block(this);
+            sched_block(this, 0);
             return 0;
         } else if (!to.tv_sec && !to.tv_nsec) {
             return 0;
         } else {
-            sched_sleep(to.tv_sec * 1000000000 + to.tv_nsec);
+            sched_block(this, to.tv_sec * 1000000000 + to.tv_nsec);
             return 0;
         }
     }

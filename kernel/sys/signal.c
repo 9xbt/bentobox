@@ -76,7 +76,7 @@ int signal_handle(struct thread *tcb, int sig) {
             case SIGTTIN:
             case SIGTTOU:
                 if (tcb->parent != init_proc)
-                    sched_block(tcb);
+                    sched_block(tcb, 0);
                 return 0;
             case SIGCONT:
                 sched_wake(tcb);

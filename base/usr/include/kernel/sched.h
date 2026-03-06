@@ -104,7 +104,7 @@ struct process *sched_new_process(const char *name, bool user);
 long fork(void);
 void sched_yield(void);
 void sched_sleep(size_t ns);
-void sched_block(struct thread *tcb);
+void sched_block(struct thread *tcb, size_t ns);
 void sched_wake(struct thread *tcb);
 void sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);

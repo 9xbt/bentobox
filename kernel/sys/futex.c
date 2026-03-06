@@ -31,13 +31,7 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
     list_insert(futex_waiters, waiter);
     
     release(&futex_lock);
-    
-    if (time) {
-        sched_sleep(time->tv_sec * 1000000000ULL + time->tv_nsec);
-    } else {
-        sched_block(this);
-    }
-
+    sched_block(this, time ? time->tv_sec * 1000000000ULL + time->tv_nsec : 0);
     acquire(&futex_lock);
     
     foreach_safe(node, futex_waiters) {

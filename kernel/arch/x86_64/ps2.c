@@ -255,7 +255,7 @@ void ps2_mouse_worker(void) {
 
     for (;;) {
         if (fifo_dequeue(mouse_fifo, &state) < 0) {
-            sched_block(this);
+            sched_block(this, 0);
         }
 
         #define EMIT_REL(f, c) \

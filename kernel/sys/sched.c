@@ -318,11 +318,8 @@ void sched_yield(void) {
 
 void sched_sleep(size_t ns) {
     acquire(&this->lock);
-    if (this->wakeup_pending) {
+    if (this->wakeup_pending)
         this->wakeup_pending = false;
-        release(&this->lock);
-        return;
-    }
     size_t sec, nsec;
     uptime(&sec, &nsec);
     this->sleep_end = sec * 1000000000UL + nsec + ns;
@@ -330,14 +327,22 @@ void sched_sleep(size_t ns) {
     sched_yield();
 }
 
-void sched_block(struct thread *tcb) {
+void sched_block(struct thread *tcb, size_t ns) {
     acquire(&tcb->lock);
     if (tcb->wakeup_pending) {
         tcb->wakeup_pending = false;
         release(&tcb->lock);
         return;
     }
-    tcb->state = THREAD_PAUSED;
+
+    if (ns > 0) {
+        size_t sec, nsec;
+        uptime(&sec, &nsec);
+        tcb->sleep_end = sec * 1000000000UL + nsec + ns;
+        tcb->state = THREAD_SLEEPING;
+    } else {
+        tcb->state = THREAD_PAUSED;
+    }
 
     if (tcb == this)
         sched_yield();

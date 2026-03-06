@@ -306,7 +306,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (timeout == -1) {
         for (;;) {
             release(&node->waiters_lock);
-            sched_block(this);
+            sched_block(this, 0);
             acquire(&node->waiters_lock);
             
             poll = node->ops->poll(node, events);
@@ -318,7 +318,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
         }
     } else {
         release(&node->waiters_lock);
-        sched_sleep(timeout);
+        sched_block(this, timeout);
     }
     acquire(&node->waiters_lock);
     list_remove_value(node->waiters, this);
@@ -368,9 +368,9 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             long remaining = timeout - (now - start);
             if (remaining <= 0)
                 break;
-            sched_sleep(remaining);
+            sched_block(this, remaining);
         } else {
-            sched_block(this);
+            sched_block(this, 0);
         }
     }
 

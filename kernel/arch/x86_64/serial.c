@@ -71,7 +71,7 @@ static void serial_tty_worker_thread(void) {
     char c;
     for (;;) {
         if (fifo_is_empty(tty->ofifo)) {
-            sched_block(this);
+            sched_block(this, 0);
         }
 
         while (fifo_dequeue(tty->ofifo, &c) > 0) {
@@ -95,7 +95,7 @@ static void serial_tty_worker_thread(void) {
         }
 
         vfs_wake_waiters(node);
-        sched_block(this);
+        sched_block(this, 0);
     }
 }
 
