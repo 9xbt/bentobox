@@ -38,14 +38,13 @@ extern char data_end_ld[];
 uintptr_t  *kernel_pd;
 struct vma *kernel_vma;
 
-uintptr_t hhdm_offset;
-
 static uint8_t  *mmu_bitmap = NULL;
 static uint16_t *mmu_refcounts = NULL;
 static size_t    mmu_page_count = 0;
-size_t mmu_usable_mem = 0;
-size_t mmu_used_pages = 0;
+static size_t    mmu_usable_mem = 0;
+static size_t    mmu_used_pages = 0;
 
+uintptr_t        hhdm_offset;
 static uintptr_t module_base = 0;
 
 void mmu_initialize(void) {
@@ -100,6 +99,14 @@ void mmu_initialize(void) {
 
     kernel_pd = VIRTUAL_HHDM(mmu_alloc());
     memset(kernel_pd, 0, PAGE_SIZE);
+
+    #ifdef __x86_64__
+    for (i = 256; i < 512; i++) {
+        void *pml = mmu_alloc();
+        memset(VIRTUAL_HHDM(pml), 0, PAGE_SIZE);
+        kernel_pd[i] = (uintptr_t)pml | PTE_PRESENT | PTE_WRITABLE | PTE_USER;
+    }
+    #endif
 
     for (i = 0; i < mmap->entry_count; i++) {
         entry = mmap->entries[i];

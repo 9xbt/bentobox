@@ -29,12 +29,9 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-extern uintptr_t hhdm_offset;
+extern uintptr_t   hhdm_offset;
 extern uintptr_t  *kernel_pd;
 extern struct vma *kernel_vma;
-
-extern size_t mmu_usable_mem;
-extern size_t mmu_used_pages;
 
 struct mmu_memory_info {
     size_t mem_total;

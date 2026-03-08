@@ -71,12 +71,6 @@ void tlb_invalidate(void *va) {
 }
 
 void mmu_switch_pm(uintptr_t *pm) {
-    if (pm != kernel_pd) {
-        for (int i = 256; i < 512; i++) {
-            pm[i] = kernel_pd[i];
-        }
-    }
-
     asm volatile("mov %0, %%cr3" ::"r"((uint64_t)PHYSICAL_HHDM(pm)) : "memory");
 }
 
@@ -211,7 +205,6 @@ uintptr_t *mmu_create_pagemap(void) {
         pm[i] = kernel_pd[i];
     }
 
-    // TODO: make it into a vma region?
     extern void signal_leave();
     mmu_map(pm, (void *)SIGNAL_TRAMPOLINE_BASE, (void *)mmu_get_physical(kernel_pd, signal_leave), PTE_PRESENT | PTE_USER);
     return pm;
