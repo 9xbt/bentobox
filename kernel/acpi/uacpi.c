@@ -78,39 +78,39 @@ void uacpi_kernel_pci_device_close(uacpi_handle handle) {
 
 uacpi_status uacpi_kernel_pci_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    *value = (pci_read(addr->bus, addr->device, addr->function, offset & ~3) >> ((offset & 3) * 8)) & 0xFF;
+    *value = (pci_read((pci_address){ addr->bus, addr->device, addr->function }, offset & ~3) >> ((offset & 3) * 8)) & 0xFF;
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_read16(uacpi_handle handle, uacpi_size offset, uacpi_u16 *value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    *value = pci_config_read_word(addr->bus, addr->device, addr->function, offset);
+    *value = pci_config_read_word((pci_address){ addr->bus, addr->device, addr->function }, offset);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    *value = pci_read(addr->bus, addr->device, addr->function, offset);
+    *value = pci_read((pci_address){ addr->bus, addr->device, addr->function }, offset);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_write8(uacpi_handle handle, uacpi_size offset, uacpi_u8 value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    uint32_t dword = pci_read(addr->bus, addr->device, addr->function, offset & ~3);
+    uint32_t dword = pci_read((pci_address){ addr->bus, addr->device, addr->function }, offset & ~3);
     uint8_t shift = (offset & 3) * 8;
-    pci_write(addr->bus, addr->device, addr->function, offset & ~3, (dword & ~(0xFF << shift)) | ((uint32_t)value << shift));
+    pci_write((pci_address){ addr->bus, addr->device, addr->function }, offset & ~3, (dword & ~(0xFF << shift)) | ((uint32_t)value << shift));
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_write16(uacpi_handle handle, uacpi_size offset, uacpi_u16 value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    pci_config_write_word(addr->bus, addr->device, addr->function, offset, value);
+    pci_config_write_word((pci_address){ addr->bus, addr->device, addr->function }, offset, value);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_pci_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 value) {
     uacpi_pci_address *addr = (uacpi_pci_address *)handle;
-    pci_write(addr->bus, addr->device, addr->function, offset, value);
+    pci_write((pci_address){ addr->bus, addr->device, addr->function }, offset, value);
     return UACPI_STATUS_OK;
 }
 

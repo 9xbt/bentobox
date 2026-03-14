@@ -411,18 +411,18 @@ vfs_ops_t ops = {
 };
 
 int init() {
-    pci_device_t *ahci = pci_get_device(0x01, 0x06);
+    pci_device *ahci = pci_get_device(0x01, 0x06);
     if (!ahci) {
         dprintf(LOG_INFO, "\033[93mahci:\033[0m no controllers found\n");
         return 1;
     }
 
     // Enable interrupts, DMA, and memory space access in the PCI command register
-    uint32_t cmd = pci_config_read_word(ahci->bus, ahci->device, ahci->function, 0x04);
+    uint32_t cmd = pci_config_read_word(ahci->address, 0x04);
     cmd |= PCI_SERR_ENABLE | PCI_BUS_MASTER | PCI_IO_SPACE;
-    pci_config_write_word(ahci->bus, ahci->device, ahci->function, 0x04, cmd);
+    pci_config_write_word(ahci->address, 0x04, cmd);
 
-    uint32_t bar5 = pci_read(ahci->bus, ahci->device, ahci->function, 0x24);
+    uint32_t bar5 = pci_read(ahci->address, 0x24);
     if ((bar5 & 0x6) != 0x0) {
         dprintf(LOG_ERR, "\033[93mahci:\033[0m: 64-bit AHCI not implemented\n");
         return 1;

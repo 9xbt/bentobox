@@ -83,6 +83,16 @@ int sched_get_busy_usage(struct cpu *cpu) {
     return 100 - sched_get_idle_usage(cpu);
 }
 
+int sched_get_user_processes(void) {
+    int count = 0;
+    foreach_safe(i, processes) {
+        struct process *proc = i->value;
+        if (proc->user && proc->state == PROCESS_ALIVE)
+            count++;
+    }
+    return count;
+}
+
 struct cpu *sched_find_cpu(void) {
     if (cpu_count == 1)
         return this_cpu;
@@ -618,8 +628,12 @@ void sched_install(void) {
 void sched_shutdown(void) {
     foreach_safe(i, processes) {
         struct process *proc = i->value;
-        if (proc != this_proc)
-            signal_send(proc, SIGKILL);
+        if (proc != this_proc && proc->user)
+            sched_exit_group(proc, SIGKILL);
+    }
+
+    while (sched_get_user_processes() > 1) {
+        sched_yield();
     }
 
     dprintf(LOG_DEBUG, "\033[93msched:\033[0m Goodbye!\n");

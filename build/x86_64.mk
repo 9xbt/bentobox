@@ -20,11 +20,11 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio -device virtio-keyboard $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -serial stdio -device virtio-keyboard $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 build/ovmf/ovmf-code-$(ARCH).fd:
 	mkdir -p build/ovmf
