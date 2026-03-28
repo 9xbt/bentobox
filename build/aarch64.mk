@@ -23,27 +23,12 @@ all: $(IMAGE_NAME).iso
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
 	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-device -device virtio-tablet-device -global virtio-mmio.force-legacy=false -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-device ich9-ahci,id=sata -drive file=$(IMAGE_NAME).hdd,format=raw,if=none,id=disk0 -device ide-hd,drive=disk0,bus=sata.0" ) $(QEMUFLAGS)
 
-build/ovmf/ovmf-code-$(ARCH).fd:
-	mkdir -p build/ovmf
-	curl -Lo $@ https://github.com/osdev0/edk2-ovmf-nightly/releases/download/nightly-20251203T012444Z/ovmf-code-$(ARCH).fd
-	dd if=/dev/zero of=$@ bs=1 count=0 seek=67108864 2>/dev/null
-
-build/limine/limine:
-	rm -rf build/limine
-	git clone https://github.com/limine-bootloader/limine.git build/limine --branch=v9.x-binary --depth=1
-	$(MAKE) -C build/limine \
-		CC="$(HOST_CC)" \
-		CFLAGS="$(HOST_CFLAGS)" \
-		CPPFLAGS="$(HOST_CPPFLAGS)" \
-		LDFLAGS="$(HOST_LDFLAGS)" \
-		LIBS="$(HOST_LIBS)"
-
 $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
 	@cp bin/$(ARCH)/kernel iso_root/boot/
 	@cp bin/$(ARCH)/initrd.tar iso_root/boot/ 2>/dev/null || true
-	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
+	@cp -r obj/$(ARCH)/modules/* iso_root/boot/ 2>/dev/null || true
 	@mkdir -p iso_root/boot/limine
 	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
 		{ echo "default_entry: 2"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \

@@ -40,7 +40,7 @@ MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 APPS_CC := $(ARCH)-pc-bentobox-gcc
 
 APPS_CFLAGS := -g -O2 -Ibase/usr/include/
-APPS_LDFLAGS := -Wl,--start-group -lX11 -Lbin/$(ARCH)/lib -l:list.a -Wl,--end-group
+APPS_LDFLAGS :=
 APPS_SOURCES := $(shell find apps -type f)
 
 APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
@@ -51,28 +51,20 @@ APPS_OBJS :=
 APPS_EXECUTABLES := $(addprefix bin/$(ARCH)/,$(APPS_CFILES:.c=))
 
 ifeq ($(ARCH),x86_64)
-APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_NASMFILES:.asm=.o))
-APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_NASMFILES:.asm=))
-endif
-ifeq ($(ARCH),aarch64)
-APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_ASFILES:.S=.o))
-APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
+    APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_NASMFILES:.asm=.o))
+    APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_NASMFILES:.asm=))
 endif
 
-LIB_CFLAGS := -g -O2 -Ibase/usr/include/ -I$(CURDIR)/build/mlibc/$(ARCH)/include
-LIB_CFILES := lib/list.c
-LIB_OBJS = $(addprefix obj/$(ARCH)/,$(LIB_CFILES:.c=.o))
-LIB_LIBS = $(addprefix bin/$(ARCH)/,$(LIB_CFILES:.c=.a))
+ifeq ($(ARCH),aarch64)
+    APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_ASFILES:.S=.o))
+    APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
+endif
 
 .PHONY: all
 all: $(IMAGE_NAME).iso
 
-kernel-deps:
-	@./build/get-deps
-	@touch build/kernel-deps
-
 .PHONY: kernel
-kernel: kernel-deps bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) 
+kernel: bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) 
 
 .PHONY: hdd
 hdd: $(LIB_LIBS) $(APPS_EXECUTABLES) $(IMAGE_NAME).hdd
@@ -133,16 +125,7 @@ obj/$(ARCH)/apps/%.o: apps/%.asm
 	@nasm -f elf64 -o $@ $<
 endif
 
-obj/$(ARCH)/lib/%.o: lib/%.c
-	@echo " CC $< "
-	@mkdir -p "$(dir $@)"
-	@$(APPS_CC) $(LIB_CFLAGS) -c $< -o $@
-
-bin/$(ARCH)/lib/%.a: $(LIB_OBJS)
-	@echo " AR $@"
-	@mkdir -p "$(dir $@)"
-	@ar rcs $@ $^
-
+# TODO: optimize this? what about using FUSE instead?
 bin/$(ARCH)/initrd.tar: $(shell find build/base/$(ARCH) -type f) $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
 	@echo " HD $@"
 	@mkdir -p "$(dir $@)"
@@ -170,6 +153,12 @@ $(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -t
 clean:
 	@rm -rf bin obj iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
-.PHONY: distclean
-distclean:
-	@rm -rf bin obj build/freestnd-c-hdrs build/cc-runtime build/limine-protocol iso_root *.iso *.hdd build/kernel-deps limine ovmf
+build/limine/limine:
+	rm -rf build/limine
+	git clone https://github.com/limine-bootloader/limine.git build/limine --branch=v9.x-binary --depth=1
+	$(MAKE) -C build/limine \
+		CC="$(HOST_CC)" \
+		CFLAGS="$(HOST_CFLAGS)" \
+		CPPFLAGS="$(HOST_CPPFLAGS)" \
+		LDFLAGS="$(HOST_LDFLAGS)" \
+		LIBS="$(HOST_LIBS)"

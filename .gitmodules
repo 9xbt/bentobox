@@ -14,3 +14,15 @@
 [submodule "lib/uACPI"]
 	path = lib/uACPI
 	url = https://github.com/uACPI/uACPI
+[submodule "util/freestnd-c-hdrs"]
+	path = util/freestnd-c-hdrs
+	url = https://github.com/osdev0/freestnd-c-hdrs-0bsd.git
+[submodule "build/cc-runtime"]
+	path = build/cc-runtime
+	url = https://github.com/osdev0/cc-runtime.git
+[submodule "build/limine-protocol"]
+	path = build/limine-protocol
+	url = https://github.com/limine-bootloader/limine-protocol.git
+[submodule "build/freestnd-c-hdrs"]
+	path = build/freestnd-c-hdrs
+	url = https://github.com/osdev0/freestnd-c-hdrs-0bsd.git

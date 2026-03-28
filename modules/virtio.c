@@ -67,6 +67,8 @@ void vio_initialize_device(pci_device *dev) {
 
 list_t *vio_find_devices(enum virtio_device_type type) {
     list_t *devices = list_create();
+    if (!virtio_devices)
+        return devices;
 
     foreach(i, virtio_devices) {
         struct virtio_device *viodev = i->value;

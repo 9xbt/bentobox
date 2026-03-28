@@ -20,32 +20,18 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio -device virtio-keyboard $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -serial stdio -device virtio-keyboard $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
-
-build/ovmf/ovmf-code-$(ARCH).fd:
-	mkdir -p build/ovmf
-	curl -Lo $@ https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/ovmf-code-$(ARCH).fd
-
-build/limine/limine:
-	rm -rf build/limine
-	git clone https://github.com/limine-bootloader/limine.git build/limine --branch=v9.x-binary --depth=1
-	$(MAKE) -C build/limine \
-		CC="$(HOST_CC)" \
-		CFLAGS="$(HOST_CFLAGS)" \
-		CPPFLAGS="$(HOST_CPPFLAGS)" \
-		LDFLAGS="$(HOST_LDFLAGS)" \
-		LIBS="$(HOST_LIBS)"
+	@qemu-system-$(ARCH) -M q35 -cdrom $(IMAGE_NAME).iso -boot d -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
 	@cp bin/$(ARCH)/kernel iso_root/boot/
 	@cp bin/$(ARCH)/initrd.tar iso_root/boot/ 2>/dev/null || true
-	@cp -r obj/$(ARCH)/modules/* iso_root/boot/
+	@cp -r obj/$(ARCH)/modules/* iso_root/boot/ 2>/dev/null || true
 	@mkdir -p iso_root/boot/limine
 	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
 		{ echo "default_entry: 2"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
@@ -61,6 +47,5 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		iso_root -o $(IMAGE_NAME).iso > /dev/null 2>&1
-	@./build/limine/limine bios-install $(IMAGE_NAME).iso 2>&1 >/dev/null | grep -Ev \
-		"Physical|Installing|Secondary|partition|Stage|Reminder|Limine|directories|Converting|Conversion" | cat
+	@./build/limine/limine bios-install $(IMAGE_NAME).iso >/dev/null 2>&1
 	@rm -rf iso_root

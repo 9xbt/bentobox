@@ -1,11 +1,8 @@
 /bin
 /obj
-/build/cc-runtime
-/build/freestnd-c-hdrs
+/iso_root
 /build/limine
-/build/limine-protocol
 /build/mlibc
-/build/ovmf
 /build/kernel-deps
 /build/base
 /build/binutils
