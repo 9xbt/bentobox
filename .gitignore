@@ -2,15 +2,9 @@
 /obj
 /iso_root
 /build/limine
-/build/mlibc
-/build/kernel-deps
 /build/base
-/build/binutils
-/build/gcc
-/build/toolchain
 /util/build
 /ports/src
-/base/etc/localtime
 compile_commands.json
 .cache
 .vscode
