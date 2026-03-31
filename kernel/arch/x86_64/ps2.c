@@ -374,8 +374,6 @@ long ps2_ioctl_handle_eviocgbit(struct ps2_device *dev, int op, void *arg) {
 
 long ps2_ioctl(vfs_node_t *node, int op, void *arg) {
     struct ps2_device *dev = node->device;
-            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%x\n", __func__, op);
-
     switch (op) {
         case TIOCGWINSZ:
             return -ENOTTY;
