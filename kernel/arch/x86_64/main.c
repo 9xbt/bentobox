@@ -197,7 +197,7 @@ void kmain(void) {
     }
 
     early_log_initialize();
-    serial_install();
+    serial_initialize(COM1, 0x01);
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
@@ -217,7 +217,7 @@ void kmain(void) {
 
     generic_startup();
     
-    serial_initialize();
+    serial_install();
     ps2_hid_install();
 
     generic_main();    

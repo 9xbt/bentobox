@@ -2,17 +2,20 @@
 #include <stdint.h>
 #include <kernel/time.h>
 
-#define EV_SYN     0x00
-#define EV_KEY     0x01
-#define EV_REL     0x02
-#define EV_ABS     0x03
-#define REL_X      0x00
-#define REL_Y      0x01
-#define BTN_LEFT   0x110
-#define BTN_RIGHT  0x111
-#define BTN_MIDDLE 0x112
+#define EV_SYN       0x00
+#define EV_KEY       0x01
+#define EV_REL       0x02
+#define EV_ABS       0x03
+#define REL_X        0x00
+#define REL_Y        0x01
+#define ABS_X        0x00
+#define ABS_Y        0x01
+#define ABS_PRESSURE 0x18
+#define BTN_LEFT     0x110
+#define BTN_RIGHT    0x111
+#define BTN_MIDDLE   0x112
 
-#define SYN_REPORT		0
+#define SYN_REPORT   0
 
 #define KEY_A      0x1e
 #define KEY_B      0x30
@@ -82,4 +85,13 @@ struct input_event {
     uint16_t type;
     uint16_t code;
     int32_t value;
+};
+
+struct input_absinfo {
+	int32_t value;
+	int32_t minimum;
+	int32_t maximum;
+	int32_t fuzz;
+	int32_t flat;
+	int32_t resolution;
 };

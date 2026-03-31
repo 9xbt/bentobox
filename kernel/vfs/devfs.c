@@ -57,6 +57,8 @@ vfs_node_t *devfs_create_numbered(devfs_type_t type) {
     switch (type) {
         case DEVFS_EVENT:
             fmt = "event%d";
+            parent = vfs_lookup(NULL, "/dev/input", true, VFS_DIRECTORY).node;
+            assert(parent);
             break;
         case DEVFS_FB:
             fmt = "fb%d";

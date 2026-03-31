@@ -106,7 +106,8 @@ int signal_send(struct process *proc, int sig) {
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
-    sched_wake(tcb);
+    if (tcb)
+        sched_wake(tcb);
     
     return 0;
 }

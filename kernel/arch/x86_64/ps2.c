@@ -344,6 +344,49 @@ long ps2_poll(vfs_node_t *node, long events) {
     return 0;
 }
 
+long ps2_ioctl_handle_eviocgbit(struct ps2_device *dev, int op, void *arg) {
+    int evtype = (op & 0xFF) - 0x20;
+    if (evtype == 0) {
+        unsigned long bits = (1 << EV_SYN) | (1 << EV_KEY);
+        if (dev->type == PS2_MOUSE)
+            bits = (1 << EV_SYN) | (1 << EV_KEY) | (1 << EV_REL);
+        memcpy(arg, &bits, sizeof(bits));
+        return 0;
+    } else if (evtype == EV_KEY) {
+        unsigned long bits[KEY_MAX / (8 * sizeof(unsigned long)) + 1] = {0};
+        if (dev->type == PS2_KEYBOARD) {
+            for (int k = KEY_ESC; k <= KEY_SLASH; k++)
+                bits[k / (8 * sizeof(unsigned long))] |= 1UL << (k % (8 * sizeof(unsigned long)));
+        } else {
+            bits[BTN_LEFT   / (8 * sizeof(unsigned long))] |= 1UL << (BTN_LEFT   % (8 * sizeof(unsigned long)));
+            bits[BTN_RIGHT  / (8 * sizeof(unsigned long))] |= 1UL << (BTN_RIGHT  % (8 * sizeof(unsigned long)));
+            bits[BTN_MIDDLE / (8 * sizeof(unsigned long))] |= 1UL << (BTN_MIDDLE % (8 * sizeof(unsigned long)));
+        }
+        memcpy(arg, bits, sizeof(bits));
+        return 0;
+    } else if (evtype == EV_REL && dev->type == PS2_MOUSE) {
+        unsigned long bits = (1 << REL_X) | (1 << REL_Y);
+        memcpy(arg, &bits, sizeof(bits));
+        return 0;
+    }
+    return -EINVAL;
+}
+
+long ps2_ioctl(vfs_node_t *node, int op, void *arg) {
+    struct ps2_device *dev = node->device;
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%x\n", __func__, op);
+
+    switch (op) {
+        case TIOCGWINSZ:
+            return -ENOTTY;
+        default:
+            if ((op & 0xFF00) == 0x4500)
+                return ps2_ioctl_handle_eviocgbit(dev, op, arg);
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%x not implemented\n", __func__, op);
+            return -EINVAL;
+    }
+}
+
 vfs_result_t ps2_open(vfs_node_t *node, int flags) {
     (void)flags;
     struct ps2_device *dev = node->device;
@@ -392,14 +435,15 @@ static void ps2_config_write(uint8_t config) {
     ps2_write_data(config);
 }
 
-struct ps2_device keyboard_device = {0};
-struct ps2_device mouse_device = {0};
+struct ps2_device keyboard_device = { .type = PS2_KEYBOARD };
+struct ps2_device mouse_device = { .type = PS2_MOUSE };
 
 vfs_ops_t ps2_ops = {
-    .open = ps2_open,
+    .open  = ps2_open,
     .close = ps2_close,
-    .read = ps2_read_event,
-    .poll = ps2_poll
+    .read  = ps2_read_event,
+    .poll  = ps2_poll,
+    .ioctl = ps2_ioctl
 };
 
 void ps2_hid_install(void) {

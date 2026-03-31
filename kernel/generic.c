@@ -17,10 +17,10 @@ void generic_startup(void) {
     arch_clock_init();
     vfs_install();
     pci_scan();
-    modules_install();
     sched_install();
     tty_spawn_worker();
     futex_initialize();
+    modules_install();
 }
 
 void generic_main(void) {

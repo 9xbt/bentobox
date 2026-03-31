@@ -42,7 +42,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    int mouse = open("/dev/event1", O_RDONLY);
+    int mouse = open("/dev/input/event1", O_RDONLY);
     if (mouse == -1) {
         perror("failed to open mouse");
         exit(EXIT_FAILURE);

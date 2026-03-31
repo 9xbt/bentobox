@@ -469,7 +469,7 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     if (!elf64_is_executable(ehdr))
         return -ENOEXEC;
 
-    foreach(i, this_proc->threads) {
+    foreach_safe(i, this_proc->threads) {
         struct thread *tcb = i->value;
         if (tcb != this)
             sched_exit(tcb);

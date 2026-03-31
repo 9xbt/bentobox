@@ -16,22 +16,24 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
-static bool serial_works = false;
+static bool com1_works = false;
 static spinlock_t serial_lock = 0;
 static vfs_node_t *ttyS0;
 
-void serial_install(void) {
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x80);
-    outb(COM1 + 0, 0x01);
-    outb(COM1 + 1, 0x00);
-    outb(COM1 + 3, 0x03);
-    outb(COM1 + 2, 0x07);
-    outb(COM1 + 4, 0x0B);
+bool serial_initialize(uint16_t port, uint8_t divisor) {
+    outb(port + 1, 0x00);
+    outb(port + 3, 0x80);
+    outb(port + 0, divisor);
+    outb(port + 1, 0x00);
+    outb(port + 3, 0x03);
+    outb(port + 2, 0x07);
+    outb(port + 4, 0x0B);
     
-    outb(COM1 + 7, 0xAB);
-    if (inb(COM1 + 7) == 0xAB)
-        serial_works = true;
+    outb(port + 7, 0xAB);
+    bool works = inb(port + 7) == 0xAB;
+    if (port == COM1 && works)
+        com1_works = true;
+    return works;
 }
 
 int serial_is_bus_empty(void) {
@@ -120,7 +122,7 @@ static void serial_tty_flush(vfs_node_t *node) {
     sched_wake(serial_tty_worker);
 }
 
-void irq4_handler(struct registers *r) {
+void serial_irq_handler(struct registers *r) {
     (void)r;
     uint8_t iir = inb(COM1 + 2);
     if ((iir & 0x06) == 0x04) {
@@ -129,8 +131,8 @@ void irq4_handler(struct registers *r) {
     lapic_eoi();
 }
 
-void serial_initialize(void) {
-    if (!serial_works)
+void serial_install(void) {
+    if (!com1_works)
         return;
 
     ttyS0 = devfs_create_numbered(DEVFS_STTY);
@@ -139,7 +141,7 @@ void serial_initialize(void) {
     ((tty_t *)ttyS0->device)->ioctl = serial_tty_ioctl;
     ((tty_t *)ttyS0->device)->flush = serial_tty_flush;
     
-    irq_register(4, irq4_handler);
+    irq_register(4, serial_irq_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 

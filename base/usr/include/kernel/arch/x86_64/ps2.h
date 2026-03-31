@@ -25,11 +25,17 @@ struct ps2_mouse_packet {
     short delta_y;
 };
 
+enum ps2_device_type {
+    PS2_KEYBOARD,
+    PS2_MOUSE
+};
+
 struct ps2_device {
     int refcount;
     bool caps;
     bool ctrl;
     bool shift;
+    enum ps2_device_type type;
     struct fifo *fifo;
 };
 
