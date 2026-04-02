@@ -1,6 +1,7 @@
 #include <kernel/bitmap.h>
 #include <kernel/signal.h>
 #include <kernel/printf.h>
+#include <kernel/assert.h>
 #include <kernel/errno.h>
 #include <kernel/sched.h>
 #include <kernel/list.h>
@@ -100,14 +101,16 @@ int signal_send(struct process *proc, int sig) {
         return -EINVAL;
     if (!proc->user)
         return -EPERM;
+    if (!proc->threads->length)
+        return 0;
 
     int word = (sig - 1) / LONG_BIT;
     int bit  = (sig - 1) % LONG_BIT;
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
-    if (tcb)
-        sched_wake(tcb);
+    assert(tcb);
+    sched_wake(tcb);
     
     return 0;
 }
