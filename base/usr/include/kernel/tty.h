@@ -21,6 +21,7 @@ typedef struct tty {
 
 long tty_enqueue(vfs_node_t *node, unsigned char c);
 long tty_enqueue_string(vfs_node_t *node, const char *s);
+void tty_enqueue_sgr_event(vfs_node_t *node, int button, int col, int row, bool release);
 tty_t *tty_create(vfs_node_t *node);
 void tty_destroy(vfs_node_t *node);
 void tty_spawn_worker(void);

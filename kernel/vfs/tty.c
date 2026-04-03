@@ -125,6 +125,12 @@ long tty_enqueue_string(vfs_node_t *node, const char *s) {
     return n;
 }
 
+void tty_enqueue_sgr_event(vfs_node_t *node, int button, int col, int row, bool release) {
+    char buf[32];
+    snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
+    tty_enqueue_string(node, buf);
+}
+
 long tty_poll(vfs_node_t *node, long events) {
     tty_t *tty = node->device;
     if (!tty)

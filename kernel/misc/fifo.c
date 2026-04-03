@@ -19,11 +19,17 @@ fifo_t *__fifo_create(long size, long object_size) {
 }
 
 long fifo_is_full(fifo_t *fifo) {
-    return fifo->count == fifo->size;
+    acquire(&fifo->lock);
+    long count = fifo->count;
+    release(&fifo->lock);
+    return count == fifo->size;
 }
 
 long fifo_is_empty(fifo_t *fifo) {
-    return fifo->count == 0;
+    acquire(&fifo->lock);
+    long count = fifo->count;
+    release(&fifo->lock);
+    return count == 0;
 }
 
 long __fifo_enqueue(fifo_t *fifo, const void *value) {

@@ -79,27 +79,27 @@ static const int kb_map_keys_caps[256] = {
 };
 
 static const int16_t keycode_map[128] = {
-    [0x0D] = KEY_TAB,       [0x0E] = KEY_GRAVE,
-    [0x12] = KEY_LEFTSHIFT, [0x14] = KEY_LEFTCTRL,  [0x11] = KEY_LEFTALT,
-    [0x15] = KEY_Q,         [0x16] = KEY_1,         [0x1A] = KEY_Z,
-    [0x1B] = KEY_S,         [0x1C] = KEY_A,         [0x1D] = KEY_W,
-    [0x1E] = KEY_2,         [0x21] = KEY_C,         [0x22] = KEY_X,
-    [0x23] = KEY_D,         [0x24] = KEY_E,         [0x25] = KEY_4,
-    [0x26] = KEY_3,         [0x29] = KEY_SPACE,     [0x2A] = KEY_V,
-    [0x2B] = KEY_F,         [0x2C] = KEY_T,         [0x2D] = KEY_R,
-    [0x2E] = KEY_5,         [0x31] = KEY_N,         [0x32] = KEY_B,
-    [0x33] = KEY_H,         [0x34] = KEY_G,         [0x35] = KEY_Y,
-    [0x36] = KEY_6,         [0x3A] = KEY_M,         [0x3B] = KEY_J,
-    [0x3C] = KEY_U,         [0x3D] = KEY_7,         [0x3E] = KEY_8,
-    [0x41] = KEY_COMMA,     [0x42] = KEY_K,         [0x43] = KEY_I,
-    [0x44] = KEY_O,         [0x45] = KEY_0,         [0x46] = KEY_9,
-    [0x49] = KEY_DOT,       [0x4A] = KEY_SLASH,     [0x4B] = KEY_L,
-    [0x4C] = KEY_SEMICOLON, [0x4D] = KEY_P,         [0x4E] = KEY_MINUS,
-    [0x52] = KEY_APOSTROPHE,[0x54] = KEY_LEFTBRACE,
-    [0x55] = KEY_EQUAL,     [0x59] = KEY_RIGHTSHIFT,[0x5A] = KEY_ENTER,
-    [0x5B] = KEY_RIGHTBRACE,[0x5D] = KEY_BACKSLASH,
-    [0x66] = KEY_BACKSPACE, [0x6B] = KEY_LEFT,      [0x72] = KEY_DOWN,
-    [0x74] = KEY_RIGHT,     [0x75] = KEY_UP,        [0x76] = KEY_ESC,
+    [0x0D] = KEY_TAB,        [0x0E] = KEY_GRAVE,
+    [0x12] = KEY_LEFTSHIFT,  [0x14] = KEY_LEFTCTRL,   [0x11] = KEY_LEFTALT,
+    [0x15] = KEY_Q,          [0x16] = KEY_1,          [0x1A] = KEY_Z,
+    [0x1B] = KEY_S,          [0x1C] = KEY_A,          [0x1D] = KEY_W,
+    [0x1E] = KEY_2,          [0x21] = KEY_C,          [0x22] = KEY_X,
+    [0x23] = KEY_D,          [0x24] = KEY_E,          [0x25] = KEY_4,
+    [0x26] = KEY_3,          [0x29] = KEY_SPACE,      [0x2A] = KEY_V,
+    [0x2B] = KEY_F,          [0x2C] = KEY_T,          [0x2D] = KEY_R,
+    [0x2E] = KEY_5,          [0x31] = KEY_N,          [0x32] = KEY_B,
+    [0x33] = KEY_H,          [0x34] = KEY_G,          [0x35] = KEY_Y,
+    [0x36] = KEY_6,          [0x3A] = KEY_M,          [0x3B] = KEY_J,
+    [0x3C] = KEY_U,          [0x3D] = KEY_7,          [0x3E] = KEY_8,
+    [0x41] = KEY_COMMA,      [0x42] = KEY_K,          [0x43] = KEY_I,
+    [0x44] = KEY_O,          [0x45] = KEY_0,          [0x46] = KEY_9,
+    [0x49] = KEY_DOT,        [0x4A] = KEY_SLASH,      [0x4B] = KEY_L,
+    [0x4C] = KEY_SEMICOLON,  [0x4D] = KEY_P,          [0x4E] = KEY_MINUS,
+    [0x52] = KEY_APOSTROPHE, [0x54] = KEY_LEFTBRACE,
+    [0x55] = KEY_EQUAL,      [0x59] = KEY_RIGHTSHIFT, [0x5A] = KEY_ENTER,
+    [0x5B] = KEY_RIGHTBRACE, [0x5D] = KEY_BACKSLASH,
+    [0x66] = KEY_BACKSPACE,  [0x6B] = KEY_LEFT,       [0x72] = KEY_DOWN,
+    [0x74] = KEY_RIGHT,      [0x75] = KEY_UP,         [0x76] = KEY_ESC,
 };
 
 enum {
@@ -109,93 +109,16 @@ enum {
 };
 
 static vfs_node_t *tty1, *kb, *mouse;
-static fifo_t *mouse_fifo;
-static struct thread *mouse_worker;
-
-static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
-    struct ps2_device *dev = kb->device;
-    if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
-        struct input_event iev = {
-            .type = EV_KEY,
-            .code = key < sizeof(keycode_map) / sizeof(int16_t) ? keycode_map[key] : 0,
-            .value = value
-        };
-        fifo_enqueue(dev->fifo, iev);
-    }
-}
+static fifo_t *kb_fifo, *mouse_fifo;
+static struct thread *kb_worker, *mouse_worker;
 
 void irq1_handler(struct registers *r) {
     (void)r;
     
-    int c;
     uint8_t key = inb(0x60);
-    static uint8_t last_key = 0;
-    struct ps2_device *dev = kb->device;
-    if (last_key == 0xf0) {
-        switch (key) {
-            case 0xe0:
-                break;
-            case 0x12:
-            case 0x59:
-                dev->shift = false;
-                break;
-            case 0x14:
-                dev->ctrl = false;
-                break;
-        }
-        ps2_keyboard_enqueue_key(key, 0);
-        vfs_wake_waiters(kb);
-    } else if (last_key == 0xe0) {
-        switch (key) {
-            case 0x75: // up
-                tty_enqueue_string(tty1, "\033[A");
-                break;
-            case 0x72: // down
-                tty_enqueue_string(tty1, "\033[B");
-                break;
-            case 0x74: // right
-                tty_enqueue_string(tty1, "\033[C");
-                break;
-            case 0x6b: // left
-                tty_enqueue_string(tty1, "\033[D");
-                break;
-        }
-        ps2_keyboard_enqueue_key(key, 1);
-        vfs_wake_waiters(kb);
-    } else {
-        switch (key) {
-            case 0xe0:
-            case 0xf0:
-                break;
-            case 0x12:
-            case 0x59:
-                dev->shift = true;
-                break;
-            case 0x14:
-                dev->ctrl = true;
-                break;
-            case 0x58:
-                dev->caps = !dev->caps;
-                break;
-            default:
-                if (dev->ctrl) {
-                    c = kb_map_keys_caps[key] - '@';
-                } else if (dev->shift) {
-                    c = kb_map_keys_shift[key];
-                } else if (dev->caps) {
-                    c = kb_map_keys_caps[key];
-                } else {
-                    c = kb_map_keys[key];
-                }
-
-                tty_enqueue(tty1, c);
-                break;
-        }
-        ps2_keyboard_enqueue_key(key, 1);
-        vfs_wake_waiters(kb);
-    }
-
-    last_key = key;
+    fifo_enqueue(kb_fifo, key);
+    sched_wake(kb_worker);
+    
     lapic_eoi();
 }
 
@@ -242,10 +165,94 @@ void irq12_handler(struct registers *r) {
     lapic_eoi();
 }
 
-static void ps2_send_sgr_event(int button, int col, int row, bool release) {
-    char buf[32];
-    snprintf(buf, sizeof buf, "\e[<%d;%d;%d%c", button, col, row, release ? 'm' : 'M');
-    tty_enqueue_string(tty1, buf);
+static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
+    struct ps2_device *dev = kb->device;
+    if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
+        struct input_event iev = {
+            .type = EV_KEY,
+            .code = key < sizeof(keycode_map) / sizeof(int16_t) ? keycode_map[key] : 0,
+            .value = value
+        };
+        fifo_enqueue(dev->fifo, iev);
+    }
+}
+
+void ps2_keyboard_worker(void) {
+    struct ps2_device *dev = kb->device;
+    uint8_t key, last_key = 0;
+    int c;
+
+    for (;;) {
+        while (fifo_dequeue(kb_fifo, &key) < 0) {
+            sched_block(this, 0);
+        }
+
+        if (last_key == 0xf0) {
+            switch (key) {
+                case 0xe0:
+                    break;
+                case 0x12:
+                case 0x59:
+                    dev->shift = false;
+                    break;
+                case 0x14:
+                    dev->ctrl = false;
+                    break;
+            }
+            ps2_keyboard_enqueue_key(key, 0);
+            vfs_wake_waiters(kb);
+        } else if (last_key == 0xe0) {
+            switch (key) {
+                case 0x75: // up
+                    tty_enqueue_string(tty1, "\033[A");
+                    break;
+                case 0x72: // down
+                    tty_enqueue_string(tty1, "\033[B");
+                    break;
+                case 0x74: // right
+                    tty_enqueue_string(tty1, "\033[C");
+                    break;
+                case 0x6b: // left
+                    tty_enqueue_string(tty1, "\033[D");
+                    break;
+            }
+            ps2_keyboard_enqueue_key(key, 1);
+            vfs_wake_waiters(kb);
+        } else {
+            switch (key) {
+                case 0xe0:
+                case 0xf0:
+                    break;
+                case 0x12:
+                case 0x59:
+                    dev->shift = true;
+                    break;
+                case 0x14:
+                    dev->ctrl = true;
+                    break;
+                case 0x58:
+                    dev->caps = !dev->caps;
+                    break;
+                default:
+                    if (dev->ctrl) {
+                        c = kb_map_keys_caps[key] - '@';
+                    } else if (dev->shift) {
+                        c = kb_map_keys_shift[key];
+                    } else if (dev->caps) {
+                        c = kb_map_keys_caps[key];
+                    } else {
+                        c = kb_map_keys[key];
+                    }
+
+                    tty_enqueue(tty1, c);
+                    break;
+            }
+            ps2_keyboard_enqueue_key(key, 1);
+            vfs_wake_waiters(kb);
+        }
+
+        last_key = key;
+    }
 }
 
 void ps2_mouse_worker(void) {
@@ -300,16 +307,16 @@ void ps2_mouse_worker(void) {
 
             if (col != last_col || row != last_row) {
                 if ((state.delta_x || state.delta_y) && (state.left || state.right || state.middle))
-                    ps2_send_sgr_event(state.left ? 32 : (state.middle ? 33 : 34), col, row, false);
+                    tty_enqueue_sgr_event(tty1, state.left ? 32 : (state.middle ? 33 : 34), col, row, false);
                 last_col = col, last_row = row;
             }
 
-            if (state.left && !last_state.left)     ps2_send_sgr_event(0, col, row, false);
-            if (state.right && !last_state.right)   ps2_send_sgr_event(2, col, row, false);
-            if (state.middle && !last_state.middle) ps2_send_sgr_event(1, col, row, false);
-            if (!state.left && last_state.left)     ps2_send_sgr_event(0, col, row, true);
-            if (!state.right && last_state.right)   ps2_send_sgr_event(2, col, row, true);
-            if (!state.middle && last_state.middle) ps2_send_sgr_event(1, col, row, true);
+            if (state.left && !last_state.left)     tty_enqueue_sgr_event(tty1, 0, col, row, false);
+            if (state.right && !last_state.right)   tty_enqueue_sgr_event(tty1, 2, col, row, false);
+            if (state.middle && !last_state.middle) tty_enqueue_sgr_event(tty1, 1, col, row, false);
+            if (!state.left && last_state.left)     tty_enqueue_sgr_event(tty1, 0, col, row, true);
+            if (!state.right && last_state.right)   tty_enqueue_sgr_event(tty1, 2, col, row, true);
+            if (!state.middle && last_state.middle) tty_enqueue_sgr_event(tty1, 1, col, row, true);
 
             if (!state.left && !state.right && !state.middle)
                 framebuffer_draw_cursor(x, y);
@@ -450,17 +457,24 @@ void ps2_hid_install(void) {
     
     tty1 = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE).node;
     assert(tty1);
+
     kb = devfs_create_numbered(DEVFS_EVENT);
     kb->ops = &ps2_ops;
     kb->device = &keyboard_device;
     keyboard_device.fifo = fifo_create(256, struct input_event);
+    kb_fifo = fifo_create(256, uint8_t);
+
+    struct process *proc = sched_new_process("ps2 worker", false);
+    kb_worker = sched_new_thread(proc, ps2_keyboard_worker, 0, NULL, NULL, NULL, 0, NULL);
+    kb_worker->state = THREAD_PAUSED;
+
     irq_register(1, irq1_handler);
     ioapic_redirect_irq(0, 33, 1, false);
     
     ps2_flush_buffer();
     ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
     if (ps2_read_data() != 0xFA)
-        return;
+        goto no_mouse;
     ps2_flush_buffer();
     
     ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
@@ -474,13 +488,13 @@ void ps2_hid_install(void) {
     mouse_device.fifo = fifo_create(256, struct input_event);
     mouse_fifo = fifo_create(256, struct ps2_mouse_packet);
 
-    struct process *proc = sched_new_process("ps2 worker", false);
     mouse_worker = sched_new_thread(proc, ps2_mouse_worker, 0, NULL, NULL, NULL, 0, NULL);
     mouse_worker->state = THREAD_PAUSED;
-    sched_add_process(proc);
 
     irq_register(12, irq12_handler);
     ioapic_redirect_irq(0, 44, 12, false);
     
+no_mouse:
+    sched_add_process(proc);
     dprintf(LOG_INFO, "\033[93mi8042:\033[0m initialized PS/2 controller\n");
 }
