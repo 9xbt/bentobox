@@ -1,0 +1,282 @@
+diff --git a/config.sub b/config.sub
+index 38f3d037a..3338b363e 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1749,7 +1749,7 @@ case $os in
+ 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
+ 	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
+ 	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx* | zephyr* \
+-	     | fiwix* )
++	     | fiwix* | bentobox* )
+ 		;;
+ 	# This one is extra strict with allowed versions
+ 	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
+diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
+index 7112f4dcd..c975901ab 100755
+--- a/fixincludes/mkfixinc.sh
++++ b/fixincludes/mkfixinc.sh
+@@ -11,6 +11,7 @@ target=fixinc.sh
+ 
+ # Check for special fix rules for particular targets
+ case $machine in
++    *-bentobox* | \
+     i?86-*-cygwin* | \
+     *-mingw32* | \
+     powerpc-*-eabisim* | \
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index eb09eedfb..df9c4f9c1 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -801,6 +801,15 @@ case ${target} in
+     "" | yes | posix) thread_file='posix' ;;
+   esac
+   ;;
++*-*-bentobox*)
++  extra_options="$extra_options gnu-user.opt"
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=provide
++  tmake_file="${tmake_file} t-slibgcc"
++  thread_file='posix'
++  ;;
+ *-*-dragonfly*)
+   gas=yes
+   gnu_ld=yes
+@@ -1224,6 +1233,10 @@ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	done
+ 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
+ 	;;
++aarch64*-*-bentobox*)
++	tm_file="${tm_file} elfos.h gnu-user.h glibc-stdint.h aarch64/aarch64-elf.h aarch64/bentobox.h"
++	tmake_file="${tmake_file} aarch64/t-aarch64"
++	;;
+ aarch64*-*-freebsd*)
+ 	tm_file="${tm_file} elfos.h ${fbsd_tm_file}"
+ 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-freebsd.h"
+@@ -1941,6 +1954,9 @@ i[34567]86-*-darwin*)
+ 	tmake_file="${tmake_file} ${cpu_type}/t-darwin32-biarch t-slibgcc"
+ 	tm_file="${cpu_type}/darwin32-biarch.h ${tm_file} "
+ 	;;
++x86_64-*-bentobox*)
++	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h gnu-user.h glibc-stdint.h i386/x86-64.h i386/gnu-user-common.h i386/gnu-user64.h i386/bentobox.h"
++	;;
+ x86_64-*-darwin1[89]* | x86_64-*-darwin2*)
+ 	# Only 64b from now
+ 	tm_defines="${tm_defines} TARGET_64BIT_DEFAULT=(OPTION_MASK_ISA_64BIT|OPTION_MASK_ABI_64)"
+diff --git a/gcc/config/aarch64/bentobox.h b/gcc/config/aarch64/bentobox.h
+new file mode 100644
+index 000000000..5531bc40d
+--- /dev/null
++++ b/gcc/config/aarch64/bentobox.h
+@@ -0,0 +1,37 @@
++/* Useful if you wish to make target-specific GCC changes. */
++#undef TARGET_BENTOBOX
++#define TARGET_BENTOBOX 1
++
++/* Default arguments you want when running your
++   i686-myos-gcc/x86_64-myos-gcc toolchain */
++#undef LIB_SPEC
++#define LIB_SPEC "-lc" /* link against C standard library */
++
++/* Files that are linked before user code.
++   The %s tells GCC to look for these files in the library directory. */
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "%{!shared: %{static-pie|pie|!no-pie:Scrt1.o%s;:crt1.o%s}} crti.o%s %{shared|static-pie|pie|!no-pie:crtbeginS.o%s;:crtbegin.o%s}"
++
++/* Files that are linked after user code. */
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "%{shared|static-pie|pie|!no-pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{h*} %{version:-v} \
++   %{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic} \
++   %{!static:%{!static-pie:--eh-frame-hdr}} \
++   %{!static:%{!static-pie:%{!shared:%{!r:-dynamic-linker " GNU_USER_DYNAMIC_LINKER "}}}} \
++   -m aarch64linux"
++
++#define GNU_USER_DYNAMIC_LINKER "/usr/lib/ld.so"
++
++/* Additional predefined macros. */
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__bentobox__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=bentobox");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
+diff --git a/gcc/config/i386/bentobox.h b/gcc/config/i386/bentobox.h
+new file mode 100644
+index 000000000..26bd04349
+--- /dev/null
++++ b/gcc/config/i386/bentobox.h
+@@ -0,0 +1,36 @@
++/* Useful if you wish to make target-specific GCC changes. */
++#undef TARGET_BENTOBOX
++#define TARGET_BENTOBOX 1
++
++/* Default arguments you want when running your
++   i686-myos-gcc/x86_64-myos-gcc toolchain */
++#undef LIB_SPEC
++#define LIB_SPEC "-lc" /* link against C standard library */
++
++/* Files that are linked before user code.
++   The %s tells GCC to look for these files in the library directory. */
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "%{!shared: %{static-pie|pie|!no-pie:Scrt1.o%s;:crt1.o%s}} crti.o%s %{shared|static-pie|pie|!no-pie:crtbeginS.o%s;:crtbegin.o%s}"
++
++/* Files that are linked after user code. */
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "%{shared|static-pie|pie|!no-pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
++
++#define GNU_USER_LINK_EMULATION32 "elf_i386"
++#define GNU_USER_LINK_EMULATION64 "elf_x86_64"
++#define GNU_USER_LINK_EMULATIONX32 "elf32_x86_64"
++
++#define GNU_USER_DYNAMIC_LINKER32 "/does_not_exist"
++#define GNU_USER_DYNAMIC_LINKER64 "/usr/lib/ld.so"
++#define GNU_USER_DYNAMIC_LINKERX32 "/does_not_exist"
++
++/* Additional predefined macros. */
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__bentobox__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=bentobox");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
+diff --git a/gcc/cp/module.cc b/gcc/cp/module.cc
+index 7f2922261..bc6fab0a1 100644
+--- a/gcc/cp/module.cc
++++ b/gcc/cp/module.cc
+@@ -1697,8 +1697,10 @@ elf_in::defrost (const char *name)
+ 	      set_error (errno);
+ 	  else
+ 	    {
++#ifndef __bentobox__
+ 	      if (madvise (mapping, hdr.pos, MADV_RANDOM))
+ 		goto fail;
++#endif
+ 
+ 	      /* These buffers are never NULL in this case.  */
+ 	      strtab.buffer = mapping + strtab.pos;
+@@ -1808,8 +1810,10 @@ elf_in::begin (location_t loc)
+     }
+   /* We'll be hopping over this randomly.  Some systems declare the
+      first parm as char *, and other declare it as void *.  */
++#ifndef __bentobox__
+   if (madvise (reinterpret_cast <char *> (mapping), size, MADV_RANDOM))
+     goto fail;
++#endif
+ 
+   hdr.buffer = (char *)mapping;
+ #else
+diff --git a/libgcc/config.host b/libgcc/config.host
+index 6a88ee5a2..e4c908125 100644
+--- a/libgcc/config.host
++++ b/libgcc/config.host
+@@ -412,6 +412,12 @@ aarch64*-*-elf | aarch64*-*-rtems*)
+ 	md_unwind_def_header=aarch64/aarch64-unwind-def.h
+ 	md_unwind_header=aarch64/aarch64-unwind.h
+ 	;;
++aarch64*-*-bentobox*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o crtn.o"
++	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
++	tmake_file="${tmake_file} ${cpu_type}/t-lse ${cpu_type}/t-softfp t-softfp t-crtfm t-slibgcc-libgcc t-slibgcc t-slibgcc-gld t-slibgcc-elf-ver t-libgcc-pic"
++	md_unwind_header=aarch64/aarch64-unwind.h
++	;;
+ aarch64*-*-freebsd*)
+ 	extra_parts="$extra_parts crtfastmath.o"
+ 	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
+@@ -767,6 +773,10 @@ x86_64-*-elf* | x86_64-*-rtems*)
+ x86_64-*-fuchsia*)
+ 	tmake_file="$tmake_file t-libgcc-pic"
+ 	;;
++x86_64-*-bentobox*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-slibgcc t-slibgcc-gld t-slibgcc-elf-ver t-libgcc-pic"
++	;;
+ i[34567]86-*-dragonfly*)
+ 	tmake_file="${tmake_file} i386/t-dragonfly i386/t-crtstuff"
+ 	md_unwind_header=i386/dragonfly-unwind.h
+diff --git a/libiberty/getopt.c b/libiberty/getopt.c
+index 0f64a8f5d..6772d1d11 100644
+--- a/libiberty/getopt.c
++++ b/libiberty/getopt.c
+@@ -106,7 +106,7 @@
+    Also, when `ordering' is RETURN_IN_ORDER,
+    each non-option ARGV-element is returned here.  */
+ 
+-char *optarg = NULL;
++__attribute__((weak)) char *optarg = NULL;
+ 
+ /* Index in ARGV of the next element to be scanned.
+    This is used for communication to and from the caller
+@@ -121,7 +121,7 @@ char *optarg = NULL;
+    how much of ARGV has been scanned so far.  */
+ 
+ /* 1003.2 says this must be 1 before any call.  */
+-int optind = 1;
++__attribute__((weak)) int optind = 1;
+ 
+ /* Formerly, initialization of getopt depended on optind==0, which
+    causes problems with re-calling getopt as programs generally don't
+@@ -141,13 +141,13 @@ static char *nextchar;
+ /* Callers store zero here to inhibit the error message
+    for unrecognized options.  */
+ 
+-int opterr = 1;
++__attribute__((weak)) int opterr = 1;
+ 
+ /* Set to an option character which was unrecognized.
+    This must be initialized on some systems to avoid linking in the
+    system's own getopt implementation.  */
+ 
+-int optopt = '?';
++__attribute__((weak)) int optopt = '?';
+ 
+ /* Describe how to deal with options that follow non-option ARGV-elements.
+ 
+@@ -963,6 +963,7 @@ _getopt_internal (int argc, char *const *argv, const char *optstring,
+   }
+ }
+ 
++__attribute__((weak))
+ int
+ getopt (int argc, char *const *argv, const char *optstring)
+ {
+diff --git a/libstdc++-v3/configure b/libstdc++-v3/configure
+index 527548051..75ddc83e2 100755
+--- a/libstdc++-v3/configure
++++ b/libstdc++-v3/configure
+@@ -38878,7 +38878,7 @@ $as_echo "#define HAVE_TLS 1" >>confdefs.h
+ 
+   fi
+     ;;
+-  *-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris*)
++  *-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris* | *-bentobox* )
+ 
+   # All these tests are for C++; save the language and the compiler flags.
+   # The CXXFLAGS thing is suspicious, but based on similar bits previously
+diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
+index b3269cb88..432449b37 100644
+--- a/libstdc++-v3/crossconfig.m4
++++ b/libstdc++-v3/crossconfig.m4
+@@ -67,6 +67,13 @@ case "${host}" in
+     AC_DEFINE(HAVE_USELOCALE)
+     ;;
+ 
++  *-bentobox*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
++
+   *-darwin*)
+     # Darwin versions vary, but the linker should work in a cross environment,
+     # so we just check for all the features here.
