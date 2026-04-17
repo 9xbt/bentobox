@@ -1,0 +1,154 @@
+diff --git a/bfd/config.bfd b/bfd/config.bfd
+index 4dde5321..a6deb81a 100644
+--- a/bfd/config.bfd
++++ b/bfd/config.bfd
+@@ -243,6 +243,11 @@ esac
+ case "${targ}" in
+ # START OF targmatch.h
+ #ifdef BFD64
++  aarch64-*-bentobox*)
++    targ_defvec=aarch64_elf64_le_vec
++    targ_selvecs=
++    want64=true
++    ;;
+   aarch64-*-darwin*)
+     targ_defvec=aarch64_mach_o_vec
+     targ_selvecs="arm_mach_o_vec mach_o_le_vec mach_o_be_vec mach_o_fat_vec"
+@@ -667,6 +672,11 @@ case "${targ}" in
+     targ64_selvecs=x86_64_elf64_vec
+     ;;
+ #ifdef BFD64
++  x86_64-*-bentobox*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
+   x86_64-*-darwin*)
+     targ_defvec=x86_64_mach_o_vec
+     targ_selvecs="i386_mach_o_vec mach_o_le_vec mach_o_be_vec mach_o_fat_vec pef_vec pef_xlib_vec sym_vec"
+diff --git a/config.sub b/config.sub
+index 3d35cde1..9870ec71 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1981,6 +1981,7 @@ case $os in
+ 	| atheos* \
+ 	| auroraux* \
+ 	| aux* \
++        | bentobox* \
+ 	| banan_os* \
+ 	| beos* \
+ 	| bitrig* \
+diff --git a/configure b/configure
+index 2551fe02..c8f18cc4 100755
+--- a/configure
++++ b/configure
+@@ -3135,7 +3135,7 @@ case "${ENABLE_GOLD}" in
+       *-*-elf* | *-*-sysv4* | *-*-unixware* | *-*-eabi* | hppa*64*-*-hpux* \
+       | *-*-linux* | *-*-gnu* | frv-*-uclinux* | *-*-irix5* | *-*-irix6* \
+       | *-*-netbsd* | *-*-openbsd* | *-*-freebsd* | *-*-dragonfly* \
+-      | *-*-solaris2* | *-*-nto* | *-*-nacl* | *-*-haiku*)
++      | *-*-solaris2* | *-*-nto* | *-*-nacl* | *-*-haiku* | *-*-bentobox*)
+         case "${target}" in
+           *-*-linux*aout* | *-*-linux*oldld*)
+             ;;
+diff --git a/gas/configure.tgt b/gas/configure.tgt
+index f0ea55d9..74a9c793 100644
+--- a/gas/configure.tgt
++++ b/gas/configure.tgt
+@@ -126,6 +126,7 @@ esac
+ generic_target=${cpu_type}-$vendor-$os
+ # Note: This table is alpha-sorted, please try to keep it that way.
+ case ${generic_target} in
++  aarch64*-*-bentobox*)			fmt=elf ;;
+   aarch64*-*-elf*)			fmt=elf;;
+   aarch64*-*-fuchsia*)			fmt=elf;;
+   aarch64*-*-haiku*)			fmt=elf em=haiku ;;
+@@ -224,6 +225,7 @@ case ${generic_target} in
+   h8300-*-elf)				fmt=elf ;;
+   h8300-*-linux*)			fmt=elf em=linux ;;
+ 
++  i386-*-bentobox*)			fmt=elf em=gnu ;;
+   i386-*-beospe*)			fmt=coff em=pe ;;
+   i386-*-beos*)				fmt=elf ;;
+   i386-*-elfiamcu)			fmt=elf arch=iamcu ;;
+diff --git a/ld/configure.tgt b/ld/configure.tgt
+index 3e158913..1038360b 100644
+--- a/ld/configure.tgt
++++ b/ld/configure.tgt
+@@ -85,6 +85,10 @@ case "${targ}" in
+ aarch64_be-*-elf)	targ_emul=aarch64elfb
+ 			targ_extra_emuls="aarch64elf aarch64elf32 aarch64elf32b armelfb armelf"
+ 			;;
++aarch64*-*-bentobox*)	targ_emul=aarch64linux
++			targ_extra_emuls="aarch64linuxb aarch64elf aarch64elfb"
++			targ_extra_libpath="aarch64elf aarch64elfb"
++			;;
+ aarch64-*-elf | aarch64-*-rtems* | aarch64-*-genode*)
+ 			targ_emul=aarch64elf
+ 			targ_extra_emuls="aarch64elf32 aarch64elf32b aarch64elfb armelf armelfb"
+@@ -331,6 +335,9 @@ hppa*-*-netbsd*)	targ_emul=hppanbsd
+ 			;;
+ hppa*-*-openbsd*)	targ_emul=hppaobsd
+ 			;;
++i[3-7]86-*-bentobox*)	targ_emul=elf_i386
++			targ_extra_emuls=elf_x86_64
++			;;
+ i[3-7]86-*-nto-qnx*)	targ_emul=i386nto
+ 			;;
+ i[3-7]86-*-go32)	targ_emul=i386go32
+@@ -947,6 +954,9 @@ vax-*-linux-*)		targ_emul=elf32vax
+ 			;;
+ visium-*-elf)		targ_emul=elf32visium
+ 			;;
++x86_64-*-bentobox*)	targ_emul=elf_x86_64
++			targ_extra_emuls=elf_i386
++			;;
+ x86_64-*-rdos*)		targ_emul=elf64rdos
+ 			;;
+ x86_64-*-haiku*)	targ_emul=elf_x86_64_haiku
+diff --git a/libiberty/getopt.c b/libiberty/getopt.c
+index 3b6e3594..d23cd920 100644
+--- a/libiberty/getopt.c
++++ b/libiberty/getopt.c
+@@ -106,7 +106,7 @@
+    Also, when `ordering' is RETURN_IN_ORDER,
+    each non-option ARGV-element is returned here.  */
+ 
+-char *optarg = NULL;
++__attribute__((weak)) char *optarg = NULL;
+ 
+ /* Index in ARGV of the next element to be scanned.
+    This is used for communication to and from the caller
+@@ -121,7 +121,7 @@ char *optarg = NULL;
+    how much of ARGV has been scanned so far.  */
+ 
+ /* 1003.2 says this must be 1 before any call.  */
+-int optind = 1;
++__attribute__((weak)) int optind = 1;
+ 
+ /* Formerly, initialization of getopt depended on optind==0, which
+    causes problems with re-calling getopt as programs generally don't
+@@ -141,13 +141,13 @@ static char *nextchar;
+ /* Callers store zero here to inhibit the error message
+    for unrecognized options.  */
+ 
+-int opterr = 1;
++__attribute__((weak)) int opterr = 1;
+ 
+ /* Set to an option character which was unrecognized.
+    This must be initialized on some systems to avoid linking in the
+    system's own getopt implementation.  */
+ 
+-int optopt = '?';
++__attribute__((weak)) int optopt = '?';
+ 
+ /* Describe how to deal with options that follow non-option ARGV-elements.
+ 
+@@ -963,6 +963,7 @@ _getopt_internal (int argc, char *const *argv, const char *optstring,
+   }
+ }
+ 
++__attribute__((weak))
+ int
+ getopt (int argc, char *const *argv, const char *optstring)
+ {
