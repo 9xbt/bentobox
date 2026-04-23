@@ -244,7 +244,7 @@ struct process *sched_new_process(const char *name, bool user) {
     vfs_result_t r = vfs_open(NULL, "/dev/tty1", 0);
     assert(r.node);
     proc->files[0] = proc->files[1] = proc->files[2] = file_new(r.node, 0);
-    proc->cwd = NULL;
+    proc->cwd = vfs_get_root();
     proc->umask = 022;
     proc->exit_status = 0;
     memset(&proc->psig, 0, sizeof proc->psig);

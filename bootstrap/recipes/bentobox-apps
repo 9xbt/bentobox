@@ -1,0 +1,15 @@
+name=bentobox-apps
+revision=1
+from_source=bentobox-apps
+imagedeps="build-essential nasm"
+hostdeps="gcc binutils"
+deps="mlibc bentobox-headers"
+
+build() {
+    cp -rp ${source_dir}/* .
+	make ARCH=${JINX_ARCH} -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

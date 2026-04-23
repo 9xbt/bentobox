@@ -1,0 +1,5 @@
+#pragma once
+
+#define BENTOBOX_REBOOT_MAGIC       0xfee1dead
+#define BENTOBOX_REBOOT_OP_RESTART  1
+#define BENTOBOX_REBOOT_OP_SHUTDOWN 2

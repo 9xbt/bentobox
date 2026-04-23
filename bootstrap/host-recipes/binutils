@@ -1,0 +1,16 @@
+name=binutils
+revision=1
+from_source=binutils
+imagedeps="build-essential gcc"
+
+configure() {
+	${source_dir}/configure --target=${TARGET} --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-nls --disable-werror --enable-shared --enable-host-shared --enable-default-execstack=no
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+}

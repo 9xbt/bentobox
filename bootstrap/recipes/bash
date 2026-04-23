@@ -1,0 +1,20 @@
+name=bash
+revision=1
+from_source=bash
+imagedeps="build-essential"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub support/
+	LDFLAGS="-Wl,--allow-multiple-definition" ./configure --host=${TARGET} --prefix=${prefix} --disable-nls --without-bash-malloc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

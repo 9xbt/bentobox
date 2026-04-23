@@ -1,0 +1,31 @@
+--- jinx_original	2026-04-19 20:37:11.471348175 +0200
++++ jinx	2026-04-19 20:32:58.120067141 +0200
+@@ -83,10 +83,6 @@
+         die "$0: Current directory already initialised, run '$0 deinit' first"
+     fi
+ 
+-    if [ -f "Jinxfile" ]; then
+-        die "$0: In-tree builds are not supported"
+-    fi
+-
+     cat <<EOF >.jinx-parameters
+ #! /bin/sh
+ 
+@@ -1229,7 +1225,7 @@
+     cross_compile=yes
+     prepare_container
+ 
+-    container_sources_ro="-o ro"
++    container_sources_ro=""
+     if ! [ -d "${build_dir}"/host-builds/$1 ]; then
+         run_in_container internal-configure-host $1
+     fi
+@@ -1286,7 +1282,7 @@
+ 
+     prepare_container
+ 
+-    container_sources_ro="-o ro"
++    container_sources_ro=""
+     if ! [ -d "${build_dir}"/builds/$1 ]; then
+         run_in_container internal-configure $1
+     fi

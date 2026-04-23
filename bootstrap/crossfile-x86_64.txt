@@ -1,0 +1,19 @@
+[host_machine]
+system = 'bentobox'
+cpu_family = 'x86_64'
+cpu = 'x86_64' 
+endian = 'little'
+
+[build_machine]
+system = 'linux'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = 'x86_64-pc-bentobox-gcc'
+cpp = 'x86_64-pc-bentobox-g++'
+ar = 'x86_64-pc-bentobox-ar'
+ld = 'x86_64-pc-bentobox-ld'
+strip = 'x86_64-pc-bentobox-strip'
+pkg-config = 'x86_64-pc-bentobox-pkg-config'

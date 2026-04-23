@@ -1,0 +1,8 @@
+name=gcc
+version=15.2.1
+git_url="https://github.com/gcc-mirror/gcc"
+commit="0e01be9d5b300f4bf74e02667ff3e335a6e4e248"
+
+prepare() {
+	:
+}

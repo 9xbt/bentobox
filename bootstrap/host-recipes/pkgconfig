@@ -1,0 +1,28 @@
+name=pkgconfig
+revision=1
+from_source=pkgconfig
+imagedeps="gcc build-essential"
+
+configure() {
+	${source_dir}/configure --prefix=${prefix}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+	mkdir -p ${dest_dir}${prefix}/share/pkgconfig/personality.d
+	
+	cat > ${dest_dir}${prefix}/share/pkgconfig/personality.d/${JINX_ARCH}-bentobox.personality << EOF
+Triplet: ${TARGET}
+SysrootDir: ${sysroot_dir}
+DefaultSearchPaths: ${sysroot_dir}/usr/lib/pkgconfig:${sysroot_dir}/usr/share/pkgconfig
+SystemIncludePaths: ${sysroot_dir}/usr/include
+SystemLibraryPaths: ${sysroot_dir}/usr/lib
+EOF
+
+	ln -s pkgconf ${dest_dir}${prefix}/bin/${TARGET}-pkg-config
+	ln -s pkgconf ${dest_dir}${prefix}/bin/pkg-config
+}

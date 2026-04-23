@@ -1,0 +1,23 @@
+name=mlibc
+from_source=mlibc
+revision=1
+hostdeps="gcc binutils pkgconfig"
+imagedeps="meson ninja-build git build-essential binutils"
+deps="mlibc-headers linux-headers"
+allow_network="yes"
+
+configure() {
+    meson setup build-${JINX_ARCH} --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt \
+        ${source_dir} -Dheaders_only=false -Ddefault_library=shared \
+        -Dbuild_tests=false -Dposix_option=enabled -Dlinux_option=enabled \
+        -Dglibc_option=enabled -Dbsd_option=enabled -Dno_headers=true --prefix=${prefix} \
+        -Dlinux_kernel_headers=${sysroot_dir}/${prefix}/include
+}
+
+build() {
+    ninja -C build-${JINX_ARCH}
+}
+
+package() {
+    DESTDIR=${dest_dir} ninja -C build-${JINX_ARCH} install
+}

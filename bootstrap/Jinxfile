@@ -1,0 +1,7 @@
+#!/bin/sh
+
+JINX_MAJOR_VER=0.8
+JINX_DEBIAN_SNAPSHOT=20260331T082948Z
+JINX_BASE_PACKAGES="automake autoconf autopoint bison gettext m4 make cmake meson texinfo libtool"
+
+TARGET=${JINX_ARCH}-pc-bentobox

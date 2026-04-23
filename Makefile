@@ -2,7 +2,7 @@
 
 OUTPUT := kernel
 ARCH := x86_64
-TOOLCHAIN := $(ARCH)-pc-bentobox
+TOOLCHAIN :=
 
 TOOLCHAIN_PREFIX :=
 ifneq ($(TOOLCHAIN),)
@@ -37,29 +37,6 @@ HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 MODULE_SOURCES := $(shell find modules -type f -name '*.c')
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
-APPS_CC := $(ARCH)-pc-bentobox-gcc
-
-APPS_CFLAGS := -g -O2 -Ibase/usr/include/
-APPS_LDFLAGS :=
-APPS_SOURCES := $(shell find apps -type f)
-
-APPS_CFILES := $(filter %.c,$(APPS_SOURCES))
-APPS_ASFILES := $(filter %.S,$(APPS_SOURCES))
-APPS_NASMFILES := $(filter %.asm,$(APPS_SOURCES))
-
-APPS_OBJS :=
-APPS_EXECUTABLES := $(addprefix bin/$(ARCH)/,$(APPS_CFILES:.c=))
-
-ifeq ($(ARCH),x86_64)
-    APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_NASMFILES:.asm=.o))
-    APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_NASMFILES:.asm=))
-endif
-
-ifeq ($(ARCH),aarch64)
-    APPS_OBJS += $(addprefix obj/$(ARCH)/,$(APPS_ASFILES:.S=.o))
-    APPS_EXECUTABLES += $(addprefix bin/$(ARCH)/,$(APPS_ASFILES:.S=))
-endif
-
 .PHONY: all
 all: $(IMAGE_NAME).iso
 
@@ -71,8 +48,6 @@ hdd: $(LIB_LIBS) $(APPS_EXECUTABLES) $(IMAGE_NAME).hdd
 
 .PHONY: livecd
 livecd: $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar
-
-$(APPS_EXECUTABLES): $(LIB_LIBS)
 
 -include $(HEADER_DEPS)
 
@@ -101,46 +76,21 @@ obj/$(ARCH)/modules/%.ko: modules/%.c
 	@mkdir -p "$$(dirname $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -mcmodel=large -fno-pic -c $< -o $@
 
-bin/$(ARCH)/apps/%: obj/$(ARCH)/apps/%.o
-	@echo " LD $@"
-	@mkdir -p "$(dir $@)"
-	@$(LD) -nostdlib -static $< -o $@
-
-bin/$(ARCH)/apps/%: apps/%.c
-	@echo " CC $<"
-	@mkdir -p "$$(dirname $@)"
-	@$(APPS_CC) $(APPS_CFLAGS) $< $(APPS_LDFLAGS) -o $@
-
-ifeq ($(ARCH),aarch64)
-obj/$(ARCH)/apps/%.o: apps/%.S
-	@echo " AS $<"
-	@mkdir -p "$$(dirname $@)"
-	@$(CC) -march=armv8-a -c $< -o $@
-endif
-
-ifeq ($(ARCH),x86_64)
-obj/$(ARCH)/apps/%.o: apps/%.asm
-	@echo " AS $<"
-	@mkdir -p "$$(dirname $@)"
-	@nasm -f elf64 -o $@ $<
-endif
-
-# TODO: optimize this? what about using FUSE instead?
-bin/$(ARCH)/initrd.tar: $(shell find build/base/$(ARCH) -type f) $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
+bin/$(ARCH)/initrd.tar: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
-	@cp -r build/base/$(ARCH)/* bin/$(ARCH)/base/
+	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf $@ .
 
-$(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -type f) $(shell find apps -type f) $(APPS_EXECUTABLES)
+$(IMAGE_NAME).hdd: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
-	@cp -r build/base/$(ARCH)/* bin/$(ARCH)/base/
+	@cp -r --no-preserve=mode bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@truncate -s 4000M $@
 	@mkfs.ext2 -b 1024 -O ^filetype -F $@
@@ -153,6 +103,12 @@ $(IMAGE_NAME).hdd: $(shell find build/base/$(ARCH) -type f) $(shell find base -t
 clean:
 	@rm -rf bin obj iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
+.PHONY: jinx
+jinx: bootstrap/jinx
+	mkdir -p bootstrap/build-$(ARCH)/sysroot
+	ln -sf ../jinx bootstrap/build-$(ARCH)/jinx
+	cd bootstrap/build-$(ARCH) && jinx init .. ARCH=$(ARCH)
+
 build/limine/limine:
 	rm -rf build/limine
 	git clone https://github.com/limine-bootloader/limine.git build/limine --branch=v9.x-binary --depth=1
@@ -162,3 +118,8 @@ build/limine/limine:
 		CPPFLAGS="$(HOST_CPPFLAGS)" \
 		LDFLAGS="$(HOST_LDFLAGS)" \
 		LIBS="$(HOST_LIBS)"
+
+bootstrap/jinx:
+	curl -o $@ https://codeberg.org/Mintsuki/jinx/raw/commit/e6f44d1bd8c6a504fc3fbfcc16ddb549e2e89a3c/jinx
+	chmod +x $@
+	cd bootstrap && patch < ../build/jinx-remove-intree-check.diff

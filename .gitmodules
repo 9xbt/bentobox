@@ -1,22 +1,10 @@
 [submodule "lib/flanterm"]
 	path = lib/flanterm
 	url = https://github.com/mintsuki/flanterm
-[submodule "lib/mlibc"]
-	path = lib/mlibc
-	url = https://github.com/9xbt/mlibc
 	branch = bentobox
-[submodule "util/binutils-gdb"]
-	path = util/binutils-gdb
-	url = https://github.com/9xbt/binutils-gdb
-[submodule "util/gcc"]
-	path = util/gcc
-	url = https://github.com/9xbt/gcc
 [submodule "lib/uACPI"]
 	path = lib/uACPI
 	url = https://github.com/uACPI/uACPI
-[submodule "util/freestnd-c-hdrs"]
-	path = util/freestnd-c-hdrs
-	url = https://github.com/osdev0/freestnd-c-hdrs-0bsd.git
 [submodule "build/cc-runtime"]
 	path = build/cc-runtime
 	url = https://github.com/osdev0/cc-runtime.git

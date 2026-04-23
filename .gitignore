@@ -3,9 +3,13 @@
 /iso_root
 /build/limine
 /build/base
-/util/build
-/ports/src
 compile_commands.json
+jinx
+.jinx-parameters
+.jinx-cache
+/bootstrap/build-*
+/bootstrap/base
+/bootstrap/sources
 .cache
 .vscode
 *.wad

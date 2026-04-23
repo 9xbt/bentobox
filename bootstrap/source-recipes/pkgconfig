@@ -1,0 +1,8 @@
+name=pkgconfig
+version=2.5.1
+tarball_url="https://github.com/pkgconf/pkgconf/archive/refs/tags/pkgconf-${version}.tar.gz"
+tarball_blake2b="f62695c7c2ecd12cabe078818a4cdb16db96f04a5bdc8c6a17cf5f0607fd5f6d085e441308d2b2e9b1b7b8b89a2ca5f764b18cbc0b90ac881cd62e23b57bc00e"
+
+prepare() {
+	./autogen.sh
+}

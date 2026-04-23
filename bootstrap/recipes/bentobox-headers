@@ -1,0 +1,12 @@
+name=bentobox-headers
+from_source=bentobox-headers
+revision=1
+
+build() {
+	:
+}
+
+package() {
+    mkdir -p ${dest_dir}/${prefix}/include/bentobox/
+	cp ${source_dir}/* ${dest_dir}/${prefix}/include/bentobox/
+}

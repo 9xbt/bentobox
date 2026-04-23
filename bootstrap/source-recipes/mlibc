@@ -1,0 +1,8 @@
+name=mlibc
+version=6.3.2
+git_url="https://github.com/9xbt/mlibc"
+commit="65dfb23b5ff96b4a9ff06deede63e0259cde678e"
+
+prepare() {
+    :
+}

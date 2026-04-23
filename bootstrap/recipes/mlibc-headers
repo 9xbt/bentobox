@@ -1,0 +1,17 @@
+name=mlibc-headers
+from_source=mlibc
+revision=1
+imagedeps="ninja-build meson build-essential rsync"
+
+configure() {
+	meson setup build-${JINX_ARCH} --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt \
+        ${source_dir} -Dheaders_only=true --prefix=${prefix}
+}
+
+build() {
+    ninja -C build-${JINX_ARCH}
+}
+
+package() {
+    DESTDIR=${dest_dir} ninja -C build-${JINX_ARCH} install
+}
