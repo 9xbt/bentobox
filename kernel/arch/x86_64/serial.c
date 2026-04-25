@@ -121,7 +121,8 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
 
 static void serial_tty_flush(vfs_node_t *node) {
     (void)node;
-    sched_wake(serial_tty_worker);
+    if (serial_tty_worker)
+        sched_wake(serial_tty_worker);
 }
 
 void serial_irq_handler(struct registers *r) {
