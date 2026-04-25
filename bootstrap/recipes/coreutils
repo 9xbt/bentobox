@@ -1,0 +1,22 @@
+name=coreutils
+revision=1
+from_source=coreutils
+imagedeps="build-essential gperf wget"
+hostdeps="gcc binutils"
+deps="mlibc gnulib"
+allow_network="yes"
+
+configure() {
+	cp -pr ${source_dir}/* .
+    ./bootstrap --gnulib-srcdir=${base_dir}/sources/gnulib
+    cp ${base_dir}/config.sub build-aux/
+	CFLAGS="-DSLOW_BUT_NO_HACKS" ./configure --host=${TARGET} --prefix=${prefix} --disable-nls
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

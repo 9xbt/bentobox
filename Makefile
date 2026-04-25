@@ -107,7 +107,7 @@ clean:
 jinx: bootstrap/jinx
 	mkdir -p bootstrap/build-$(ARCH)/sysroot
 	ln -sf ../jinx bootstrap/build-$(ARCH)/jinx
-	cd bootstrap/build-$(ARCH) && jinx init .. ARCH=$(ARCH)
+	cd bootstrap/build-$(ARCH) && ./jinx init .. ARCH=$(ARCH)
 
 build/limine/limine:
 	rm -rf build/limine
@@ -122,4 +122,4 @@ build/limine/limine:
 bootstrap/jinx:
 	curl -o $@ https://codeberg.org/Mintsuki/jinx/raw/commit/e6f44d1bd8c6a504fc3fbfcc16ddb549e2e89a3c/jinx
 	chmod +x $@
-	cd bootstrap && patch < ../build/jinx-remove-intree-check.diff
+	cd bootstrap && patch < ../build/jinx.diff

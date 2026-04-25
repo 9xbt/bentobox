@@ -1,0 +1,8 @@
+name=coreutils
+version=9.1
+git_url="https://github.com/coreutils/coreutils"
+commit="ebfd80083b4fe4ae37f50bbc2fcf3cfaee50a248"
+
+prepare() {
+	:
+}

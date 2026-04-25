@@ -1,0 +1,81 @@
+diff --git a/.gitmodules b/.gitmodules
+index 9993f55..318331a 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -1,3 +1,3 @@
+ [submodule "gnulib"]
+         path = gnulib
+-        url = https://git.savannah.gnu.org/git/gnulib.git
++        url = https://github.com/coreutils/gnulib.git
+diff --git a/Makefile.am b/Makefile.am
+index 71f0936..24cfd83 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -17,7 +17,7 @@
+
+ ALL_RECURSIVE_TARGETS =
+
+-SUBDIRS = po . gnulib-tests
++SUBDIRS = po . #gnulib-tests
+
+ EXTRA_DIST =				\
+   .mailmap				\
+diff --git a/src/pinky.c b/src/pinky.c
+index b49096b..8d9d3bd 100644
+--- a/src/pinky.c
++++ b/src/pinky.c
+@@ -277,6 +277,7 @@ print_entry (STRUCT_UTMP const *utmp_ent)
+
+   printf (" %s", time_string (utmp_ent));
+
++#undef HAVE_STRUCT_XTMP_UT_HOST
+ #ifdef HAVE_STRUCT_XTMP_UT_HOST
+   if (include_where && utmp_ent->ut_host[0])
+     {
+diff --git a/src/shred.c b/src/shred.c
+index f2af243..ca18a44 100644
+--- a/src/shred.c
++++ b/src/shred.c
+@@ -354,6 +354,7 @@ dorewind (int fd, struct stat const *st)
+ {
+   if (S_ISCHR (st->st_mode))
+     {
++#undef HAVE_SYS_MTIO_H
+ #if defined __linux__ && HAVE_SYS_MTIO_H
+       /* In the Linux kernel, lseek does not work on tape devices; it
+          returns a randomish value instead.  Try the low-level tape
+diff --git a/src/stat.c b/src/stat.c
+index 348e337..e161564 100644
+--- a/src/stat.c
++++ b/src/stat.c
+@@ -28,6 +28,8 @@
+ # define USE_STATVFS 0
+ #endif
+
++#define USE_STATVFS 1
++
+ #include <stdio.h>
+ #include <sys/types.h>
+ #include <pwd.h>
+@@ -255,6 +257,8 @@ human_fstype (STRUCT_STATVFS const *statfsbuf)
+ {
+ #ifdef STATXFS_FILE_SYSTEM_TYPE_MEMBER_NAME
+   return statfsbuf->STATXFS_FILE_SYSTEM_TYPE_MEMBER_NAME;
++#elif __bentobox__
++  return "stub";
+ #else
+   switch (statfsbuf->f_type)
+     {
+diff --git a/src/uname.c b/src/uname.c
+index 96c532b..50d46ed 100644
+--- a/src/uname.c
++++ b/src/uname.c
+@@ -371,7 +371,7 @@ main (int argc, char **argv)
+     }
+
+   if (toprint & PRINT_OPERATING_SYSTEM)
+-    print_element (HOST_OPERATING_SYSTEM);
++    print_element ("bentobox");
+
+   putchar ('\n');
+

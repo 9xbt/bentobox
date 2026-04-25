@@ -1,0 +1,8 @@
+name=gnulib
+version=6d64a31
+git_url="https://github.com/coreutils/gnulib"
+commit="6d64a3155318e29dcf072a5c377ea1a8a9bfec62"
+
+prepare() {
+	:
+}

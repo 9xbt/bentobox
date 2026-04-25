@@ -1,0 +1,11 @@
+name=gnulib
+revision=1
+from_source=gnulib
+
+build() {
+	:
+}
+
+package() {
+    :
+}

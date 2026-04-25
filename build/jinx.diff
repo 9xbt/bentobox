@@ -1,5 +1,5 @@
---- jinx_original	2026-04-19 20:37:11.471348175 +0200
-+++ jinx	2026-04-19 20:32:58.120067141 +0200
+--- jinx_original	2026-04-25 17:16:28.724947119 +0200
++++ jinx	2026-04-25 17:17:32.367034760 +0200
 @@ -83,10 +83,6 @@
          die "$0: Current directory already initialised, run '$0 deinit' first"
      fi
@@ -11,6 +11,15 @@
      cat <<EOF >.jinx-parameters
  #! /bin/sh
  
+@@ -639,7 +635,7 @@
+         mkdir -p "${imgroot}/sysroot"
+ 
+         container_pkgs_native_mount="mount -o ro --bind '${container_pkgs}' '${imgroot}/usr/local'"
+-        sysroot_native_mount="mount -o ro --bind '${sysroot_dir}' '${imgroot}/sysroot'"
++        sysroot_native_mount="mount --bind '${sysroot_dir}' '${imgroot}/sysroot'"
+ 
+         run_in_cont_lang=en_US.UTF-8
+     else
 @@ -1229,7 +1225,7 @@
      cross_compile=yes
      prepare_container

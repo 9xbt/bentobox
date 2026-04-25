@@ -6,7 +6,10 @@ hostdeps="pkgconfig binutils"
 deps="mlibc-headers"
 
 configure() {
-	ls /sysroot/usr/lib
+	mkdir -p ${sysroot_dir}/usr/lib
+    touch ${sysroot_dir}/usr/lib/libc.so
+    touch ${sysroot_dir}/usr/lib/libm.so
+    touch ${sysroot_dir}/usr/lib/libpthread.so
 	${source_dir}/configure --target=${TARGET} --prefix=${prefix} --with-sysroot=${sysroot_dir} --disable-nls --disable-multilib --disable-fixincludes --enable-languages=c,c++ -enable-threads=posix --enable-shared --enable-host-shared --enable-default-pie
 }
 
