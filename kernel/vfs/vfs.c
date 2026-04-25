@@ -252,6 +252,15 @@ vfs_result_t vfs_open(vfs_node_t *cwd, const char *path, long flags) {
 long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
+
+    acquire(&node->waiters_lock);
+    foreach_safe(i, node->waiters) {
+        struct thread *tcb = i->value;
+        if (tcb == this)
+            list_remove(node->waiters, i);
+    }
+    release(&node->waiters_lock);
+    
     node->refcount--;
     if (!node->ops || !node->ops->close)
         return 0;

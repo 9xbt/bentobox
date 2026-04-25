@@ -373,6 +373,20 @@ void sched_exit(struct thread *tcb) {
     if (tcb->wakeup_pending)
         tcb->wakeup_pending = false;
     tcb->state = THREAD_ZOMBIE;
+
+    struct process *proc = tcb->parent;
+    for (int i = 0; i < proc->max_files; i++) {
+        struct file *file = &proc->files[i];
+        if (file->open) {
+            acquire(&file->node->waiters_lock);
+            foreach_safe(j, file->node->waiters) {
+                if (j->value == this)
+                    list_remove(file->node->waiters, j);
+            }
+            release(&file->node->waiters_lock);
+        }
+    }
+
     if (tcb == this) {
         sched_yield();
         for (;;) {}
@@ -568,7 +582,7 @@ void sched_cleaner(void) {
 
                 for (int j = 0; j < proc->max_files; j++) {
                     struct file *file = &proc->files[j];
-                    if (file->open && file->node) {
+                    if (file->open) {
                         if (file->node->type == VFS_SOCKET)
                             socket_shutdown_node(file->node);
                         vfs_close(file->node);
