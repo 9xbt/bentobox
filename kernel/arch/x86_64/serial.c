@@ -111,6 +111,8 @@ static long serial_tty_ioctl(vfs_node_t *node, int op, void *arg) {
             };
             return copy_to_user(arg, &ws, sizeof ws);
         }
+        case TIOCSWINSZ:
+            return 0;
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;

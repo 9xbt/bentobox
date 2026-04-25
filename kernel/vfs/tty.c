@@ -57,6 +57,8 @@ static long tty1_ioctl(vfs_node_t *node, int op, void *arg) {
             framebuffer_get_winsize(&ws);
             return copy_to_user(arg, &ws, sizeof ws);
         }
+        case TIOCSWINSZ:
+            return 0;
         case BBLOADFONT: {
             struct bb_font_op fop;
             if (copy_from_user(&fop, arg, sizeof fop) < 0)
@@ -271,8 +273,6 @@ long tty_ioctl(vfs_node_t *node, int op, void *arg) {
         case TCSETS:
         case TCSETSW:
             return copy_from_user(&tty->tio, arg, sizeof(struct termios));
-        case TIOCSWINSZ:
-            return 0;
         case TIOCGPGRP:
             return copy_to_user(arg, &tty->pgid, sizeof tty->pgid);
         case TIOCSPGRP:
