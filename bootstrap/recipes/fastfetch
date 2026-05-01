@@ -1,0 +1,24 @@
+name=fastfetch
+revision=1
+from_source=fastfetch
+imagedeps="build-essential cmake"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc"
+
+configure() {
+	cmake -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+        -DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+        -DCMAKE_INSTALL_PREFIX=${prefix} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_FLASHFETCH=OFF \
+        -DCMAKE_C_FLAGS="-D_GNU_SOURCE" \
+        ${source_dir}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	DESTDIR=${dest_dir} make install
+}

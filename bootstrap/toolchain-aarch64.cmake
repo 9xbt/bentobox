@@ -1,0 +1,16 @@
+set(CMAKE_SYSTEM_NAME bentobox)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+set(CMAKE_C_COMPILER aarch64-pc-bentobox-gcc)
+set(CMAKE_CXX_COMPILER aarch64-pc-bentobox-g++)
+set(CMAKE_AR aarch64-pc-bentobox-ar)
+set(CMAKE_LINKER aarch64-pc-bentobox-ld)
+set(CMAKE_STRIP aarch64-pc-bentobox-strip)
+
+set(CMAKE_FIND_ROOT_PATH $ENV{SYSROOT})
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+set(PKG_CONFIG_EXECUTABLE aarch64-pc-bentobox-pkg-config)
