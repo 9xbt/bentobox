@@ -60,8 +60,8 @@ pty_t *pty_create(void) {
     memset(&pty->ws, 0, sizeof pty->ws);
     pty->locked = 1;
     pty->pgid = 0;
-    pty->ififo = fifo_create(4096, char);
-    pty->ofifo = fifo_create(4096, char);
+    pty->ififo = fifo_create(65536, char);
+    pty->ofifo = fifo_create(65536, char);
     return pty;
 }
 

@@ -1,0 +1,39 @@
+name=ncurses
+revision=1
+from_source=ncurses
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	CFLAGS="-D_GNU_SOURCE" ./configure --host=${TARGET} \
+		--prefix=${prefix} \
+		--with-shared \
+		--with-normal \
+		--without-cxx-binding \
+		--without-ada \
+		--disable-echo \
+		--enable-pc-files \
+		--enable-widec \
+		--with-pkg-config-libdir=/usr/lib/pkgconfig \
+		ac_cv_func_malloc_0_nonnull=yes \
+		ac_cv_func_realloc_0_nonnull=yes
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+	
+	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libncurses.so
+	echo "INPUT(-ltinfow)" > ${dest_dir}${prefix}/lib/libtinfo.so
+	echo "INPUT(-lmenuw)" > ${dest_dir}${prefix}/lib/libmenu.so
+	echo "INPUT(-lformw)" > ${dest_dir}${prefix}/lib/libform.so
+	echo "INPUT(-lpanelw)" > ${dest_dir}${prefix}/lib/libpanel.so
+	echo "INPUT(-lncursesw)" > ${dest_dir}${prefix}/lib/libcursesw.so
+	cp ${dest_dir}${prefix}/lib/libncurses.so ${dest_dir}${prefix}/lib/libcurses.so
+}

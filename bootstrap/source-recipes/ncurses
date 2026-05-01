@@ -1,0 +1,8 @@
+name=ncurses
+version=6.4
+tarball_url="https://ftp.gnu.org/gnu/ncurses/ncurses-${version}.tar.gz"
+tarball_blake2b="47fd9c2d27f44fa9942552881a471e5067465dbace40bf68b28998dded0556127a1d8662b96de4de4fd76c1c8b98bdae796036553ab4b05ca9f160839d841ba3"
+
+prepare() {
+	:
+}

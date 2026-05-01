@@ -1,6 +1,5 @@
 name=linux
 version=7.0
-source_method=tarball
 tarball_url="https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz"
 tarball_blake2b="3d9795083c8938f80f480de0d10bfd9c525640e59d5c7f22983de3f12ee42c84c31be902cafb05579ddb1c32bac5ed06b0d4953f9705450be185bd2d9ab08f89"
 

@@ -1,0 +1,8 @@
+name=vim
+version=9.2.0392
+tarball_url="https://github.com/vim/vim/archive/refs/tags/v${version}.tar.gz"
+tarball_blake2b="3ebfd593b6c9d0a7be3f9fa19d9f5fdcd5a44fae7f28c682dd77810f9b080839690062a072290f48bd56d02cfc2d08f0aafef7beac4f49979d75cc9c58af684b"
+
+prepare() {
+    :
+}

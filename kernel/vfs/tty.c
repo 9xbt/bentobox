@@ -339,8 +339,8 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->tio.c_cc[VSTOP] = 19;
     tty->tio.c_cc[VSUSP] = 26;
     memset(&tty->ws, 0, sizeof tty->ws);
-    tty->ififo = fifo_create(4096, char);
-    tty->ofifo = fifo_create(4096, char);
+    tty->ififo = fifo_create(65536, char);
+    tty->ofifo = fifo_create(65536, char);
 
     node->ops = &tty_ops;
     node->inode = 100000;

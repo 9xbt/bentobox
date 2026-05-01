@@ -2,6 +2,7 @@ name=mlibc-headers
 from_source=mlibc
 revision=1
 imagedeps="ninja-build meson build-essential rsync"
+allow_network="yes"
 
 configure() {
 	meson setup build-${JINX_ARCH} --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt \
