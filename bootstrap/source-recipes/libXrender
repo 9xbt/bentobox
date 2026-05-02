@@ -1,0 +1,8 @@
+name=libXrender
+version=0.9.12
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXrender-${version}.tar.xz"
+tarball_blake2b="703f32aabc074097796ecf97933fd9eb74aca4794496ae5d62fac3cef8646d41fffa8904ac3e76735473f918fa65e9c3da16e54ac512c45f2b00592e8e46dff1"
+
+prepare() {
+    :
+}

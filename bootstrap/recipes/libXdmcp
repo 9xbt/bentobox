@@ -1,0 +1,20 @@
+name=libXdmcp
+revision=1
+from_source=libXdmcp
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc xorgproto"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

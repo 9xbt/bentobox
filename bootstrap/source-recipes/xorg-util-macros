@@ -1,0 +1,8 @@
+name=xorg-util-macros
+version=1.20.2
+tarball_url="https://xorg.freedesktop.org/archive/individual/util/util-macros-${version}.tar.xz"
+tarball_blake2b="e1e0b78248ecf889aa8d0bad2e98ad26377ab7d559b4b7f82a63be53052b615983220ce6fac18c44ee26d550a650795672d0b0a4d545cf77174bfeb7d7314c83"
+
+prepare() {
+    :
+}

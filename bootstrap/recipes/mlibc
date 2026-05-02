@@ -1,8 +1,8 @@
 name=mlibc
 from_source=mlibc
 revision=1
-hostdeps="gcc binutils pkgconfig"
 imagedeps="meson ninja-build git build-essential binutils"
+hostdeps="gcc binutils pkgconfig"
 deps="mlibc-headers linux-headers"
 allow_network="yes"
 

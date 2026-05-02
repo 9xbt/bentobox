@@ -1,0 +1,57 @@
+name=xorg-server
+revision=1
+from_source=xorg-server
+imagedeps="build-essential meson ninja-build"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc xorgproto libX11 libXext libXfixes libXrender pixman libxkbfile libxcvt xkeyboard-config xkbcomp nettle xorg-fonts"
+
+configure() {
+    meson setup \
+        --cross-file=${base_dir}/crossfile-${JINX_ARCH}.txt \
+        --prefix=${prefix} \
+        --default-library=shared \
+        -Dc_args="-D_GNU_SOURCE" \
+        -Dxkb_bin_dir=/usr/bin \
+        -Dxkb_dir=/usr/share/X11/xkb \
+        -Ddefault_font_path=/usr/share/fonts/X11 \
+        -Dxorg=true \
+        -Dxv=true \
+        -Dxvfb=true \
+        -Dxephyr=false \
+        -Dxnest=false \
+        -Dsuid_wrapper=false \
+        -Dpciaccess=false \
+        -Ddpms=false \
+        -Dscreensaver=true \
+        -Dxres=false \
+        -Dxvmc=false \
+        -Dsystemd_logind=false \
+        -Dudev=false \
+        -Dudev_kms=false \
+        -Ddri1=false \
+        -Ddri2=false \
+        -Ddri3=false \
+        -Dint10=false \
+        -Dvgahw=false \
+        -Ddrm=false \
+        -Dglamor=false \
+        -Dglx=false \
+        -Dhal=false \
+        -Dipv6=false \
+        -Dxdmcp=false \
+        -Dxdm-auth-1=false \
+        -Ddocs=false \
+        -Ddevel-docs=false \
+        -Dsystemd_logind=false \
+        -Dxf86-input-inputtest=false \
+        -Dsecure-rpc=false \
+        ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

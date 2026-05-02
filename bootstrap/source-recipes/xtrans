@@ -1,0 +1,8 @@
+name=xtrans
+version=1.6.0
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/xtrans-${version}.tar.xz"
+tarball_blake2b="c46d0eb3029ad6501f4a81eac3b47970092429a978dde31202f58d52ea675585c320efb91d6aad999097a222882036e05e05f90842980e9eb7d6cf72fda44e89"
+
+prepare() {
+    :
+}

@@ -1,0 +1,8 @@
+name=xkeyboard-config
+version=2.47
+tarball_url="https://xorg.freedesktop.org/archive/individual/data/xkeyboard-config/xkeyboard-config-${version}.tar.xz"
+tarball_blake2b="ddfe6d3c8a088cd625c1a81c56ffe1f2ada5e003b3bf0628983a0058aa9e0ff9c26ab8cfcd0a6aded22e6a545d63533b2de05570b4e0c3a22879e195dcb96f61"
+
+prepare() {
+    :
+}

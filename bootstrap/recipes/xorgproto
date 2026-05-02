@@ -1,0 +1,21 @@
+name=xorgproto
+revision=1
+from_source=xorgproto
+imagedeps="meson ninja-build gcc build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc"
+
+configure() {
+	meson setup --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt --prefix=${prefix} -Dlegacy=true ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+
+	# installed by libXext
+	rm -v ${dest_dir}/${prefix}/include/X11/extensions/XKBgeom.h
+}

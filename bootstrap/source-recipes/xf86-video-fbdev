@@ -1,0 +1,8 @@
+name=xf86-video-fbdev
+version=0.5.1
+tarball_url="https://xorg.freedesktop.org/archive/individual/driver/xf86-video-fbdev-${version}.tar.xz"
+tarball_blake2b="6f4223898b36bf2d874cf8730470c00a41e59f9f3a52fed3255a0b236599764ef6a548c54f1f30f5beb2b53ad0c4917d5e25cf45d21c9ad6141f35953f16727f"
+
+prepare() {
+    :
+}

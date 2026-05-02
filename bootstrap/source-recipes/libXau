@@ -1,0 +1,8 @@
+name=libXau
+version=1.0.12
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXau-${version}.tar.xz"
+tarball_blake2b="739c1ed5cc86eaf6116bb324808e442ee485fb81bc882f873d924302494e93c3eae1a2ad3f92e115faf72e647578e7b9501c73ac18db1839edc2fb69a143a834"
+
+prepare() {
+    :
+}

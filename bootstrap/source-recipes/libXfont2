@@ -1,0 +1,8 @@
+name=libXfont2
+version=2.0.7
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXfont2-${version}.tar.xz"
+tarball_blake2b="d20001c0e7ce90e0efea25f17d09d5671b0dafacfe7d34dfd3eabe377d75899f3eea6e266d043e8d917ff38585e778ddcb4179f0cbfe15845e4d8584f154eaad"
+
+prepare() {
+    :
+}

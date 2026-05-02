@@ -1,0 +1,8 @@
+name=xkbcomp
+version=1.5.0
+tarball_url="https://xorg.freedesktop.org/archive/individual/app/xkbcomp-${version}.tar.xz"
+tarball_blake2b="7ee2512ea79b9f1f2e9ae2ecad5a8a3fd7deda5482aa4e608bfc1785534c426449994d07c36edbe6347c271c914f13d46d98fd7371deb89598e474317d304f0c"
+
+prepare() {
+    :
+}

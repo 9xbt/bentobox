@@ -105,7 +105,7 @@ clean:
 
 .PHONY: jinx
 jinx: bootstrap/jinx
-	mkdir -p bootstrap/build-$(ARCH)/sysroot
+	mkdir -p bootstrap/build-$(ARCH)/base/var/log
 	ln -sf ../jinx bootstrap/build-$(ARCH)/jinx
 	cd bootstrap/build-$(ARCH) && ./jinx init .. ARCH=$(ARCH)
 

@@ -1,0 +1,8 @@
+name=xorg-server
+version=21.1.22
+tarball_url="https://xorg.freedesktop.org/archive/individual/xserver/xorg-server-${version}.tar.xz"
+tarball_blake2b="e1e23734fdc3468139ade1638e6321ac464fadb6926dfc0bfa59c706fe88d6280c25f6d186694defe9dc237f431a44b66acf7881fdfa91b4829a23b70f82f029"
+
+prepare() {
+    :
+}

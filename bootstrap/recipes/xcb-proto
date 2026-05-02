@@ -1,0 +1,20 @@
+name=xcb-proto
+revision=1
+from_source=xcb-proto
+imagedeps="build-essential python3"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

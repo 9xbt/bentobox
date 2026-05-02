@@ -1,0 +1,4 @@
+name=xorg-video-drivers
+version=1
+revision=1
+deps="xf86-video-fbdev"

@@ -1,3 +1,4 @@
+#include "kernel/file.h"
 #include <stddef.h>
 #include <bentobox/setfont.h>
 #include <kernel/lfbvideo.h>
@@ -162,7 +163,9 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     tty_t *tty = node->device;
     if (!tty)
         return -EINVAL;
-    if (fifo_is_full(tty->ofifo)) {
+
+    struct file *file = file_get_from_node(node);
+    if (file->flags & O_NONBLOCK && fifo_is_full(tty->ofifo)) {
         vfs_wake_waiters(node);
         return -EAGAIN;
     }
@@ -176,13 +179,27 @@ long tty_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
         if (tty->tio.c_oflag & OPOST) {
             char c = buf[i];
             if ((tty->tio.c_oflag & ONLCR) && c == '\n') {
-                if (fifo_enqueue(tty->ofifo, '\r') < 0)
-                    break;
+                if (fifo_enqueue(tty->ofifo, '\r') < 0) {
+                    if (file->flags & O_NONBLOCK)
+                        break;
+
+                    while (fifo_enqueue(tty->ofifo, '\r') < 0) {
+                        tty->flush(node);
+                        while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+                    }
+                }
             }
         }
         
-        if (fifo_enqueue(tty->ofifo, buf[i]) < 0)
-            break;
+        if (fifo_enqueue(tty->ofifo, buf[i]) < 0) {
+            if (file->flags & O_NONBLOCK)
+                break;
+
+            while (fifo_enqueue(tty->ofifo, buf[i]) < 0) {
+                tty->flush(node);
+                while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+            }
+        }
     }
 
     tty->flush(node);
@@ -195,7 +212,9 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     tty_t *tty = node->device;
     if (!tty)
         return -EINVAL;
-    if (fifo_is_empty(tty->ififo)) {
+
+    struct file *file = file_get_from_node(node);
+    if (file->flags & O_NONBLOCK && fifo_is_empty(tty->ififo)) {
         vfs_wake_waiters(node);
         return -EAGAIN;
     }
@@ -207,8 +226,15 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         for (i = 0; (unsigned)i < len; i++) {
             if (fifo_dequeue(tty->ififo, &buf[i]) < 0)
                 break;
-            if (tty->tio.c_lflag & ECHO && fifo_enqueue(tty->ofifo, buf[i]) < 0)
-                break;
+            if (tty->tio.c_lflag & ECHO && fifo_enqueue(tty->ofifo, buf[i]) < 0) {
+                if (file->flags & O_NONBLOCK)
+                    break;
+
+                while (fifo_enqueue(tty->ofifo, buf[i]) < 0) {
+                    tty->flush(node);
+                    while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+                }
+            }
         }
         
         vfs_wake_waiters(node);
@@ -218,9 +244,8 @@ long tty_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     size_t i = 0;
     while (i < len) {
         char c;
-        if (fifo_dequeue(tty->ififo, &c) < 0) {
-            vfs_poll(node, POLLIN, -1);
-            continue;
+        while (fifo_dequeue(tty->ififo, &c) < 0) {
+            while (!(vfs_poll(node, POLLIN, -1) & POLLIN));
         }
 
         if (c == '\r')
@@ -339,8 +364,8 @@ tty_t *tty_create(vfs_node_t *node) {
     tty->tio.c_cc[VSTOP] = 19;
     tty->tio.c_cc[VSUSP] = 26;
     memset(&tty->ws, 0, sizeof tty->ws);
-    tty->ififo = fifo_create(65536, char);
-    tty->ofifo = fifo_create(65536, char);
+    tty->ififo = fifo_create(4096, char);
+    tty->ofifo = fifo_create(4096, char);
 
     node->ops = &tty_ops;
     node->inode = 100000;

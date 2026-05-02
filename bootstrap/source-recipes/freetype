@@ -1,0 +1,8 @@
+name=freetype
+version=2.14.3
+tarball_url="https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz"
+tarball_blake2b="26db1946b099abc73d9d249dc48303e70886e0b1cb7180d5b9538b3934dc677a1572a32573af6adabeeb1c1a2eef81f24399038d3d8e640c29bba77f6c8a3596"
+
+prepare() {
+    :
+}

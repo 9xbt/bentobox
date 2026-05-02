@@ -1,0 +1,193 @@
+diff --git xorg-server-clean/hw/xfree86/common/xf86Bus.c xorg-server-workdir/hw/xfree86/common/xf86Bus.c
+index fd144db..6eb018c 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Bus.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Bus.c
+@@ -556,6 +556,7 @@ xf86GetDevFromEntity(int entityIndex, int instance)
+ void
+ xf86PostProbe(void)
+ {
++/*
+     if (fbSlotClaimed && (
+ #if (defined(__sparc__) || defined(__sparc)) && !defined(__OpenBSD__)
+                              sbusSlotClaimed ||
+@@ -571,6 +572,7 @@ xf86PostProbe(void)
+         ))
+         FatalError("Cannot run in framebuffer mode. Please specify busIDs "
+                    "       for all framebuffer devices\n");
++*/
+ }
+ 
+ Bool
+diff --git xorg-server-clean/hw/xfree86/common/xf86Xinput.c xorg-server-workdir/hw/xfree86/common/xf86Xinput.c
+index 8cf3f62..fb62f6f 100644
+--- xorg-server-clean/hw/xfree86/common/xf86Xinput.c
++++ xorg-server-workdir/hw/xfree86/common/xf86Xinput.c
+@@ -102,6 +102,13 @@
+ 
+ #include "xkbsrv.h"
+ 
++#ifndef major
++#define major(dev) (((dev) >> 8) & 0xff)
++#endif
++#ifndef minor
++#define minor(dev) ((dev) & 0xff)
++#endif
++
+ /* Valuator verification macro */
+ #define XI_VERIFY_VALUATORS(num_valuators)					\
+ 	if (num_valuators > MAX_VALUATORS) {					\
+diff --git xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.c
+index 9c30f00..8c9dad5 100644
+--- xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.c
++++ xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.c
+@@ -10,7 +10,9 @@
+ #include "xf86_OSproc.h"
+ 
+ /* pci stuff */
++#ifdef XSERVER_LIBPCIACCESS
+ #include "xf86Pci.h"
++#endif
+ 
+ #include "xf86cmap.h"
+ 
+@@ -256,6 +258,7 @@ fbdev2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
+ /* -------------------------------------------------------------------- */
+ /* open correct framebuffer device                                      */
+ 
++#ifdef XSERVER_LIBPCIACCESS
+ /**
+  * Try to find the framebuffer device for a given PCI device
+  */
+@@ -303,6 +306,7 @@ fbdev_open_pci(struct pci_device *pPci, char **namep)
+     xf86DrvMsg(-1, X_ERROR, "Unable to find a valid framebuffer device\n");
+     return -1;
+ }
++#endif
+ 
+ static int
+ fbdev_open(int scrnIndex, const char *dev, char **namep)
+@@ -329,6 +333,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         return -1;
+     }
+ 
++#ifdef XSERVER_LIBPCIACCESS
+     /* only touch non-PCI devices on this path */
+     {
+         char buf[PATH_MAX] = {0};
+@@ -344,6 +349,7 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+         }
+         free(sysfs_path);
+     }
++#endif
+ 
+     if (namep) {
+         if (-1 == ioctl(fd, FBIOGET_FSCREENINFO, (void *) (&fix))) {
+@@ -363,14 +369,18 @@ fbdev_open(int scrnIndex, const char *dev, char **namep)
+ /* -------------------------------------------------------------------- */
+ 
+ Bool
+-fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
++fbdevHWProbe(void *pPci, char *device, char **namep)
+ {
+     int fd;
+ 
++#ifdef XSERVER_LIBPCIACCESS
+     if (pPci)
+         fd = fbdev_open_pci(pPci, namep);
+     else
+         fd = fbdev_open(-1, device, namep);
++#else
++    fd = fbdev_open(-1, device, namep);
++#endif
+ 
+     if (-1 == fd)
+         return FALSE;
+@@ -379,7 +389,7 @@ fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
+ }
+ 
+ Bool
+-fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
++fbdevHWInit(ScrnInfoPtr pScrn, void *pPci, char *device)
+ {
+     fbdevHWPtr fPtr;
+ 
+@@ -387,10 +397,14 @@ fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
+     fPtr = FBDEVHWPTR(pScrn);
+ 
+     /* open device */
++#ifdef XSERVER_LIBPCIACCESS
+     if (pPci)
+         fPtr->fd = fbdev_open_pci(pPci, NULL);
+     else
+         fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++#else
++    fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
++#endif
+     if (-1 == fPtr->fd) {
+         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+                    "Failed to open framebuffer device, consult warnings"
+diff --git xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.h xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.h
+index 4984ccf..bb3e2f8 100644
+--- xorg-server-clean/hw/xfree86/fbdevhw/fbdevhw.h
++++ xorg-server-workdir/hw/xfree86/fbdevhw/fbdevhw.h
+@@ -16,9 +16,9 @@ extern _X_EXPORT void fbdevHWFreeRec(ScrnInfoPtr pScrn);
+ 
+ extern _X_EXPORT int fbdevHWGetFD(ScrnInfoPtr pScrn);
+ 
+-extern _X_EXPORT Bool fbdevHWProbe(struct pci_device *pPci, char *device,
++extern _X_EXPORT Bool fbdevHWProbe(void *pPci, char *device,
+                                    char **namep);
+-extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci,
++extern _X_EXPORT Bool fbdevHWInit(ScrnInfoPtr pScrn, void *pPci,
+                                   char *device);
+ 
+ extern _X_EXPORT char *fbdevHWGetName(ScrnInfoPtr pScrn);
+diff --git xorg-server-clean/hw/xfree86/fbdevhw/meson.build xorg-server-workdir/hw/xfree86/fbdevhw/meson.build
+index f3146f3..f5f68fa 100644
+--- xorg-server-clean/hw/xfree86/fbdevhw/meson.build
++++ xorg-server-workdir/hw/xfree86/fbdevhw/meson.build
+@@ -1,4 +1,4 @@
+-if host_machine.system() == 'linux'
++if host_machine.system() == 'linux' or host_machine.system() == 'bentobox'
+     srcs_fbdevhw = 'fbdevhw.c'
+ else
+     srcs_fbdevhw = 'fbdevhwstub.c'
+diff --git xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
+index 0cb9788..54cbf73 100644
+--- xorg-server-clean/hw/xfree86/os-support/shared/posix_tty.c
++++ xorg-server-workdir/hw/xfree86/os-support/shared/posix_tty.c
+@@ -62,6 +62,8 @@
+ #include "xf86Priv.h"
+ #include "xf86_OSlib.h"
+ 
++#include <termios.h>
++
+ static int
+ GetBaud(int baudrate)
+ {
+diff --git xorg-server-clean/hw/xfree86/os-support/xf86_OSlib.h xorg-server-workdir/hw/xfree86/os-support/xf86_OSlib.h
+index 159c806..379b5c0 100644
+--- xorg-server-clean/hw/xfree86/os-support/xf86_OSlib.h
++++ xorg-server-workdir/hw/xfree86/os-support/xf86_OSlib.h
+@@ -176,7 +176,7 @@ extern _X_HIDDEN char xf86SolarisFbDev[PATH_MAX];
+ /**************************************************************************/
+ /* Linux or Glibc-based system                                            */
+ /**************************************************************************/
+-#if defined(__linux__) || defined(__GLIBC__) || defined(__CYGWIN__)
++#if defined(__linux__) || defined(__GLIBC__) || defined(__CYGWIN__) || defined(__bentobox__)
+ #include <sys/ioctl.h>
+ #include <signal.h>
+ #include <stdlib.h>
+diff --git xorg-server-clean/include/meson.build xorg-server-workdir/include/meson.build
+index bda84bd..1f63b00 100644
+--- xorg-server-clean/include/meson.build
++++ xorg-server-workdir/include/meson.build
+@@ -143,7 +143,7 @@ conf_data.set('HAVE_UNISTD_H', cc.has_header('unistd.h') ? '1' : false)
+ conf_data.set('HAVE_ARC4RANDOM_BUF', cc.has_function('arc4random_buf', dependencies: libbsd_dep) ? '1' : false)
+ conf_data.set('HAVE_BACKTRACE', cc.has_function('backtrace') ? '1' : false)
+ conf_data.set('HAVE_CBRT', cc.has_function('cbrt') ? '1' : false)
+-conf_data.set('HAVE_EPOLL_CREATE1', cc.has_function('epoll_create1') ? '1' : false)
++conf_data.set('HAVE_EPOLL_CREATE1', false)
+ conf_data.set('HAVE_GETUID', cc.has_function('getuid') ? '1' : false)
+ conf_data.set('HAVE_GETEUID', cc.has_function('geteuid') ? '1' : false)
+ conf_data.set('HAVE_ISASTREAM', cc.has_function('isastream') ? '1' : false)

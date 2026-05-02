@@ -1,0 +1,8 @@
+name=libfontenc
+version=1.1.9
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libfontenc-${version}.tar.xz"
+tarball_blake2b="f8a7ae8e3fa954d3cdddbbdba197e9bef3887faafcffa49d137924f88b494914326238ffda425176187dc75c9ccb152ff6bc4d4074e31b1995f455707a9c2ea8"
+
+prepare() {
+    :
+}

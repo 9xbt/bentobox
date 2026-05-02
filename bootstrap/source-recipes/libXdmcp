@@ -1,0 +1,8 @@
+name=libXdmcp
+version=1.1.5
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXdmcp-${version}.tar.xz"
+tarball_blake2b="81d02e510d07083550a630867bbf60f4f6fd0044433c99af504d791211f828d8109763ae0f01bb1b690a13f099f75a21a7c3bfc4aa7e2435f7327467eedd514e"
+
+prepare() {
+    :
+}

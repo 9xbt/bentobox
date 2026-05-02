@@ -1,0 +1,26 @@
+diff --git libxcb-clean/configure libxcb-workdir/configure
+index 33f5d89..f5dccb1 100755
+--- libxcb-clean/configure
++++ libxcb-workdir/configure
+@@ -21027,7 +21027,7 @@ printf "%s\n" "yes" >&6; }
+ fi
+ NEEDED="xau >= 0.99.2"
+ case $host_os in
+-linux*|darwin*|solaris*|dragonfly*|freebsd*|netbsd*) ;;
++linux*|darwin*|solaris*|dragonfly*|freebsd*|netbsd*|bentobox*) ;;
+      *) NEEDED="$NEEDED pthread-stubs" ;;
+ esac
+ 
+diff --git libxcb-clean/configure.ac libxcb-workdir/configure.ac
+index 4e6f028..dbd6b80 100644
+--- libxcb-clean/configure.ac
++++ libxcb-workdir/configure.ac
+@@ -54,7 +54,7 @@ AC_SUBST(HTML_CHECK_RESULT)
+ PKG_CHECK_MODULES(XCBPROTO, xcb-proto >= 1.17.0)
+ NEEDED="xau >= 0.99.2"
+ case $host_os in
+-linux*|darwin*|solaris*|dragonfly*|freebsd*|netbsd*) ;;
++linux*|darwin*|solaris*|dragonfly*|freebsd*|netbsd*|bentobox*) ;;
+      *) NEEDED="$NEEDED pthread-stubs" ;;
+ esac
+ PKG_CHECK_MODULES(NEEDED, $NEEDED)

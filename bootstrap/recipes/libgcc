@@ -1,0 +1,16 @@
+name=libgcc
+version=1
+revision=1
+imagedeps="build-essential"
+hostdeps="gcc"
+deps="mlibc"
+
+build() {
+    :
+}
+
+package() {
+    mkdir -p ${dest_dir}${prefix}/lib
+    cp /build_dir/host-builds/gcc/x86_64-pc-bentobox/libgcc/libgcc_s.so ${dest_dir}${prefix}/lib/libgcc_s.so.1
+    ln -sf libgcc_s.so.1 ${dest_dir}${prefix}/lib/libgcc_s.so
+}

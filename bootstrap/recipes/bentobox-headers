@@ -1,6 +1,6 @@
 name=bentobox-headers
-from_source=bentobox-headers
 revision=1
+from_source=bentobox-headers
 
 build() {
 	:

@@ -1,0 +1,20 @@
+name=xf86-video-fbdev
+revision=1
+from_source=xf86-video-fbdev
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc xorg-server"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static --disable-pciaccess
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}
