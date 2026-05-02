@@ -1,4 +1,4 @@
 name=xorg-input-drivers
 version=1
 revision=1
-deps="xf86-input-keyboard xf86-input-mouse"
+deps="xf86-input-evdev"

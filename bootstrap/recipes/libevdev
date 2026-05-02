@@ -1,0 +1,19 @@
+name=libevdev
+revision=1
+from_source=libevdev
+imagedeps="build-essential meson ninja-build"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc"
+
+configure() {
+    meson setup --cross-file=${base_dir}/crossfile-${JINX_ARCH}.txt --prefix=${prefix} \
+        --buildtype=release -Ddocumentation=disabled -Dtests=disabled ${source_dir}
+}
+
+build() {
+    ninja
+}
+
+package() {
+    DESTDIR=${dest_dir} ninja install
+}

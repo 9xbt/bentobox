@@ -6,11 +6,15 @@
 #define EV_KEY       0x01
 #define EV_REL       0x02
 #define EV_ABS       0x03
+#define EV_MAX 		 0x1f
+#define EV_CNT 	     (EV_MAX + 1)
 #define REL_X        0x00
 #define REL_Y        0x01
 #define ABS_X        0x00
 #define ABS_Y        0x01
 #define ABS_PRESSURE 0x18
+#define ABS_MAX 	 0x3f
+#define ABS_CNT 	 (ABS_MAX + 1)
 #define BTN_LEFT     0x110
 #define BTN_RIGHT    0x111
 #define BTN_MIDDLE   0x112
@@ -95,3 +99,24 @@ struct input_absinfo {
 	int32_t flat;
 	int32_t resolution;
 };
+
+#define EVIOCGVERSION 0x1
+#define EVIOCGID 0x2
+#define EVIOCGNAME 0x6
+#define EVIOCGPHYS 0x7
+#define EVIOCGUNIQ 0x8
+#define EVIOCGPROP 0x9
+#define EVIOCGKEY 0x18
+#define EVIOCGLED 0x19
+#define EVIOCGSND 0x1a
+#define EVIOCGSW 0x1b
+#define EVIOCGBIT 0x20
+#define EVIOCGABS 0x40
+#define EVIOVSABS 0xc0
+
+#define ID_BUS 0
+#define ID_VENDOR 1
+#define ID_PRODUCT 2
+#define ID_VERSION 3
+
+#define BUS_I8042 0x11

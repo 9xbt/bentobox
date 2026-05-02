@@ -1,0 +1,20 @@
+name=mtdev
+revision=1
+from_source=mtdev
+imagedeps="build-essential"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub config-aux/
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

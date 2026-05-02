@@ -1,0 +1,8 @@
+name=xf86-input-evdev
+version=2.11.0
+tarball_url="https://xorg.freedesktop.org/archive/individual/driver/xf86-input-evdev-2.11.0.tar.xz"
+tarball_blake2b="11e89f0d102f94499d3d848d7047e97274b173535c22f6aefa7715dd0f7b8058bf1cedd65bde7d3eef954ccfb65b62c37ceda49f349490085098e1c39791d561"
+
+prepare() {
+    :
+}

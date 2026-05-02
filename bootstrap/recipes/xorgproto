@@ -1,7 +1,7 @@
 name=xorgproto
 revision=1
 from_source=xorgproto
-imagedeps="meson ninja-build gcc build-essential"
+imagedeps="build-essential meson ninja-build"
 hostdeps="gcc binutils pkgconfig xorg-util-macros"
 deps="mlibc"
 
