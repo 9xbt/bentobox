@@ -1,0 +1,8 @@
+name=libSM
+version=1.2.6
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libSM-${version}.tar.xz"
+tarball_blake2b="9511d1bb8ec49e9cb55e473d777c75a535ec4e82924653c2ef47bb17dbec75df5a2a20453f72dc158a52666b7edbc67af289eab3cfabe49b6aaf803e13225e42"
+
+prepare() {
+    :
+}

@@ -1,0 +1,20 @@
+name=libXrandr
+revision=1
+from_source=libXrandr
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc libX11 libXext libXrender"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

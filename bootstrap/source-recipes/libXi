@@ -1,0 +1,8 @@
+name=libXi
+version=1.8.2
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXi-${version}.tar.xz"
+tarball_blake2b="869389e4e35187c8ca28a63b9c49125c960629037e1c0e2aff7c149d0f3ed25bf6401dd4b9a8942a14152eceb0e3148e9805a48df3123dc0471c44f8636976b6"
+
+prepare() {
+    :
+}

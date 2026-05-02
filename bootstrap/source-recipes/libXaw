@@ -1,0 +1,8 @@
+name=libXaw
+version=1.0.16
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXaw-${version}.tar.xz"
+tarball_blake2b="342ca47da7fce2ddcc01b12bff6b279ad1ce6a743e3d6cf20120a98d67cc8c533d0c19c33250552d8709c8fc401e72147b04522e9ced998b05b7639a15115e23"
+
+prepare() {
+    :
+}

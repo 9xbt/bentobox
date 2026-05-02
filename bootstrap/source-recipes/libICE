@@ -1,0 +1,8 @@
+name=libICE
+version=1.1.2
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libICE-${version}.tar.xz"
+tarball_blake2b="8dbfb61382009397260415a68a74dd27e277815b22000a617fc688cf12257293de8e29a69df91e88dcae93e14f193bf653ed8dee747b4c2bf5493a509ed9b937"
+
+prepare() {
+    :
+}

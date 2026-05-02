@@ -1,0 +1,8 @@
+name=libXrandr
+version=1.5.5
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXrandr-${version}.tar.xz"
+tarball_blake2b="7c7ff2c1faaf11b7b3bfdfc09368235222357d8816925d730633d133c52fddafb7b2469a8b7513113a4413b6db24b0b6cab37934097e7ed957d043e6e2c9540f"
+
+prepare() {
+    :
+}

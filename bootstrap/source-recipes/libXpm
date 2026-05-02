@@ -1,0 +1,8 @@
+name=libXpm
+version=3.5.19
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXpm-${version}.tar.xz"
+tarball_blake2b="ef7adfd98fd7c4671cf2767062d73c135a01c4e76e6d8990eb4f9b69f8e21478c4e0aabd8246eec03b964a036d427496914a978568bca16c37ea86578870b4c3"
+
+prepare() {
+    :
+}
