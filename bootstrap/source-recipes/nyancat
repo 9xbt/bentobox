@@ -1,0 +1,8 @@
+name=nyancat
+version=1.5.2
+git_url="https://github.com/klange/nyancat"
+commit="32fd2eb40332ae0001995705f0c1f8de69a2d543"
+
+prepare() {
+	:
+}

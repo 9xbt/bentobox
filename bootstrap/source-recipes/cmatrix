@@ -1,0 +1,8 @@
+name=cmatrix
+version=2.0
+git_url="https://github.com/abishekvashok/cmatrix"
+commit="5c082c64a1296859a11bee60c8c086655953a416"
+
+prepare() {
+	:
+}
