@@ -1,0 +1,20 @@
+name=fontconfig
+revision=1
+from_source=fontconfig
+imagedeps="build-essential gperf"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc freetype expat"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

@@ -31,7 +31,6 @@ enum ps2_device_type {
 };
 
 struct ps2_device {
-    int refcount;
     bool caps;
     bool ctrl;
     bool shift;

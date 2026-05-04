@@ -1,0 +1,8 @@
+name=libXft
+version=2.3.9
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXft-${version}.tar.xz"
+tarball_blake2b="c6eaac8b2574d05ac20ac9261d7c77a22d4d187b629a7e8bd7ad80114c8d989d3c186fecd731ce45ea45089cdb3cd4775da871714f32d7e992a1be9c2c6c4dc7"
+
+prepare() {
+    :
+}

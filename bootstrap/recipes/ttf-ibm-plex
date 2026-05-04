@@ -1,0 +1,15 @@
+name=ttf-ibm-plex
+version=1.1.0
+revision=1
+imagedeps="unzip curl"
+allow_network="yes"
+
+build() {
+    curl -L -o ibm-plex-mono.zip "https://github.com/IBM/plex/releases/download/%40ibm%2Fplex-mono%401.1.0/ibm-plex-mono.zip"
+    unzip ibm-plex-mono.zip
+}
+
+package() {
+    mkdir -p ${dest_dir}/${prefix}/share/fonts/TTF
+    cp ibm-plex-mono/fonts/complete/ttf/*.ttf ${dest_dir}/${prefix}/share/fonts/TTF/
+}

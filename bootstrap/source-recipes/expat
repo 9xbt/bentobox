@@ -1,0 +1,8 @@
+name=expat
+version=2.8.0
+tarball_url="https://github.com/libexpat/libexpat/releases/download/R_2_8_0/expat-${version}.tar.xz"
+tarball_blake2b="e7b5f20e9960085d2bcfd88ac590e70a9aaebcc4b1411064d008af638bdf4189730d6fd9772d518dc4c38c3cefc649ed31c1e3ad7de64125377dba8c6d2e01b8"
+
+prepare() {
+    :
+}

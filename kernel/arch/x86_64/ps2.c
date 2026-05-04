@@ -169,13 +169,19 @@ void irq12_handler(struct registers *r) {
 
 static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
     struct ps2_device *dev = kb->device;
-    if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
+    if (kb->waiters->length > 0) {
         struct input_event iev = {
             .type = EV_KEY,
             .code = key < sizeof(keycode_map) / sizeof(int16_t) ? keycode_map[key] : 0,
             .value = value
         };
         fifo_enqueue(dev->fifo, iev);
+        struct input_event syn = {
+            .type = EV_SYN,
+            .code = SYN_REPORT,
+            .value = 0
+        };
+        fifo_enqueue(dev->fifo, syn);
     }
 }
 
@@ -283,7 +289,7 @@ void ps2_mouse_worker(void) {
             struct input_event iev = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 }; \
             fifo_enqueue(dev->fifo, iev);
 
-        if (__atomic_load_n(&dev->refcount, __ATOMIC_SEQ_CST)) {
+        if (mouse->waiters->length > 0) {
             EMIT_REL(delta_x, REL_X);
             EMIT_REL(delta_y, REL_Y);
             EMIT_KEY(left, BTN_LEFT);
@@ -333,24 +339,35 @@ void ps2_mouse_worker(void) {
 long ps2_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)offset;
     struct ps2_device *dev = node->device;
-
     if (len < sizeof(struct input_event))
         return -EINVAL;
 
     struct input_event iev;
     if (fifo_dequeue(dev->fifo, &iev) < (long)sizeof(struct input_event))
         return -EAGAIN;
+    
     memcpy(buffer, &iev, sizeof iev);
     return sizeof iev;
 }
 
+static long ps2_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
+    (void)node;
+    (void)buffer;
+    (void)offset;
+    return len;
+}
+
 long ps2_poll(vfs_node_t *node, long events) {
     struct ps2_device *dev = node->device;
-    if (events & POLLIN) {
-        if (!fifo_is_empty(dev->fifo))
-            return POLLIN;
-    }
-    return 0;
+    if (!dev)
+        return -EINVAL;
+
+    long revents = 0;
+    if (events & POLLIN && !fifo_is_empty(dev->fifo))
+        revents |= POLLIN;
+    if (events & POLLOUT)
+        revents |= POLLOUT;
+    return revents;
 }
 
 long ps2_ioctl(vfs_node_t *node, int op, void *arg) {
@@ -419,23 +436,22 @@ long ps2_ioctl(vfs_node_t *node, int op, void *arg) {
         long ret = copy_to_user(arg, bitmap, size);
         kfree(bitmap);
         return ret;
+    } else if (number == EVIOCSREP) {
+        return 0;
+    } else if (number == EVIOCSKEYCODE) {
+        return 0;
+    } else if (number == EVIOCSFF) {
+        return 0;
+    } else if (number == EVIOCRMFF) {
+        return 0;
+    } else if (number == EVIOCGRAB) {
+        return 0;
+    } else if (number == EVIOCREVOKE) {
+        return 0;
 	} else {
 		dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%x not implemented\n", __func__, op);
 		return -EINVAL;
 	}
-}
-
-vfs_result_t ps2_open(vfs_node_t *node, int flags) {
-    (void)flags;
-    struct ps2_device *dev = node->device;
-    __atomic_add_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
-    return (vfs_result_t){ node, 0 };
-}
-
-long ps2_close(vfs_node_t *node) {
-    struct ps2_device *dev = node->device;
-    __atomic_sub_fetch(&dev->refcount, 1, __ATOMIC_SEQ_CST);
-    return 0;
 }
 
 static void ps2_send_command(uint8_t cmd) {
@@ -477,9 +493,8 @@ struct ps2_device keyboard_device = { .type = PS2_KEYBOARD };
 struct ps2_device mouse_device = { .type = PS2_MOUSE };
 
 vfs_ops_t ps2_ops = {
-    .open  = ps2_open,
-    .close = ps2_close,
     .read  = ps2_read_event,
+    .write = ps2_write,
     .poll  = ps2_poll,
     .ioctl = ps2_ioctl
 };

@@ -1,0 +1,8 @@
+name=fontconfig
+version=2.16.0
+tarball_url="https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz"
+tarball_blake2b="48d6fcbfe83f0a4c026a4f90d864a4195805e04cc6dd486bd18d68caa8b55fd51fc37822781298152d363b70dc103c9f8b216f6dc0193b2b192eb35565482ec4"
+
+prepare() {
+    :
+}

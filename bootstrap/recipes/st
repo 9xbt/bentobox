@@ -1,0 +1,15 @@
+name=st
+revision=1
+from_source=st
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc xorg-server libX11 libXft"
+
+build() {
+	cp -rp ${source_dir}/* .
+	make -j${parallelism} TARGET=${TARGET}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

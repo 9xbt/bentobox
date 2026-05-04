@@ -1,0 +1,8 @@
+name=st
+version=688f70a
+git_url="https://git.suckless.org/st"
+commit="688f70add0d1da8a416bf7df763328d694a24a3a"
+
+prepare() {
+	:
+}

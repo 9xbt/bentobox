@@ -1,14 +1,14 @@
-name=twm
+name=libXft
 revision=1
-from_source=twm
+from_source=libXft
 imagedeps="build-essential"
 hostdeps="gcc binutils pkgconfig xorg-util-macros"
-deps="mlibc xorg-server libICE libSM libX11 libXext libXmu libXt"
+deps="mlibc libX11 libXrender freetype fontconfig"
 
 configure() {
 	cp -rp ${source_dir}/* .
     cp ${base_dir}/config.sub .
-	./configure --host=${TARGET} --prefix=${prefix}
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static
 }
 
 build() {

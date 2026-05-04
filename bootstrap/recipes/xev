@@ -1,9 +1,9 @@
-name=twm
+name=xev
 revision=1
-from_source=twm
+from_source=xev
 imagedeps="build-essential"
 hostdeps="gcc binutils pkgconfig xorg-util-macros"
-deps="mlibc xorg-server libICE libSM libX11 libXext libXmu libXt"
+deps="mlibc xorgproto libX11 libXrandr"
 
 configure() {
 	cp -rp ${source_dir}/* .

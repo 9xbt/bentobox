@@ -101,22 +101,28 @@ struct input_absinfo {
 };
 
 #define EVIOCGVERSION 0x1
-#define EVIOCGID 0x2
-#define EVIOCGNAME 0x6
-#define EVIOCGPHYS 0x7
-#define EVIOCGUNIQ 0x8
-#define EVIOCGPROP 0x9
-#define EVIOCGKEY 0x18
-#define EVIOCGLED 0x19
-#define EVIOCGSND 0x1a
-#define EVIOCGSW 0x1b
-#define EVIOCGBIT 0x20
-#define EVIOCGABS 0x40
-#define EVIOVSABS 0xc0
+#define EVIOCGID 	  0x2
+#define EVIOCGNAME 	  0x6
+#define EVIOCGPHYS 	  0x7
+#define EVIOCGUNIQ 	  0x8
+#define EVIOCGPROP 	  0x9
+#define EVIOCGKEY 	  0x18
+#define EVIOCGLED 	  0x19
+#define EVIOCGSND 	  0x1a
+#define EVIOCGSW 	  0x1b
+#define EVIOCGBIT 	  0x20
+#define EVIOCGABS 	  0x40
+#define EVIOVSABS 	  0xc0
+#define EVIOCSREP     0x03
+#define EVIOCSKEYCODE 0x04
+#define EVIOCSFF      0x80
+#define EVIOCRMFF     0x81
+#define EVIOCGRAB     0x90
+#define EVIOCREVOKE   0x91
 
-#define ID_BUS 0
-#define ID_VENDOR 1
-#define ID_PRODUCT 2
-#define ID_VERSION 3
+#define ID_BUS 	   	0
+#define ID_VENDOR  	1
+#define ID_PRODUCT 	2
+#define ID_VERSION 	3
 
-#define BUS_I8042 0x11
+#define BUS_I8042 	0x11
