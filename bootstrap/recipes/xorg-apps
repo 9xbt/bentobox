@@ -1,0 +1,4 @@
+name=xorg-apps
+version=1
+revision=1
+deps="xclock xeyes"

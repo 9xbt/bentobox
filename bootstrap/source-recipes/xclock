@@ -1,0 +1,8 @@
+name=xclock
+version=1.1.1
+tarball_url="https://xorg.freedesktop.org/archive/individual/app/xclock-${version}.tar.xz"
+tarball_blake2b="5770cc0cf9065eb83b427c63190dae070635eade9410676a343505fc7a9d94098fd8d416384383f5311453a7ec80a0b72e8cb9a86be98eb8275dfd9cc92ba478"
+
+prepare() {
+    :
+}
