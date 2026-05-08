@@ -6,7 +6,7 @@ hostdeps="gcc binutils pkgconfig"
 deps="mlibc"
 
 configure() {
-	cmake -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+    cmake -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
         -DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
         -DCMAKE_INSTALL_PREFIX=${prefix} \
         -DCMAKE_BUILD_TYPE=Release \
@@ -16,9 +16,9 @@ configure() {
 }
 
 build() {
-	make -j${parallelism}
+    make -j${parallelism}
 }
 
 package() {
-	DESTDIR=${dest_dir} make install
+    DESTDIR=${dest_dir} make install
 }
