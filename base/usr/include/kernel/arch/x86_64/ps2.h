@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+#include <kernel/input.h>
 #include <kernel/fifo.h>
 
 #define PS2_STATUS_OUTPUT_FULL      0x01
@@ -36,6 +37,7 @@ struct ps2_device {
     bool shift;
     enum ps2_device_type type;
     struct fifo *fifo;
+    struct input_device *input_dev;
 };
 
 void ps2_hid_install(void);

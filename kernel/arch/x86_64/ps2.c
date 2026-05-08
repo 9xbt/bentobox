@@ -375,83 +375,7 @@ long ps2_ioctl(vfs_node_t *node, int op, void *arg) {
     if (!dev)
         return -EINVAL;
 
-    int number = op & 0xff;
-	int type = (op >> 8) & 0xff;
-	int size = (op >> 16) & 0x3fff;
-
-	if (type != 'E')
-		return -ENOTTY;
-
-	if (number == EVIOCGVERSION) {
-		uint32_t version = 0;
-		version |= 1 << 16;
-		version |= 0 << 8;
-		version |= 0 << 0;
-
-		return copy_to_user(arg, &version, sizeof(version));
-	} else if (number == EVIOCGID) {
-		uint16_t id[4];
-		id[ID_BUS]     = BUS_I8042;
-		id[ID_VENDOR]  = 0x1234;
-		id[ID_PRODUCT] = 0x0001 + dev->type;
-		id[ID_VERSION] = 0x0001;
-
-		return copy_to_user(arg, &id, sizeof(id));
-	} else if (number == EVIOCGNAME) {
-		return copy_to_user(arg, "stub", MIN((size_t)size, strlen("stub")));
-	} else if (number == EVIOCGPHYS) {
-		return copy_to_user(arg, "stub", MIN((size_t)size, strlen("stub")));
-	} else if (number == EVIOCGUNIQ) {
-		return copy_to_user(arg, "stub", MIN((size_t)size, strlen("stub")));
-	} else if (number == EVIOCGPROP || number == EVIOCGKEY || number == EVIOCGLED || number == EVIOCGSND || number == EVIOCGSW) {
-        void *bitmap = kmalloc(size);
-        memset(bitmap, 0, size);
-        long ret = copy_to_user(arg, bitmap, size);
-        kfree(bitmap);
-        return ret;
-	} else if (number == EVIOCGBIT) {
-        void *bitmap = kmalloc(size);
-        memset(bitmap, 0, size);
-        if (dev->type == PS2_KEYBOARD) {
-            ((uint8_t *)bitmap)[0] |= (1 << EV_SYN) | (1 << EV_KEY);
-        } else if (dev->type == PS2_MOUSE) {
-            ((uint8_t *)bitmap)[0] |= (1 << EV_SYN) | (1 << EV_KEY) | (1 << EV_REL);
-        }
-        long ret = copy_to_user(arg, bitmap, size);
-        kfree(bitmap);
-        return ret;
-	} else if (number > EVIOCGBIT && number < EVIOCGBIT + EV_CNT) {
-		int ev_type = number - EVIOCGBIT;
-        void *bitmap = kmalloc(size);
-        memset(bitmap, 0, size);
-        if (dev->type == PS2_KEYBOARD && ev_type == EV_KEY) {
-            memset(bitmap, 0xff, MIN(size, 32));
-        } else if (dev->type == PS2_MOUSE && ev_type == EV_REL) {
-            ((uint8_t *)bitmap)[0] |= (1 << REL_X) | (1 << REL_Y);
-        } else if (dev->type == PS2_MOUSE && ev_type == EV_KEY) {
-            ((uint8_t *)bitmap)[0x110 / 8] |= (1 << (0x110 % 8));
-            ((uint8_t *)bitmap)[0x111 / 8] |= (1 << (0x111 % 8));
-            ((uint8_t *)bitmap)[0x112 / 8] |= (1 << (0x112 % 8));
-        }
-        long ret = copy_to_user(arg, bitmap, size);
-        kfree(bitmap);
-        return ret;
-    } else if (number == EVIOCSREP) {
-        return 0;
-    } else if (number == EVIOCSKEYCODE) {
-        return 0;
-    } else if (number == EVIOCSFF) {
-        return 0;
-    } else if (number == EVIOCRMFF) {
-        return 0;
-    } else if (number == EVIOCGRAB) {
-        return 0;
-    } else if (number == EVIOCREVOKE) {
-        return 0;
-	} else {
-		dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%x not implemented\n", __func__, op);
-		return -EINVAL;
-	}
+    return input_generic_ioctl(dev->input_dev, op, arg);
 }
 
 static void ps2_send_command(uint8_t cmd) {
@@ -510,6 +434,7 @@ void ps2_hid_install(void) {
     kb->ops = &ps2_ops;
     kb->device = &keyboard_device;
     keyboard_device.fifo = fifo_create(256, struct input_event);
+    keyboard_device.input_dev = input_create(INPUT_KEYBOARD, BUS_I8042, 0x1234, PS2_KEYBOARD, 0x0001);
     kb_fifo = fifo_create(256, uint8_t);
 
     struct process *proc = sched_new_process("ps2 worker", false);
@@ -534,6 +459,7 @@ void ps2_hid_install(void) {
     mouse->ops = &ps2_ops;
     mouse->device = &mouse_device;
     mouse_device.fifo = fifo_create(256, struct input_event);
+    mouse_device.input_dev = input_create(INPUT_MOUSE, BUS_I8042, 0x1234, PS2_MOUSE, 0x0001);
     mouse_fifo = fifo_create(256, struct ps2_mouse_packet);
 
     mouse_worker = sched_new_thread(proc, ps2_mouse_worker, 0, NULL, NULL, NULL, 0, NULL);
