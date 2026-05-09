@@ -16,4 +16,4 @@
 	url = https://github.com/osdev0/freestnd-c-hdrs-0bsd.git
 [submodule "lib/zstd"]
 	path = lib/zstd
-	url = https://github.com/facebook/zstd/
+	url = https://github.com/9xbt/zstd/

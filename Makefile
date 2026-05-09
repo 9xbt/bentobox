@@ -59,12 +59,12 @@ bin/$(ARCH)/$(OUTPUT): kernel/arch/$(ARCH)/linker.ld $(OBJ)
 	@mkdir -p "$(dir $@)"
 	@$(LD) $(LDFLAGS) $(OBJ) -o $@
 
-obj/$(ARCH)/%.c.o: %.c | build/.zstd
+obj/$(ARCH)/%.c.o: %.c
 	@echo " CC $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-obj/$(ARCH)/%.S.o: %.S | build/.zstd
+obj/$(ARCH)/%.S.o: %.S
 	@echo " AS $<"
 	@mkdir -p "$(dir $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
@@ -122,10 +122,6 @@ build/limine/limine:
 		CPPFLAGS="$(HOST_CPPFLAGS)" \
 		LDFLAGS="$(HOST_LDFLAGS)" \
 		LIBS="$(HOST_LIBS)"
-
-build/.zstd:
-	@cd lib/zstd && git apply ../../build/zstd.diff
-	@touch $@
 
 bootstrap/jinx:
 	curl -o $@ https://codeberg.org/Mintsuki/jinx/raw/commit/e6f44d1bd8c6a504fc3fbfcc16ddb549e2e89a3c/jinx
