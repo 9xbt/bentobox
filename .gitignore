@@ -8,6 +8,7 @@
 compile_commands.json
 jinx
 /build/limine
+/build/.zstd
 /bootstrap/build-*
 /bootstrap/base
 /bootstrap/sources

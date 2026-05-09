@@ -24,4 +24,5 @@ struct tar {
     };
 };
 
+void tar_mount_root(struct tar *tar);
 void tar_module(struct limine_file *mod);

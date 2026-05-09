@@ -112,6 +112,13 @@ void *kmalloc(size_t n) {
     return ptr;
 }
 
+void *kcalloc(size_t n, size_t size) {
+    size_t len = n * size;
+    void *ptr = kmalloc(len);
+    memset(ptr, 0, len);
+    return ptr;
+}
+
 void kfree(void *ptr) {
     assert(ptr);
     cli();
