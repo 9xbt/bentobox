@@ -16,7 +16,7 @@ GIT_HASH := $(shell git describe --always --dirty)
 CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
 CFLAGS += -g -O2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(GIT_HASH)\" -DFLANTERM_FB_DISABLE_BUMP_ALLOC
-CPPFLAGS := -I base/usr/include/ -I build/limine-protocol/include -I lib/flanterm/src -I lib/uACPI/include -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
+CPPFLAGS := -Ibase/usr/include/ -Ibuild/limine-protocol/include -Ilib/flanterm/src -Ilib/uACPI/include -Ilib/zstd/lib -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
 LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
 include build/${ARCH}.mk
@@ -25,6 +25,9 @@ SOURCES := $(shell find -L kernel cc-runtime/src -type f -not -path 'kernel/arch
 SOURCES += $(shell find -L kernel/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find lib/flanterm -type f -name '*.c')
 SOURCES += $(shell find lib/uACPI/source -type f -name '*.c')
+SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.c')
+SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.S')
+SOURCES += $(shell find lib/zstd/lib/common -type f -name '*.c')
 
 CFILES := $(filter %.c,$(SOURCES))
 ASFILES := $(filter %.S,$(SOURCES))
@@ -47,7 +50,7 @@ kernel: bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS)
 hdd: $(LIB_LIBS) $(APPS_EXECUTABLES) $(IMAGE_NAME).hdd
 
 .PHONY: livecd
-livecd: $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar
+livecd: $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar.zst
 
 -include $(HEADER_DEPS)
 
@@ -76,14 +79,15 @@ obj/$(ARCH)/modules/%.ko: modules/%.c
 	@mkdir -p "$$(dirname $@)"
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -mcmodel=large -fno-pic -c $< -o $@
 
-bin/$(ARCH)/initrd.tar: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
+bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
 	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
-	@tar -C bin/$(ARCH)/base -cf $@ .
+	@tar -C bin/$(ARCH)/base -cf bin/$(ARCH)/initrd.tar .
+	@zstd -3 -f bin/$(ARCH)/initrd.tar -o $@
 
 $(IMAGE_NAME).hdd: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"

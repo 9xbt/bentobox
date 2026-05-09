@@ -27,10 +27,10 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root
 	@mkdir -p iso_root/boot
 	@cp bin/$(ARCH)/kernel iso_root/boot/
-	@cp bin/$(ARCH)/initrd.tar iso_root/boot/ 2>/dev/null || true
+	@cp bin/$(ARCH)/initrd.tar.zst iso_root/boot/ 2>/dev/null || true
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/ 2>/dev/null || true
 	@mkdir -p iso_root/boot/limine
-	@if [ -f bin/$(ARCH)/initrd.tar ]; then \
+	@if [ -f bin/$(ARCH)/initrd.tar.zst ]; then \
 		{ echo "default_entry: 2"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
 	else \
 		cp build/limine.conf iso_root/boot/limine/; \

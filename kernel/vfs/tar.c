@@ -70,12 +70,10 @@ int oct2bin(char *oct, int size) {
     return out;
 }
 
-void tar_module(struct limine_file *mod) {
-    dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting %s\n", mod->path);
+void tar_mount_root(struct tar *tar) {
     tar_ops.create = tar_create;
     vfs_get_root()->ops = &tar_ops;
 
-    struct tar *tar = (struct tar *)mod->address;
     static uint64_t inode = 1;
 
     while (!memcmp(tar->ustar, "ustar", 5)) {
@@ -127,4 +125,11 @@ void tar_module(struct limine_file *mod) {
 
     vfs_get_root()->ops = &root_ops;
     tar_ops.create = NULL;
+}
+
+void tar_module(struct limine_file *mod) {
+    dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting %s\n", mod->path);
+
+    struct tar *tar = (struct tar *)mod->address;
+    tar_mount_root(tar);
 }
