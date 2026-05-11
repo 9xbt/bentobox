@@ -1121,11 +1121,15 @@ long sys_exit_thread(void) {
 }
 
 long sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
-    return futex_wait(pointer, expected, time);
+    struct timespec to;
+    if (time && copy_from_user(&to, time, sizeof to) < 0)
+        return -EFAULT;
+
+    return futex_wait(pointer, expected, time ? &to : NULL);
 }
 
-long sys_futex_wake(int *pointer) {
-    return futex_wake(pointer);
+long sys_futex_wake(int *pointer, int count) {
+    return futex_wake(pointer, count);
 }
 
 long sys_getsockopt(int fd, int level, int optname, char *optval, uint32_t *optlen) {

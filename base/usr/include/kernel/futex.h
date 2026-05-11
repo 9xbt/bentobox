@@ -8,4 +8,4 @@ struct futex_waiter {
 
 void futex_initialize(void);
 long futex_wait(int *pointer, int expected, const struct timespec *time);
-long futex_wake(int *pointer);
+long futex_wake(int *pointer, int count);
