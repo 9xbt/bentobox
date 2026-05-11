@@ -1,0 +1,20 @@
+name=openbox
+revision=1
+from_source=openbox
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc xorg-server imlib2 libSM libXcursor libxml2 libXrandr pango"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} --sysconfdir=/etc
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

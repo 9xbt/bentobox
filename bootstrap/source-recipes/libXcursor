@@ -1,0 +1,8 @@
+name=libXcursor
+version=1.2.3
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXcursor-${version}.tar.xz"
+tarball_blake2b="46e95522d2ff45e5d2b3bfe4570de54ab9189e05956831996dee688cb306962ae5b5b37bfa49bffc8e9d0cf23b6ee501f65b24094b815c46f50baf2de7ea42ef"
+
+prepare() {
+    :
+}

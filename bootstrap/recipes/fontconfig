@@ -1,20 +1,18 @@
 name=fontconfig
 revision=1
 from_source=fontconfig
-imagedeps="build-essential gperf"
+imagedeps="build-essential meson ninja-build gperf"
 hostdeps="gcc binutils pkgconfig"
 deps="mlibc freetype expat"
 
 configure() {
-	cp -rp ${source_dir}/* .
-    cp ${base_dir}/config.sub .
-	./configure --host=${TARGET} --prefix=${prefix} --disable-static
+	meson setup --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt --prefix=${prefix} --default-library=shared -Dc_args=-D_GNU_SOURCE ${source_dir}
 }
 
 build() {
-	make -j ${parallelism}
+	ninja
 }
 
 package() {
-	make install DESTDIR=${dest_dir}
+	DESTDIR=${dest_dir} ninja install
 }

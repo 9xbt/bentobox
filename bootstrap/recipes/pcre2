@@ -1,0 +1,37 @@
+name=pcre2
+revision=1
+from_source=pcre2
+imagedeps="build-essential cmake patchelf"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc zlib"
+
+configure() {
+    cmake -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+        -DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+        -DCMAKE_INSTALL_PREFIX=${prefix} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DPCRE2_BUILD_PCRE2GREP=OFF \
+        -DPCRE2_BUILD_TESTS=OFF \
+        -DPCRE2_BUILD_PCRE2_16=ON \
+        -DPCRE2_BUILD_PCRE2_32=ON \
+        -DBUILD_SHARED_LIBS=ON \
+        ${source_dir}
+}
+
+build() {
+    make -j${parallelism}
+}
+
+package() {
+    DESTDIR=${dest_dir} make install
+
+    cd "${dest_dir}${prefix}/lib"
+    patchelf --set-soname libpcre2-8.so.0 libpcre2-8.so
+    patchelf --set-soname libpcre2-16.so.0 libpcre2-16.so
+    patchelf --set-soname libpcre2-32.so.0 libpcre2-32.so
+    patchelf --set-soname libpcre2-posix.so.3 libpcre2-posix.so
+    ln -sf libpcre2-8.so libpcre2-8.so.0
+    ln -sf libpcre2-16.so libpcre2-16.so.0
+    ln -sf libpcre2-32.so libpcre2-32.so.0
+    ln -sf libpcre2-posix.so libpcre2-posix.so.3
+}

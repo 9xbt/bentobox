@@ -1,0 +1,18 @@
+name=pango
+revision=1
+from_source=pango
+imagedeps="build-essential meson ninja-build libglib2.0-dev"
+hostdeps="gcc binutils libstdc++-v3 pkgconfig xorg-util-macros"
+deps="mlibc cairo fontconfig freetype fribidi glib2 harfbuzz libX11 libXft libXrender"
+
+configure() {
+	meson setup --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt --prefix=${prefix} --default-library=shared -Ddocumentation=false ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

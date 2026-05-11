@@ -1,0 +1,8 @@
+name=pango
+version=1.57.1
+tarball_url="https://download.gnome.org/sources/pango/1.57/pango-${version}.tar.xz"
+tarball_blake2b="9b07a13c35a4b26df12ff720f727e54b4393640cd85a87253d1446eaa97d23d6c2ee3d09a7bb2379666cbb1097065f9aa20ec32bfe046c60c85e8bbb63fc65a8"
+
+prepare() {
+    :
+}

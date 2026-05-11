@@ -188,10 +188,9 @@ char *strstr(const char *a, const char *b) {
     return 0;
 }
 
-char *strtok(char *str, const char *delim) {
-    static char *last;
+char *strtok_r(char *str, const char *delim, char **saveptr) {
     if (str == NULL) {
-        str = last;
+        str = *saveptr;
     }
     if (str == NULL) {
         return NULL;
@@ -201,7 +200,7 @@ char *strtok(char *str, const char *delim) {
         str++;
     }
     if (*str == '\0') {
-        last = NULL;
+        *saveptr = NULL;
         return NULL;
     }
 
@@ -211,9 +210,9 @@ char *strtok(char *str, const char *delim) {
     }
     if (*str) {
         *str = '\0';
-        last = str + 1;
+        *saveptr = str + 1;
     } else {
-        last = NULL;
+        *saveptr = NULL;
     }
 
     return token;

@@ -1,0 +1,21 @@
+name=libiconv
+revision=1
+from_source=libiconv
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub build-aux/
+    cp ${base_dir}/config.sub libcharset/build-aux/
+	./configure --host=${TARGET} --prefix=${prefix} --disable-nls --disable-static
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

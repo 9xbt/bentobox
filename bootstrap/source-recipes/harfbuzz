@@ -1,0 +1,8 @@
+name=harfbuzz
+version=14.2.0
+tarball_url="https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz"
+tarball_blake2b="bc0df1fad40bbd2f7348d16e1d17927285a1e64eae02bf27f5921691cb77cbe8646a5f51e14c97953416b9e08f326c824646d2f114b59e37579657727cf706f4"
+
+prepare() {
+    :
+}

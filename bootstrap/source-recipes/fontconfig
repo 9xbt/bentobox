@@ -1,7 +1,7 @@
 name=fontconfig
-version=2.16.0
-tarball_url="https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz"
-tarball_blake2b="48d6fcbfe83f0a4c026a4f90d864a4195805e04cc6dd486bd18d68caa8b55fd51fc37822781298152d363b70dc103c9f8b216f6dc0193b2b192eb35565482ec4"
+version=2.17.1
+tarball_url="https://gitlab.freedesktop.org/fontconfig/fontconfig/-/archive/${version}/fontconfig-${version}.tar.bz2"
+tarball_blake2b="a36659804b10fb480121c9254cb1d91105b5122834bffa4ea3fb9bc654e2a504ac2a2e5d23d006da16c1008f507f2151238a18b0c92c22afabe442d75b9fa615"
 
 prepare() {
     :

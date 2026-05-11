@@ -1,13 +1,67 @@
 diff --git fontconfig-clean/src/fcstat.c fontconfig-workdir/src/fcstat.c
-index 4f69eae..03c1b95 100644
+index 9b54e2b..be5be0e 100644
 --- fontconfig-clean/src/fcstat.c
 +++ fontconfig-workdir/src/fcstat.c
-@@ -386,7 +386,7 @@ FcFStatFs (int fd, FcStatFS *statb)
- #  endif
- #  if defined(HAVE_STRUCT_STATFS_F_FSTYPENAME)
- 	p = buf.f_fstypename;
--#  elif defined(__linux__) || defined (__EMSCRIPTEN__)
-+#  elif defined(__linux__) || defined (__EMSCRIPTEN__) || defined(__bentobox__)
- 	switch (buf.f_type)
- 	{
- 	case 0x6969: /* nfs */
+@@ -344,61 +344,8 @@ FcStatChecksum (const FcChar8 *file, struct stat *statb)
+ static int
+ FcFStatFs (int fd, FcStatFS *statb)
+ {
+-    const char *p = NULL;
+-    int         ret = -1;
+-    FcBool      flag = FcFalse;
+-
+-#if defined(HAVE_FSTATVFS) && (defined(HAVE_STRUCT_STATVFS_F_BASETYPE) || defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME))
+-    struct statvfs buf;
+-
+     memset (statb, 0, sizeof (FcStatFS));
+-
+-    if ((ret = fstatvfs (fd, &buf)) == 0) {
+-#  if defined(HAVE_STRUCT_STATVFS_F_BASETYPE)
+-	p = buf.f_basetype;
+-#  elif defined(HAVE_STRUCT_STATVFS_F_FSTYPENAME)
+-	p = buf.f_fstypename;
+-#  endif
+-    }
+-#elif defined(HAVE_FSTATFS) && (defined(HAVE_STRUCT_STATFS_F_FLAGS) || defined(HAVE_STRUCT_STATFS_F_FSTYPENAME) || defined(__linux__))
+-    struct statfs buf;
+-
+-    memset (statb, 0, sizeof (FcStatFS));
+-
+-    if ((ret = fstatfs (fd, &buf)) == 0) {
+-#  if defined(HAVE_STRUCT_STATFS_F_FLAGS) && defined(MNT_LOCAL)
+-	statb->is_remote_fs = !(buf.f_flags & MNT_LOCAL);
+-	flag = FcTrue;
+-#  endif
+-#  if defined(HAVE_STRUCT_STATFS_F_FSTYPENAME)
+-	p = buf.f_fstypename;
+-#  elif defined(__linux__) || defined(__EMSCRIPTEN__)
+-	switch (buf.f_type) {
+-	case 0x6969: /* nfs */
+-	    statb->is_remote_fs = FcTrue;
+-	    break;
+-	case 0x4d44: /* fat */
+-	    statb->is_mtime_broken = FcTrue;
+-	    break;
+-	default:
+-	    break;
+-	}
+-
+-	return ret;
+-#  else
+-#    error "BUG: No way to figure out with fstatfs()"
+-#  endif
+-    }
+-#endif
+-    if (p) {
+-	if (!flag && strcmp (p, "nfs") == 0)
+-	    statb->is_remote_fs = FcTrue;
+-	if (strcmp (p, "msdosfs") == 0 ||
+-	    strcmp (p, "pcfs") == 0)
+-	    statb->is_mtime_broken = FcTrue;
+-    }
+-
+-    return ret;
++    return 0;
+ }
+ 
+ FcBool

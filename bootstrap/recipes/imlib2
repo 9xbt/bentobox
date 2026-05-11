@@ -1,0 +1,20 @@
+name=imlib2
+revision=1
+from_source=imlib2
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc freetype libXext libpng"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

@@ -9,6 +9,7 @@
 
 extern void devfs_initialize(void);
 extern void zero_initialize(void);
+extern void random_initialize(void);
 extern void tty_initialize(void);
 extern void fbdev_initialize(void);
 extern void tmpfs_initialize(void);
@@ -183,13 +184,14 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
     if (!cwd || path[0] == '/') cwd = vfs_get_root();
 
     char *copy = strdup(path);
-    char *token = strtok(copy, "/"), *next = strtok(NULL, "/");
+    char *saveptr;
+    char *token = strtok_r(copy, "/", &saveptr), *next = strtok_r(NULL, "/", &saveptr);
     vfs_node_t *node = cwd;
     
     while (token) {
         if (!strcmp(token, ".")) {
             token = next;
-            next = strtok(NULL, "/");
+            next = strtok_r(NULL, "/", &saveptr);
             continue;
         }
 
@@ -197,7 +199,7 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
             if (node->parent)
                 node = node->parent;
             token = next;
-            next = strtok(NULL, "/");
+            next = strtok_r(NULL, "/", &saveptr);
             continue;
         }
 
@@ -226,7 +228,7 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
         node = child;
 
         token = next;
-        next = strtok(NULL, "/");
+        next = strtok_r(NULL, "/", &saveptr);
     }
 
     kfree(copy);
@@ -495,7 +497,7 @@ long vfs_chmod(vfs_node_t *node, unsigned int mode) {
 
 long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
     if (!old_node || old_node->type == VFS_SYMLINK || !old_node->ops || !old_node->ops->link || !new_node)
-        return -EINVAL;
+        return -EOPNOTSUPP;
 
     return old_node->ops->link(old_node, new_node);
 }
@@ -526,6 +528,7 @@ void vfs_install(void) {
 
     devfs_initialize();
     zero_initialize();
+    random_initialize();
     tty_initialize();
     fbdev_initialize();
     tmpfs_initialize();

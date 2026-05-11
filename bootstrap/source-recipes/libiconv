@@ -1,0 +1,8 @@
+name=libiconv
+version=1.19
+tarball_url="https://ftpmirror.gnu.org/gnu/libiconv/libiconv-${version}.tar.gz"
+tarball_blake2b="a77d5190bfed76627ac5abf24b90a19f3f1c460f2fe4e5002bb4799d789236c268dff0693aa9836ab12df76b1381084dbe2b78cabe8221eb97f54e14a210a8e2"
+
+prepare() {
+    :
+}

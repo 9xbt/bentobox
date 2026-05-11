@@ -18,6 +18,6 @@ char *strncpy(char* dest, const char* src, size_t n);
 char *strchr(register const char *s, int c);
 char *strrchr(register const char *s, int c);
 char *strstr(const char *a, const char *b);
-char *strtok(char *str, const char *delim);
+char *strtok_r(char *str, const char *delim, char **saveptr);
 char *strdup(const char *s);
 int   atoi(char *s);

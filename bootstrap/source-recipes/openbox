@@ -1,0 +1,8 @@
+name=openbox
+version=3.6.1
+tarball_url="https://openbox.org/dist/openbox/openbox-${version}.tar.xz"
+tarball_blake2b="70357021235c1f38d363ef48e17c6e8f07f2fb5e00a94b13f60323dcbb6e5ec2f97a8115e8d7daf997231346f34a310cb71305f0c9ac42ad7c60e6a771f4e596"
+
+prepare() {
+    :
+}

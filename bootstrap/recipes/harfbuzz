@@ -1,0 +1,18 @@
+name=harfbuzz
+revision=1
+from_source=harfbuzz
+imagedeps="build-essential meson ninja-build libglib2.0-dev"
+hostdeps="gcc binutils libstdc++-v3 pkgconfig xorg-util-macros"
+deps="mlibc freetype glib2 libpng zlib"
+
+configure() {
+	meson setup --cross-file ${base_dir}/crossfile-${JINX_ARCH}.txt --prefix=${prefix} --default-library=shared ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}
