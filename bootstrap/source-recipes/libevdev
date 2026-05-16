@@ -1,7 +1,7 @@
 name=libevdev
 version=1.13.6
-tarball_url="https://www.freedesktop.org/software/libevdev/libevdev-${version}.tar.xz"
-tarball_blake2b="18ebeb8915913d451372df8d58a6d8228df0416c87b507480562ebe144b073f4f03a5dcf6ab93ecaa3f32206bf91ebad64046ea722134ed221a479a2d59fe13a"
+tarball_url="https://gitlab.freedesktop.org/libevdev/libevdev/-/archive/libevdev-${version}/libevdev-libevdev-${version}.tar.gz"
+tarball_blake2b="2300fd9f396d385e89997b2ac4c3a252e9d1be891b65b2880eb59105f9082d8bcc87bb33c797f3a7519e6149f82855db33e6c702e5883229c35c5f2b7c8896fd"
 
 prepare() {
     :

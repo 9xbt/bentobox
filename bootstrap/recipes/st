@@ -3,7 +3,7 @@ revision=1
 from_source=st
 imagedeps="build-essential"
 hostdeps="gcc binutils pkgconfig"
-deps="mlibc xorg-server libX11 libXft"
+deps="mlibc xorg-server ttf-ibm-plex libX11 libXft"
 
 build() {
 	cp -rp ${source_dir}/* .

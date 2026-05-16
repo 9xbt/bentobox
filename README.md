@@ -14,177 +14,46 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 - Input devices: PS/2 (x86_64), virtio-input (aarch64)
 - Elf64 modules & binaries, VMM with CoW support
 
-## Building the toolchain
-Packages required:
-- git
-- gcc
-- binutils
-- base-devel
-
-Start by sourcing the environment. Run `. build/mlibc-root`.
-
-> [!NOTE]
-> To build an aarch64 toolchain, run `. build/mlibc-root aarch64` instead.
-
-Now build binutils. Run `./util/binutils.sh`.
-
-Then, install mlibc headers for the GCC cross compiler. Run `make -f build/mlibc.mk headers`.
-
-Now you can build the GCC cross compiler. Run `./util/gcc.sh`.
-
 ## Building the userspace
 Packages required:
+- build-essential
 - git
-- meson
-- rsync
+- pkg-config
 
-Start by building mlibc. Run `make -f build/mlibc.mk resetup build install`.
+Start by running `make jinx` to download and patch [jinx](https://codeberg.org/mintsuki/jinx).
+
+Then `cd bootstrap/build-x86_64` (or `build-aarch64` if targeting aarch64), and run `jinx host-build '*'` to build the toolchain. This will also build [mlibc](https://github.com/managarm/mlibc) and its headers as `gcc` and `libstdc++-v3` require them.
+
+Now you can build the base system. Run `jinx build base` to build a minimal system (or `jinx build '*'` to build a full distro), followed by `jinx install base base` (or `jinx install base '*'` if building a full distro).
 
 > [!NOTE]
-> To build mlibc for aarch64, append `ARCH=aarch64` to the make command.
+> Building a full distro *will* take a long time; it might be a good time to make some coffee!
 
-Afterwards, rebuild libgcc. Run `./util/libgcc.sh`.
-
-Now proceed to build the ports below.
-
-> [!TIP]
-> Run `./build/strip-bin` after building the ports to reduce their size.
+If you don't want to build a full distro but still get extra apps like Xorg, simply `jinx install base [package]` (package names in `bootstrap/recipes`).
 
 Finally, run `make hdd -j$(nproc)` to make the HDD image (or `make livecd -j$(nproc)` if you prefer an initrd).
-
-## Ports
-
-### bash
-Run `./ports/bash.sh`.
-
-### gnulib
-Packages required:
-- autoconf
-- automake
-- gettext
-- m4
-- wget
-
-Run `./ports/gnulib.sh`.
-
-### coreutils
-Packages required:
-- bison
-- gperf
-- texinfo
-
-Dependencies:
-- gnulib
-
-Run `./ports/coreutils.sh`.
-
-### lua
-Run `./ports/lua.sh`.
-
-### figlet
-Run `./ports/figlet.sh`.
-
-### doomgeneric
-Run `./ports/doomgeneric.sh`.
-
-### fastfetch
-Packages required:
-- cmake
-
-Run `./ports/fastfetch.sh`.
-
-### ncurses
-Run `./ports/ncurses.sh`.
-
-### vim
-Dependencies:
-- ncurses
-
-Run `./ports/vim.sh`.
-
-### cmatrix
-Dependencies:
-- ncurses
-
-Run `./ports/cmatrix.sh`.
-
-### nyancat
-Run `./ports/nyancat.sh`.
-
-### Xorg
-Run `./ports/Xorg.sh` to build all Xorg-related libraries and `xorg-server`.
-
-### twm
-Dependencies:
-- Xorg
-
-Run `./ports/twm.sh`.
-
-### xev
-Dependencies:
-- Xorg
-
-Run `./ports/xev.sh`.
-
-### xeyes
-Dependencies:
-- Xorg
-
-Run `./ports/xeyes.sh`.
-
-### xclock
-Dependencies:
-- Xorg
-
-Run `./ports/xclock.sh`.
-
-### nes_emu
-Dependencies:
-- Xorg
-
-Run `./ports/nes_emu.sh`.
-
-### dwm
-Dependencies:
-- Xorg
-
-Run `./ports/dwm.sh`.
-
-### ttf-ibm-plex
-Run `./ports/ttf-ibm-plex`.
-
-### st
-Dependencies:
-- Xorg
-- ttf-ibm-plex
-
-Run `./ports/st.sh`.
-
-### fvwm3
-Dependencies:
-- Xorg
-
-Run `./ports/fvwm3.sh`.
 
 ## Building the kernel
 ### x86_64
 Packages required:
+- build-essential
 - git
-- gmake
 - xorriso
 - nasm
 - qemu-system-x86
 
-First run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc)` to run it in QEMU.
+To build and run bentobox in QEMU run `make run -j$(nproc)`. If your machine doesn't support KVM append `QEMUFLAGS="-display sdl` to the make command.
+
+Otherwise, run `make -j$(nproc)` to build the kernel and write `bin/x86_64/image.iso` to a USB drive and give it a try on real hardware!
 
 ### aarch64
 Packages required:
+- build-essential
 - git
-- gmake
 - xorriso
 - qemu-system-aarch64
 
-Run `make kernel-deps` to get the dependencies, then run `make run -j$(nproc) ARCH=aarch64` to run it in QEMU.
+Run `make run -j$(nproc) ARCH=aarch64` to run the kernel and run it in QEMU.
 
 ## Screenshots
 <img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/c18b1f3e-f838-4839-a352-ecd221ba8f36" />
