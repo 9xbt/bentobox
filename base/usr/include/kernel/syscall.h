@@ -84,5 +84,7 @@
 
 #define SYS_getrlimit   72
 #define SYS_setsid      73
+#define SYS_truncate    74
+#define SYS_ftruncate   75
 
 long syscall_handler(size_t *args);

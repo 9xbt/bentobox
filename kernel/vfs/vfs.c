@@ -502,6 +502,18 @@ long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
     return old_node->ops->link(old_node, new_node);
 }
 
+long vfs_truncate(vfs_node_t *node, size_t length) {
+    if (!node || !node->ops || !node->ops->truncate)
+        return -EOPNOTSUPP;
+
+    long ret = node->ops->truncate(node, length);
+    if (ret < 0)
+        return ret;
+
+    node->size = length;
+    return 0;
+}
+
 void vfs_print_tree(vfs_node_t *node) {
     if (!node)
         node = vfs_get_root();

@@ -16,15 +16,26 @@ long tmpfs_remove(vfs_node_t *node);
 long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
 long tmpfs_chmod(vfs_node_t *node, unsigned int mode);
 long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
+long tmpfs_mount(vfs_node_t *node, vfs_node_t *device, long flags);
+long tmpfs_unmount(vfs_node_t *node, long flags);
+long tmpfs_truncate(vfs_node_t *node, size_t length);
 
 vfs_ops_t tmpfs_ops = {
-    .read   = tmpfs_read,
-    .write  = tmpfs_write,
-    .create = tmpfs_create,
-    .remove = tmpfs_remove,
-    .rename = tmpfs_rename,
-    .chmod  = tmpfs_chmod,
-    .link   = tmpfs_link
+    .read     = tmpfs_read,
+    .write    = tmpfs_write,
+    .create   = tmpfs_create,
+    .remove   = tmpfs_remove,
+    .rename   = tmpfs_rename,
+    .chmod    = tmpfs_chmod,
+    .link     = tmpfs_link,
+    .truncate = tmpfs_truncate
+};
+
+vfs_mount_ops_t tmpfs_mount_ops = {
+    .type  = "tmp",
+    .nodev = true,
+    .mount = tmpfs_mount,
+    .unmount = tmpfs_unmount
 };
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -47,10 +58,9 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
         memset(file->data, 0, size);
         node->size = size;
     } else if (size > node->size) {
-        void *new_data = krealloc(file->data, size);
+        file->data = krealloc(file->data, size);
         if ((size_t)offset > node->size)
-            memset((char *)new_data + node->size, 0, offset - node->size);
-        file->data = new_data;
+            memset(file->data + node->size, 0, offset - node->size);
         node->size = size;
     }
 
@@ -106,6 +116,17 @@ long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
     return 0;
 }
 
+long tmpfs_truncate(vfs_node_t *node, size_t length) {
+    tmpfs_t *file = node->device;
+    if (!length) {
+        kfree(file->data);
+        file->data = NULL;
+    } else {
+        file->data = krealloc(file->data, length);
+    }
+    return 0;
+}
+
 long tmpfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)node;
     (void)device;
@@ -130,13 +151,6 @@ long tmpfs_unmount(vfs_node_t *node, long flags) {
     node->ops = node->parent->ops;
     return 0;
 }
-
-vfs_mount_ops_t tmpfs_mount_ops = {
-    .type  = "tmp",
-    .nodev = true,
-    .mount = tmpfs_mount,
-    .unmount = tmpfs_unmount
-};
 
 void tmpfs_initialize(void) {
     vfs_register(&tmpfs_mount_ops);

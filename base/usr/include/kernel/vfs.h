@@ -152,6 +152,7 @@ typedef struct vfs_ops {
     long(*chmod)(struct vfs_node *node, unsigned int mode);
     long(*link)(struct vfs_node *old_node, struct vfs_node *new_node);
     long(*ioctl)(struct vfs_node *node, int op, void *arg);
+    long(*truncate)(struct vfs_node *node, size_t length);
 } vfs_ops_t;
 
 typedef struct vfs_node {
@@ -221,6 +222,7 @@ long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flag
 long vfs_unmount(vfs_node_t *node, long flags);
 long vfs_chmod(vfs_node_t *node, unsigned int mode);
 long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
+long vfs_truncate(vfs_node_t *node, size_t length);
 char *vfs_resolve_path(vfs_node_t *node);
 void vfs_print_tree(vfs_node_t *node);
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type);

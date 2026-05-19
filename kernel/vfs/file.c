@@ -16,13 +16,13 @@ struct file file_new(vfs_node_t *node, int flags) {
 }
 
 static int fd_table_expand(int min_size) {
-    int new_size = min_size + 1;
-    struct file *new_files = krealloc(this_proc->files, new_size * sizeof(struct file));
-    if (!new_files) return -ENOMEM;
+    int size = min_size + 1;
+    struct file *files = krealloc(this_proc->files, size * sizeof(struct file));
+    if (!files) return -ENOMEM;
     
-    memset(&new_files[this_proc->max_files], 0, (new_size - this_proc->max_files) * sizeof(struct file));
-    this_proc->files = new_files;
-    this_proc->max_files = new_size;
+    memset(&files[this_proc->max_files], 0, (size - this_proc->max_files) * sizeof(struct file));
+    this_proc->files = files;
+    this_proc->max_files = size;
     return 0;
 }
 
@@ -54,11 +54,18 @@ int file_open(vfs_node_t *cwd, const char *path, int flags, unsigned int mode) {
         if (r.node)
             r.node->perms = mode & ~this_proc->umask;
     }
+
     vfs_node_t *node = r.node;
     if (!node)
         return r.error;
     if (flags & O_DIRECTORY && node->type != VFS_DIRECTORY)
         return -ENOTDIR;
+    
+    if (flags & O_TRUNC && node->type == VFS_FILE) {
+        long ret = vfs_truncate(node, 0);
+        if (ret < 0)
+            return ret;
+    }
 
     int file = file_create(node, flags);
     if (file < 0) {
@@ -97,7 +104,7 @@ struct file *file_get_from_node(vfs_node_t *node) {
     return NULL;
 }
 
-int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
+int file_dup(int oldfd, int newfd, int flags, bool exactfd) {
     if (!file_get(oldfd))
         return -EBADF;
     struct file oldfile = *file_get(oldfd);
@@ -114,7 +121,7 @@ int file_dup(int oldfd, int newfd, int flags, bool exact_fd) {
                 return -EMFILE;
             newfd = this_proc->max_files - 1;
         }
-    } else if (exact_fd) {
+    } else if (exactfd) {
         if (oldfd == newfd)
             return newfd;
         if (newfd < 0)

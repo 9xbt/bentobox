@@ -617,6 +617,8 @@ long sys_chdir(const char *pathname) {
     kfree(path);
     if (!r.node)
         return r.error;
+    if (r.node->type != VFS_DIRECTORY)
+        return -ENOTDIR;
     this_proc->cwd = r.node;
     return 0;
 }
@@ -1301,6 +1303,27 @@ long sys_setsid(void) {
     return this_proc->sid = this_proc->pgid = this_proc->pid;
 }
 
+long sys_truncate(const char *path, long length) {
+    if (length < 0)
+        return -EINVAL;
+
+    COPY_USER_STRING(kpath, path, MAX_PATH);
+    vfs_result_t r = vfs_lookup(this_proc->cwd, path, true, VFS_NONE);
+    kfree(kpath);
+    if (!r.node)
+        return -ENOENT;
+
+    return vfs_truncate(r.node, length);
+}
+
+long sys_ftruncate(int fd, size_t length) {
+    struct file *file = file_get(fd);
+    if (!file)
+        return -EBADF;
+
+    return vfs_truncate(file->node, length);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1380,7 +1403,9 @@ syscall_func syscalls[] = {
     [SYS_sendmsg]     = (syscall_func)(uintptr_t)sys_sendmsg,
 
     [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit,
-    [SYS_setsid]      = (syscall_func)(uintptr_t)sys_setsid
+    [SYS_setsid]      = (syscall_func)(uintptr_t)sys_setsid,
+    [SYS_truncate]    = (syscall_func)(uintptr_t)sys_truncate,
+    [SYS_ftruncate]   = (syscall_func)(uintptr_t)sys_ftruncate
 };
 
 long syscall_handler(size_t *args) {
