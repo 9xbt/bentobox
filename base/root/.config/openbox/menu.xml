@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+
+<menu id="apps-accessories-menu" label="Accessories">
+  <item label="xeyes">
+    <action name="Execute">
+      <command>xeyes</command>
+      <startupnotify>
+        <enabled>yes</enabled>
+      </startupnotify>
+    </action>
+  </item>
+  <item label="xclock">
+    <action name="Execute">
+      <command>xclock</command>
+      <startupnotify>
+        <enabled>yes</enabled>
+      </startupnotify>
+    </action>
+  </item>
+</menu>
+
+<menu id="apps-editors-menu" label="Editors">
+  <item label="Vim">
+    <action name="Execute"><command>st -e vim</command></action>
+  </item>
+</menu>
+
+<menu id="apps-games-menu" label="Games">
+  <item label="doomgeneric">
+    <action name="Execute"><command>doomgeneric -iwad /usr/share/games/doom/doom.wad</command></action>
+  </item>
+</menu>
+
+<menu id="apps-term-menu" label="Terminals">
+  <item label="st">
+    <action name="Execute"><command>st</command></action>
+  </item>
+</menu>
+
+<menu id="root-menu" label="Openbox 3">
+  <separator label="Applications" />
+  <menu id="apps-accessories-menu"/>
+  <menu id="apps-editors-menu"/>
+  <menu id="apps-games-menu"/>
+  <menu id="apps-term-menu"/>
+  <separator label="System" />
+  <item label="Log Out">
+    <action name="Exit">
+      <prompt>yes</prompt>
+    </action>
+  </item>
+</menu>
+
+</openbox_menu>
