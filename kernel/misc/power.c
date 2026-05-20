@@ -16,7 +16,6 @@ void reboot(void) {
 
 __attribute__((noreturn))
 void shutdown(void) {
-    dputs(LOG_DEBUG, "\n");
     sched_shutdown();
     elf64_shutdown_modules();
     acpi_shutdown();

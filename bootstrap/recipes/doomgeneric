@@ -1,0 +1,19 @@
+name=doomgeneric
+revision=1
+from_source=doomgeneric
+imagedeps="build-essential wget"
+hostdeps="gcc binutils"
+deps="mlibc libX11"
+allow_network="yes"
+
+build() {
+    cp -rp ${source_dir}/doomgeneric/* .
+	make -f Makefile.freebsd -j${parallelism} CC=$TARGET-gcc CFLAGS="-std=c99 -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE"
+}
+
+package() {
+    mkdir -p ${dest_dir}/${prefix}/bin
+    mkdir -p ${dest_dir}/${prefix}/share/games/doom
+    wget -O ${dest_dir}/${prefix}/share/games/doom/doom.wad https://archive.org/download/doom-wads/Doom%20%28v1.9%29.zip/DOOM.WAD
+	cp doomgeneric ${dest_dir}/${prefix}/bin/
+}

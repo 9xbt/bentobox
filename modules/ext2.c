@@ -135,15 +135,17 @@ vfs_result_t ext2_create(vfs_node_t *parent, const char *name, enum vfs_node_typ
 long ext2_remove(vfs_node_t *node);
 long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name);
 long ext2_chmod(vfs_node_t *node, unsigned int mode);
+long ext2_truncate(vfs_node_t *node, size_t length);
 
 vfs_ops_t ext2_ops = {
-    .open   = ext2_open,
-    .read   = ext2_read,
-    .write  = ext2_write,
-    .create = ext2_create,
-    .remove = ext2_remove,
-    .rename = ext2_rename,
-    .chmod  = ext2_chmod
+    .open     = ext2_open,
+    .read     = ext2_read,
+    .write    = ext2_write,
+    .create   = ext2_create,
+    .remove   = ext2_remove,
+    .rename   = ext2_rename,
+    .chmod    = ext2_chmod,
+    .truncate = ext2_truncate
 };
 
 void ext2_read_block(ext2_fs *fs, uint32_t block, void *buffer, uint32_t count) {
@@ -988,6 +990,21 @@ long ext2_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
         inode.mod_time = now();
         ext2_write_inode(fs, parent->inode, &inode);
     }
+    
+    return 0;
+}
+
+long ext2_truncate(vfs_node_t *node, size_t length) {
+    ext2_fs *fs = node->device;
+    if (!fs)
+        return -ENOENT;
+    assert(fs->sb->signature == 0xef53);
+    
+    ext2_inode inode;
+    ext2_read_inode(fs, node->inode, &inode);
+    inode.last_access_time = inode.mod_time = now();
+    inode.size = length;
+    ext2_write_inode(fs, node->inode, &inode);
     
     return 0;
 }

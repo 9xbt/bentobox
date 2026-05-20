@@ -3,7 +3,7 @@ revision=1
 from_source=xorg-server
 imagedeps="build-essential meson ninja-build"
 hostdeps="gcc binutils pkgconfig xorg-util-macros"
-deps="mlibc xorgproto libX11 libXext libXfixes libXrender pixman libxkbfile libxcvt xkeyboard-config xkbcomp nettle xorg-fonts"
+deps="mlibc xorgproto libX11 libXext libXfixes libXrender pixman libxkbfile libxcvt xkeyboard-config xkbcomp nettle xorg-fonts libgcc"
 
 configure() {
     meson setup \

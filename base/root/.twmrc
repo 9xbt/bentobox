@@ -68,26 +68,26 @@ Button2 = : iconmgr : f.iconify
 #
 menu "defops"
 {
-"Twm"	f.title
-"Iconify"	f.iconify
-"Resize"	f.resize
-"Move"		f.move
-"Raise"		f.raise
-"Lower"		f.lower
-""		f.nop
-"Focus"		f.focus
-"Unfocus"	f.unfocus
+"Twm"	        f.title
+"Iconify"	    f.iconify
+"Resize"	    f.resize
+"Move"		    f.move
+"Raise"		    f.raise
+"Lower"		    f.lower
+""		        f.nop
+"Focus"		    f.focus
+"Unfocus"	    f.unfocus
 "Show Iconmgr"	f.showiconmgr
 "Hide Iconmgr"	f.hideiconmgr
-""		f.nop
-"st"		f.exec "exec st &"
-"xeyes"		f.exec "exec xeyes &"
-"doomgeneric"		f.exec "exec doomgeneric &"
-"nes_emu"		f.exec "exec nes_emu smb.nes &"
-""		f.nop
-"Kill"		f.destroy
-"Delete"	f.delete
-""		f.nop
-"Restart"	f.restart
-"Exit"		f.quit
+""		        f.nop
+"st"		    f.exec "exec st &"
+"xeyes"		    f.exec "exec xeyes &"
+"xclock"		f.exec "exec xclock &"
+"doomgeneric"	f.exec "exec doomgeneric -iwad /usr/share/games/doom/doom.wad &"
+""		        f.nop
+"Kill"		    f.destroy
+"Delete"	    f.delete
+""		        f.nop
+"Restart"	    f.restart
+"Exit"		    f.quit
 }
