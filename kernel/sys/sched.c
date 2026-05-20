@@ -433,8 +433,7 @@ void sched_balance(void) {
     if (max_load - min_load >= SCHED_IMBALANCE_THRESHOLD && max_cpu && min_cpu && max_cpu->threads->length > 1) {
         foreach_safe(node, max_cpu->threads) {
             struct thread *tcb = node->value;
-
-            if (tcb->state == THREAD_READY && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
+            if (try_acquire(&tcb->lock) && tcb->state == THREAD_READY && max_cpu->current_tcb != node && tcb != max_cpu->idle_tcb->value) {
                 list_remove(max_cpu->threads, node);
                 list_insert(min_cpu->threads, tcb);
                 release(&tcb->lock);
@@ -488,7 +487,7 @@ void sched_schedule(struct registers *r) {
         this_cpu->total_time = 0;
         this_cpu->last_reset = now;
         
-        sched_balance();
+        // sched_balance();
     }
 
     if (this_cpu->current_tcb) {
