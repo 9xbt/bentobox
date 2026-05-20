@@ -10,6 +10,6 @@
 #define DEBUGCON    0xe9
 
 bool serial_initialize(uint16_t port, uint8_t divisor);
-void serial_write(const char *s, size_t len);
+void serial_write(int level, const char *s, size_t len);
 void serial_puts(const char *str);
 void serial_install(void);

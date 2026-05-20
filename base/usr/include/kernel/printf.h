@@ -1,27 +1,11 @@
 #pragma once
 #include <stdarg.h>
 #include <stddef.h>
+#include <kernel/log.h>
 
-#define KERNEL_LOG_SIZE (64 * 1024)
-
-enum {
-    LOG_EMERG,
-    LOG_ALERT,
-    LOG_CRIT,
-    LOG_ERR,
-    LOG_WARNING,
-    LOG_NOTICE,
-    LOG_INFO,
-    LOG_DEBUG
-};
-
-extern struct ringbuffer *kernel_rb;
-
-void early_log_initialize(void);
-void early_log_extend(void);
-void putchar(char c);
-void puts(char *s);
-void dputs(int level, char *s);
+void putchar(const char c);
+void puts(const char *s);
+void write(int level, const char *s, size_t len);
 
 int vsprintf(char *s, const char *fmt, va_list args);
 int snprintf(char *str, size_t n, const char *fmt, ...);

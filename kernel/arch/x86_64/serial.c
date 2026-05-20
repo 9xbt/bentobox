@@ -50,7 +50,8 @@ void serial_putchar(char c) {
     outb(COM1, c);
 }
 
-void serial_write(const char *s, size_t len) {
+void serial_write(int level, const char *s, size_t len) {
+    (void)level;
     acquire(&serial_lock);
     for (size_t i = 0; i < len; i++) {
         if (s[i] == '\n')
@@ -61,7 +62,7 @@ void serial_write(const char *s, size_t len) {
 }
 
 void serial_puts(const char *str) {
-    serial_write(str, strlen(str));
+    serial_write(0, str, strlen(str));
 }
 
 static struct thread *serial_tty_worker = NULL;

@@ -8,6 +8,7 @@
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/log.h>
 #include <kernel/psf.h>
 #include <kernel/mmu.h>
 #include <flanterm_backends/fb.h>
@@ -19,6 +20,8 @@
 struct limine_framebuffer *framebuffer;
 struct flanterm_context *ft_ctx;
 static void *font = NULL;
+
+spinlock_t flanterm_lock = 0;
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
@@ -65,8 +68,8 @@ void framebuffer_initialize(void) {
         0
     );
 
-    puts((char *)kernel_rb->buffer);
-    early_log_extend();
+    log_initialize();
+    log_register_sink(write);
 }
 
 void framebuffer_get_winsize(struct winsize *ws) {

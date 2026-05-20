@@ -9,34 +9,11 @@
 #include <kernel/string.h>
 #include <kernel/args.h>
 #include <kernel/time.h>
+#include <kernel/log.h>
 
-int loglevel = LOG_INFO;
-spinlock_t flanterm_lock = 0;
+extern spinlock_t flanterm_lock;
 
-static struct ringbuffer early_rb;
-static unsigned char early_rb_buffer[4096];
-
-struct ringbuffer *kernel_rb = &early_rb;
-
-void early_log_initialize(void) {
-    early_rb.buffer = early_rb_buffer;
-    early_rb.write_ptr = 0;
-    early_rb.read_ptr = 0;
-    early_rb.size = sizeof(early_rb_buffer);
-    early_rb.lock = 0;
-    if (args_contains("loglevel"))
-        loglevel = atoi(args_value("loglevel"));
-}
-
-void early_log_extend(void) {
-    struct ringbuffer *rb = ringbuffer_create(KERNEL_LOG_SIZE);
-    memcpy(rb->buffer, early_rb.buffer, early_rb.size);
-    rb->read_ptr = early_rb.read_ptr;
-    rb->write_ptr = early_rb.write_ptr;
-    kernel_rb = rb;
-}
-
-void putchar(char c) {
+void putchar(const char c) {
     if (!ft_ctx)
         return;
     framebuffer_draw_cursor(-1, -1);
@@ -45,7 +22,7 @@ void putchar(char c) {
     release(&flanterm_lock);
 }
 
-void puts(char *s) {
+void puts(const char *s) {
     if (!ft_ctx)
         return;
     framebuffer_draw_cursor(-1, -1);
@@ -54,18 +31,13 @@ void puts(char *s) {
     release(&flanterm_lock);
 }
 
-void dputs(int level, char *s) {
-    ringbuffer_write(kernel_rb, (unsigned char *)s, strlen(s));
-
-    #ifdef __x86_64__
-    serial_puts(s);
-    #elif __aarch64__
-    uart_puts(s);
-    #endif
-    
-    if (level <= loglevel) {
-        puts(s);
-    }
+void write(int level, const char *s, size_t len) {
+    if (!ft_ctx || kloglevel < level)
+        return;
+    framebuffer_draw_cursor(-1, -1);
+    acquire(&flanterm_lock);
+	flanterm_write(ft_ctx, s, len);
+    release(&flanterm_lock);
 }
 
 int hex_length(uint64_t val) {
@@ -208,7 +180,7 @@ int dprintf(int level, const char *fmt, ...) {
     size_t secs = 0, nanos = 0;
     uptime(&secs, &nanos);
 
-    int ret = vsprintf(buf + snprintf(buf, sizeof buf, "\033[32m[%5lu.%06lu]\033[0m ", secs, nanos / 1000), fmt, args);
+    int ret = vsprintf(buf + snprintf(buf, sizeof buf, "%c\033[32m[%5lu.%06lu]\033[0m ", level, secs, nanos / 1000), fmt, args);
     dputs(level, buf);
     
     va_end(args);

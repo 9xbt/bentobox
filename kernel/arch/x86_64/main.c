@@ -20,6 +20,7 @@
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
 #include <kernel/ksym.h>
+#include <kernel/log.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -198,6 +199,7 @@ void kmain(void) {
 
     early_log_initialize();
     serial_initialize(COM1, 0x01);
+    log_register_sink(serial_write);
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
