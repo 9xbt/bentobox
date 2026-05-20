@@ -1,0 +1,20 @@
+name=libev
+revision=1
+from_source=libev
+imagedeps="build-essential"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} CFLAGS="-DEV_USE_CLOCK_SYSCALL=0 -DEV_USE_LINUXAIO=0 -DEV_USE_IOURING=0 -DEV_USE_EPOLL=0 -DEV_USE_EVENTFD=0"
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

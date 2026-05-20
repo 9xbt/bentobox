@@ -1,0 +1,8 @@
+name=startup-notification
+version=0.12
+tarball_url="https://mirrors.ocf.berkeley.edu/gnome/sources/startup-notification/${version}/startup-notification-${version}.tar.xz"
+tarball_blake2b="5d15582c8db45298a7ab5b721b99451c05df898174c85edaeae944e7af64771011258011486993e3b3c0b720ce5572145f8deba36031dfe36d2d3019785fb7e9"
+
+prepare() {
+    :
+}

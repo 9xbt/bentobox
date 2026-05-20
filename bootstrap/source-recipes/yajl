@@ -1,0 +1,8 @@
+name=yajl
+version=2.1.0
+git_url="https://github.com/lloyd/yajl"
+commit="5e3a7856e643b4d6410ddc3f84bc2f38174f2872"
+
+prepare() {
+    :
+}

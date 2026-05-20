@@ -1,0 +1,8 @@
+name=libev
+version=4.33
+tarball_url="https://dist.schmorp.de/libev/Attic/libev-${version}.tar.gz"
+tarball_blake2b="8a6cae25ffde10b24a5bbf084f6a8559af326b37acdbdf47dda34b7f0c7955f3ebd26958594444a574cfa3e2b4011e4be93ad2bd994ffd4c094bf36620e67ba5"
+
+prepare() {
+    :
+}

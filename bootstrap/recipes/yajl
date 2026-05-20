@@ -1,0 +1,28 @@
+name=yajl
+revision=1
+from_source=yajl
+imagedeps="build-essential cmake patchelf"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+    cmake -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+        -DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+        -DCMAKE_INSTALL_PREFIX=${prefix} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_FLAGS="-D_GNU_SOURCE" \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        ${source_dir}
+}
+
+build() {
+    make -j${parallelism}
+}
+
+package() {
+    make install DESTDIR=${dest_dir}
+    
+    cd "${dest_dir}${prefix}/lib"
+    patchelf --set-soname libyajl.so.2 libyajl.so
+    ln -sf libyajl.so libyajl.so.2
+}

@@ -1,0 +1,8 @@
+name=xcb-util-xrm
+version=1.3
+tarball_url="https://github.com/Airblader/xcb-util-xrm/releases/download/v${version}/xcb-util-xrm-1.3.tar.bz2"
+tarball_blake2b="06ba03ba22c9a51cad5045024b63d48f32e5ad38d2cf03035bd1132a04ef4906a71d89030141b407329bd8ec04cb131846be2cb3a95e755a57c2841a45b58fa4"
+
+prepare() {
+    :
+}

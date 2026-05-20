@@ -1,0 +1,20 @@
+name=startup-notification
+revision=1
+from_source=startup-notification
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc libX11 libxcb libICE xcb-util"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix} lf_cv_sane_realloc=yes
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

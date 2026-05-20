@@ -40,8 +40,11 @@ vfs_mount_ops_t tmpfs_mount_ops = {
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
+    if (!file)
+        return -EINVAL;
     if (!file->data || (size_t)offset >= node->size)
         return 0;
+    
     size_t count = len < node->size - offset ? len : node->size - offset;
     memcpy(buffer, file->data + offset, count);
     return count;
@@ -49,6 +52,9 @@ long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
 
 long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
+    if (!file)
+        return -EINVAL;
+
     if (offset == -1)
         offset = node->size;
     size_t size = offset + len;
@@ -85,13 +91,14 @@ vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t 
 }
 
 long tmpfs_remove(vfs_node_t *node) {
-    if (node->device) {
-        tmpfs_t *file = node->device;
-        if (--file->refcount <= 0) {
-            if (file->data)
-                kfree(file->data);
-            kfree(file);
-        }
+    tmpfs_t *file = node->device;
+    if (!file)
+        return 0;
+
+    if (--file->refcount <= 0) {
+        if (file->data)
+            kfree(file->data);
+        kfree(file);
     }
     return 0;
 }
@@ -111,6 +118,9 @@ long tmpfs_rename(vfs_node_t *node, vfs_node_t *parent, const char *name) {
 
 long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
     tmpfs_t *file = old_node->device;
+    if (!file)
+        return -EINVAL;
+
     new_node->device = file;
     file->refcount++;
     return 0;
@@ -118,6 +128,11 @@ long tmpfs_link(vfs_node_t *old_node, vfs_node_t *new_node) {
 
 long tmpfs_truncate(vfs_node_t *node, size_t length) {
     tmpfs_t *file = node->device;
+    if (!file)
+        return -EINVAL;
+    if (!file->data)
+        return 0;
+
     if (!length) {
         kfree(file->data);
         file->data = NULL;

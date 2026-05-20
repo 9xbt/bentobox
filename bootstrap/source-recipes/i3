@@ -1,0 +1,8 @@
+name=i3
+version=4.25.1
+tarball_url="https://i3wm.org/downloads/i3-${version}.tar.xz"
+tarball_blake2b="138c7f543e826ebec59fa0e7c4f1e247b08a5078eeec7553be90cf7bf2ff56534ef7420d21ed745a45a6d18d1936eef277fa2b4ec0c434b3a76275fb2a07d7da"
+
+prepare() {
+    :
+}

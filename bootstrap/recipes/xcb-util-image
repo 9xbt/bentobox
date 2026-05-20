@@ -1,0 +1,20 @@
+name=xcb-util-image
+revision=1
+from_source=xcb-util-image
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc libxcb xcb-util"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

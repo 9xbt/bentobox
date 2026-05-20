@@ -547,7 +547,7 @@ void idle(void) {
 
 void sched_cleaner(void) {
     for (;;) {
-        sched_sleep(10000000);
+        // sched_sleep(10000000);
 
         foreach_safe(i, zombie_threads) {
             struct thread *tcb = i->value;

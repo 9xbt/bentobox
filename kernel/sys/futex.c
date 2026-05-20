@@ -38,11 +38,11 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
         struct futex_waiter *w = node->value;
         if (w == waiter) {
             list_remove(futex_waiters, node);
-            kfree(waiter);
             break;
         }
     }
     
+    kfree(waiter);
     release(&futex_lock);
     return 0;
 }
@@ -56,7 +56,6 @@ long futex_wake(int *pointer, int count) {
         if (waiter->address == pointer) {
             sched_wake(waiter->thread);
             list_remove(futex_waiters, node);
-            kfree(waiter);
 
             if (++i >= count)
                 break;

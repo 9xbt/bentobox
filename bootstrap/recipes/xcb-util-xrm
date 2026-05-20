@@ -1,0 +1,20 @@
+name=xcb-util-xrm
+revision=1
+from_source=xcb-util-xrm
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc xcb-util libX11"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

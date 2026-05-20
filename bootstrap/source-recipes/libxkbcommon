@@ -1,0 +1,8 @@
+name=libxkbcommon
+version=1.13.1
+git_url="https://github.com/xkbcommon/libxkbcommon"
+commit="6f76d19db72b5d450e927b41e1e96cbe3252aba8"
+
+prepare() {
+    :
+}
