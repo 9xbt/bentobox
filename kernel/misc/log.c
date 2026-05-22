@@ -38,7 +38,7 @@ void log_register_sink(log_handler handler) {
             char *ptr = (char *)kernel_rb->buffer;
             while (*ptr) {
                 int len = strchr((const char *)ptr, '\n') - ptr;
-                log_sinks[i](ptr[0], ptr + 1, len);
+                log_sinks[i](ptr[0] - 1, ptr + 1, len);
                 ptr += len + 1;
             }
             return;

@@ -206,6 +206,7 @@ void mmu_free(void *ptr) {
     acquire(&lock);
     if (!bitmap_get(mmu_bitmap, page)) {
         dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m potential double free at 0x%p\n", ptr);
+        release(&lock);
         return; 
     }
 

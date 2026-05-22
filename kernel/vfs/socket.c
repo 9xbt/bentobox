@@ -121,6 +121,7 @@ long socket_remove(vfs_node_t *node) {
     if (!sock)
         return 0;
     
+    acquire(&sock->lock);
     if (sock->peer) {
         sock->peer->peer = NULL;
         if (sock->peer->node)

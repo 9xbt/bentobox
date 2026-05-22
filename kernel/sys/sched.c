@@ -212,7 +212,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
     tcb->lock = 0;
-
+    tcb->yielded = false;
     arch_context_init(tcb, entry, parent->user, stack);
 
     if (parent->user && !stack) {
@@ -313,6 +313,7 @@ long fork(void) {
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
     tcb->lock = 0;
+    tcb->yielded = false;
     arch_context_fork(tcb);
     
     list_insert(proc->threads, tcb);
@@ -323,6 +324,7 @@ long fork(void) {
 }
 
 void sched_yield(void) {
+    this->yielded = true;
     arch_yield(this_cpu);
 }
 
@@ -529,6 +531,7 @@ void sched_schedule(struct registers *r) {
         goto find_next;
     }
 
+    this->yielded = false;
     this->start_time = now;
     if (this->state == THREAD_READY)
         this->state = THREAD_RUNNING;

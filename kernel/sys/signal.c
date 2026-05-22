@@ -41,36 +41,45 @@ int signal_handle(struct thread *tcb, int sig) {
     
     int word = (sig - 1) / LONG_BIT;
     int bit = (sig - 1) % LONG_BIT;
-    proc->psig.sig[word] &= ~(1UL << bit);
 
     release(&tcb->lock);
     
-    if (action->sa_handler == SIG_IGN)
+    if (action->sa_handler == SIG_IGN) {
+        proc->psig.sig[word] &= ~(1UL << bit);
         return 1;
+    }
     if (action->sa_handler == SIG_DFL) {
         switch (sig) {
-            case SIGCHLD:
-            case SIGURG:
-            case SIGWINCH:
-                return 0;
             case SIGINT:
             case SIGTERM:
             case SIGKILL:
-                sched_exit_group(proc, sig);
-                return 0;
-            case SIGILL:
-                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
-                sched_exit_group(proc, sig);
-                return 0;
-            case SIGSEGV:
-                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
-                sched_exit_group(proc, sig);
-                return 0;
             case SIGBUS:
             case SIGFPE:
             case SIGABRT:
             case SIGQUIT:
-                sched_exit_group(proc, sig);
+                if (!tcb->syscall_regs || tcb->yielded) {
+                    sched_exit_group(proc, sig);
+                    proc->psig.sig[word] &= ~(1UL << bit);
+                }
+                return 0;
+            case SIGILL:
+                if (!tcb->syscall_regs || tcb->yielded) {
+                    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
+                    sched_exit_group(proc, sig);
+                    proc->psig.sig[word] &= ~(1UL << bit);
+                }
+                return 0;
+            case SIGSEGV:
+                if (!tcb->syscall_regs || tcb->yielded) {
+                    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
+                    sched_exit_group(proc, sig);
+                    proc->psig.sig[word] &= ~(1UL << bit);
+                }
+                return 0;
+            case SIGCHLD:
+            case SIGURG:
+            case SIGWINCH:
+                proc->psig.sig[word] &= ~(1UL << bit);
                 return 0;
             case SIGSTOP:
             case SIGTSTP:
@@ -78,18 +87,23 @@ int signal_handle(struct thread *tcb, int sig) {
             case SIGTTOU:
                 if (tcb->parent != init_proc)
                     sched_block(tcb, 0);
+                proc->psig.sig[word] &= ~(1UL << bit);
                 return 0;
             case SIGCONT:
                 sched_wake(tcb);
+                proc->psig.sig[word] &= ~(1UL << bit);
                 return 0;
             default:
                 dprintf(LOG_DEBUG, "\033[93m%s:\033[0m unhandled signal %d\n", proc->name, sig);
+                proc->psig.sig[word] &= ~(1UL << bit);
                 return 0;
         }
     }
     
+    proc->psig.sig[word] &= ~(1UL << bit);
     if (!tcb->syscall_regs)
         return 1;
+
     setup_signal_frame(tcb, sig, action);
     return 0;
 }

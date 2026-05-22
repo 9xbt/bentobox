@@ -61,6 +61,7 @@ struct thread {
     uint64_t end_time;
     uint64_t last_cpu_time;
     spinlock_t lock;
+    bool yielded;
 };
 
 struct process {
