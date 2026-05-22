@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <pwd.h>
 
 void mount(const char *path, const char *type, const char *device, long flags) {
     errno = -__syscall4(SYS_mount, (long)path, (long)type, (long)device, flags);
@@ -77,6 +78,19 @@ int main(int argc, char *argv[]) {
         getchar();
     }
 
+    setpwent();
+    struct passwd *pw = getpwent();
+    if (!pw) {
+        fprintf(console, "\033[93minit:\033[0m failed to read /etc/passwd!\n");
+        exit(1);
+    }
+
+    char *path = strrchr(pw->pw_shell, '/');
+    path = path ? path + 1 : pw->pw_shell;
+
+    char shell[256];
+    snprintf(shell, sizeof shell, "-%s", path);
+
     for (;;) {
         pid_t pid = fork();
         if (pid < 0) {
@@ -85,10 +99,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (pid == 0) {
-            char *argv[] = { "-bash", NULL };
+            char *argv[] = { shell, NULL };
 
-            execve("/usr/bin/bash", argv, envp);
-            perror("/usr/bin/bash");
+            execve(pw->pw_shell, argv, envp);
+            perror(pw->pw_shell);
             exit(errno);
         } else {
             int status;
