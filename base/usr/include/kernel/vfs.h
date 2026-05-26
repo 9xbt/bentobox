@@ -168,7 +168,6 @@ typedef struct vfs_node {
     uint64_t mtime;
     list_t *children;
     list_t *waiters;
-    spinlock_t waiters_lock;
     struct vfs_node *parent;
     struct vfs_node *symlink;
     struct vfs_ops *ops;
@@ -224,7 +223,6 @@ long vfs_chmod(vfs_node_t *node, unsigned int mode);
 long vfs_link(vfs_node_t *old_node, vfs_node_t *new_node);
 long vfs_truncate(vfs_node_t *node, size_t length);
 char *vfs_resolve_path(vfs_node_t *node);
-void vfs_print_tree(vfs_node_t *node);
 vfs_node_t *devfs_create_node(const char *name, vfs_node_type_t type);
 vfs_node_t *devfs_create_numbered(devfs_type_t type);
 void devfs_remove_numbered(devfs_type_t type, vfs_node_t *node);

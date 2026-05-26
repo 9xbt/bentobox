@@ -17,14 +17,16 @@ typedef struct list {
 } list_t;
 
 list_t *list_create(void);
+node_t *list_create_node(void *value);
 void    list_free(list_t *list);
-void    list_append(list_t *list, node_t *node);
+void    list_clear(list_t *list);
+node_t *list_append(list_t *list, node_t *node);
 node_t *list_insert(list_t *list, void *item);
-void    list_remove(list_t *list, node_t *node);
 node_t *list_find(list_t *list, void *value);
+void    list_unlink(list_t *list, node_t *node);
+void    list_remove(list_t *list, node_t *node);
 void    list_remove_value(list_t *list, void *value);
 void   *list_pop(list_t *list);
-void    list_clear(list_t *list);
 
-#define foreach(__i, list) for (node_t *__i = (list)->head; __i; __i = __i->next) if (__i->value)
 #define foreach_safe(__i, list) for (node_t *__i = (list)->head, *__next_##__i = __i ? __i->next : NULL; __i; __i = __next_##__i, __next_##__i = __i ? __i->next : NULL) if (__i->value)
+#define foreach foreach_safe

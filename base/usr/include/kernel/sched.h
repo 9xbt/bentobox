@@ -62,6 +62,7 @@ struct thread {
     uint64_t last_cpu_time;
     spinlock_t lock;
     bool yielded;
+    int refcount;
 };
 
 struct process {

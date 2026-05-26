@@ -99,9 +99,11 @@ long devfs_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)device;
     (void)flags;
 
+    acquire(&dev->children->lock);
     foreach(i, dev->children) {
         list_insert(node->children, i->value);
     }
+    release(&dev->children->lock);
 
     return 0;
 }

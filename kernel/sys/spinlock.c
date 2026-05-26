@@ -11,7 +11,3 @@ void acquire(spinlock_t *lock) {
 void release(spinlock_t *lock) {
     __atomic_clear(lock, __ATOMIC_RELEASE);
 }
-
-bool try_acquire(spinlock_t *lock) {
-    return !__atomic_test_and_set(lock, __ATOMIC_ACQUIRE);
-}

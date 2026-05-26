@@ -1,4 +1,4 @@
-#include <kernel/spinlock.h>
+#include <kernel/assert.h>
 #include <kernel/malloc.h>
 #include <kernel/list.h>
 
@@ -11,52 +11,66 @@ list_t *list_create(void) {
     return list;
 }
 
+node_t *list_create_node(void *value) {
+    node_t *node = kmalloc(sizeof(node_t));
+    node->value = value;
+    node->next  = NULL;
+    node->prev  = NULL;
+    node->owner = NULL;
+    return node;
+}
+
 void list_free(list_t *list) {
-    acquire(&list->lock);
-    node_t *node = list->head;
-    while (node) {
-        node_t *next = node->next;
-        kfree(node);
-        node = next;
+    assert(list);
+    foreach(i, list) {
+        kfree(i);
     }
     kfree(list);
 }
 
-void list_append(list_t *list, node_t *node) {
-    acquire(&list->lock);
+void list_clear(list_t *list) {
+    assert(list);
+    foreach(i, list) {
+        list_remove(list, i);
+    }
+}
+
+node_t *list_append(list_t *list, node_t *node) {
+    assert(list);
     node->owner = list;
     if (!list->length) {
         list->head = node;
         list->tail = node;
         node->prev = NULL;
         node->next = NULL;
-        list->length++;
-        release(&list->lock);
-        return;
+    } else {
+        list->tail->next = node;
+        node->prev = list->tail;
+        node->next = NULL;
+        list->tail = node;
     }
-    list->tail->next = node;
-    node->next = NULL;
-    node->prev = list->tail;
-    list->tail = node;
     list->length++;
-    release(&list->lock);
-}
-
-node_t *list_insert(list_t *list, void *item) {
-    node_t *node = kmalloc(sizeof(node_t));
-    node->value = item;
-    node->next  = NULL;
-    node->prev  = NULL;
-    node->owner = NULL;
-    list_append(list, node);
     return node;
 }
 
-void list_remove(list_t *list, node_t *node) {
-    if (!list || !node || node->owner != list)
-        return;
+node_t *list_insert(list_t *list, void *item) {
+    return list_append(list, list_create_node(item));
+}
+
+node_t *list_find(list_t *list, void *value) {
+    assert(list);
+    foreach(node, list) {
+        if (node->value == value)
+            return node;
+    }
+    return NULL;
+}
+
+void list_unlink(list_t *list, node_t *node) {
+    assert(list);
+    assert(node);
+    assert(node->owner == list);
     
-    acquire(&list->lock);
     if (node->prev)
         node->prev->next = node->next;
     else
@@ -71,40 +85,29 @@ void list_remove(list_t *list, node_t *node) {
     node->owner = NULL;
     node->next = NULL;
     node->prev = NULL;
-    release(&list->lock);
+}
 
+void list_remove(list_t *list, node_t *node) {
+    list_unlink(list, node);
     kfree(node);
 }
 
-node_t *list_find(list_t *list, void *value) {
-    if (!list) return NULL;
-    
-    foreach(node, list) {
-        if (node->value == value) {
-            return node;
-        }
-    }
-    return NULL;
-}
-
 void list_remove_value(list_t *list, void *value) {
+    assert(list);
     node_t *node = list_find(list, value);
-    if (node) {
-        list_remove(list, node);
-    }
+    if (!node)
+        return;
+
+    list_remove(list, node);
 }
 
 void *list_pop(list_t *list) {
-    if (!list || !list->head) return NULL;
-    
+    assert(list);    
     node_t *node = list->head;
+    if (!node)
+        return NULL;
+
     void *value = node->value;
     list_remove(list, node);
     return value;
-}
-
-void list_clear(list_t *list) {
-    foreach_safe(node, list) {
-        list_remove(list, node);
-    }
 }

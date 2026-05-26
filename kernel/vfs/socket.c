@@ -38,7 +38,9 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     buf->offset = 0;
     memcpy(buf->data, buffer, len);
     
+    acquire(&sock->peer->recv_queue->lock);
     list_insert(sock->peer->recv_queue, buf);
+    release(&sock->peer->recv_queue->lock);
     vfs_wake_waiters(sock->node);
     vfs_wake_waiters(sock->peer->node);
     
@@ -74,7 +76,9 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
     buf->offset += n;
     
     if (buf->offset >= buf->len) {
+        acquire(&sock->recv_queue->lock);
         list_pop(sock->recv_queue);
+        release(&sock->recv_queue->lock);
         kfree(buf->data);
         kfree(buf);
     }
@@ -131,9 +135,12 @@ long socket_remove(vfs_node_t *node) {
     if (sock->bind_node && sock->state == SOCKET_LISTENING)
         sock->bind_node->device = NULL;
 
-    if (sock->pending)
+    if (sock->pending) {
+        acquire(&sock->pending->lock);
         list_free(sock->pending);
+    }
 
+    acquire(&sock->recv_queue->lock);
     while (sock->recv_queue->length > 0) {
         struct socket_buffer *buf = list_pop(sock->recv_queue);
         if (buf) {
@@ -279,7 +286,9 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
             sock->peer = server_child;
             sock->state = SOCKET_CONNECTED;
             
+            acquire(&server_sock->pending->lock);
             list_insert(server_sock->pending, server_child);
+            release(&server_sock->pending->lock);
             vfs_wake_waiters(server_sock->node);
             vfs_wake_waiters(server_sock->bind_node);
             return 0;
@@ -304,7 +313,9 @@ int socket_accept(int fd, const void *addr, uint32_t *addrlen) {
     if (sock->state != SOCKET_LISTENING)
         return -EINVAL;
 
+    acquire(&sock->pending->lock);
     struct socket *client_sock = list_pop(sock->pending);
+    release(&sock->pending->lock);
     if (!client_sock)
         return -EAGAIN;
 

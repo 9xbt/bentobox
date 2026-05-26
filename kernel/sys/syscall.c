@@ -342,16 +342,26 @@ long sys_exit(int status) {
 
 #define WNOHANG 1
 
+#include <kernel/assert.h>
+
 long sys_waitpid(int pid, int *wstatus, int options) {
-    if (this_proc->children->length == 0 && this_proc->dead_children->length == 0)
+    acquire(&this_proc->children->lock);
+    acquire(&this_proc->dead_children->lock);
+    if (this_proc->children->length == 0 && this_proc->dead_children->length == 0) {
+        release(&this_proc->dead_children->lock);
+        release(&this_proc->children->lock);
         return -ECHILD;
-    
+    }
+    release(&this_proc->dead_children->lock);
+    release(&this_proc->children->lock);
+
     for (;;) {
+        acquire(&this_proc->dead_children->lock);
         if (this_proc->dead_children->length > 0) {
             struct dead_process *dp = NULL;
             
             if (pid > 0) {
-                foreach_safe(i, this_proc->dead_children) {
+                foreach(i, this_proc->dead_children) {
                     struct dead_process *d = i->value;
                     if (d->pid == pid) {
                         dp = d;
@@ -365,7 +375,9 @@ long sys_waitpid(int pid, int *wstatus, int options) {
                 // TODO: handle pid == 0 & pid < -1
                 dprintf(LOG_DEBUG, "\033[93muser:\033[0m waitpid is not implemented properly!\n");
             }
-            
+
+            release(&this_proc->dead_children->lock);
+
             if (dp) {
                 if (copy_to_user(wstatus, &dp->status, sizeof(int)) < 0)
                     return -EFAULT;
@@ -373,6 +385,8 @@ long sys_waitpid(int pid, int *wstatus, int options) {
                 kfree(dp);
                 return ret_pid;
             }
+        } else {
+            release(&this_proc->dead_children->lock);
         }
 
         if (options & WNOHANG)
@@ -380,7 +394,6 @@ long sys_waitpid(int pid, int *wstatus, int options) {
 
         sched_block(this, 0);
     }
-    return pid;
 }
 
 long sys_kill(int pid, int sig) {
@@ -1113,7 +1126,10 @@ long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char 
 
 long sys_clone(void *entry, void *stack) {
     struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, NULL, 0, stack);
-    list_insert(sched_find_cpu()->threads, tcb);
+    struct cpu *cpu = sched_find_cpu();
+    acquire(&cpu->threads->lock);
+    list_insert(cpu->threads, tcb);
+    release(&cpu->threads->lock);
     return tcb->tid;
 }
 

@@ -25,6 +25,7 @@ struct vma *vma_create(uintptr_t base, size_t size) {
 
 void vma_destroy(struct vma *vma, uintptr_t *pm) {
     acquire(&vma->lock);
+    acquire(&vma->regions->lock);
 
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
@@ -75,6 +76,7 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
 		return NULL;
 
 	acquire(&src->lock);
+    acquire(&src->regions->lock);
 
 	struct vma *vma = vma_create(src->base, src->pages * PAGE_SIZE);
 	memcpy(vma->bitmap, src->bitmap, ALIGN_UP(src->pages, 8) / 8);
@@ -120,6 +122,8 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
             }
         }
     }
+
+    release(&src->regions->lock);
 
     for (uint64_t page = 0; page < src->pages; page++) {
         if (bitmap_get(src->bitmap, page)) {
@@ -189,14 +193,18 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
             region->pages = page_count;
             region->va = (uintptr_t)ptr;
             region->pa = pa;
+            acquire(&vma->regions->lock);
             list_insert(vma->regions, region);
+            release(&vma->regions->lock);
         }
     } else {
         struct vma_region *region = kmalloc(sizeof(struct vma_region));
         region->pages = page_count;
         region->va = va;
         region->pa = pa;
+        acquire(&vma->regions->lock);
         list_insert(vma->regions, region);
+        release(&vma->regions->lock);
         ptr = (void *)va;
     }
     for (size_t i = 0; i < page_count * PAGE_SIZE; i += PAGE_SIZE) {
@@ -211,7 +219,8 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
 
 void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
     acquire(&vma->lock);
-    
+    acquire(&vma->regions->lock);
+
     foreach(i, vma->regions) {
         struct vma_region *region = i->value;
         if ((uintptr_t)ptr >= region->va && (uintptr_t)ptr < region->va + region->pages * PAGE_SIZE) {
@@ -238,11 +247,14 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
             }
 
             list_remove(vma->regions, i);
+            release(&vma->regions->lock);
             release(&vma->lock);
             kfree(region);
             return;
         }
     }
+
+    release(&vma->regions->lock);
 
     if ((uintptr_t)ptr >= vma->base && (uintptr_t)ptr < vma->base + vma->pages * PAGE_SIZE) {
         size_t page = ((uintptr_t)ptr - vma->base) / PAGE_SIZE;

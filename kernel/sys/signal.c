@@ -41,8 +41,6 @@ int signal_handle(struct thread *tcb, int sig) {
     
     int word = (sig - 1) / LONG_BIT;
     int bit = (sig - 1) % LONG_BIT;
-
-    release(&tcb->lock);
     
     if (action->sa_handler == SIG_IGN) {
         proc->psig.sig[word] &= ~(1UL << bit);
@@ -115,29 +113,36 @@ int signal_send(struct process *proc, int sig) {
         return -EINVAL;
     if (!proc->user)
         return -EPERM;
-    if (!proc->threads->length)
+
+    acquire(&proc->threads->lock);
+    if (!proc->threads->length) {
+        release(&proc->threads->lock);
         return 0;
+    }
 
     int word = (sig - 1) / LONG_BIT;
     int bit  = (sig - 1) % LONG_BIT;
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
+    release(&proc->threads->lock);
+    
     assert(tcb);
     sched_wake(tcb);
-    
     return 0;
 }
 
 int signal_send_pgrp(int pgid, int sig) {
     int err = -ESRCH;
-    foreach_safe(i, processes) {
+    acquire(&processes->lock);
+    foreach(i, processes) {
         struct process *proc = i->value;
         if (proc->pgid == pgid) {
             signal_send(proc, sig);
             err = 0;
         }
     }
+    release(&processes->lock);
     return err;
 }
 

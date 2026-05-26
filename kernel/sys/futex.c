@@ -5,23 +5,22 @@
 #include <kernel/time.h>
 
 list_t *futex_waiters = NULL;
-spinlock_t futex_lock = 0;
 
 void futex_initialize(void) {
     futex_waiters = list_create();
 }
 
 long futex_wait(int *pointer, int expected, const struct timespec *time) {
-    acquire(&futex_lock);
+    acquire(&futex_waiters->lock);
     
     int pointer_value;
     if (copy_from_user(&pointer_value, pointer, sizeof(int)) < 0) {
-        release(&futex_lock);
+        release(&futex_waiters->lock);
         return -EFAULT;
     }
 
     if (pointer_value != expected) {
-        release(&futex_lock);
+        release(&futex_waiters->lock);
         return -EAGAIN;
     }
     
@@ -30,11 +29,11 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
     waiter->thread = this;
     list_insert(futex_waiters, waiter);
     
-    release(&futex_lock);
+    release(&futex_waiters->lock);
     sched_block(this, time ? time->tv_sec * 1000000000ULL + time->tv_nsec : 0);
-    acquire(&futex_lock);
+    acquire(&futex_waiters->lock);
     
-    foreach_safe(node, futex_waiters) {
+    foreach(node, futex_waiters) {
         struct futex_waiter *w = node->value;
         if (w == waiter) {
             list_remove(futex_waiters, node);
@@ -43,15 +42,15 @@ long futex_wait(int *pointer, int expected, const struct timespec *time) {
     }
     
     kfree(waiter);
-    release(&futex_lock);
+    release(&futex_waiters->lock);
     return 0;
 }
 
 long futex_wake(int *pointer, int count) {
-    acquire(&futex_lock);
+    acquire(&futex_waiters->lock);
 
     int i = 0;
-    foreach_safe(node, futex_waiters) {
+    foreach(node, futex_waiters) {
         struct futex_waiter *waiter = node->value;
         if (waiter->address == pointer) {
             sched_wake(waiter->thread);
@@ -62,6 +61,6 @@ long futex_wake(int *pointer, int count) {
         }
     }
     
-    release(&futex_lock);
+    release(&futex_waiters->lock);
     return 0;
 }

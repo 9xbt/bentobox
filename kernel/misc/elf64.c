@@ -469,11 +469,13 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     if (!elf64_is_executable(ehdr))
         return -ENOEXEC;
 
-    foreach_safe(i, this_proc->threads) {
+    acquire(&this_proc->threads->lock);
+    foreach(i, this_proc->threads) {
         struct thread *tcb = i->value;
         if (tcb != this)
             sched_exit(tcb);
     }
+    release(&this_proc->threads->lock);
     
     while (this_proc->threads->length > 1) {
         sched_yield();
@@ -511,7 +513,10 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     Elf64_auxv_t *auxv = elf64_setup_auxv(ehdr, phdr, interp, base);
 
     struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
-    list_insert(sched_find_cpu()->threads, tcb);
+    struct cpu *cpu = sched_find_cpu();
+    acquire(&cpu->threads->lock);
+    list_insert(cpu->threads, tcb);
+    release(&cpu->threads->lock);
 
     // dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
     kfree(auxv);

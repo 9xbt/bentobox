@@ -35,7 +35,7 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->atime = node->ctime = node->mtime = now();
     node->children = list_create();
     node->waiters = list_create();
-    node->waiters_lock = 0;
+    node->waiters->lock = 0;
     node->parent = NULL;
     node->symlink = NULL;
     node->ops = NULL;
@@ -60,7 +60,9 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
         return NULL;
     node->refcount++;
     node->parent = parent;
+    acquire(&parent->children->lock);
     list_insert(parent->children, node);
+    release(&parent->children->lock);
     return node;
 }
 
@@ -69,14 +71,18 @@ long vfs_remove_node(vfs_node_t *node) {
         return -EINVAL;
     
     if (node->parent) {
+        acquire(&node->parent->children->lock);
         list_remove_value(node->parent->children, node);
+        release(&node->parent->children->lock);
         node->refcount--;
     }
 
     if (node->refcount <= 0) {
         if (node->type == VFS_SYMLINK && node->target)
             kfree((void *)node->target);
+        acquire(&node->children->lock);
         list_free(node->children);
+        release(&node->children->lock);
         kfree(node);
     }
     return 0;
@@ -141,11 +147,16 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
     if (ret < 0)
         return ret;
 
+    acquire(&node->parent->children->lock);
+    acquire(&parent->children->lock);
+
     list_remove_value(node->parent->children, node);
     strcpy(node->name, name);
     node->parent = parent;
     list_insert(parent->children, node);
 
+    release(&parent->children->lock);
+    release(&node->parent->children->lock);
     return 0;
 }
 
@@ -164,14 +175,17 @@ vfs_result_t vfs_resolve_symlink(vfs_node_t *node, int depth) {
 }
 
 vfs_result_t vfs_find_child(vfs_node_t *parent, const char *name, bool follow_symlinks) {
+    acquire(&parent->children->lock);
     foreach(item, parent->children) {
         vfs_node_t *child = item->value;
         if (!strcmp(child->name, name)) {
+            release(&parent->children->lock);
             if (child->type == VFS_SYMLINK && follow_symlinks)
                 return vfs_resolve_symlink(child, MAX_SYMLINKS);
             return (vfs_result_t){ child, 0 };
         }
     }
+    release(&parent->children->lock);
     return (vfs_result_t){ NULL, -ENOENT };
 }
 
@@ -255,13 +269,9 @@ long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
 
-    acquire(&node->waiters_lock);
-    foreach_safe(i, node->waiters) {
-        struct thread *tcb = i->value;
-        if (tcb == this)
-            list_remove(node->waiters, i);
-    }
-    release(&node->waiters_lock);
+    acquire(&node->waiters->lock);
+    list_remove_value(node->waiters, this);
+    release(&node->waiters->lock);
     
     node->refcount--;
     if (!node->ops || !node->ops->close)
@@ -305,35 +315,35 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (timeout == 0)
         return 0;
 
-    acquire(&node->waiters_lock);
+    acquire(&node->waiters->lock);
     list_insert(node->waiters, this);
     poll = node->ops->poll(node, events);
     if (poll) {
         list_remove_value(node->waiters, this);
-        release(&node->waiters_lock);
+        release(&node->waiters->lock);
         return poll;
     }
     
     if (timeout == -1) {
         for (;;) {
-            release(&node->waiters_lock);
+            release(&node->waiters->lock);
             sched_block(this, 0);
-            acquire(&node->waiters_lock);
+            acquire(&node->waiters->lock);
             
             poll = node->ops->poll(node, events);
             if (poll) {
                 list_remove_value(node->waiters, this);
-                release(&node->waiters_lock);
+                release(&node->waiters->lock);
                 return poll;
             }
         }
     } else {
-        release(&node->waiters_lock);
+        release(&node->waiters->lock);
         sched_block(this, timeout);
     }
-    acquire(&node->waiters_lock);
+    acquire(&node->waiters->lock);
     list_remove_value(node->waiters, this);
-    release(&node->waiters_lock);
+    release(&node->waiters->lock);
     return node->ops->poll(node, events);
 }
 
@@ -350,9 +360,9 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             continue;
         }
 
-        acquire(&node->waiters_lock);
+        acquire(&node->waiters->lock);
         list_insert(node->waiters, this);
-        release(&node->waiters_lock);
+        release(&node->waiters->lock);
     }
 
     size_t start;
@@ -389,9 +399,9 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
 
-        acquire(&node->waiters_lock);
+        acquire(&node->waiters->lock);
         list_remove_value(node->waiters, this);
-        release(&node->waiters_lock);
+        release(&node->waiters->lock);
 
         if (revents[fd])
             ready++;
@@ -404,12 +414,12 @@ void vfs_wake_waiters(vfs_node_t *node) {
     if (!node)
         return;
     
-    acquire(&node->waiters_lock);
-    foreach_safe(i, node->waiters) {
+    acquire(&node->waiters->lock);
+    foreach(i, node->waiters) {
         struct thread *tcb = i->value;
         sched_wake(tcb);
     }
-    release(&node->waiters_lock);
+    release(&node->waiters->lock);
 }
 
 char *vfs_resolve_path(vfs_node_t *node) {
@@ -428,11 +438,15 @@ char *vfs_resolve_path(vfs_node_t *node) {
 }
 
 void vfs_register(vfs_mount_ops_t *ops) {
+    acquire(&vfs_mount_ops->lock);
     list_insert(vfs_mount_ops, ops);
+    release(&vfs_mount_ops->lock);
 }
 
 void vfs_unregister(vfs_mount_ops_t *ops) {
+    acquire(&vfs_mount_ops->lock);
     list_remove_value(vfs_mount_ops, ops);
+    release(&vfs_mount_ops->lock);
 }
 
 long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flags) {
@@ -441,12 +455,16 @@ long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flag
     if (node->mount)
         return -EBUSY;
 
+    acquire(&vfs_mount_ops->lock);
     foreach(i, vfs_mount_ops) {
         vfs_mount_ops_t *ops = i->value;
         if (strcmp(ops->type, type))
             continue;
-        if (!ops->nodev && !device)
+        if (!ops->nodev && !device) {
+            release(&vfs_mount_ops->lock);
             return -EINVAL;
+        }
+        release(&vfs_mount_ops->lock);
 
         long ret = ops->mount(node, device, flags);
         if (ret < 0)
@@ -461,6 +479,7 @@ long vfs_mount(vfs_node_t *node, const char *type, vfs_node_t *device, long flag
 
         return 0;
     }
+    release(&vfs_mount_ops->lock);
 
     return -EINVAL;
 }
@@ -512,26 +531,6 @@ long vfs_truncate(vfs_node_t *node, size_t length) {
 
     node->size = length;
     return 0;
-}
-
-void vfs_print_tree(vfs_node_t *node) {
-    if (!node)
-        node = vfs_get_root();
-    if (node == vfs_get_root())
-        dprintf(LOG_DEBUG, "/\n");
-
-    foreach(i, node->children) {
-        vfs_node_t *child = i->value;
-
-        char *path = vfs_resolve_path(child);
-        dprintf(LOG_DEBUG, "%s\n", path);
-
-        if (child->children->length > 0) {
-            vfs_print_tree(child);
-        }
-
-        kfree(path);
-    }
 }
 
 void vfs_install(void) {
