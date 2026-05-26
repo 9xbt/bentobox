@@ -514,9 +514,11 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
 
     struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
     struct cpu *cpu = sched_find_cpu();
+    cli();
     acquire(&cpu->threads->lock);
     list_insert(cpu->threads, tcb);
     release(&cpu->threads->lock);
+    sti();
 
     // dprintf(LOG_DEBUG, "\033[93msched:\033[0m renamed pid %d to '%s'\n", this_proc->pid, this_proc->name);
     kfree(auxv);

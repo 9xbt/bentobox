@@ -456,6 +456,8 @@ node_t *sched_find_next(void) {
 
         acquire(&t->lock);
         if (t->state == THREAD_ZOMBIE) {
+            if (node == start)
+                start = next;
             acquire(&zombie_threads->lock);
             list_remove(this_cpu->threads, node);
             list_insert(zombie_threads, t);
@@ -478,7 +480,7 @@ node_t *sched_find_next(void) {
         release(&t->lock);
 
         node = next;
-    } while (node != start);
+    } while (node && node != start);
 
     release(&this_cpu->threads->lock);
     return this_cpu->idle_tcb;

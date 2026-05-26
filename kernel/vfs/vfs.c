@@ -147,15 +147,19 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
     if (ret < 0)
         return ret;
 
+    vfs_node_t *old_parent = node->parent;
+
     acquire(&node->parent->children->lock);
-    acquire(&parent->children->lock);
+    if (old_parent != parent)
+        acquire(&parent->children->lock);
 
     list_remove_value(node->parent->children, node);
     strcpy(node->name, name);
     node->parent = parent;
     list_insert(parent->children, node);
 
-    release(&parent->children->lock);
+    if (old_parent != parent)
+        release(&parent->children->lock);
     release(&node->parent->children->lock);
     return 0;
 }
