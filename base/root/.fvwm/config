@@ -353,10 +353,10 @@ Test (x emacs) + "Emacs" Exec exec emacs
 Test (x gimp) + "Gimp" Exec exec gimp
 Test (x vlc) + "VLC" Exec exec vlc
 + "st" Exec exec st
++ "Vim" Exec exec st -e vim
 + "Xeyes" Exec exec xeyes
 + "Xclock" Exec exec xclock
-+ "doomgeneric" Exec exec doomgeneric
-+ "nes_emu" Exec exec nes_emu smb.nes
++ "doomgeneric" Exec exec doomgeneric -iwad /usr/share/games/doom/doom.wad
 
 # Background Menu
 #

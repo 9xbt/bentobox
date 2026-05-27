@@ -1,0 +1,20 @@
+name=libevent
+revision=1
+from_source=libevent
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub build-aux/
+	./configure --host=${TARGET} --prefix=${prefix} --disable-static --disable-openssl
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

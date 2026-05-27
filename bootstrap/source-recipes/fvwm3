@@ -1,0 +1,8 @@
+name=fvwm3
+version=1.1.4
+tarball_url="https://github.com/fvwmorg/fvwm3/releases/download/${version}/fvwm3-${version}.tar.gz"
+tarball_blake2b="3a98ee267110acb05495b59231bb0b1b5b50c5392c468efd6a30eb5ddcce6bcc31488b2cc2047e863a6607c2604a371fbc857476983f6b8ce30197e25296e50e"
+
+prepare() {
+    :
+}

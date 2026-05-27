@@ -105,8 +105,12 @@ long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_full(pty->ofifo))
+    
+    struct file *file = file_get_from_node(node);
+    if (file->flags & O_NONBLOCK && fifo_is_full(pty->ofifo)) {
+        vfs_wake_waiters(node);
         return -EAGAIN;
+    }
 
     char *buf = (char *)buffer;
     long i;
@@ -114,13 +118,27 @@ long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
         if (pty->tio.c_oflag & OPOST) {
             char c = buf[i];
             if ((pty->tio.c_oflag & ONLCR) && c == '\n') {
-                if (fifo_enqueue(pty->ofifo, '\r') < 0)
-                    break;
+                if (fifo_enqueue(pty->ofifo, '\r') < 0) {
+                    if (file->flags & O_NONBLOCK)
+                        break;
+
+                    while (fifo_enqueue(pty->ofifo, buf[i]) < 0) {
+                        vfs_wake_waiters(pty->master);
+                        while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+                    }
+                }
             }
         }
 
-        if (fifo_enqueue(pty->ofifo, buf[i]) < 0)
-            break;
+        if (fifo_enqueue(pty->ofifo, buf[i]) < 0) {
+            if (file->flags & O_NONBLOCK)
+                    break;
+
+            while (fifo_enqueue(pty->ofifo, buf[i]) < 0) {
+                vfs_wake_waiters(pty->master);
+                while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+            }
+        }
     }
 
     if (i > 0)
@@ -133,8 +151,12 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     pty_t *pty = node->device;
     if (!pty)
         return -EINVAL;
-    if (fifo_is_empty(pty->ififo))
+
+    struct file *file = file_get_from_node(node);
+    if (file->flags & O_NONBLOCK && fifo_is_empty(pty->ififo)) {
+        vfs_wake_waiters(node);
         return -EAGAIN;
+    }
 
     char *buf = (char *)buffer;
 
@@ -143,8 +165,15 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         for (i = 0; (unsigned)i < len; i++) {
             if (fifo_dequeue(pty->ififo, &buf[i]) < 0)
                 break;
-            if (pty->tio.c_lflag & ECHO && fifo_enqueue(pty->ofifo, buf[i]) < 0)
-                break;
+            if (pty->tio.c_lflag & ECHO && fifo_enqueue(pty->ofifo, buf[i]) < 0) {
+                if (file->flags & O_NONBLOCK)
+                    break;
+
+                while (fifo_enqueue(pty->ofifo, buf[i]) < 0) {
+                    vfs_wake_waiters(pty->master);
+                    while (!(vfs_poll(node, POLLOUT, -1) & POLLOUT));
+                }
+            }
         }
         if (i > 0)
             vfs_wake_waiters(pty->master);
@@ -154,9 +183,8 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     size_t i = 0;
     while (i < len) {
         char c;
-        if (fifo_dequeue(pty->ififo, &c) < 0) {
-            vfs_poll(node, POLLIN, -1);
-            continue;
+        while (fifo_dequeue(pty->ififo, &c) < 0) {
+            while (!(vfs_poll(node, POLLIN, -1) & POLLIN));
         }
 
         if (c == '\r')
