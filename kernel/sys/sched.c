@@ -99,18 +99,24 @@ struct cpu *sched_find_cpu(void) {
     if (cpu_count == 1)
         return this_cpu;
 
-    struct cpu *target = this_cpu;
-    int min = sched_get_busy_usage(target);
+    cli();
+    acquire(&this_cpu->threads->lock);
+    struct cpu *target    = this_cpu;
+    size_t target_threads = this_cpu->threads->length;
+    release(&this_cpu->threads->lock);
 
     for (size_t i = 0; i < cpu_count; i++) {
-        struct cpu *core = get_core(i);
-        int usage = sched_get_busy_usage(core);
-        if (usage < min) {
-            min = usage;
-            target = core;
+        struct cpu *cpu = get_core(i);
+        acquire(&cpu->threads->lock);
+        if (cpu->threads->length < target_threads) {
+            target = cpu;
+            target_threads = cpu->threads->length;
         }
+        release(&cpu->threads->lock);
     }
+    sti();
 
+    dprintf(LOG_DEBUG, "targeting cpu %lu\n", target->id);
     return target;
 }
 
@@ -118,10 +124,14 @@ node_t *sched_add_process(struct process *proc) {
     acquire(&proc->threads->lock);
     foreach(thread, proc->threads) {
         struct cpu *cpu = sched_find_cpu();
+        struct thread *tcb = thread->value;
         cli();
+        acquire(&tcb->lock);
         acquire(&cpu->threads->lock);
-        list_insert(cpu->threads, thread->value);
+        list_insert(cpu->threads, tcb);
+        tcb->cpu = cpu;
         release(&cpu->threads->lock);
+        release(&tcb->lock);
         sti();
     }
     release(&proc->threads->lock);
