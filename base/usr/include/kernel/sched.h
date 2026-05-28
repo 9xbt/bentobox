@@ -22,7 +22,7 @@
 #ifdef __x86_64__
 #define wfi() asm ("hlt");
 #define cli() asm ("cli");
-#define sti() asm ("sti");
+#define sti() arch_sti();
 #elif __aarch64__
 #define wfi() asm ("wfi");
 #endif
@@ -97,6 +97,8 @@ extern list_t *processes;
 extern struct process *init_proc;
 extern struct thread  *cleaner_tcb;
 
+extern void arch_sti();
+
 struct cpu *sched_find_cpu(void);
 node_t *sched_add_process(struct process *proc);
 struct process *sched_find_process(long pid);
@@ -104,6 +106,11 @@ struct process *sched_find_in_group(long pgid);
 struct thread  *sched_new_thread(struct process *parent, void *entry, int argc, char *argv[], char *envp[], Elf64_auxv_t *auxv, int auxc, void *stack);
 struct process *sched_new_process(const char *name, bool user);
 long fork(void);
+int  sched_allocate_pid(void);
+int  sched_allocate_tid(void);
+void sched_free_pid(int pid);
+void sched_free_tid(int tid);
+bool sched_pid_exists(int pid);
 void sched_yield(void);
 void sched_sleep(size_t ns);
 void sched_block(struct thread *tcb, size_t ns);

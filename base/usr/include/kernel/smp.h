@@ -23,10 +23,10 @@ struct cpu {
 
     ringbuffer_t *tlb_invl_rb;
     bool tlb_pending;
+    int  current_irq;
 
     #ifdef __aarch64__
     struct madt_gicc *gicc;
-    int current_irq;
     #endif
 };
 

@@ -113,7 +113,6 @@ void arch_context_fork(struct thread *tcb) {
 
     ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
     ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
-    memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, SCHED_KERNEL_STACK_SIZE);
 
     ctx->regs.rsp = this->ctx.user_stack;
     ctx->regs.rip = ctx->regs.rcx;
@@ -152,6 +151,7 @@ long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
 }
 
 void arch_save_context(void) {
+    lapic_eoi();
     this->ctx.gs = read_kernel_gs();
     this->ctx.user_gs = read_gs();
     asm volatile ("fxsave %0" :: "m"(this->ctx.fxsave));
@@ -164,7 +164,6 @@ void arch_restore_context(void) {
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
-    lapic_eoi();
     lapic_oneshot(0x80, 5);
 }
 
@@ -190,6 +189,11 @@ void arch_jumpstart(void) {
             lapic_ipi(core->logical_id, 0x80);
     }
     lapic_ipi(this_cpu->logical_id, 0x80);
+}
+
+void arch_sti(void) {
+    if (this_cpu->current_irq == 0xff)
+        asm ("sti");
 }
 
 void kmain(void) {

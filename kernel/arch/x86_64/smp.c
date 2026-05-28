@@ -22,8 +22,7 @@ struct limine_mp_request smp_request = {
 };
 
 struct cpu bsp = {
-    .id = 0,
-    .logical_id = 0
+    .current_irq = 0xff
 };
 struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
@@ -86,6 +85,7 @@ void smp_initialize(void) {
         core->total_time = 0;
         core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
         core->tlb_pending = false;
+        core->current_irq = 0xff;
         cpu_list[core->logical_id] = core;
     }
     

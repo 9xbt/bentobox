@@ -18,6 +18,49 @@ void mount(const char *path, const char *type, const char *device, long flags) {
     }
 }
 
+char shell[256];
+char shell_name[256];
+
+pid_t spawn_serial_shell(void) {
+    if (access("/dev/ttyS0", F_OK) != 0)
+        return 0;
+
+    char *envp[] = { "TERM=xterm", "HOME=/root", NULL };
+    char *argv[] = { shell, NULL };
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = open("/dev/ttyS0", O_RDWR);
+        if (fd < 0)
+            exit(ENOENT);
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+
+        printf("Press enter to enable this TTY.");
+        fflush(stdout);
+        getchar();
+
+        execve(shell, argv, envp);
+        perror(shell);
+        exit(errno);
+    } else {
+        return pid;
+    }
+}
+
+pid_t spawn_shell(void) {
+    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
+    char *argv[] = { shell, NULL };
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        execve(shell, argv, envp);
+        perror(shell);
+        exit(errno);
+    }
+}
+
 int main(int argc, char *argv[]) {
     FILE *console = fopen("/dev/console", "w");
 
@@ -51,6 +94,18 @@ int main(int argc, char *argv[]) {
         fclose(fptr);
     }
 
+    setpwent();
+    struct passwd *pw = getpwent();
+    if (!pw) {
+        fprintf(console, "\033[93minit:\033[0m failed to read /etc/passwd!\n");
+        exit(1);
+    }
+    strcpy(shell, pw->pw_shell);
+    
+    char *path = strrchr(pw->pw_shell, '/');
+    path = path ? path + 1 : pw->pw_shell;
+    snprintf(shell_name, sizeof shell, "-%s", path);
+
     chdir("/root");
 
     printf("\nWelcome to \033[96mbentobox\033[0m!\n");
@@ -63,55 +118,27 @@ int main(int argc, char *argv[]) {
         sysinfo.sysname, sysinfo.release, sysinfo.version);
     }
 
-    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
-    if (fork() == 0) {
-        int fd = open("/dev/ttyS0", O_RDWR);
-        if (fd < 0)
-            exit(0);
-        dup2(fd, STDIN_FILENO);
-        dup2(fd, STDOUT_FILENO);
-        dup2(fd, STDERR_FILENO);
-        envp[0] = "TERM=xterm";
-
-        printf("Press enter to enable this TTY.");
-        fflush(stdout);
-        getchar();
-    }
-
-    setpwent();
-    struct passwd *pw = getpwent();
-    if (!pw) {
-        fprintf(console, "\033[93minit:\033[0m failed to read /etc/passwd!\n");
-        exit(1);
-    }
-
-    char *path = strrchr(pw->pw_shell, '/');
-    path = path ? path + 1 : pw->pw_shell;
-
-    char shell[256];
-    snprintf(shell, sizeof shell, "-%s", path);
+    pid_t pids[2];
+    pids[0] = spawn_shell();
+    pids[1] = spawn_serial_shell();
 
     for (;;) {
-        pid_t pid = fork();
-        if (pid < 0) {
-            perror("fork");
-            exit(1);
-        }
+        int status;
+        for (;;) {
+            pid_t dead = wait(&status);
+            if (dead < 0) {
+                perror("wait");
+                continue;
+            }
 
-        if (pid == 0) {
-            char *argv[] = { shell, NULL };
+            if (WEXITSTATUS(status) != 0) {
+                exit(EXIT_FAILURE);
+            }
 
-            execve(pw->pw_shell, argv, envp);
-            perror(pw->pw_shell);
-            exit(errno);
-        } else {
-            int status;
-            for (;;) {
-                if (waitpid(pid, &status, 0) != pid)
-                    continue;
-                if (WEXITSTATUS(status) == ENOEXEC)
-                    exit(EXIT_FAILURE);
-                break;
+            if (dead == pids[0]) {
+                pids[0] = spawn_shell();
+            } else if (dead == pids[1]) {
+                pids[1] = spawn_serial_shell();
             }
         }
     }

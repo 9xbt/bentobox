@@ -35,7 +35,7 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
                 void *pa = (void *)mmu_get_physical(pm, vaddr);
                 assert(pa);
                 uint16_t *refcount = mmu_get_refcount(pa);
-                if (refcount && --(*refcount) == 0)
+                if (refcount && __atomic_sub_fetch(refcount, 1, __ATOMIC_ACQ_REL) == 0)
                     mmu_free(pa);
             }
             mmu_unmap(pm, vaddr);
@@ -59,7 +59,7 @@ void vma_destroy(struct vma *vma, uintptr_t *pm) {
             void *pa = (void *)mmu_get_physical(pm, vaddr);
             assert(pa);
             uint16_t *refcount = mmu_get_refcount(pa);
-            if (refcount && --(*refcount) == 0)
+            if (refcount && __atomic_sub_fetch(refcount, 1, __ATOMIC_ACQ_REL) == 0)
                 mmu_free(pa);
             mmu_unmap(pm, vaddr);
         }
@@ -112,7 +112,8 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
             }
 
             uint16_t *refcount = mmu_get_refcount(phys);
-            if (refcount) (*refcount)++;
+            if (refcount)
+                __atomic_fetch_add(refcount, 1, __ATOMIC_ACQ_REL);
         }
 
         if (region->va >= vma->base && region->va < vma->base + vma->pages * PAGE_SIZE) {
@@ -141,7 +142,8 @@ struct vma *vma_clone(struct vma *src, uintptr_t *pm) {
             mmu_map(mmu_get_pm(), vaddr, phys, flags);
             
             uint16_t *refcount = mmu_get_refcount(phys);
-            if (refcount) (*refcount)++;
+            if (refcount)
+                __atomic_fetch_add(refcount, 1, __ATOMIC_ACQ_REL);
         }
     }
 	
@@ -230,7 +232,7 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
                     void *pa = (void *)mmu_get_physical(pm, vaddr);
                     assert(pa);
                     uint16_t *refcount = mmu_get_refcount(pa);
-                    if (refcount && --(*refcount) == 0)
+                    if (refcount && __atomic_sub_fetch(refcount, 1, __ATOMIC_ACQ_REL) == 0)
                         mmu_free(pa);
                 }
                 mmu_unmap(pm, vaddr);
@@ -263,7 +265,7 @@ void vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count) {
             void *pa = (void *)mmu_get_physical(pm, vaddr);
             assert(pa);
             uint16_t *refcount = mmu_get_refcount(pa);
-            if (refcount && --(*refcount) == 0)
+            if (refcount && __atomic_sub_fetch(refcount, 1, __ATOMIC_ACQ_REL) == 0)
                 mmu_free(pa);
             mmu_unmap(pm, vaddr);
             bitmap_clear(vma->bitmap, page + i);

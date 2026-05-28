@@ -106,6 +106,7 @@ void isr_handler(struct registers *r) {
         asm ("cli");
 	    for (;;) asm ("hlt");
     }
+    this_cpu->current_irq = r->int_no;
 
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
@@ -116,8 +117,8 @@ void isr_handler(struct registers *r) {
             void *old_pa = (void *)(mmu_get_physical(mmu_get_pm(), (void *)ALIGN_DOWN(cr2, PAGE_SIZE)));
             uint16_t *refcount = mmu_get_refcount(old_pa);
             
-            if (refcount && *refcount > 1) {
-                (*refcount)--;
+            if (refcount && __atomic_load_n(refcount, __ATOMIC_ACQUIRE) > 1) {
+                __atomic_sub_fetch(refcount, 1, __ATOMIC_ACQ_REL);
                 void *pa = mmu_alloc();
                 memcpy(VIRTUAL_HHDM(pa), VIRTUAL_HHDM(old_pa), PAGE_SIZE);
                 mmu_map(mmu_get_pm(), (void *)ALIGN_DOWN(cr2, PAGE_SIZE), pa, (flags & ~PTE_COW) | PTE_WRITABLE);
@@ -126,6 +127,7 @@ void isr_handler(struct registers *r) {
             }
             
             tlb_invalidate((void *)ALIGN_DOWN(cr2, PAGE_SIZE));
+            this_cpu->current_irq = 0xff;
             return;
         }
     }
@@ -133,6 +135,7 @@ void isr_handler(struct registers *r) {
     if (r->int_no == 14 && this && this->doing_user_copy && cr2 < hhdm_offset) {
         this->user_copy_status = -EFAULT;
         r->rip = (uint64_t)user_copy_fail;
+        this_cpu->current_irq = 0xff;
         return;
     }
     
@@ -146,6 +149,7 @@ void isr_handler(struct registers *r) {
                 signal_send(this_proc, SIGSEGV);
                 break;
         }
+        this_cpu->current_irq = 0xff;
         sched_yield();
         return;
     }
@@ -177,9 +181,11 @@ void isr_handler(struct registers *r) {
 }
 
 void irq_handler(struct registers *r) {
+    this_cpu->current_irq = r->int_no;
     void(*handler)(struct registers *);
     handler = irq_handlers[r->int_no - 32];
 
     if (handler != NULL)
         handler(r);
+    this_cpu->current_irq = 0xff;
 }
