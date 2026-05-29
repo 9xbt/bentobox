@@ -1,5 +1,5 @@
 name=bash
-revision=1
+revision=2
 from_source=bash
 imagedeps="build-essential"
 hostdeps="gcc binutils"
@@ -16,5 +16,6 @@ build() {
 }
 
 package() {
-	make install DESTDIR=${dest_dir}
+	make install DESTDIR=${dest_dir} || true
+	chmod 755 ${dest_dir}/${prefix}/bin/bashbug
 }

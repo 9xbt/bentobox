@@ -85,6 +85,7 @@ bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
 	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
+	@cp /etc/localtime bin/$(ARCH)/base/etc/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf bin/$(ARCH)/initrd.tar .
 	@zstd -3 -f bin/$(ARCH)/initrd.tar -o $@
@@ -94,7 +95,8 @@ $(IMAGE_NAME).hdd: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell fi
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
-	@cp -r --no-preserve=mode bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
+	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
+	@cp /etc/localtime bin/$(ARCH)/base/etc/
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@truncate -s 4000M $@
 	@mkfs.ext2 -b 1024 -O ^filetype -F $@

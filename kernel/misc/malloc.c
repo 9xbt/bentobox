@@ -103,12 +103,12 @@ static int munmap(void *addr, size_t length) {
 
 void *kmalloc(size_t n) {
     assert(n);
-    cli();
+    // cli();
     acquire(&lock);
     void *ptr = dlmalloc(n);
     assert(ptr);
     release(&lock);
-    sti();
+    // sti();
     return ptr;
 }
 
@@ -121,23 +121,23 @@ void *kcalloc(size_t n, size_t size) {
 
 void kfree(void *ptr) {
     assert(ptr);
-    cli();
+    // cli();
     acquire(&lock);
     // size_t n = malloc_usable_size(ptr);
     // memset(ptr, 0xCC, n);
     dlfree(ptr);
     release(&lock);
-    sti();
+    // sti();
 }
 
 void *krealloc(void *ptr, size_t size) {
     assert(size);
-    cli();
+    // cli();
     acquire(&lock);
     void *p = dlrealloc(ptr, size);
     assert(p);
     release(&lock);
-    sti();
+    // sti();
     return p;
 }
 

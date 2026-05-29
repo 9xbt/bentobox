@@ -162,6 +162,9 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
         case VFS_SYMLINK:
             st.st_mode |= S_IFLNK;
             break;
+        case VFS_SOCKET:
+            st.st_mode |= S_IFSOCK;
+            break;
         default:
             st.st_mode |= S_IFREG;
             break;
@@ -175,12 +178,12 @@ long sys_fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flag
     st.st_atim.tv_sec = node->atime;
     st.st_ctim.tv_sec = node->ctime;
     st.st_mtim.tv_sec = node->mtime;
+    st.st_blocks = node->blocks;
     
     switch (node->type) {
         case VFS_FILE:
         case VFS_DIRECTORY:
             st.st_size = node->size;
-            st.st_blocks = node->blocks;
             break;
         case VFS_SYMLINK:
             st.st_size = node->size;

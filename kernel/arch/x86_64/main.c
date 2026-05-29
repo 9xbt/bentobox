@@ -151,7 +151,6 @@ long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
 }
 
 void arch_save_context(void) {
-    lapic_eoi();
     this->ctx.gs = read_kernel_gs();
     this->ctx.user_gs = read_gs();
     asm volatile ("fxsave %0" :: "m"(this->ctx.fxsave));
@@ -164,6 +163,7 @@ void arch_restore_context(void) {
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
+    lapic_eoi();
     lapic_oneshot(0x80, 5);
 }
 
@@ -188,7 +188,7 @@ void arch_jumpstart(void) {
         if (core != this_cpu)
             lapic_ipi(core->logical_id, 0x80);
     }
-    lapic_ipi(this_cpu->logical_id, 0x80);
+    asm volatile ("int $0x80");
 }
 
 void arch_sti(void) {
