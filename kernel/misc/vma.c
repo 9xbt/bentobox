@@ -23,6 +23,13 @@ struct vma *vma_create(uintptr_t base, size_t size) {
     return vma;
 }
 
+void vma_expand(struct vma *vma, size_t size) {
+    size_t pages = vma->pages;
+    vma->pages = ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE;
+    vma->bitmap = krealloc(vma->bitmap, ALIGN_UP(vma->pages, 8) / 8);
+    memset(vma->bitmap + ALIGN_UP(pages, 8) / 8, 0, ALIGN_UP(vma->pages, 8) / 8 - ALIGN_UP(pages, 8) / 8);
+}
+
 void vma_destroy(struct vma *vma, uintptr_t *pm) {
     acquire(&vma->lock);
     acquire(&vma->regions->lock);

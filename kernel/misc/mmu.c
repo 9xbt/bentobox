@@ -166,7 +166,8 @@ void mmu_initialize(void) {
 
     dprintf(LOG_INFO, "\033[93mmmu:\033[0m switched to new pagemap\n");
 
-    kernel_vma = vma_create(VMA_KERNEL_BASE, mmu_usable_mem);
+    kernel_vma = vma_create(VMA_KERNEL_BASE, 32 * 1024 * 1024);
+    vma_expand(kernel_vma, mmu_usable_mem);
     mmu_refcounts = vmalloc(kernel_vma, kernel_pd, 0, 0, ALIGN_UP(mmu_page_count * sizeof(uint16_t), PAGE_SIZE) / PAGE_SIZE, data_flags);
     kernel_rb = ringbuffer_clone(kernel_rb);
 }

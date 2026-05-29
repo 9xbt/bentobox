@@ -79,6 +79,7 @@ struct vma_region {
 
 struct vma *vma_create(uintptr_t base, size_t size);
 struct vma *vma_clone(struct vma *src, uintptr_t *pm);
+void  vma_expand(struct vma *vma, size_t size);
 void  vma_destroy(struct vma *vma, uintptr_t *pm);
 void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t page_count, uint64_t flags);
 void  vfree(struct vma *vma, uintptr_t *pm, void *ptr, size_t page_count);
