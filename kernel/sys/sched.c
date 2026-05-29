@@ -469,11 +469,9 @@ node_t *sched_find_next(void) {
 
         acquire(&t->lock);
         if (t->state == THREAD_ZOMBIE) {
-            if (node == start)
-                start = next;
             acquire(&zombie_threads->lock);
-            list_remove(this_cpu->threads, node);
-            list_insert(zombie_threads, t);
+            list_unlink(this_cpu->threads, node);
+            list_append(zombie_threads, node);
             release(&zombie_threads->lock);
             
             release(&t->lock);
@@ -503,16 +501,6 @@ void sched_schedule(struct registers *r) {
     uptime(&sec, &nsec);
     uint64_t now = sec * 1000000000UL + nsec;
 
-    if (this_cpu->prev_tcb) {
-        struct thread *tcb = this_cpu->prev_tcb;
-        if (__atomic_sub_fetch(&tcb->refcount, 1, __ATOMIC_ACQ_REL) == 0) {
-            arch_context_free(tcb);
-            sched_free_tid(tcb->tid);
-            kfree(tcb);
-        }
-        this_cpu->prev_tcb = NULL;
-    }
-
     if (this_cpu->current_tcb) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
@@ -525,14 +513,12 @@ void sched_schedule(struct registers *r) {
         if (this_proc->state == PROCESS_ZOMBIE)
             this->state = THREAD_ZOMBIE;
         if (this->state == THREAD_ZOMBIE) {
-            this_cpu->prev_tcb = this;
-            this->refcount++;
-            struct thread *tcb = this;
+            struct node *tcb = this_cpu->current_tcb;
             acquire(&this_cpu->threads->lock);
 
             acquire(&zombie_threads->lock);
-            list_remove_value(this_cpu->threads, tcb);
-            list_insert(zombie_threads, tcb);
+            list_unlink(this_cpu->threads, tcb);
+            list_append(zombie_threads, tcb);
             release(&zombie_threads->lock);
 
             this_cpu->current_tcb = this_cpu->threads->head;
@@ -597,6 +583,8 @@ void sched_cleaner(void) {
         acquire(&proc->threads->lock);
         list_remove_value(proc->threads, tcb);
 
+        while (__atomic_load_n(&tcb->cpu->current_tcb->value, __ATOMIC_RELAXED) == tcb);
+
         if (proc->threads->length == 0) {
             if (init_proc == proc)
                 panic("Tried to kill init!");
@@ -657,12 +645,10 @@ void sched_cleaner(void) {
         } else {
             release(&proc->threads->lock);
         }
-
-        if (__atomic_sub_fetch(&tcb->refcount, 1, __ATOMIC_ACQ_REL) == 0) {
-            arch_context_free(tcb);
-            sched_free_tid(tcb->tid);
-            kfree(tcb);
-        }
+        
+        arch_context_free(tcb);
+        sched_free_tid(tcb->tid);
+        kfree(tcb);
     }
 }
 
