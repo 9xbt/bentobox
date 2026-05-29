@@ -56,7 +56,8 @@ Packages required:
 Run `make run -j$(nproc) ARCH=aarch64` to run the kernel and run it in QEMU.
 
 ## Screenshots
-<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/c18b1f3e-f838-4839-a352-ecd221ba8f36" />
-<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/239b33eb-6ab2-4b9e-8823-98448d572106" />
-<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/da003f5a-bba1-4cf2-a492-7f55995f3329" />
-<img width="1154" height="926" alt="image" src="https://github.com/user-attachments/assets/bdfea070-c49b-49c3-bae4-af7e5ffc40c6" />
+<p><img src="https://github.com/user-attachments/assets/c18b1f3e-f838-4839-a352-ecd221ba8f36" alt="image"></p>
+<p><img src="https://github.com/user-attachments/assets/239b33eb-6ab2-4b9e-8823-98448d572106" alt="image"></p>
+<p><img src="https://github.com/user-attachments/assets/da003f5a-bba1-4cf2-a492-7f55995f3329" alt="image"></p>
+<p><img src="https://github.com/user-attachments/assets/bdfea070-c49b-49c3-bae4-af7e5ffc40c6" alt="image"></p>
+<p><img src="https://github.com/user-attachments/assets/bc37c2b7-9d77-4f18-b06d-53616353a998" alt="image"></p>
