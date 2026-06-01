@@ -236,12 +236,12 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
+    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
     tcb->lock = 0;
-    tcb->yielded = false;
     tcb->refcount = 1;
     arch_context_init(tcb, entry, parent->user, stack);
 
@@ -342,12 +342,12 @@ long fork(void) {
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
+    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
     tcb->last_cpu_time = 0;
     tcb->lock = 0;
-    tcb->yielded = false;
     tcb->refcount = 1;
     arch_context_fork(tcb);
     
@@ -361,7 +361,8 @@ long fork(void) {
 }
 
 void sched_yield(void) {
-    this->yielded = true;
+    if (this->state == THREAD_RUNNING)
+        this->state = THREAD_READY;
     arch_yield(this_cpu);
 }
 
@@ -386,6 +387,7 @@ void sched_block(struct thread *tcb, size_t ns) {
     if (tcb->wakeup_pending) {
         tcb->wakeup_pending = false;
         release(&tcb->lock);
+        sti();
         return;
     }
 
@@ -393,8 +395,9 @@ void sched_block(struct thread *tcb, size_t ns) {
         size_t sec, nsec;
         uptime(&sec, &nsec);
         tcb->sleep_end = sec * 1000000000UL + nsec + ns;
-        tcb->state = THREAD_SLEEPING;
+        tcb->state = THREAD_PAUSED;
     } else {
+        tcb->sleep_end = 0;
         tcb->state = THREAD_PAUSED;
     }
 
@@ -411,8 +414,14 @@ void sched_block(struct thread *tcb, size_t ns) {
 void sched_wake(struct thread *tcb) {
     cli();
     acquire(&tcb->lock);
+    if (tcb->state == THREAD_ZOMBIE || tcb->kill_pending) {
+        release(&tcb->lock);
+        sti();
+        return;
+    }
+    
     tcb->wakeup_pending = true;
-    if (tcb->state != THREAD_RUNNING)
+    if (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE)
         tcb->state = THREAD_READY;
     release(&tcb->lock);
     sti();
@@ -421,6 +430,10 @@ void sched_wake(struct thread *tcb) {
 void sched_exit(struct thread *tcb) {
     cli();
     acquire(&tcb->lock);
+    
+    tcb->kill_pending = true;
+    if (tcb != this && (tcb->state == THREAD_RUNNING || tcb->state == THREAD_PAUSED))
+        assert(0 && "Tried to exit TCB with unsafe state");
     if (tcb->wakeup_pending)
         tcb->wakeup_pending = false;
     tcb->state = THREAD_ZOMBIE;
@@ -433,14 +446,14 @@ void sched_exit(struct thread *tcb) {
 
         vfs_node_t *node = file->node;
         acquire(&node->waiters->lock);
-        list_remove_value(node->waiters, this);
+        list_remove_value(node->waiters, tcb);
         release(&node->waiters->lock);
     }
 
     release(&tcb->lock);
     if (tcb == this) {
         sched_yield();
-        assert(0);
+        __builtin_unreachable();
     }
     sti();
 }
@@ -448,7 +461,13 @@ void sched_exit(struct thread *tcb) {
 void sched_exit_group(struct process *proc, int status) {
     proc->state = PROCESS_ZOMBIE;
     proc->exit_status = status;
-    
+
+    for (int fd = 0; fd < proc->max_files; fd++) {
+        struct file *file = &proc->files[fd];
+        if (file->open)
+            vfs_close(file->node);
+    }
+
     if (proc == this_proc) {
         sched_exit(this);
         __builtin_unreachable();
@@ -468,6 +487,8 @@ node_t *sched_find_next(void) {
         node_t *next = node->next ? node->next : this_cpu->threads->head;
 
         acquire(&t->lock);
+        if (t->kill_pending && (t->state == THREAD_READY || t->state == THREAD_SLEEPING || !t->syscall_regs))
+            t->state = THREAD_ZOMBIE;
         if (t->state == THREAD_ZOMBIE) {
             acquire(&zombie_threads->lock);
             list_unlink(this_cpu->threads, node);
@@ -480,9 +501,10 @@ node_t *sched_find_next(void) {
             node = next;
             continue;
         }
-        if (t->state == THREAD_SLEEPING && now >= t->sleep_end)
+        if ((t->state == THREAD_SLEEPING || t->state == THREAD_PAUSED) && t->sleep_end && now >= t->sleep_end) {
             t->state = THREAD_READY;
-        if (t->state == THREAD_READY) {
+        }
+        if (t->state == THREAD_READY || t->state == THREAD_RUNNING) {
             release(&t->lock);
             release(&this_cpu->threads->lock);
             return node;
@@ -505,8 +527,8 @@ void sched_schedule(struct registers *r) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 
-        if (this->state == THREAD_RUNNING)
-            this->state = THREAD_READY;
+        if (this->kill_pending && (this->state == THREAD_READY || this->state == THREAD_SLEEPING))
+            this->state = THREAD_ZOMBIE;
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
 
@@ -541,15 +563,12 @@ void sched_schedule(struct registers *r) {
 
     enum thread_state state = this->state;
     this->cpu = this_cpu;
-    release(&this->lock);
     signal_check_pending(this);
-    acquire(&this->lock);
     if (this->state != state) {
         release(&this->lock);
         goto find_next;
     }
 
-    this->yielded = false;
     this->start_time = now;
     if (this->state == THREAD_READY)
         this->state = THREAD_RUNNING;
@@ -565,13 +584,24 @@ void idle(void) {
     }
 }
 
+void sched_clean_tcb(struct thread *tcb) {
+    assert(tcb->refcount <= 1);
+    arch_context_free(tcb);
+    sched_free_tid(tcb->tid);
+    kfree(tcb);
+}
+
 void sched_cleaner(void) {
+    struct process *last_proc = NULL;
+
     for (;;) {
         sched_sleep(10000000);
 
+        cli();
         acquire(&zombie_threads->lock);
         struct thread *tcb = (struct thread *)list_pop(zombie_threads);
         release(&zombie_threads->lock);
+        sti();
 
         if (!tcb) {
             this->state = THREAD_PAUSED;
@@ -621,15 +651,6 @@ void sched_cleaner(void) {
             }
             list_free(proc->dead_children);
 
-            for (int j = 0; j < proc->max_files; j++) {
-                struct file *file = &proc->files[j];
-                if (file->open) {
-                    if (file->node->type == VFS_SOCKET)
-                        socket_shutdown_node(file->node);
-                    vfs_close(file->node);
-                }
-            }
-
             vfs_close(proc->cwd);
             vma_destroy(proc->vma, proc->pm);
             mmu_destroy_pagemap(proc->pm);
@@ -639,16 +660,17 @@ void sched_cleaner(void) {
 
             list_remove_value(processes, proc);
             list_free(proc->threads);
-            kfree(proc);
+            if (last_proc)
+                kfree(last_proc);
+            last_proc = proc;
 
             release(&processes->lock);
         } else {
             release(&proc->threads->lock);
         }
-        
-        arch_context_free(tcb);
-        sched_free_tid(tcb->tid);
-        kfree(tcb);
+
+        if (__atomic_sub_fetch(&tcb->refcount, 1, __ATOMIC_ACQ_REL) == 0)
+            sched_clean_tcb(tcb);
     }
 }
 

@@ -272,15 +272,26 @@ vfs_result_t vfs_open(vfs_node_t *cwd, const char *path, long flags) {
 long vfs_close(vfs_node_t *node) {
     if (!node)
         return -ENOENT;
-
-    acquire(&node->waiters->lock);
-    list_remove_value(node->waiters, this);
-    release(&node->waiters->lock);
     
     node->refcount--;
     if (!node->ops || !node->ops->close)
         return 0;
-    return node->ops->close(node);
+    long ret = node->ops->close(node);
+
+    if (this_proc) {
+        acquire(&node->waiters->lock);
+        if (node->waiters->length) {
+            acquire(&this_proc->threads->lock);
+            foreach(j, this_proc->threads) {
+                struct thread *tcb = j->value;
+                list_remove_value(node->waiters, tcb);
+            }
+            release(&this_proc->threads->lock);
+        }
+        release(&node->waiters->lock);
+    }
+
+    return ret;
 }
 
 long vfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -320,10 +331,12 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
         return 0;
 
     acquire(&node->waiters->lock);
+    __atomic_add_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
     list_insert(node->waiters, this);
     poll = node->ops->poll(node, events);
     if (poll) {
         list_remove_value(node->waiters, this);
+        __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
         release(&node->waiters->lock);
         return poll;
     }
@@ -337,6 +350,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
             poll = node->ops->poll(node, events);
             if (poll) {
                 list_remove_value(node->waiters, this);
+                __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
                 release(&node->waiters->lock);
                 return poll;
             }
@@ -347,6 +361,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     }
     acquire(&node->waiters->lock);
     list_remove_value(node->waiters, this);
+    __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
     release(&node->waiters->lock);
     return node->ops->poll(node, events);
 }
@@ -365,6 +380,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
         }
 
         acquire(&node->waiters->lock);
+        __atomic_add_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
         list_insert(node->waiters, this);
         release(&node->waiters->lock);
     }
@@ -405,6 +421,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 
         acquire(&node->waiters->lock);
         list_remove_value(node->waiters, this);
+        __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
         release(&node->waiters->lock);
 
         if (revents[fd])
@@ -422,6 +439,12 @@ void vfs_wake_waiters(vfs_node_t *node) {
     foreach(i, node->waiters) {
         struct thread *tcb = i->value;
         sched_wake(tcb);
+        if (__atomic_load_n(&tcb->refcount, __ATOMIC_ACQUIRE) <= 1) {
+            if (__atomic_sub_fetch(&tcb->refcount, 1, __ATOMIC_ACQ_REL) == 0) {
+                list_remove(node->waiters, i);
+                sched_clean_tcb(tcb);
+            }
+        }
     }
     release(&node->waiters->lock);
 }

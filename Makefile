@@ -47,10 +47,10 @@ all: $(IMAGE_NAME).iso
 kernel: bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) 
 
 .PHONY: hdd
-hdd: $(LIB_LIBS) $(APPS_EXECUTABLES) $(IMAGE_NAME).hdd
+hdd: $(IMAGE_NAME).hdd
 
 .PHONY: livecd
-livecd: $(LIB_LIBS) $(APPS_EXECUTABLES) bin/$(ARCH)/initrd.tar.zst
+livecd: bin/$(ARCH)/initrd.tar.zst
 
 -include $(HEADER_DEPS)
 

@@ -18,6 +18,7 @@
 #define SCHED_USER_STACK_SIZE   256 * PAGE_SIZE
 #define SCHED_KERNEL_STACK_SIZE 16 * PAGE_SIZE
 #define SCHED_IMBALANCE_THRESHOLD 20
+#define SCHED_KILLABLE(tcb) (tcb->state == THREAD_READY || tcb->state == THREAD_SLEEPING || !tcb->syscall_regs)
 
 #ifdef __x86_64__
 #define wfi() asm ("hlt");
@@ -56,12 +57,12 @@ struct thread {
     long user_copy_status;
     size_t sleep_end;
     bool wakeup_pending;
+    bool kill_pending;
     struct sigframe *sigframe;
     uint64_t start_time;
     uint64_t end_time;
     uint64_t last_cpu_time;
     spinlock_t lock;
-    bool yielded;
     int refcount;
 };
 
@@ -117,5 +118,6 @@ void sched_block(struct thread *tcb, size_t ns);
 void sched_wake(struct thread *tcb);
 void sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);
+void sched_clean_tcb(struct thread *tcb);
 void sched_schedule(struct registers *r);
 void sched_install(void);

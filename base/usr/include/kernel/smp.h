@@ -15,7 +15,6 @@ struct cpu {
     list_t *threads;
     node_t *current_tcb;
     node_t *idle_tcb;
-    struct thread *prev_tcb;
 
     uint64_t idle_time;
     uint64_t total_time;

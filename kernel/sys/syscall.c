@@ -345,8 +345,6 @@ long sys_exit(int status) {
 
 #define WNOHANG 1
 
-#include <kernel/assert.h>
-
 long sys_waitpid(int pid, int *wstatus, int options) {
     acquire(&this_proc->children->lock);
     acquire(&this_proc->dead_children->lock);
@@ -586,7 +584,7 @@ extern long arch_restore_signal_context(struct thread *tcb, struct sigframe *fra
 
 long sys_sigreturn(void) {
     struct sigframe *frame = this->sigframe;
-    this->parent->blocked = frame->oldmask;
+    this_proc->blocked = frame->oldmask;
     this->sigframe = NULL;
 
     return arch_restore_signal_context(this, frame);

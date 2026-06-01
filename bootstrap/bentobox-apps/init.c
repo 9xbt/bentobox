@@ -131,10 +131,6 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            if (WEXITSTATUS(status) != 0) {
-                exit(EXIT_FAILURE);
-            }
-
             if (dead == pids[0]) {
                 pids[0] = spawn_shell();
             } else if (dead == pids[1]) {

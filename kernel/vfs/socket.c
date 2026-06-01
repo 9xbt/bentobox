@@ -64,6 +64,10 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         return 0;
     }
     if (!sock->recv_queue->length) {
+        if (!sock->peer) {
+            release(&sock->lock);
+            return 0;
+        }
         release(&sock->lock);
         return -EAGAIN;
     }
@@ -106,10 +110,11 @@ long socket_poll(vfs_node_t *node, long events) {
     if (events & POLLOUT) {
         if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->recv_queue->length < SOCKET_MAX_QUEUE_ENTRIES)
             revents |= POLLOUT;
-        else {
-            // vfs_wake_waiters(sock->node);
-            // vfs_wake_waiters(sock->peer->node);
-        }
+    }
+    if (sock->state == SOCKET_CONNECTED && !sock->peer) {
+        revents |= POLLHUP;
+        if (events & POLLIN)
+            revents |= POLLIN;
     }
     if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
         (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {
@@ -150,6 +155,7 @@ long socket_remove(vfs_node_t *node) {
     }
 
     list_free(sock->recv_queue);
+    release(&sock->lock);
     kfree(sock);
 
     node->device = NULL;
