@@ -163,7 +163,8 @@ void signal_check_pending(struct thread *tcb) {
     struct process *proc = tcb->parent;
     for (int sig = 1; sig < _NSIG; sig++) {
         if (sigismember(&proc->psig, sig) && !sigismember(&proc->blocked, sig)) {
-            signal_handle(tcb, sig);
+            if (!signal_handle(tcb, sig))
+                return;
         }
     }
 }
