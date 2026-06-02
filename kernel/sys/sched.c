@@ -273,9 +273,8 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     memset(proc->files, 0, sizeof(struct file) * proc->max_files);
-    vfs_result_t r = vfs_open(NULL, "/dev/tty1", 0);
-    assert(r.node);
-    proc->files[0] = proc->files[1] = proc->files[2] = file_new(r.node, 0);
+    for (int i = 0; i < 3; i++)
+        proc->files[i] = file_new(vfs_open(NULL, "/dev/tty1", 0).node, 0);
     proc->cwd = vfs_get_root();
     proc->umask = 022;
     proc->exit_status = 0;
@@ -310,8 +309,9 @@ long fork(void) {
     memcpy(proc->files, this_proc->files, sizeof(struct file) * proc->max_files);
     for (int i = 0; i < proc->max_files; i++) {
         struct file *file = &proc->files[i];
-        if (!file || !file->open || !file->node)
+        if (!file || !file->open)
             continue;
+
         file->node->refcount++;
         if (file->node->type == VFS_UNIXPIPE) {
             struct unix_pipe *pipe = file->node->device;
@@ -433,7 +433,7 @@ void sched_exit(struct thread *tcb) {
     
     tcb->kill_pending = true;
     if (tcb != this && (tcb->state == THREAD_RUNNING || tcb->state == THREAD_PAUSED))
-        assert(0 && "Tried to exit TCB with unsafe state");
+        panic("Tried to exit TCB with unsafe state");
     if (tcb->wakeup_pending)
         tcb->wakeup_pending = false;
     tcb->state = THREAD_ZOMBIE;
@@ -441,7 +441,7 @@ void sched_exit(struct thread *tcb) {
     struct process *proc = tcb->parent;
     for (int i = 0; i < proc->max_files; i++) {
         struct file *file = &proc->files[i];
-        if (!file->open)
+        if (!file || !file->open)
             continue;
 
         vfs_node_t *node = file->node;
@@ -459,14 +459,19 @@ void sched_exit(struct thread *tcb) {
 }
 
 void sched_exit_group(struct process *proc, int status) {
-    proc->state = PROCESS_ZOMBIE;
-    proc->exit_status = status;
-
     for (int fd = 0; fd < proc->max_files; fd++) {
         struct file *file = &proc->files[fd];
-        if (file->open)
-            vfs_close(file->node);
+        if (!file->open)
+            continue;
+        file->open = false;
+
+        if (file->node->type == VFS_SOCKET)
+            socket_shutdown_node(file->node);
+        vfs_close(file->node);
     }
+
+    proc->state = PROCESS_ZOMBIE;
+    proc->exit_status = status;
 
     if (proc == this_proc) {
         sched_exit(this);
@@ -618,6 +623,8 @@ void sched_cleaner(void) {
         if (proc->threads->length == 0) {
             if (init_proc == proc)
                 panic("Tried to kill init!");
+
+            // dprintf(LOG_DEBUG, "cleaning %s\n", proc->name);
 
             acquire(&proc->children->lock);
             acquire(&proc->dead_children->lock);

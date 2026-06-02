@@ -35,8 +35,12 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll)
     }
 
     if (!(file->flags & O_NONBLOCK) && poll) {
+        long ev;
     retry:
-        while (!(vfs_poll(file->node, write ? POLLOUT : POLLIN, -1) & (write ? POLLOUT : POLLIN)));
+        while (!((ev = vfs_poll(file->node, write ? POLLOUT : POLLIN, -1)) & (write ? POLLOUT : POLLIN))) {
+            if (ev & POLLHUP)
+                return -EIO;
+        }
     }
 
     long ret = write ?

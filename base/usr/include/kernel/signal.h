@@ -70,6 +70,7 @@ struct sigframe {
 #define SIG_UNBLOCK 1
 #define SIG_SETMASK 2
 
+#define SIGHUP   1
 #define	SIGINT	 2
 #define SIGQUIT  3
 #define SIGILL   4
