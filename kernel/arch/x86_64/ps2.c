@@ -269,7 +269,7 @@ void ps2_mouse_worker(void) {
     int x = 0, y = 0, last_col = -1, last_row = -1;
 
     for (;;) {
-        if (fifo_dequeue(mouse_fifo, &state) < 0) {
+        while (fifo_dequeue(mouse_fifo, &state) < 0) {
             sched_block(this, 0);
         }
 
