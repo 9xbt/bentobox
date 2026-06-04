@@ -589,7 +589,8 @@ void sched_cleaner(void) {
         sched_sleep(10000000);
 
         cli();
-        acquire(&zombie_threads->lock);
+        while (!trylock(&zombie_threads->lock))
+            sched_yield();
         struct thread *tcb = (struct thread *)list_pop(zombie_threads);
         release(&zombie_threads->lock);
         sti();

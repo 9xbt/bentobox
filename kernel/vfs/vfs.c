@@ -80,9 +80,7 @@ long vfs_remove_node(vfs_node_t *node) {
     if (node->refcount <= 0) {
         if (node->type == VFS_SYMLINK && node->target)
             kfree((void *)node->target);
-        acquire(&node->children->lock);
         list_free(node->children);
-        release(&node->children->lock);
         kfree(node);
     }
     return 0;
@@ -160,7 +158,7 @@ long vfs_rename(vfs_node_t *node, vfs_node_t *cwd, const char *path) {
 
     if (old_parent != parent)
         release(&parent->children->lock);
-    release(&node->parent->children->lock);
+    release(&old_parent->children->lock);
     return 0;
 }
 
