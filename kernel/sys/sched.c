@@ -693,11 +693,17 @@ void sched_install(void) {
 }
 
 void sched_shutdown(void) {
+    this_proc->user = false;
+
     acquire(&processes->lock);
     foreach(i, processes) {
         struct process *proc = i->value;
-        if (proc->user && proc != this_proc && proc != init_proc)
-            sched_exit_group(proc, SIGKILL);
+        if (!proc->user || proc == this_proc || proc == init_proc)
+            continue;
+
+        release(&processes->lock);
+        sched_exit_group(proc, SIGKILL);
+        acquire(&processes->lock);
     }
     release(&processes->lock);
 
