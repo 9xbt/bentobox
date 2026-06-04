@@ -57,7 +57,6 @@ struct thread {
     long user_copy_status;
     size_t sleep_end;
     bool wakeup_pending;
-    bool kill_pending;
     struct sigframe *sigframe;
     uint64_t start_time;
     uint64_t end_time;

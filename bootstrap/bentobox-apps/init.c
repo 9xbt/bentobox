@@ -9,6 +9,7 @@
 #include <string.h>
 #include <signal.h>
 #include <pwd.h>
+#include <poll.h>
 
 void mount(const char *path, const char *type, const char *device, long flags) {
     errno = -__syscall4(SYS_mount, (long)path, (long)type, (long)device, flags);
@@ -122,22 +123,28 @@ int main(int argc, char *argv[]) {
     pids[0] = spawn_shell();
     pids[1] = spawn_serial_shell();
 
+    int status;
     for (;;) {
-        int status;
-        for (;;) {
-            pid_t dead = wait(&status);
-            if (dead < 0) {
-                perror("wait");
-                continue;
-            }
+        pid_t dead = wait(&status);
+        if (errno == ECHILD)
+            break;
+        if (dead < 0) {
+            perror("wait");
+            continue;
+        }
 
-            if (dead == pids[0]) {
-                pids[0] = spawn_shell();
-            } else if (dead == pids[1]) {
-                pids[1] = spawn_serial_shell();
-            }
+        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGKILL)
+            continue;
+
+        if (dead == pids[0]) {
+            pids[0] = spawn_shell();
+        } else if (dead == pids[1]) {
+            pids[1] = spawn_serial_shell();
         }
     }
 
-    return 0;
+    for (;;) {
+        poll(NULL, 0, -1);
+    }
+    return -1;
 }

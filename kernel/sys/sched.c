@@ -27,6 +27,7 @@ extern void arch_yield(struct cpu *cpu);
 
 list_t *processes = NULL;
 list_t *zombie_threads = NULL;
+int user_procs = 0;
 
 uint8_t *pid_bitmap = NULL;
 uint8_t *tid_bitmap = NULL;
@@ -83,18 +84,6 @@ int sched_get_busy_usage(struct cpu *cpu) {
     return 100 - sched_get_idle_usage(cpu);
 }
 
-int sched_get_user_processes(void) {
-    int count = 0;
-    acquire(&processes->lock);
-    foreach(i, processes) {
-        struct process *proc = i->value;
-        if (proc->user && proc->state == PROCESS_ALIVE)
-            count++;
-    }
-    release(&processes->lock);
-    return count;
-}
-
 struct cpu *sched_find_cpu(void) {
     if (cpu_count == 1)
         return this_cpu;
@@ -137,6 +126,8 @@ node_t *sched_add_process(struct process *proc) {
 
     acquire(&processes->lock);
     node_t *node = list_insert(processes, proc);
+    if (proc->user)
+        __atomic_add_fetch(&user_procs, 1, __ATOMIC_RELAXED);
     release(&processes->lock);
     return node;
 }
@@ -236,7 +227,6 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
-    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -342,7 +332,6 @@ long fork(void) {
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
-    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -414,7 +403,7 @@ void sched_block(struct thread *tcb, size_t ns) {
 void sched_wake(struct thread *tcb) {
     cli();
     acquire(&tcb->lock);
-    if (tcb->state == THREAD_ZOMBIE || tcb->kill_pending) {
+    if (tcb->state == THREAD_ZOMBIE) {
         release(&tcb->lock);
         sti();
         return;
@@ -431,7 +420,6 @@ void sched_exit(struct thread *tcb) {
     cli();
     acquire(&tcb->lock);
     
-    tcb->kill_pending = true;
     if (tcb != this && (tcb->state == THREAD_RUNNING || tcb->state == THREAD_PAUSED))
         panic("Tried to exit TCB with unsafe state");
     if (tcb->wakeup_pending)
@@ -492,7 +480,7 @@ node_t *sched_find_next(void) {
         node_t *next = node->next ? node->next : this_cpu->threads->head;
 
         acquire(&t->lock);
-        if (t->kill_pending && (t->state == THREAD_READY || t->state == THREAD_SLEEPING || !t->syscall_regs))
+        if (t->parent->state == PROCESS_ZOMBIE)
             t->state = THREAD_ZOMBIE;
         if (t->state == THREAD_ZOMBIE) {
             acquire(&zombie_threads->lock);
@@ -532,8 +520,6 @@ void sched_schedule(struct registers *r) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 
-        if (this->kill_pending && (this->state == THREAD_READY || this->state == THREAD_SLEEPING))
-            this->state = THREAD_ZOMBIE;
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
 
@@ -609,8 +595,7 @@ void sched_cleaner(void) {
         sti();
 
         if (!tcb) {
-            this->state = THREAD_PAUSED;
-            sched_yield();
+            sched_block(this, 0);
             continue;
         }
 
@@ -623,8 +608,6 @@ void sched_cleaner(void) {
         if (proc->threads->length == 0) {
             if (init_proc == proc)
                 panic("Tried to kill init!");
-
-            // dprintf(LOG_DEBUG, "cleaning %s\n", proc->name);
 
             acquire(&proc->children->lock);
             acquire(&proc->dead_children->lock);
@@ -667,6 +650,9 @@ void sched_cleaner(void) {
 
             list_remove_value(processes, proc);
             list_free(proc->threads);
+            if (proc->user)
+                __atomic_sub_fetch(&user_procs, 1, __ATOMIC_RELEASE);
+
             if (last_proc)
                 kfree(last_proc);
             last_proc = proc;
@@ -710,14 +696,11 @@ void sched_shutdown(void) {
     acquire(&processes->lock);
     foreach(i, processes) {
         struct process *proc = i->value;
-        if (proc != this_proc && proc->user)
+        if (proc->user && proc != this_proc && proc != init_proc)
             sched_exit_group(proc, SIGKILL);
     }
     release(&processes->lock);
 
-    while (sched_get_user_processes() > 1) {
+    while (__atomic_load_n(&user_procs, __ATOMIC_ACQUIRE) > ((this_proc == init_proc) ? 1 : 2))
         sched_yield();
-    }
-
-    dprintf(LOG_DEBUG, "\033[93msched:\033[0m Goodbye!\n");
 }
