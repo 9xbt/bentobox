@@ -417,15 +417,6 @@ void sched_wake(struct thread *tcb) {
 }
 
 void sched_exit(struct thread *tcb) {
-    cli();
-    acquire(&tcb->lock);
-    
-    if (tcb != this && (tcb->state == THREAD_RUNNING || tcb->state == THREAD_PAUSED))
-        panic("Tried to exit TCB with unsafe state");
-    if (tcb->wakeup_pending)
-        tcb->wakeup_pending = false;
-    tcb->state = THREAD_ZOMBIE;
-
     struct process *proc = tcb->parent;
     for (int i = 0; i < proc->max_files; i++) {
         struct file *file = &proc->files[i];
@@ -437,6 +428,20 @@ void sched_exit(struct thread *tcb) {
         list_remove_value(node->waiters, tcb);
         release(&node->waiters->lock);
     }
+
+    cli();
+    acquire(&tcb->lock);
+    if (tcb->state == THREAD_ZOMBIE) {
+        release(&tcb->lock);
+        sti();
+        return;
+    }
+    
+    if (tcb != this && !SCHED_KILLABLE(tcb))
+        panic("Tried to exit TCB with unsafe state");
+    if (tcb->wakeup_pending)
+        tcb->wakeup_pending = false;
+    tcb->state = THREAD_ZOMBIE;
 
     release(&tcb->lock);
     if (tcb == this) {

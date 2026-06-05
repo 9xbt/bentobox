@@ -19,14 +19,16 @@ void modules_install(void) {
 
     struct limine_file **modules = module_request.response->modules;
     for (uint64_t i = 0; i < module_request.response->module_count; i++) {
-        if (!memcmp(modules[i]->address, "\x7f""ELF", 4)) {
-            elf64_module(modules[i]);
-        } else if (*(const uint32_t *)modules[i]->address == ZSTD_MAGICNUMBER) {
-            zstd_module(modules[i]);
-        } else if (!memcmp(modules[i]->address + 257, "ustar", 5)) {
-            tar_module(modules[i]);
+        struct limine_file *mod = modules[i];
+        if (!memcmp(mod->address, "\x7f""ELF", 4)) {
+            elf64_module(mod);
+        } else if (*(const uint32_t *)mod->address == ZSTD_MAGICNUMBER) {
+            zstd_module(mod);
+        } else if (!memcmp(mod->address + 257, "ustar", 5)) {
+            dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting %s\n", mod->path);
+            tar_module(mod->address);
         } else {
-            dprintf(LOG_ERR, "\033[93m%s:\033[0m unknown file format\n", modules[i]->path);
+            dprintf(LOG_ERR, "\033[93m%s:\033[0m unknown file format\n", mod->path);
         }
     }
 }

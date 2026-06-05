@@ -18,7 +18,7 @@
 #define SCHED_USER_STACK_SIZE   256 * PAGE_SIZE
 #define SCHED_KERNEL_STACK_SIZE 16 * PAGE_SIZE
 #define SCHED_IMBALANCE_THRESHOLD 20
-#define SCHED_KILLABLE(tcb) (tcb->state == THREAD_READY || tcb->state == THREAD_SLEEPING || !tcb->syscall_regs)
+#define SCHED_KILLABLE(tcb) (tcb->syscall_regs ? (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE) : true)
 
 #ifdef __x86_64__
 #define wfi() asm ("hlt");

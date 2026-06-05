@@ -7,33 +7,22 @@
 #include <limine.h>
 
 vfs_result_t tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
+long tar_remove(vfs_node_t *node);
 long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len);
-long tar_write(vfs_node_t *node, const void *buffer, long offset, size_t len);
-
-vfs_result_t root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type);
-long root_remove(vfs_node_t *node);
+long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags);
 
 vfs_ops_t tar_ops = {
     .create = tar_create,
-    .read = tar_read,
-    .write = tar_write
+    .remove = tar_remove,
+    .read   = tar_read
 };
 
-vfs_ops_t root_ops = {
-    .create = root_create,
-    .remove = root_remove
+vfs_mount_ops_t tar_mount_ops = {
+    .type     = "tar",
+    .nodev    = true,
+    .readonly = true,
+    .mount    = tar_mount
 };
-
-vfs_result_t root_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
-    vfs_node_t *node = vfs_create_node(name, type);
-    node->ops = &root_ops;
-    return (vfs_result_t){ vfs_add_node(parent, node), 0 };
-}
-
-long root_remove(vfs_node_t *node) {
-    (void)node;
-    return 0;
-}
 
 vfs_result_t tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type type) {
     vfs_node_t *node = vfs_create_node(name, type);
@@ -41,8 +30,15 @@ vfs_result_t tar_create(vfs_node_t *parent, const char *name, enum vfs_node_type
     return (vfs_result_t){ vfs_add_node(parent, node), 0 };
 }
 
+long tar_remove(vfs_node_t *node) {
+    return node->device ? -EROFS : 0;
+}
+
 long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     struct tar *tar = (struct tar *)node->device;
+    if (!tar)
+        return -EINVAL;
+
     if (memcmp(tar->ustar, "ustar", 5)) {
         dprintf(LOG_ERR, "\033[93mtar:\033[0m invalid signature at 0x%p\n", tar);
         return -EINVAL;
@@ -51,14 +47,6 @@ long tar_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     size_t count = len < node->size - offset ? len : node->size - offset;
     memcpy(buffer, node->device + 512 + offset, count);
     return count;
-}
-
-long tar_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
-    (void)node;
-    (void)buffer;
-    (void)offset;
-    (void)len;
-    return -EROFS;
 }
 
 int oct2bin(char *oct, int size) {
@@ -70,11 +58,12 @@ int oct2bin(char *oct, int size) {
     return out;
 }
 
-void tar_mount_root(struct tar *tar) {
-    tar_ops.create = tar_create;
-    vfs_get_root()->ops = &tar_ops;
+long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
+    (void)flags;
+    node->ops = &tar_ops;
 
-    static uint64_t inode = 1;
+    struct tar *tar = (struct tar *)device;
+    uint64_t inode = 1;
 
     while (!memcmp(tar->ustar, "ustar", 5)) {
         int filesize = oct2bin(tar->size, sizeof(tar->size));
@@ -98,38 +87,36 @@ void tar_mount_root(struct tar *tar) {
                 continue;
         }
 
-        vfs_result_t r = vfs_lookup(NULL, tar->name, true, type);
-        vfs_node_t *node = r.node;
-        if (!node) {
+        vfs_result_t r = vfs_lookup(node, tar->name, true, type);
+        if (!r.node) {
             dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s: %s\n", tar->name, strerror(r.error));
         } else if (type == VFS_FILE) {
-            node->device = tar;
-            node->size = filesize;
-            node->perms = mode;
-            node->inode = inode++;
+            r.node->device = tar;
+            r.node->size = filesize;
+            r.node->perms = mode;
+            r.node->inode = inode++;
         } else if (type == VFS_DIRECTORY) {
-            node->size = filesize;
-            node->perms = mode;
-            node->inode = inode++;
+            r.node->size = filesize;
+            r.node->perms = mode;
+            r.node->inode = inode++;
         } else if (type == VFS_SYMLINK) {
-            node->size = strnlen(tar->link_name, sizeof tar->link_name);
-            node->target = kmalloc(node->size + 1);
-            node->perms = mode;
-            memcpy(node->target, tar->link_name, node->size);
-            node->target[node->size] = 0;
-            node->inode = inode++;
+            r.node->size = strnlen(tar->link_name, sizeof tar->link_name);
+            r.node->target = kmalloc(r.node->size + 1);
+            r.node->perms = mode;
+            memcpy(r.node->target, tar->link_name, r.node->size);
+            r.node->target[r.node->size] = 0;
+            r.node->inode = inode++;
         }
 
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
     }
-
-    vfs_get_root()->ops = &root_ops;
-    tar_ops.create = NULL;
+    return 0;
 }
 
-void tar_module(struct limine_file *mod) {
-    dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting %s\n", mod->path);
+void tar_module(struct tar *tar) {
+    vfs_mount(vfs_get_root(), "tar", (vfs_node_t *)tar, 0);
+}
 
-    struct tar *tar = (struct tar *)mod->address;
-    tar_mount_root(tar);
+void tar_initialize(void) {
+    vfs_register(&tar_mount_ops);
 }

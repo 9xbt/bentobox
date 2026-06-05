@@ -33,10 +33,9 @@ void zstd_module(struct limine_file *mod) {
     }
 
     if (!memcmp(dest + 257, "ustar", 5)) {
-        dprintf(LOG_INFO, "\033[93mtar:\033[0m mounting decompressed archive\n");
-        tar_mount_root(dest);
+        tar_module(dest);
     } else {
-        dprintf(LOG_INFO, "\033[93mzstd:\033[0m unknown file format\n");
+        dprintf(LOG_INFO, "\033[93mzstd:\033[0m unsupported file format\n");
         vfree(kernel_vma, kernel_pd, dest, ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE);
     }    
 }

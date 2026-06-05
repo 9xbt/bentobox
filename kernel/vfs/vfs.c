@@ -15,6 +15,7 @@ extern void fbdev_initialize(void);
 extern void tmpfs_initialize(void);
 extern void procfs_initialize(void);
 extern void pty_initialize(void);
+extern void tar_initialize(void);
 
 vfs_node_t *vfs_root = NULL;
 list_t *vfs_mount_ops = NULL;
@@ -311,6 +312,8 @@ long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
         return -ENOENT;
     if (node->type == VFS_DIRECTORY)
         return -EISDIR;
+    if (node->parent && node->parent->mount && node->parent->mount->ops->readonly)
+        return -EROFS;
     if (node->ops && node->ops->write)
         return node->ops->write(node, buffer, offset, len);
     return -EPERM;
@@ -319,7 +322,7 @@ long vfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) {
 long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (!node)
         return -ENOENT;
-    if (!node->ops || !node->ops->poll || !node->waiters)
+    if (!node->ops || !node->ops->poll)
         return -1UL;
 
     long poll = node->ops->poll(node, events);
@@ -372,8 +375,8 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
-        if (!node->ops || !node->ops->poll || !node->waiters) {
-            revents[fd] = -1;
+        if (!node || !node->ops || !node->ops->poll) {
+            revents[fd] = 0;
             continue;
         }
 
@@ -391,7 +394,7 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
         ready = 0;
         for (int fd = 0; fd < nfds; fd++) {
             vfs_node_t *node = nodes[fd];
-            if (!node->ops || !node->ops->poll)
+            if (!node || !node->ops || !node->ops->poll)
                 continue;
 
             if ((revents[fd] = node->ops->poll(node, events[fd])))
@@ -570,6 +573,7 @@ void vfs_install(void) {
     tmpfs_initialize();
     procfs_initialize();
     pty_initialize();
+    tar_initialize();
 
     dprintf(LOG_INFO, "\033[93mvfs:\033[0m initialized VFS\n");
 }

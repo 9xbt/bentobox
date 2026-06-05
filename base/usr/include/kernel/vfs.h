@@ -180,6 +180,7 @@ typedef struct vfs_node {
 typedef struct vfs_mount_ops {
     const char *type;
     bool nodev;
+    bool readonly;
     long(*mount)(struct vfs_node *node, struct vfs_node *device, long flags);
     long(*unmount)(struct vfs_node *node, long flags);
 } vfs_mount_ops_t;

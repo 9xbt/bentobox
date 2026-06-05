@@ -32,10 +32,10 @@ vfs_ops_t tmpfs_ops = {
 };
 
 vfs_mount_ops_t tmpfs_mount_ops = {
-    .type  = "tmp",
-    .nodev = true,
-    .mount = tmpfs_mount,
-    .unmount = tmpfs_unmount
+    .type     = "tmp",
+    .nodev    = true,
+    .mount    = tmpfs_mount,
+    .unmount  = tmpfs_unmount
 };
 
 long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
