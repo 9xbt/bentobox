@@ -281,3 +281,11 @@ void mmu_get_memory(struct mmu_memory_info *info) {
     info->mem_slab = __get_heap_usage();
     info->mem_cached = 0;
 }
+
+void mmu_reclaim(void *phys, size_t length) {
+    for (size_t i = 0; i < length; i += PAGE_SIZE) {
+        uint64_t page = (uint64_t)(phys + i) / PAGE_SIZE;
+        bitmap_clear(mmu_bitmap, page);
+    }
+    mmu_usable_mem += length;
+}

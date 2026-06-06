@@ -446,8 +446,6 @@ bool sched_exit(struct thread *tcb) {
     if (tcb->wakeup_pending)
         tcb->wakeup_pending = false;
     if (tcb != this && !SCHED_KILLABLE(tcb)) {
-        dprintf(LOG_DEBUG, "%s (%d) is unsafe state %d, waiting...\n", tcb->parent->name, tcb->tid, tcb->state);
-
         tcb->kill_pending = true;
         release(&tcb->lock);
         sti();
@@ -540,7 +538,6 @@ void sched_schedule(struct registers *r) {
         if (this_proc->state == PROCESS_ZOMBIE)
             this->state = THREAD_ZOMBIE;
         if (this->kill_pending && this->state != THREAD_RUNNING) {
-            dprintf(LOG_DEBUG, "we kill pending\n");
             this->kill_pending = false;
             this->state = THREAD_ZOMBIE;
         }
@@ -575,7 +572,6 @@ void sched_schedule(struct registers *r) {
     acquire(&this->lock);
 
     enum thread_state state = this->state;
-    // this->cpu = this_cpu;
     signal_check_pending(this);
     if (this->state != state) {
         release(&this->lock);

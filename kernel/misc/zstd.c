@@ -32,10 +32,7 @@ void zstd_module(struct limine_file *mod) {
         return;
     }
 
-    size_t length = ALIGN_UP(mod->size, PAGE_SIZE);
-    for (size_t i = 0; i < length; i += PAGE_SIZE) {
-        mmu_free(PHYSICAL_HHDM(mod->address + i));
-    }
+    mmu_reclaim(mod->address, ALIGN_UP(mod->size, PAGE_SIZE));
 
     if (!memcmp(dest + 257, "ustar", 5)) {
         tar_module(dest);

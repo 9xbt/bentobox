@@ -46,6 +46,7 @@ void  mmu_print_memory(void);
 void *mmu_alloc(void);
 void  mmu_free(void *ptr);
 void  mmu_get_memory(struct mmu_memory_info *info);
+void  mmu_reclaim(void *phys, size_t length);
 void  mmu_map_2mb(uintptr_t *pm, void *virt, void *phys, uint64_t flags);
 void  mmu_map(uintptr_t *pm, void *virt, void *phys, uint64_t flags);
 void  mmu_unmap_2mb(uintptr_t *pm, void *virt);
