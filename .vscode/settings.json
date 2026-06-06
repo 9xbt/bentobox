@@ -1,0 +1,15 @@
+{
+    "files.watcherExclude": {
+        "**/.jinx-cache/**": true,
+        "**/sources/**": true,
+        "**/build-x86_64/**": true
+    },
+    "search.exclude": {
+        "**/.jinx-cache/**": true,
+        "**/sources/**": true,
+        "**/build-x86_64/**": true
+    },
+    "files.exclude": {
+        "**/.jinx-cache/**": true
+    }
+}

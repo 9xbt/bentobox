@@ -2,7 +2,6 @@
 /obj
 /iso_root
 .cache
-.vscode
 .jinx-parameters
 .jinx-cache
 compile_commands.json
