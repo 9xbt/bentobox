@@ -43,25 +43,21 @@ struct limine_executable_file_request ksym_request = {
 extern void generic_startup(void);
 extern void generic_main(void);
 
-void arch_fatal_prepare(void) {
-    static bool lock = false;
-
-    if (!lock) {
-        lock = true;
-        for (size_t i = 0; i < cpu_count; i++) {
-            struct cpu *core = get_core(i);
-            if (core != this_cpu)
-                lapic_ipi(core->logical_id, 0x02);
-        }
-    } else {
-        asm ("cli");
-	    for (;;) asm ("hlt");
-    }
-}
-
 void arch_fatal(void) {
 	asm ("cli");
 	for (;;) asm ("hlt");
+}
+
+void arch_fatal_prepare(void) {
+    static spinlock_t lock = 0;
+
+    if (trylock(&lock)) {
+        for (size_t i = 0; i < cpu_count; i++) {
+            struct cpu *core = get_core(i);
+            if (core != get_core(get_logical_id()))
+                lapic_ipi(core->logical_id, 0x02);
+        }
+    } else arch_fatal();
 }
 
 void arch_do_backtrace(void) {
@@ -72,8 +68,8 @@ void arch_do_backtrace(void) {
 
     dprintf(LOG_EMERG, "Call Trace:\n");
 
-    for (int i = 0; i < 8 && frame_ptr->rbp && mmu_get_flags(mmu_get_pm(), frame_ptr) & PTE_PRESENT; i++) {
-        dprintf(LOG_EMERG, " #%d 0x%p in %s\n", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
+    for (int i = 0; i < 32 && frame_ptr->rbp && mmu_get_flags(mmu_get_pm(), frame_ptr) & PTE_PRESENT; i++) {
+        dprintf(LOG_EMERG, "%s#%d 0x%p in %s\n", i > 9 ? "" : " ", i, frame_ptr->rip, ksym_name(frame_ptr->rip));
         frame_ptr = frame_ptr->rbp;
     }
 }
@@ -158,8 +154,7 @@ void arch_save_context(void) {
 
 void arch_restore_context(void) {
     mmu_switch_pm(this_proc->pm);
-    write_kernel_gs((uint64_t)this);
-    write_gs(this->ctx.user_gs);
+    write_kernel_gs(this->ctx.user_gs);
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
@@ -185,14 +180,14 @@ void arch_jumpstart(void) {
     irq_register(0x80 - 32, sched_schedule);
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        if (core != this_cpu)
+        if (get_logical_id() != i)
             lapic_ipi(core->logical_id, 0x80);
     }
     asm volatile ("int $0x80");
 }
 
 void arch_sti(void) {
-    if (this_cpu->current_irq == 0xff)
+    if (get_core(get_logical_id())->current_irq == 0xff)
         asm ("sti");
 }
 

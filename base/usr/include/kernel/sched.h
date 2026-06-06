@@ -52,11 +52,13 @@ struct thread {
     struct context ctx;
     struct process *parent;
     struct cpu *cpu;
+    struct thread *self;
     struct registers *syscall_regs;
     bool doing_user_copy;
     long user_copy_status;
     size_t sleep_end;
     bool wakeup_pending;
+    bool kill_pending;
     struct sigframe *sigframe;
     uint64_t start_time;
     uint64_t end_time;
@@ -90,9 +92,6 @@ struct process {
     sigset_t blocked;
 };
 
-#define this ((struct thread *)(this_core()->current_tcb ? this_core()->current_tcb->value : NULL))
-#define this_proc ((struct process *)(this_core()->current_tcb ? ((struct thread *)this_core()->current_tcb->value)->parent : NULL))
-
 extern list_t *processes;
 extern struct process *init_proc;
 extern struct thread  *cleaner_tcb;
@@ -115,7 +114,7 @@ void sched_yield(void);
 void sched_sleep(size_t ns);
 void sched_block(struct thread *tcb, size_t ns);
 void sched_wake(struct thread *tcb);
-void sched_exit(struct thread *tcb);
+bool sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);
 void sched_clean_tcb(struct thread *tcb);
 void sched_schedule(struct registers *r);

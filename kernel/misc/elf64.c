@@ -472,8 +472,14 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     acquire(&this_proc->threads->lock);
     foreach(i, this_proc->threads) {
         struct thread *tcb = i->value;
-        if (tcb != this)
-            sched_exit(tcb);
+        if (tcb == this)
+            continue;
+
+        while (!sched_exit(tcb)) {
+            release(&this_proc->threads->lock);
+            sched_yield();
+            acquire(&this_proc->threads->lock);
+        }
     }
     release(&this_proc->threads->lock);
     
@@ -514,6 +520,7 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
 
     struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
     struct cpu *cpu = sched_find_cpu();
+    tcb->cpu = cpu;
     cli();
     acquire(&cpu->threads->lock);
     list_insert(cpu->threads, tcb);

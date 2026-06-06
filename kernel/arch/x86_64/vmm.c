@@ -54,12 +54,13 @@ static void pt_destroy(uintptr_t *pt, int lvl) {
 void tlb_invalidate(void *va) {
     asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
 
-    if (va < (void *)hhdm_offset)
+    if (cpu_count == 1 || va < (void *)hhdm_offset)
         return;
 
+    size_t this_id = get_logical_id();
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
-        if (core == this_cpu || !core->current_tcb || core->current_tcb == core->idle_tcb)
+        if (i == this_id || !core->current_tcb || core->current_tcb == core->idle_tcb)
             continue;
         // if (va < (void *)hhdm_offset && ((struct thread *)core->current_tcb->value)->parent != this_proc)
         //    continue;

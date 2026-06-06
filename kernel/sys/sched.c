@@ -86,13 +86,13 @@ int sched_get_busy_usage(struct cpu *cpu) {
 
 struct cpu *sched_find_cpu(void) {
     if (cpu_count == 1)
-        return this_cpu;
+        return get_core(0);
 
+    struct cpu *target = get_core(get_logical_id());
     cli();
-    acquire(&this_cpu->threads->lock);
-    struct cpu *target    = this_cpu;
-    size_t target_threads = this_cpu->threads->length;
-    release(&this_cpu->threads->lock);
+    acquire(&target->threads->lock);
+    size_t target_threads = target->threads->length;
+    release(&target->threads->lock);
 
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *cpu = get_core(i);
@@ -222,11 +222,13 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->state = THREAD_READY;
     tcb->parent = parent;
     tcb->cpu = NULL;
+    tcb->self = tcb;
     tcb->syscall_regs = NULL;
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
+    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -327,11 +329,13 @@ long fork(void) {
     tcb->state = THREAD_READY;
     tcb->parent = proc;
     tcb->cpu = NULL;
+    tcb->self = tcb;
     tcb->syscall_regs = NULL;
     tcb->doing_user_copy = false;
     tcb->user_copy_status = 0;
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
+    tcb->kill_pending = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -416,17 +420,19 @@ void sched_wake(struct thread *tcb) {
     sti();
 }
 
-void sched_exit(struct thread *tcb) {
-    struct process *proc = tcb->parent;
-    for (int i = 0; i < proc->max_files; i++) {
-        struct file *file = &proc->files[i];
-        if (!file || !file->open)
-            continue;
+bool sched_exit(struct thread *tcb) {
+    if (!tcb->kill_pending) {
+        struct process *proc = tcb->parent;
+        for (int i = 0; i < proc->max_files; i++) {
+            struct file *file = &proc->files[i];
+            if (!file || !file->open)
+                continue;
 
-        vfs_node_t *node = file->node;
-        acquire(&node->waiters->lock);
-        list_remove_value(node->waiters, tcb);
-        release(&node->waiters->lock);
+            vfs_node_t *node = file->node;
+            acquire(&node->waiters->lock);
+            list_remove_value(node->waiters, tcb);
+            release(&node->waiters->lock);
+        }
     }
 
     cli();
@@ -434,13 +440,19 @@ void sched_exit(struct thread *tcb) {
     if (tcb->state == THREAD_ZOMBIE) {
         release(&tcb->lock);
         sti();
-        return;
+        return true;
     }
     
-    if (tcb != this && !SCHED_KILLABLE(tcb))
-        panic("Tried to exit TCB with unsafe state");
     if (tcb->wakeup_pending)
         tcb->wakeup_pending = false;
+    if (tcb != this && !SCHED_KILLABLE(tcb)) {
+        dprintf(LOG_DEBUG, "%s (%d) is unsafe state %d, waiting...\n", tcb->parent->name, tcb->tid, tcb->state);
+
+        tcb->kill_pending = true;
+        release(&tcb->lock);
+        sti();
+        return false;
+    }
     tcb->state = THREAD_ZOMBIE;
 
     release(&tcb->lock);
@@ -449,6 +461,7 @@ void sched_exit(struct thread *tcb) {
         __builtin_unreachable();
     }
     sti();
+    return true;
 }
 
 void sched_exit_group(struct process *proc, int status) {
@@ -467,29 +480,25 @@ void sched_exit_group(struct process *proc, int status) {
     proc->exit_status = status;
 
     if (proc == this_proc) {
-        sched_exit(this);
+        assert(sched_exit(this));
         __builtin_unreachable();
     }
 }
 
-node_t *sched_find_next(void) {
-    size_t sec, nsec;
-    uptime(&sec, &nsec);
-    size_t now = sec * 1000000000UL + nsec;
-
-    acquire(&this_cpu->threads->lock);
+node_t *sched_find_next(struct cpu *cpu, size_t now) {
+    acquire(&cpu->threads->lock);
     
-    node_t *start = (this_cpu->current_tcb && this_cpu->current_tcb->next) ? this_cpu->current_tcb->next : this_cpu->threads->head, *node = start;
+    node_t *start = (cpu->current_tcb && cpu->current_tcb->next) ? cpu->current_tcb->next : cpu->threads->head, *node = start;
     do {
         struct thread *t = (struct thread *)node->value;
-        node_t *next = node->next ? node->next : this_cpu->threads->head;
+        node_t *next = node->next ? node->next : cpu->threads->head;
 
         acquire(&t->lock);
         if (t->parent->state == PROCESS_ZOMBIE)
             t->state = THREAD_ZOMBIE;
         if (t->state == THREAD_ZOMBIE) {
             acquire(&zombie_threads->lock);
-            list_unlink(this_cpu->threads, node);
+            list_unlink(cpu->threads, node);
             list_append(zombie_threads, node);
             release(&zombie_threads->lock);
             
@@ -504,7 +513,7 @@ node_t *sched_find_next(void) {
         }
         if (t->state == THREAD_READY || t->state == THREAD_RUNNING) {
             release(&t->lock);
-            release(&this_cpu->threads->lock);
+            release(&cpu->threads->lock);
             return node;
         }
         release(&t->lock);
@@ -512,16 +521,16 @@ node_t *sched_find_next(void) {
         node = next;
     } while (node && node != start);
 
-    release(&this_cpu->threads->lock);
-    return this_cpu->idle_tcb;
+    release(&cpu->threads->lock);
+    return cpu->idle_tcb;
 }
 
 void sched_schedule(struct registers *r) {
     size_t sec, nsec;
     uptime(&sec, &nsec);
-    uint64_t now = sec * 1000000000UL + nsec;
+    size_t now = sec * 1000000000UL + nsec;
 
-    if (this_cpu->current_tcb) {
+    if (read_tcb()) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 
@@ -530,6 +539,11 @@ void sched_schedule(struct registers *r) {
 
         if (this_proc->state == PROCESS_ZOMBIE)
             this->state = THREAD_ZOMBIE;
+        if (this->kill_pending && this->state != THREAD_RUNNING) {
+            dprintf(LOG_DEBUG, "we kill pending\n");
+            this->kill_pending = false;
+            this->state = THREAD_ZOMBIE;
+        }
         if (this->state == THREAD_ZOMBIE) {
             struct node *tcb = this_cpu->current_tcb;
             acquire(&this_cpu->threads->lock);
@@ -550,15 +564,18 @@ void sched_schedule(struct registers *r) {
         this_cpu->total_time += this->last_cpu_time;
 
         release(&this->lock);
-        this_cpu->current_tcb = sched_find_next();
-    } else {
     find_next:
-        this_cpu->current_tcb = sched_find_next();
+        this_cpu->current_tcb = sched_find_next(this_cpu, now);
+        set_tcb((uintptr_t)this_cpu->current_tcb->value);
+    } else {
+        node_t *node = sched_find_next(get_core(get_logical_id()), now);
+        set_tcb((uintptr_t)node->value);
+        this_cpu->current_tcb = node;
     }
     acquire(&this->lock);
 
     enum thread_state state = this->state;
-    this->cpu = this_cpu;
+    // this->cpu = this_cpu;
     signal_check_pending(this);
     if (this->state != state) {
         release(&this->lock);
@@ -687,6 +704,7 @@ void sched_install(void) {
         struct cpu *core = get_core(i);
         struct thread *tcb = sched_new_thread(idle_proc, idle, 0, NULL, NULL, NULL, 0, NULL);
         tcb->state = THREAD_PAUSED;
+        tcb->cpu = core;
         core->idle_tcb = list_insert(core->threads, tcb);
     }
 

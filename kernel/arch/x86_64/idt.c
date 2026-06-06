@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <kernel/arch/x86_64/regs.h>
+#include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/string.h>
@@ -10,6 +11,7 @@
 #include <kernel/sched.h>
 #include <kernel/witty.h>
 #include <kernel/mmu.h>
+#include <kernel/smp.h>
 
 extern void arch_fatal_prepare(void);
 extern void arch_fatal(void);
@@ -106,7 +108,11 @@ void isr_handler(struct registers *r) {
         asm ("cli");
 	    for (;;) asm ("hlt");
     }
-    this_cpu->current_irq = r->int_no;
+    struct cpu *cpu = get_core(get_logical_id());
+    struct thread *tcb = cpu->current_tcb ? cpu->current_tcb->value : NULL;
+    struct process *proc = tcb ? tcb->parent : NULL;
+
+    cpu->current_irq = r->int_no;
 
     uint64_t cr2;
     asm volatile("mov %%cr2, %0" : "=r" (cr2));
@@ -127,29 +133,29 @@ void isr_handler(struct registers *r) {
             }
             
             tlb_invalidate((void *)ALIGN_DOWN(cr2, PAGE_SIZE));
-            this_cpu->current_irq = 0xff;
+            cpu->current_irq = 0xff;
             return;
         }
     }
 
-    if (r->int_no == 14 && this && this->doing_user_copy && cr2 < hhdm_offset) {
-        this->user_copy_status = -EFAULT;
+    if (r->int_no == 14 && tcb && tcb->doing_user_copy && cr2 < hhdm_offset) {
+        tcb->user_copy_status = -EFAULT;
         r->rip = (uint64_t)user_copy_fail;
-        this_cpu->current_irq = 0xff;
+        cpu->current_irq = 0xff;
         return;
     }
     
     if (r->cs == 0x23) {
         switch (r->int_no) {
             case 6:
-                signal_send(this_proc, SIGILL);
+                signal_send(proc, SIGILL);
                 break;
             case 14:
             default:
-                signal_send(this_proc, SIGSEGV);
+                signal_send(proc, SIGSEGV);
                 break;
         }
-        this_cpu->current_irq = 0xff;
+        cpu->current_irq = 0xff;
         sched_yield();
         return;
     }
@@ -169,6 +175,7 @@ void isr_handler(struct registers *r) {
     dprintf(LOG_EMERG, "r11: 0x%p r12: 0x%p r13:    0x%p\n", r->r11, r->r12, r->r13);
     dprintf(LOG_EMERG, "r14: 0x%p r15: 0x%p cr2:    0x%p\n", r->r14, r->r15, cr2);
     dprintf(LOG_EMERG, "cs:  0x%p ss:  0x%p rflags: 0x%p\n", r->cs, r->ss, r->rflags);
+    dprintf(LOG_EMERG, "tcb: 0x%p gs:  0x%p usergs: 0x%p\n", read_tcb(), read_kernel_gs(), read_gs());
     if (r->int_no == 14) {
         dprintf(LOG_EMERG, "%s %s %s\n",
             r->error_code & 0x01 ? "Page-protection violation," : "Page not present,",
@@ -181,11 +188,15 @@ void isr_handler(struct registers *r) {
 }
 
 void irq_handler(struct registers *r) {
-    this_cpu->current_irq = r->int_no;
-    void(*handler)(struct registers *);
-    handler = irq_handlers[r->int_no - 32];
+    if (r->cs == 0x23)
+        asm volatile ("swapgs");
+    get_core(get_logical_id())->current_irq = r->int_no;
 
+    void(*handler)(struct registers *) = irq_handlers[r->int_no - 32];
     if (handler != NULL)
         handler(r);
-    this_cpu->current_irq = 0xff;
+
+    get_core(get_logical_id())->current_irq = 0xff;
+    if (r->cs == 0x23)
+        asm volatile ("swapgs");
 }

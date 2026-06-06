@@ -91,6 +91,14 @@ void smp_initialize(void) {
     smp_bootstrap();
 }
 
+void set_tcb(uintptr_t tcb) {
+    write_gs(tcb);
+}
+
+uintptr_t read_tcb(void) {
+    return read_gs();
+}
+
 struct cpu *get_core(size_t core) {
     for (size_t i = 0; i < SMP_MAX_CORES; i++) {
         if (cpu_list[i] && cpu_list[i]->id == core)
@@ -99,9 +107,33 @@ struct cpu *get_core(size_t core) {
     return cpu_list[core];
 }
 
-struct cpu *this_core(void) {
+uint32_t get_logical_id(void) {
     uint32_t eax = 1, bspid, _;
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
-    bspid >>= 24;
-    return cpu_list[bspid];
+    return bspid >> 24;
+}
+
+// struct cpu *this_core(void) {
+//     uint32_t eax = 1, bspid, _;
+//     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
+//     bspid >>= 24;
+//     return cpu_list[bspid];
+// }
+
+struct cpu *this_core(void) {
+    struct cpu *core;
+    asm volatile("movq %%gs:760, %0" : "=r"(core));
+    return core;
+}
+
+struct thread *this_tcb(void) {
+    struct thread *tcb;
+    asm volatile("movq %%gs:768, %0" : "=r"(tcb));
+    return tcb;
+}
+
+struct process *this_process(void) {
+    struct process *proc;
+    asm volatile("movq %%gs:752, %0" : "=r"(proc));
+    return proc;
 }

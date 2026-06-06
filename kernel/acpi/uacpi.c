@@ -205,7 +205,7 @@ void uacpi_kernel_free_event(uacpi_handle handle) {
 }
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) {
-    return this;
+    return get_core(get_logical_id())->current_tcb;
 }
 
 uacpi_status uacpi_kernel_acquire_mutex(uacpi_handle handle, uacpi_u16 timeout) {

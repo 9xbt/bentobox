@@ -30,9 +30,17 @@ struct cpu {
 };
 
 extern struct cpu *cpu_list[SMP_MAX_CORES];
-extern size_t cpu_count;
+extern size_t      cpu_count;
 
+void        set_tcb(uintptr_t tcb);
+uintptr_t   read_tcb(void);
 struct cpu *get_core(size_t core);
-struct cpu *this_core(void);
+uint32_t    get_logical_id(void);
 
+struct cpu     *this_core(void);
+struct thread  *this_tcb(void);
+struct process *this_process(void);
+
+#define this this_tcb()
 #define this_cpu this_core()
+#define this_proc this_process()

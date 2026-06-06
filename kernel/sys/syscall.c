@@ -1132,6 +1132,7 @@ long sys_linkat(int olddirfd, const char *oldpathname, int newdirfd, const char 
 long sys_clone(void *entry, void *stack) {
     struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, NULL, 0, stack);
     struct cpu *cpu = sched_find_cpu();
+    tcb->cpu = cpu;
     cli();
     acquire(&cpu->threads->lock);
     list_insert(cpu->threads, tcb);
