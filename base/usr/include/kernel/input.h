@@ -18,6 +18,9 @@
 #define BTN_LEFT     0x110
 #define BTN_RIGHT    0x111
 #define BTN_MIDDLE   0x112
+#define BTN_TOUCH    0x14a
+#define BTN_STYLUS   0x14b
+#define BTN_STYLUS2  0x14c
 
 #define SYN_REPORT   0
 
@@ -126,3 +129,25 @@ struct input_absinfo {
 #define ID_VERSION 	3
 
 #define BUS_I8042 	0x11
+#define BUS_RS232 	0x13
+
+enum input_device_type {
+	INPUT_KEYBOARD,
+	INPUT_MOUSE,
+	INPUT_TABLET,
+	INPUT_JOYSTICK,
+	INPUT_MAX
+};
+
+struct input_device {
+	enum input_device_type type;
+	uint16_t bus;
+	uint16_t vendor;
+	uint16_t product;
+	uint16_t version;
+	int max_x;
+	int max_y;
+};
+
+long input_generic_ioctl(struct input_device *input_dev, int op, void *arg);
+struct input_device *input_create(enum input_device_type type, uint16_t bus, uint16_t vendor, uint16_t product, uint16_t version);
