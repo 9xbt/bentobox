@@ -64,7 +64,7 @@ void framebuffer_initialize(void) {
         NULL, NULL,
         NULL, NULL,
         NULL, 0, 0, 1,
-        0, 0,
+        1, 1,
         0
     );
 

@@ -1,6 +1,7 @@
 name=mlibc
 version=6.3.2
 git_url="https://github.com/9xbt/mlibc"
+allow_network="yes"
 commit="$(git ls-remote ${git_url} refs/heads/bentobox | cut -f1)"
 
 prepare() {

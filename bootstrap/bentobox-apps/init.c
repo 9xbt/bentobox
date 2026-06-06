@@ -26,7 +26,7 @@ pid_t spawn_serial_shell(void) {
     if (access("/dev/ttyS0", F_OK) != 0)
         return 0;
 
-    char *envp[] = { "TERM=xterm", "HOME=/root", NULL };
+    char *envp[] = { "TERM=xterm", "HOME=/root", "GCC_EXEC_PREFIX=/usr/lib/gcc/", NULL };
     char *argv[] = { shell, NULL };
 
     pid_t pid = fork();
@@ -51,7 +51,7 @@ pid_t spawn_serial_shell(void) {
 }
 
 pid_t spawn_shell(void) {
-    char *envp[] = { "TERM=linux", "HOME=/root", NULL };
+    char *envp[] = { "TERM=linux", "HOME=/root", "GCC_EXEC_PREFIX=/usr/lib/gcc/", NULL };
     char *argv[] = { shell, NULL };
 
     pid_t pid = fork();
