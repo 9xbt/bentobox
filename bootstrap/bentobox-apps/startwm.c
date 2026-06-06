@@ -40,6 +40,8 @@ int main(int argc, char **argv) {
         _exit(1);
     }
 
+    system("xset r rate 300 50");
+
     printf("\033[H\033[J");
     fflush(stdout);
 

@@ -87,7 +87,8 @@ long input_generic_ioctl(struct input_device *input_dev, int op, void *arg) {
         switch (input_dev->type) {
             case INPUT_KEYBOARD:
                 if (ev_type == EV_KEY) {
-                    memset(bitmap, 0xff, MIN(size, KEY_MAX / 8 + 1));
+                    for (int i = KEY_ESC; i <= 0xff; i++)
+                        bitmap_set(bitmap, i);
                 }
                 break;
             case INPUT_MOUSE:
