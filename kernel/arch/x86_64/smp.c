@@ -24,6 +24,11 @@ struct limine_mp_request smp_request = {
 struct cpu bsp = {
     .current_irq = 0
 };
+
+struct thread stub_thread = {
+    .cpu = &bsp
+};
+
 struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
 size_t cpu_count = 1;

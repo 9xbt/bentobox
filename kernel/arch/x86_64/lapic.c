@@ -99,7 +99,7 @@ void lapic_reinstall(void) {
     lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x1ff);
 
     get_core_logical(get_logical_id())->current_irq = 0xff;
-    sti();
+    asm volatile ("sti");
 }
 
 void lapic_install(void) {
@@ -119,5 +119,5 @@ void lapic_install(void) {
     dprintf(LOG_INFO, "\033[93mapic:\033[0m enabled local APIC timer\n");
 
     get_core(0)->current_irq = 0xff;
-    sti();
+    asm volatile ("sti");
 }

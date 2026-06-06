@@ -21,14 +21,9 @@
 #define SCHED_KILLABLE(tcb) (tcb->syscall_regs ? (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE) : true)
 
 #ifdef __x86_64__
-inline void __sti() {
-    if ((read_tcb() && this_cpu->current_irq == 0xff) || (get_core_logical(get_logical_id())->current_irq == 0xff))
-        asm ("sti");
-}
-
 #define wfi() asm ("hlt");
 #define cli() asm ("cli");
-#define sti() __sti();
+#define sti() if (this_cpu->current_irq == 0xff) asm ("sti");
 #elif __aarch64__
 #define wfi() asm ("wfi");
 #endif

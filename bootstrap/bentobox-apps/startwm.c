@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
             fprintf(stderr, "timeout waiting for X");
             exit(EXIT_FAILURE);
         }
-        usleep(100000);
+        usleep(10000);
     }
 
     system("stty -echo -echoctl -isig -icanon min 0 time 0");

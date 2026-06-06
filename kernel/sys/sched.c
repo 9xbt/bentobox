@@ -416,7 +416,12 @@ void sched_wake(struct thread *tcb) {
     tcb->wakeup_pending = true;
     if (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE)
         tcb->state = THREAD_READY;
+
+    struct cpu *cpu = tcb->cpu;
     release(&tcb->lock);
+
+    if (cpu != this_cpu && cpu->current_tcb == cpu->idle_tcb)
+        arch_yield(cpu);
     sti();
 }
 

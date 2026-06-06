@@ -163,12 +163,12 @@ uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uac
 #endif
 
 void *uacpi_kernel_alloc(uacpi_size n) {
-    return kmalloc_irqless(n);
+    return kmalloc(n);
 }
 
 void uacpi_kernel_free(void *ptr) {
     if (ptr)
-        kfree_irqless(ptr);
+        kfree(ptr);
 }
 
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {

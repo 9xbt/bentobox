@@ -177,6 +177,7 @@ void arch_set_tls(uint64_t base) {
 }
 
 void arch_jumpstart(void) {
+    set_tcb(0);
     irq_register(0x80 - 32, sched_schedule);
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
@@ -185,6 +186,8 @@ void arch_jumpstart(void) {
     }
     asm volatile ("int $0x80");
 }
+
+extern struct thread stub_thread;
 
 void kmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
@@ -202,6 +205,7 @@ void kmain(void) {
     gdt_install();
     idt_install();
     tss_install();
+    set_tcb((uintptr_t)&stub_thread);
     mmu_initialize();
     framebuffer_initialize();
     elf64_module(ksym_request.response->executable_file);

@@ -190,13 +190,15 @@ void isr_handler(struct registers *r) {
 void irq_handler(struct registers *r) {
     if (r->cs == 0x23)
         asm volatile ("swapgs");
-    get_core_logical(get_logical_id())->current_irq = r->int_no;
+
+    struct cpu *cpu = get_core_logical(get_logical_id());
+    __atomic_store_n(&cpu->current_irq, r->int_no, __ATOMIC_SEQ_CST);
 
     void(*handler)(struct registers *) = irq_handlers[r->int_no - 32];
     if (handler != NULL)
         handler(r);
 
-    get_core_logical(get_logical_id())->current_irq = 0xff;
+    __atomic_store_n(&cpu->current_irq, 0xff, __ATOMIC_SEQ_CST);
     if (r->cs == 0x23)
         asm volatile ("swapgs");
 }
