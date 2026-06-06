@@ -35,6 +35,7 @@ extern size_t      cpu_count;
 void        set_tcb(uintptr_t tcb);
 uintptr_t   read_tcb(void);
 struct cpu *get_core(size_t core);
+struct cpu *get_core_logical(size_t logical_id);
 uint32_t    get_logical_id(void);
 
 struct cpu     *this_core(void);

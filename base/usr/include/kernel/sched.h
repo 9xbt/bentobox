@@ -21,9 +21,14 @@
 #define SCHED_KILLABLE(tcb) (tcb->syscall_regs ? (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE) : true)
 
 #ifdef __x86_64__
+inline void __sti() {
+    if ((read_tcb() && this_cpu->current_irq == 0xff) || (get_core_logical(get_logical_id())->current_irq == 0xff))
+        asm ("sti");
+}
+
 #define wfi() asm ("hlt");
 #define cli() asm ("cli");
-#define sti() arch_sti();
+#define sti() __sti();
 #elif __aarch64__
 #define wfi() asm ("wfi");
 #endif
@@ -95,8 +100,6 @@ struct process {
 extern list_t *processes;
 extern struct process *init_proc;
 extern struct thread  *cleaner_tcb;
-
-extern void arch_sti();
 
 struct cpu *sched_find_cpu(void);
 node_t *sched_add_process(struct process *proc);

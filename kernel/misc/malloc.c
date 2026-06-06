@@ -101,6 +101,18 @@ static int munmap(void *addr, size_t length) {
 
 #include "../../lib/dlmalloc.c"
 
+void *kmalloc_irqless(size_t n) {
+    assert(n);
+    void *ptr = dlmalloc(n);
+    assert(ptr);
+    return ptr;
+}
+
+void kfree_irqless(void *ptr) {
+    assert(ptr);
+    dlfree(ptr);
+}
+
 void *kmalloc(size_t n) {
     assert(n);
     cli();

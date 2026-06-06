@@ -17,9 +17,9 @@ void write_tss(int cpu) {
 }
 
 void tss_install(void) {
-    write_tss(get_core(get_logical_id())->id);
+    write_tss(get_core_logical(get_logical_id())->id);
 }
 
 void set_kernel_stack(uint64_t stack) {
-    tss[get_core(get_logical_id())->id].rsp0 = stack;
+    tss[get_core_logical(get_logical_id())->id].rsp0 = stack;
 }

@@ -108,7 +108,7 @@ void isr_handler(struct registers *r) {
         asm ("cli");
 	    for (;;) asm ("hlt");
     }
-    struct cpu *cpu = get_core(get_logical_id());
+    struct cpu *cpu = get_core_logical(get_logical_id());
     struct thread *tcb = cpu->current_tcb ? cpu->current_tcb->value : NULL;
     struct process *proc = tcb ? tcb->parent : NULL;
 
@@ -190,13 +190,13 @@ void isr_handler(struct registers *r) {
 void irq_handler(struct registers *r) {
     if (r->cs == 0x23)
         asm volatile ("swapgs");
-    get_core(get_logical_id())->current_irq = r->int_no;
+    get_core_logical(get_logical_id())->current_irq = r->int_no;
 
     void(*handler)(struct registers *) = irq_handlers[r->int_no - 32];
     if (handler != NULL)
         handler(r);
 
-    get_core(get_logical_id())->current_irq = 0xff;
+    get_core_logical(get_logical_id())->current_irq = 0xff;
     if (r->cs == 0x23)
         asm volatile ("swapgs");
 }

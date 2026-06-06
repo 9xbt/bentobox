@@ -60,7 +60,8 @@ void mmu_initialize(void) {
     for (i = 0; i < mmap->entry_count; i++) {
         entry = mmap->entries[i];
 
-        if (entry->type == LIMINE_MEMMAP_USABLE &&
+        if ((entry->type == LIMINE_MEMMAP_USABLE ||
+            entry->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES) &&
             entry->base + entry->length > highest_address)
             highest_address = entry->base + entry->length;
     }

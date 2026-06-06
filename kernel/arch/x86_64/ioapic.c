@@ -77,6 +77,5 @@ void ioapic_install(void) {
     for (uint32_t i = 0; i <= count; i++)
         ioapic_redirect_irq(0, i + 32, i, true);
 
-    asm volatile ("sti");
     dprintf(LOG_INFO, "\033[93mapic:\033[0m I/O APIC #%u handling GSI %u-%u\n", 0, ioapic->gsi_base, ioapic->gsi_base + count);
 }

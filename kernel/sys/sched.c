@@ -88,7 +88,7 @@ struct cpu *sched_find_cpu(void) {
     if (cpu_count == 1)
         return get_core(0);
 
-    struct cpu *target = get_core(get_logical_id());
+    struct cpu *target = get_core_logical(get_logical_id());
     cli();
     acquire(&target->threads->lock);
     size_t target_threads = target->threads->length;
@@ -568,7 +568,7 @@ void sched_schedule(struct registers *r) {
         this_cpu->current_tcb = sched_find_next(this_cpu, now);
         set_tcb((uintptr_t)this_cpu->current_tcb->value);
     } else {
-        node_t *node = sched_find_next(get_core(get_logical_id()), now);
+        node_t *node = sched_find_next(get_core_logical(get_logical_id()), now);
         set_tcb((uintptr_t)node->value);
         this_cpu->current_tcb = node;
     }

@@ -163,12 +163,12 @@ uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uac
 #endif
 
 void *uacpi_kernel_alloc(uacpi_size n) {
-    return kmalloc(n);
+    return kmalloc_irqless(n);
 }
 
 void uacpi_kernel_free(void *ptr) {
     if (ptr)
-        kfree(ptr);
+        kfree_irqless(ptr);
 }
 
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
@@ -205,7 +205,7 @@ void uacpi_kernel_free_event(uacpi_handle handle) {
 }
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) {
-    return get_core(get_logical_id())->current_tcb;
+    return get_core_logical(get_logical_id())->current_tcb;
 }
 
 uacpi_status uacpi_kernel_acquire_mutex(uacpi_handle handle, uacpi_u16 timeout) {

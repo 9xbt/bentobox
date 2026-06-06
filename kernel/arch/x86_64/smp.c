@@ -22,7 +22,7 @@ struct limine_mp_request smp_request = {
 };
 
 struct cpu bsp = {
-    .current_irq = 0xff
+    .current_irq = 0
 };
 struct cpu *cpu_list[SMP_MAX_CORES] = { &bsp };
 
@@ -84,7 +84,7 @@ void smp_initialize(void) {
         core->total_time = 0;
         core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
         core->tlb_pending = false;
-        core->current_irq = 0xff;
+        core->current_irq = 0;
         cpu_list[core->logical_id] = core;
     }
     
@@ -99,12 +99,16 @@ uintptr_t read_tcb(void) {
     return read_gs();
 }
 
-struct cpu *get_core(size_t core) {
+struct cpu *get_core(size_t id) {
     for (size_t i = 0; i < SMP_MAX_CORES; i++) {
-        if (cpu_list[i] && cpu_list[i]->id == core)
+        if (cpu_list[i] && cpu_list[i]->id == id)
             return cpu_list[i];
     }
-    return cpu_list[core];
+    return NULL;
+}
+
+struct cpu *get_core_logical(size_t logical_id) {
+    return cpu_list[logical_id];
 }
 
 uint32_t get_logical_id(void) {
@@ -112,13 +116,6 @@ uint32_t get_logical_id(void) {
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     return bspid >> 24;
 }
-
-// struct cpu *this_core(void) {
-//     uint32_t eax = 1, bspid, _;
-//     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
-//     bspid >>= 24;
-//     return cpu_list[bspid];
-// }
 
 struct cpu *this_core(void) {
     struct cpu *core;

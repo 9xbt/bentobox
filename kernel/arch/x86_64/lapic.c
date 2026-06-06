@@ -7,6 +7,7 @@
 #include <kernel/acpi.h>
 #include <kernel/time.h>
 #include <kernel/mmu.h>
+#include <kernel/smp.h>
 
 static uint32_t lapic_ticks = 0;
 static bool x2apic = false;
@@ -75,7 +76,6 @@ void lapic_ipi(uint32_t id, uint32_t irq) {
 }
 
 void lapic_calibrate_timer(void) {
-    cli();
     lapic_stop_timer();
 
     lapic_write(LAPIC_TIMER_DIV, 0);
@@ -91,14 +91,14 @@ void lapic_calibrate_timer(void) {
     assert(lapic_ticks != 0);
 
     lapic_stop_timer();
-    sti();
-    dprintf(LOG_INFO, "\033[93mapic:\033[0m enabled local APIC timer\n");
 }
 
 void lapic_reinstall(void) {
     if (x2apic)
         wrmsr(IA32_APIC_BASE, rdmsr(IA32_APIC_BASE) | (1 << 10) | (1 << 11));
     lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x1ff);
+
+    get_core_logical(get_logical_id())->current_irq = 0xff;
     sti();
 }
 
@@ -116,5 +116,8 @@ void lapic_install(void) {
 
     lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x1ff);
     lapic_calibrate_timer();
+    dprintf(LOG_INFO, "\033[93mapic:\033[0m enabled local APIC timer\n");
+
+    get_core(0)->current_irq = 0xff;
     sti();
 }

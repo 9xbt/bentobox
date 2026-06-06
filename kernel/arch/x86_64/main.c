@@ -54,7 +54,7 @@ void arch_fatal_prepare(void) {
     if (trylock(&lock)) {
         for (size_t i = 0; i < cpu_count; i++) {
             struct cpu *core = get_core(i);
-            if (core != get_core(get_logical_id()))
+            if (core != get_core_logical(get_logical_id()))
                 lapic_ipi(core->logical_id, 0x02);
         }
     } else arch_fatal();
@@ -184,11 +184,6 @@ void arch_jumpstart(void) {
             lapic_ipi(core->logical_id, 0x80);
     }
     asm volatile ("int $0x80");
-}
-
-void arch_sti(void) {
-    if (get_core(get_logical_id())->current_irq == 0xff)
-        asm ("sti");
 }
 
 void kmain(void) {
