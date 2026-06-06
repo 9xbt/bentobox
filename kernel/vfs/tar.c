@@ -65,6 +65,7 @@ long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     struct tar *tar = (struct tar *)device;
     uint64_t inode = 1;
 
+    char *override = NULL;
     while (!memcmp(tar->ustar, "ustar", 5)) {
         int filesize = oct2bin(tar->size, sizeof(tar->size));
         int mode = oct2bin(tar->mode + 4, 3);
@@ -81,13 +82,16 @@ long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
             case '2':
                 type = VFS_SYMLINK;
                 break;
+            case 'L':
+                override = (char *)tar + 512;
+                goto skip;
             default:
                 dprintf(LOG_WARNING, "\033[93mtar:\033[0m skipping '%s': unsupported type %c\n", tar->name, tar->type);
-                tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
-                continue;
+                goto skip;
         }
 
-        vfs_result_t r = vfs_lookup(node, tar->name, true, type);
+        vfs_result_t r = vfs_lookup(node, override ?: tar->name, true, type);
+        override = NULL;
         if (!r.node) {
             dprintf(LOG_WARNING, "\033[93mtar:\033[0m failed to create %s: %s\n", tar->name, strerror(r.error));
         } else if (type == VFS_FILE) {
@@ -108,6 +112,7 @@ long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
             r.node->inode = inode++;
         }
 
+    skip:
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
     }
     return 0;
