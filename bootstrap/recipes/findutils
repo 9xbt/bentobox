@@ -1,0 +1,20 @@
+name=findutils
+revision=1
+from_source=findutils
+imagedeps="build-essential"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cp -rp ${source_dir}/* .
+    cp ${base_dir}/config.sub build-aux/
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j ${parallelism}
+}
+
+package() {
+	make install DESTDIR=${dest_dir}
+}

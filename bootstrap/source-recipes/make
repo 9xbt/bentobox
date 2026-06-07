@@ -1,0 +1,8 @@
+name=make
+version=4.4.1
+tarball_url="https://ftpmirror.gnu.org/gnu/make/make-${version}.tar.lz"
+tarball_blake2b="b0c62a85a99b15e38ee9e08c38be9b1c4c6d81a01bc8ea94f83e7f1a93968b9c8c8b69c92bb4112646a58e38bb9d2effdd461fb2a82b1360681351e07c123a26"
+
+prepare() {
+	:
+}
