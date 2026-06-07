@@ -147,8 +147,8 @@ long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
 }
 
 void arch_save_context(void) {
-    this->ctx.gs = read_kernel_gs();
-    this->ctx.user_gs = read_gs();
+    this->ctx.gs = read_gs();
+    this->ctx.user_gs = read_kernel_gs();
     asm volatile ("fxsave %0" :: "m"(this->ctx.fxsave));
 }
 

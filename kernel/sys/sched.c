@@ -497,8 +497,10 @@ node_t *sched_find_next(struct cpu *cpu, size_t now) {
         node_t *next = node->next ? node->next : cpu->threads->head;
 
         acquire(&t->lock);
-        if (t->parent->state == PROCESS_ZOMBIE)
+        if ((t->parent->state == PROCESS_ZOMBIE || t->kill_pending) && SCHED_KILLABLE(t)) {
             t->state = THREAD_ZOMBIE;
+            t->kill_pending = false;
+        }
         if (t->state == THREAD_ZOMBIE) {
             acquire(&zombie_threads->lock);
             list_unlink(cpu->threads, node);
@@ -540,11 +542,9 @@ void sched_schedule(struct registers *r) {
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
 
-        if (this_proc->state == PROCESS_ZOMBIE)
+        if ((this_proc->state == PROCESS_ZOMBIE || this->kill_pending) && SCHED_KILLABLE(this)) {
             this->state = THREAD_ZOMBIE;
-        if (this->kill_pending && this->state != THREAD_RUNNING) {
             this->kill_pending = false;
-            this->state = THREAD_ZOMBIE;
         }
         if (this->state == THREAD_ZOMBIE) {
             struct node *tcb = this_cpu->current_tcb;
@@ -614,14 +614,19 @@ void sched_cleaner(void) {
         cli();
         while (!trylock(&zombie_threads->lock))
             sched_yield();
-        struct thread *tcb = (struct thread *)list_pop(zombie_threads);
-        release(&zombie_threads->lock);
-        sti();
-
-        if (!tcb) {
+        node_t *node = zombie_threads->head;
+        if (!node) {
+            release(&zombie_threads->lock);
+            sti();
             sched_block(this, 0);
             continue;
         }
+        struct thread *tcb = node->value;
+        list_unlink(zombie_threads, node);
+        release(&zombie_threads->lock);
+        sti();
+
+        kfree(node);
 
         struct process *proc = tcb->parent, *parent = proc->parent;
         acquire(&proc->threads->lock);
@@ -633,9 +638,9 @@ void sched_cleaner(void) {
             if (init_proc == proc)
                 panic("Tried to kill init!");
 
-            acquire(&proc->children->lock);
-            acquire(&proc->dead_children->lock);
             acquire(&processes->lock);
+            list_remove_value(processes, proc);
+            release(&processes->lock);
 
             if (parent) {
                 struct dead_process *dp = kmalloc(sizeof(struct dead_process));
@@ -652,12 +657,14 @@ void sched_cleaner(void) {
                 release(&parent->children->lock);
             }
 
+            acquire(&proc->children->lock);
             foreach(j, proc->children) {
                 struct process *child = j->value;
                 child->parent = init_proc;
             }
             list_free(proc->children);
 
+            acquire(&proc->dead_children->lock);
             foreach(j, proc->dead_children) {
                 struct dead_process *dp = j->value;
                 if (dp)
@@ -671,8 +678,6 @@ void sched_cleaner(void) {
             kfree(proc->files);
             kfree(proc->name);
             sched_free_pid(proc->pid);
-
-            list_remove_value(processes, proc);
             list_free(proc->threads);
             if (proc->user)
                 __atomic_sub_fetch(&user_procs, 1, __ATOMIC_RELEASE);
@@ -681,7 +686,6 @@ void sched_cleaner(void) {
                 kfree(last_proc);
             last_proc = proc;
 
-            release(&processes->lock);
         } else {
             release(&proc->threads->lock);
         }

@@ -76,13 +76,16 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
 
 vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type) {
     vfs_node_t *node = vfs_create_node(name, type);
+    static uint64_t inode = 1;
     if (type == VFS_DIRECTORY) {
         node->ops = &tmpfs_ops;
+        node->inode = inode++;
     } else if (type == VFS_FILE) {
         tmpfs_t *file = kmalloc(sizeof(tmpfs_t));
         file->data = NULL;
         file->refcount = 1;
         node->size = 0;
+        node->inode = inode++;
         node->ops = &tmpfs_ops;
         node->device = file;
     }

@@ -108,6 +108,8 @@ void isr_handler(struct registers *r) {
         asm ("cli");
 	    for (;;) asm ("hlt");
     }
+    if (r->cs == 0x23)
+        asm volatile ("swapgs");
     struct cpu *cpu = get_core_logical(get_logical_id());
     struct thread *tcb = cpu->current_tcb ? cpu->current_tcb->value : NULL;
     struct process *proc = tcb ? tcb->parent : NULL;
@@ -134,6 +136,8 @@ void isr_handler(struct registers *r) {
             
             tlb_invalidate((void *)ALIGN_DOWN(cr2, PAGE_SIZE));
             cpu->current_irq = 0xff;
+            if (r->cs == 0x23)
+                asm volatile ("swapgs");
             return;
         }
     }
@@ -142,6 +146,8 @@ void isr_handler(struct registers *r) {
         tcb->user_copy_status = -EFAULT;
         r->rip = (uint64_t)user_copy_fail;
         cpu->current_irq = 0xff;
+        if (r->cs == 0x23)
+            asm volatile ("swapgs");
         return;
     }
     
@@ -156,7 +162,12 @@ void isr_handler(struct registers *r) {
                 break;
         }
         cpu->current_irq = 0xff;
-        sched_yield();
+        if (tcb->state == THREAD_RUNNING)
+            tcb->state = THREAD_READY;
+        if (r->cs == 0x23)
+            asm volatile ("swapgs");
+        asm volatile ("int $0x80");
+
         return;
     }
 
