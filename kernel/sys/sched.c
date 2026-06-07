@@ -176,14 +176,16 @@ void sched_setup_stack(struct thread *tcb, int argc, char *argv[], char *envp[],
 
     int i = 0;
     for (i = 0; i < envc; i++) {
-        depth += ALIGN_UP(strlen(envp[i]) + 1, 16);
+        size_t len = strlen(envp[i]) + 1;
+        depth += ALIGN_UP(len, 16);
         env_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-        strcpy((char *)ctx->user_stack - depth, envp[i]);
+        memcpy((char *)ctx->user_stack - depth, envp[i], len);
     }
     for (i = 0; i < argc; i++) {
-        depth += ALIGN_UP(strlen(argv[i]) + 1, 16);
+        size_t len = strlen(argv[i]) + 1;
+        depth += ALIGN_UP(len, 16);
         argv_ptrs[i] = (uint64_t)(ctx->user_stack - depth);
-        strcpy((char *)ctx->user_stack - depth, argv[i]);
+        memcpy((char *)ctx->user_stack - depth, argv[i], len);
     }
 
     #define PUSH(x) (*(uint64_t *)(ctx->user_stack - (depth += 8)) = (x))
