@@ -365,8 +365,13 @@ long ptmx_ioctl(struct vfs_node *node, int op, void *arg) {
             return copy_from_user(&pty->tio, arg, sizeof(struct termios));
         case TIOCGWINSZ:
             return copy_to_user(arg, &pty->ws, sizeof(struct winsize));
-        case TIOCSWINSZ:
-            return copy_from_user(&pty->ws, arg, sizeof(struct winsize));
+        case TIOCSWINSZ: {
+            long ret = copy_from_user(&pty->ws, arg, sizeof(struct winsize));
+            if (ret < 0)
+                return ret;
+            signal_send_pgrp(pty->pgid, SIGWINCH);
+            return ret;
+        }
         case TIOCGPGRP:
             return copy_to_user(arg, &pty->pgid, sizeof pty->pgid);
         case TIOCSPGRP:

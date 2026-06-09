@@ -13,6 +13,7 @@
 #define PS2_CONFIG_PORT2_IRQ        0x02
 #define PS2_CONFIG_PORT1_TRANSLATE  0x40
 
+#define PS2_MOUSE_GET_DEVICE_ID     0xF2
 #define PS2_MOUSE_SET_SAMPLE_RATE   0xF3
 #define PS2_MOUSE_ENABLE_REPORTING  0xF4
 
@@ -24,6 +25,7 @@ struct ps2_mouse_packet {
     bool ys;
     short delta_x;
     short delta_y;
+    char scroll;
 };
 
 enum ps2_device_type {
@@ -35,6 +37,7 @@ struct ps2_device {
     bool caps;
     bool ctrl;
     bool shift;
+    int packets;
     enum ps2_device_type type;
     struct fifo *fifo;
     struct input_device *input_dev;

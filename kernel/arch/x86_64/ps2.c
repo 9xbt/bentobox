@@ -128,6 +128,7 @@ void irq12_handler(struct registers *r) {
     (void)r;
     static int pi = 0;
     static struct ps2_mouse_packet state = {0};
+    struct ps2_device *dev = mouse->device;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
         dprintf(LOG_ERR, "\033[93mi8042:\033[0m not a mouse packet\n");
@@ -156,9 +157,12 @@ void irq12_handler(struct registers *r) {
         case 2:
             state.delta_y = state.ys ? (data | 0xFF00) : data;
             break;
+        case 3:
+            state.scroll = (data & 0x08) ? -(char)(data | 0xF0) : -(char)(data & 0x0F);
+            break;
     }
 
-    if (++pi >= 3) {
+    if (++pi >= dev->packets) {
         fifo_enqueue(mouse_fifo, state);
         sched_wake(mouse_worker);
         pi = 0;
@@ -292,6 +296,7 @@ void ps2_mouse_worker(void) {
         if (mouse->waiters->length > 0) {
             EMIT_REL(delta_x, REL_X);
             EMIT_REL(delta_y, REL_Y);
+            EMIT_REL(scroll, REL_WHEEL);
             EMIT_KEY(left, BTN_LEFT);
             EMIT_KEY(right, BTN_RIGHT);
             EMIT_KEY(middle, BTN_MIDDLE);
@@ -413,6 +418,13 @@ static void ps2_config_write(uint8_t config) {
     ps2_write_data(config);
 }
 
+static void ps2_write_sample_rate(uint8_t cmd) {
+    ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
+    ps2_read_data();
+    ps2_send_mouse_command(cmd);
+    ps2_read_data();
+}
+
 struct ps2_device keyboard_device = { .type = PS2_KEYBOARD };
 struct ps2_device mouse_device = { .type = PS2_MOUSE };
 
@@ -450,10 +462,13 @@ void ps2_hid_install(void) {
         goto no_mouse;
     ps2_flush_buffer();
     
-    ps2_send_mouse_command(PS2_MOUSE_SET_SAMPLE_RATE);
+    ps2_write_sample_rate(200);
+    ps2_write_sample_rate(100);
+    ps2_write_sample_rate(80);
+
+    ps2_send_mouse_command(PS2_MOUSE_GET_DEVICE_ID);
     ps2_read_data();
-    ps2_send_mouse_command(100);
-    ps2_read_data();
+    mouse_device.packets = ps2_read_data() == 0x03 ? 4 : 3;
     
     mouse = devfs_create_numbered(DEVFS_EVENT);
     mouse->ops = &ps2_ops;

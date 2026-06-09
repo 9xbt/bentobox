@@ -95,6 +95,7 @@ long input_generic_ioctl(struct input_device *input_dev, int op, void *arg) {
                 if (ev_type == EV_REL) {
                     bitmap_set(bitmap, REL_X);
                     bitmap_set(bitmap, REL_Y);
+                    bitmap_set(bitmap, REL_WHEEL);
                 } else if (ev_type == EV_KEY) {
                     bitmap_set(bitmap, BTN_LEFT);
                     bitmap_set(bitmap, BTN_RIGHT);

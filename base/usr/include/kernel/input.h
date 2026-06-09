@@ -10,6 +10,7 @@
 #define EV_CNT 	     (EV_MAX + 1)
 #define REL_X        0x00
 #define REL_Y        0x01
+#define REL_WHEEL	 0x08
 #define ABS_X        0x00
 #define ABS_Y        0x01
 #define ABS_PRESSURE 0x18
