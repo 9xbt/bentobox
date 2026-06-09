@@ -45,11 +45,12 @@ void ap_startup() {
 }
 
 void smp_tlb_invalidate() {
+    struct cpu *cpu = get_core_logical(get_logical_id());
     uint64_t va;
-    while (ringbuffer_read(this_cpu->tlb_invl_rb, (unsigned char *)&va, sizeof va)) {
+    while (ringbuffer_read(cpu->tlb_invl_rb, (unsigned char *)&va, sizeof va)) {
         asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
     }
-    __atomic_store_n(&this_cpu->tlb_pending, false, __ATOMIC_SEQ_CST);
+    __atomic_store_n(&cpu->tlb_pending, false, __ATOMIC_SEQ_CST);
     lapic_eoi();
 }
 
@@ -98,10 +99,6 @@ void smp_initialize(void) {
 
 void set_tcb(uintptr_t tcb) {
     write_gs(tcb);
-}
-
-uintptr_t read_tcb(void) {
-    return read_gs();
 }
 
 struct cpu *get_core(size_t id) {

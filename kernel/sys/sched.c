@@ -535,7 +535,7 @@ void sched_schedule(struct registers *r) {
     uptime(&sec, &nsec);
     size_t now = sec * 1000000000UL + nsec;
 
-    if (read_tcb()) {
+    if (get_core_logical(get_logical_id())->current_tcb) {
         memcpy(&(this->ctx.regs), r, sizeof(struct registers));
         arch_save_context();
 

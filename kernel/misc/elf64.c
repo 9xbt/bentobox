@@ -469,6 +469,9 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     if (!elf64_is_executable(ehdr))
         return -ENOEXEC;
 
+    sigset_t oldmask = this_proc->blocked;
+    sigfillset(&this_proc->blocked);
+
     acquire(&this_proc->threads->lock);
     foreach(i, this_proc->threads) {
         struct thread *tcb = i->value;
@@ -521,9 +524,14 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     struct thread *tcb = sched_new_thread(this_proc, (void *)entry, argc, argv, envp, auxv, AUXV_COUNT, NULL);
     struct cpu *cpu = sched_find_cpu();
     tcb->cpu = cpu;
+    
+    this_proc->blocked = oldmask;
+    memset(&this_proc->sighand, 0, sizeof this_proc->sighand);
+
+    node_t *node = list_create_node(tcb);
     cli();
     acquire(&cpu->threads->lock);
-    list_insert(cpu->threads, tcb);
+    list_append(cpu->threads, node);
     release(&cpu->threads->lock);
     sti();
 

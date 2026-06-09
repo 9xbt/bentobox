@@ -7,6 +7,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/panic.h>
+#include <kernel/sched.h>
 #include <kernel/mmu.h>
 #include <limine.h>
 
@@ -189,6 +190,7 @@ uint64_t mmu_find_page(uint64_t start) {
 }
 
 void *mmu_alloc(void) {
+    cli();
     acquire(&lock);
     uint64_t page = mmu_find_page(last_page);
     if (page == (uint64_t)-1)
@@ -198,6 +200,7 @@ void *mmu_alloc(void) {
     if (mmu_refcounts)
         mmu_refcounts[page] = 1;
     release(&lock);
+    sti();
     return (void *)(page * PAGE_SIZE);
 }
 
@@ -205,10 +208,12 @@ void mmu_free(void *ptr) {
     assert(ptr);
     uint64_t page = (uint64_t)ptr / PAGE_SIZE;
 
+    cli();
     acquire(&lock);
     if (!bitmap_get(mmu_bitmap, page)) {
         dprintf(LOG_DEBUG, "\033[93mmmu:\033[0m potential double free at 0x%p\n", ptr);
         release(&lock);
+        sti();
         return; 
     }
 
@@ -218,6 +223,7 @@ void mmu_free(void *ptr) {
     if (page < last_page)
         last_page = (uint64_t)ptr / PAGE_SIZE;
     release(&lock);
+    sti();
 }
 
 uint16_t *mmu_get_refcount(void *ptr) {

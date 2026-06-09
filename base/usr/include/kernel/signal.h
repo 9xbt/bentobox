@@ -48,6 +48,8 @@ struct sigframe {
 
 #define sigemptyset(set) memset((set), 0, sizeof(sigset_t))
 
+#define sigfillset(set) memset((set), 0xff, sizeof(sigset_t))
+
 #define sigorset(dest, set1, set2) do { \
     for (int _i = 0; _i < _NSIG_WORDS; _i++) \
         (dest)->sig[_i] = (set1)->sig[_i] | (set2)->sig[_i]; \

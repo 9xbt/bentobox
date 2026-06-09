@@ -16,6 +16,7 @@
 #include <kernel/futex.h>
 #include <kernel/acpi.h>
 #include <kernel/file.h>
+#include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
@@ -1133,9 +1134,11 @@ long sys_clone(void *entry, void *stack) {
     struct thread *tcb = sched_new_thread(this_proc, entry, 0, NULL, NULL, NULL, 0, stack);
     struct cpu *cpu = sched_find_cpu();
     tcb->cpu = cpu;
+
+    node_t *node = list_create_node(tcb);
     cli();
     acquire(&cpu->threads->lock);
-    list_insert(cpu->threads, tcb);
+    list_append(cpu->threads, node);
     release(&cpu->threads->lock);
     sti();
     return tcb->tid;

@@ -164,8 +164,6 @@ void isr_handler(struct registers *r) {
         cpu->current_irq = 0xff;
         if (tcb->state == THREAD_RUNNING)
             tcb->state = THREAD_READY;
-        if (r->cs == 0x23)
-            asm volatile ("swapgs");
         asm volatile ("int $0x80");
 
         return;
@@ -186,7 +184,7 @@ void isr_handler(struct registers *r) {
     dprintf(LOG_EMERG, "r11: 0x%p r12: 0x%p r13:    0x%p\n", r->r11, r->r12, r->r13);
     dprintf(LOG_EMERG, "r14: 0x%p r15: 0x%p cr2:    0x%p\n", r->r14, r->r15, cr2);
     dprintf(LOG_EMERG, "cs:  0x%p ss:  0x%p rflags: 0x%p\n", r->cs, r->ss, r->rflags);
-    dprintf(LOG_EMERG, "tcb: 0x%p gs:  0x%p usergs: 0x%p\n", read_tcb(), read_kernel_gs(), read_gs());
+    dprintf(LOG_EMERG, "gs:  0x%p usergs: 0x%p\n", read_gs(), read_kernel_gs());
     if (r->int_no == 14) {
         dprintf(LOG_EMERG, "%s %s %s\n",
             r->error_code & 0x01 ? "Page-protection violation," : "Page not present,",
@@ -197,6 +195,8 @@ void isr_handler(struct registers *r) {
 
     arch_fatal();
 }
+
+#include <kernel/assert.h>
 
 void irq_handler(struct registers *r) {
     if (r->cs == 0x23)
