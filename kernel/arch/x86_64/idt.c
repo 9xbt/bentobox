@@ -135,7 +135,7 @@ void isr_handler(struct registers *r) {
             }
             
             tlb_invalidate((void *)ALIGN_DOWN(cr2, PAGE_SIZE));
-            cpu->current_irq = 0xff;
+            __atomic_store_n(&cpu->current_irq, 0xff, __ATOMIC_SEQ_CST);
             if (r->cs == 0x23)
                 asm volatile ("swapgs");
             return;
@@ -145,7 +145,7 @@ void isr_handler(struct registers *r) {
     if (r->int_no == 14 && tcb && tcb->doing_user_copy && cr2 < hhdm_offset) {
         tcb->user_copy_status = -EFAULT;
         r->rip = (uint64_t)user_copy_fail;
-        cpu->current_irq = 0xff;
+        __atomic_store_n(&cpu->current_irq, 0xff, __ATOMIC_SEQ_CST);
         if (r->cs == 0x23)
             asm volatile ("swapgs");
         return;
@@ -161,11 +161,14 @@ void isr_handler(struct registers *r) {
                 signal_send(proc, SIGSEGV);
                 break;
         }
-        cpu->current_irq = 0xff;
+        
         if (tcb->state == THREAD_RUNNING)
             tcb->state = THREAD_READY;
-        asm volatile ("int $0x80");
+        sched_schedule(r);
 
+        __atomic_store_n(&cpu->current_irq, 0xff, __ATOMIC_SEQ_CST);
+        if (r->cs == 0x23)
+            asm volatile ("swapgs");
         return;
     }
 

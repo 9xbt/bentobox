@@ -36,7 +36,6 @@ vfs_node_t *vfs_create_node(const char *name, enum vfs_node_type type) {
     node->atime = node->ctime = node->mtime = now();
     node->children = list_create();
     node->waiters = list_create();
-    node->waiters->lock = 0;
     node->parent = NULL;
     node->symlink = NULL;
     node->ops = NULL;

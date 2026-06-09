@@ -109,20 +109,20 @@ struct cpu *sched_find_cpu(void) {
 }
 
 node_t *sched_add_process(struct process *proc) {
-    cli();
     acquire(&proc->threads->lock);
     foreach(thread, proc->threads) {
         struct cpu *cpu = sched_find_cpu();
         struct thread *tcb = thread->value;
-        acquire(&tcb->lock);
-        acquire(&cpu->threads->lock);
-        list_insert(cpu->threads, tcb);
         tcb->cpu = cpu;
+
+        node_t *node = list_create_node(tcb);
+        cli();
+        acquire(&cpu->threads->lock);
+        list_append(cpu->threads, node);
         release(&cpu->threads->lock);
-        release(&tcb->lock);
+        sti();
     }
     release(&proc->threads->lock);
-    sti();
 
     acquire(&processes->lock);
     node_t *node = list_insert(processes, proc);
