@@ -37,7 +37,7 @@ void hpet_sleep(size_t ns) {
 
 void hpet_read_time(size_t *sec, size_t *nsec) {
     size_t counter = hpet_get_ticks();
-    uint64_t total_nsec = (counter * (uint64_t)hpet_period) / 1000000ULL;
+    uint64_t total_nsec = counter * (hpet_period / 1000000ULL) + (counter * (hpet_period % 1000000ULL)) / 1000000ULL;
 
     if (sec) *sec = total_nsec / 1000000000ULL;
     if (nsec) *nsec = total_nsec % 1000000000ULL;
