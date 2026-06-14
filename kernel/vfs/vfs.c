@@ -196,8 +196,10 @@ vfs_result_t vfs_touch(vfs_node_t *parent, const char *name, enum vfs_node_type 
 }
 
 vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks, enum vfs_node_type create_type) {
-    if (!path) return (vfs_result_t){ NULL, -ENOENT };
-    if (!cwd || path[0] == '/') cwd = vfs_get_root();
+    if (!path)
+        return (vfs_result_t){ NULL, -ENOENT };
+    if (!cwd || path[0] == '/')
+        cwd = vfs_get_root();
 
     char *copy = strdup(path);
     char *saveptr;
@@ -324,46 +326,39 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (!node->ops || !node->ops->poll)
         return -1UL;
 
-    long poll = node->ops->poll(node, events);
-    if (poll)
-        return poll;
-    if (timeout == 0)
-        return 0;
-
     acquire(&node->waiters->lock);
     __atomic_add_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
     list_insert(node->waiters, this);
-    poll = node->ops->poll(node, events);
-    if (poll) {
-        list_remove_value(node->waiters, this);
-        __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
-        release(&node->waiters->lock);
-        return poll;
-    }
-    
-    if (timeout == -1) {
-        for (;;) {
-            release(&node->waiters->lock);
-            sched_block(this, 0);
-            acquire(&node->waiters->lock);
+    release(&node->waiters->lock);
+
+    size_t sec, nsec;
+    uptime(&sec, &nsec);
+    size_t start = sec * 1000000000 + nsec;
+
+    long poll;
+    for (;;) {
+        poll = node->ops->poll(node, events);
+        if (poll || !timeout)
+            break;
+
+        if (timeout > 0) {
+            uptime(&sec, &nsec);
+            size_t now = sec * 1000000000 + nsec;
             
-            poll = node->ops->poll(node, events);
-            if (poll) {
-                list_remove_value(node->waiters, this);
-                __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
-                release(&node->waiters->lock);
-                return poll;
-            }
+            long remaining = timeout - (now - start);
+            if (remaining <= 0)
+                break;
+            sched_block(this, remaining);
+        } else {
+            sched_block(this, 0);
         }
-    } else {
-        release(&node->waiters->lock);
-        sched_block(this, timeout);
     }
+
     acquire(&node->waiters->lock);
     list_remove_value(node->waiters, this);
     __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
     release(&node->waiters->lock);
-    return node->ops->poll(node, events);
+    return poll;
 }
 
 long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, long nfds, long timeout) {
@@ -385,8 +380,9 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
         release(&node->waiters->lock);
     }
 
-    size_t start;
-    uptime(NULL, &start);
+    size_t sec, nsec;
+    uptime(&sec, &nsec);
+    size_t start = sec * 1000000000 + nsec;
 
     int ready = 0;
     for (;;) {
@@ -404,8 +400,9 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             break;
 
         if (timeout > 0) {
-            size_t now;
-            uptime(NULL, &now);
+            uptime(&sec, &nsec);
+            size_t now = sec * 1000000000 + nsec;
+
             long remaining = timeout - (now - start);
             if (remaining <= 0)
                 break;
@@ -415,7 +412,6 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
         }
     }
 
-    ready = 0;
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
 
@@ -423,9 +419,6 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
         list_remove_value(node->waiters, this);
         __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
         release(&node->waiters->lock);
-
-        if (revents[fd])
-            ready++;
     }
 
     return ready;

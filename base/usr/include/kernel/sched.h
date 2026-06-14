@@ -22,7 +22,7 @@
 
 #ifdef __x86_64__
 #define wfi() asm ("hlt");
-#define cli() asm ("cli");
+#define cli() if (this_cpu->current_irq == 0xff) asm ("cli");
 #define sti() if (this_cpu->current_irq == 0xff) asm ("sti");
 #elif __aarch64__
 #define wfi() asm ("wfi");
