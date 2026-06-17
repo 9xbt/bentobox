@@ -148,6 +148,7 @@ struct input_device {
 	uint16_t version;
 	int max_x;
 	int max_y;
+	int max_pressure;
 };
 
 long input_generic_ioctl(struct input_device *input_dev, int op, void *arg);

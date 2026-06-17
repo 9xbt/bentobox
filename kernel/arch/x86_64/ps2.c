@@ -290,8 +290,10 @@ void ps2_mouse_worker(void) {
             }
 
         #define EMIT_SYN() \
-            struct input_event iev = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 }; \
-            fifo_enqueue(dev->fifo, iev);
+            do { \
+                struct input_event iev = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 }; \
+                fifo_enqueue(dev->fifo, iev); \
+            } while (0)
 
         if (mouse->waiters->length > 0) {
             EMIT_REL(delta_x, REL_X);

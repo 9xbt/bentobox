@@ -40,14 +40,12 @@ void wacom_parse_pen_data(unsigned char *data) {
 	coord.tilt_x = data[7] & 0x7F;
 	coord.tilt_y = data[8] & 0x7F;
 
-    // dprintf(LOG_INFO, "X: %u Y: %u Pressure: %u\n", coord.x, coord.y, coord.pen_pressure);
-
     fifo_enqueue(coord_fifo, coord);
     sched_wake(worker_thread);
 }
 
 void wacom_worker(void) {
-    struct w8001_coord coord = {0};
+    struct w8001_coord coord = {0}, last_coord = {0};
 
     for (;;) {
         if (fifo_dequeue(coord_fifo, &coord) < 0) {
@@ -60,6 +58,12 @@ void wacom_worker(void) {
                 fifo_enqueue(event_fifo, iev); \
             } while (0)
 
+        #define EMIT_KEY(f, c) \
+            if (!!(coord.f) != !!(last_coord.f)) { \
+                struct input_event iev = { .type = EV_KEY, .code = c, .value = !!(coord.f) }; \
+                fifo_enqueue(event_fifo, iev); \
+            }
+
         #define EMIT_SYN() \
             do { \
                 struct input_event iev = { .type = EV_SYN, .code = SYN_REPORT, .value = 0 }; \
@@ -69,9 +73,13 @@ void wacom_worker(void) {
         EMIT_ABS(coord.x, ABS_X);
         EMIT_ABS(coord.y, ABS_Y);
         EMIT_ABS(coord.pen_pressure, ABS_PRESSURE);
+        EMIT_KEY(tsw, BTN_TOUCH);
+        EMIT_KEY(f1, BTN_STYLUS);
+        EMIT_KEY(f2, BTN_STYLUS2);
         EMIT_SYN();
-
+        
         vfs_wake_waiters(event);
+        memcpy(&last_coord, &coord, sizeof coord);
     }
 }
 
@@ -155,18 +163,22 @@ vfs_ops_t wacom_ops = {
 };
 
 int init() {
-    if (!serial_initialize(W8001_PORT, 0x06)) {
-        dprintf(LOG_INFO, "\033[93mw8001:\033[0m no devices found\n");
+    if (!serial_initialize(W8001_PORT, 0x06))
         return -ENODEV;
-    }
 
+    dprintf(LOG_INFO, "\033[93mw8001:\033[0m found tablet at port 0x%x\n", W8001_PORT);
     irq_register(4, wacom_irq_handler);
     ioapic_redirect_irq(0, 36, 4, false);
     outb(W8001_PORT + 1, 0x01);
 
+    struct input_device *dev = input_create(INPUT_TABLET, BUS_RS232, 0x056a, 0x90, 0x100);
+    dev->max_x = 0x6000;
+    dev->max_y = 0x4800;
+    dev->max_pressure = 0xff;
+
     event = devfs_create_numbered(DEVFS_EVENT);
     event->ops = &wacom_ops;
-    event->device = input_create(INPUT_TABLET, BUS_RS232, 0x056a, 0x90, 0x100);
+    event->device = dev;
     coord_fifo = fifo_create(256, struct w8001_coord);
     event_fifo = fifo_create(256, struct input_event);
 

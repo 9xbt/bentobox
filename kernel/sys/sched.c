@@ -420,7 +420,7 @@ void sched_wake(struct thread *tcb) {
     struct cpu *cpu = tcb->cpu;
     release(&tcb->lock);
 
-    if (cpu != this_cpu && cpu->current_tcb == cpu->idle_tcb)
+    if (cpu && cpu != this_cpu && cpu->current_tcb == cpu->idle_tcb)
         arch_yield(cpu);
     sti();
 }

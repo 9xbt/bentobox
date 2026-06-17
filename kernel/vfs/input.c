@@ -141,7 +141,11 @@ long input_generic_ioctl(struct input_device *input_dev, int op, void *arg) {
         } else if (axis == ABS_Y) {
             info.minimum = 0;
             info.maximum = input_dev->max_y;
+        } else if (axis == ABS_PRESSURE) {
+            info.minimum = 0;
+            info.maximum = input_dev->max_pressure;
         } else {
+            dprintf(LOG_DEBUG, "\033[93m%s:\033[0m axis %d reporting not implemented\n", __func__, axis);
             return -EINVAL;
         }
         return copy_to_user(arg, &info, MIN((size_t)size, sizeof info));
@@ -160,5 +164,6 @@ struct input_device *input_create(enum input_device_type type, uint16_t bus, uin
     dev->version = version;
     dev->max_x = 0;
     dev->max_y = 0;
+    dev->max_pressure = 0;
     return dev;
 }

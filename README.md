@@ -11,7 +11,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64.
 - Interrupt controllers: APIC (x86_64), GICv2 (aarch64)
 - ACPI table parsing & full ACPI mode using [uACPI](https://github.com/uACPI/uACPI)
 - PCI & PCIe support
-- Input devices: PS/2 (x86_64), virtio-input (aarch64)
+- Input devices: PS/2 (x86_64), virtio-input (aarch64), Wacom W8001 penabled touchscreen
 - Elf64 modules & binaries, VMM with CoW support
 
 ## Building the userspace
