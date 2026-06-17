@@ -148,9 +148,9 @@ void mmu_initialize(void) {
     void *data_end      = (void *)ALIGN_UP((uintptr_t)data_end_ld, PAGE_SIZE);
 
     #ifdef __x86_64__
-    uint64_t text_flags = PTE_PRESENT;
+    uint64_t text_flags   = PTE_PRESENT;
     uint64_t rodata_flags = PTE_PRESENT | PTE_NX;
-    uint64_t data_flags = PTE_PRESENT | PTE_WRITABLE | PTE_NX;
+    uint64_t data_flags   = PTE_PRESENT | PTE_WRITABLE | PTE_NX;
     #elif __aarch64__
     uint64_t text_flags   = PTE_VALID | PTE_AF;
     uint64_t rodata_flags = PTE_VALID | PTE_AF | PTE_PXN;

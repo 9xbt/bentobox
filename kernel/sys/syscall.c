@@ -790,6 +790,7 @@ long sys_gettime(int clock, struct timespec *ts) {
             break;
         case CLOCK_MONOTONIC:
         case CLOCK_MONOTONIC_COARSE:
+        case CLOCK_MONOTONIC_RAW:
             uptime((size_t *)&tv.tv_sec, (size_t *)&tv.tv_nsec);
             break;
         default:

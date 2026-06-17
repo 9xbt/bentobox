@@ -41,10 +41,10 @@ long local_socket_write(vfs_node_t *node, const void *buffer, long offset, size_
     acquire(&sock->peer->recv_queue->lock);
     list_insert(sock->peer->recv_queue, buf);
     release(&sock->peer->recv_queue->lock);
+    release(&sock->lock);
+
     vfs_wake_waiters(sock->node);
     vfs_wake_waiters(sock->peer->node);
-    
-    release(&sock->lock);
     return len;
 }
 
@@ -86,13 +86,12 @@ long local_socket_read(vfs_node_t *node, void *buffer, long offset, size_t len) 
         kfree(buf->data);
         kfree(buf);
     }
+    release(&sock->lock);
 
     vfs_wake_waiters(sock->node);
     if (sock->peer) {
         vfs_wake_waiters(sock->peer->node);
     }
-
-    release(&sock->lock);
     return n;
 }
 
