@@ -26,9 +26,9 @@ syscall_entry:
     push r15
 
     sti
-
     mov rdi, rsp
     call do_syscall
+    cli
 
     pop r15
     pop r14
