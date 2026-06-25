@@ -33,7 +33,7 @@ struct context {
     uint64_t user_stack_bottom;
     uint64_t gs;
     uint64_t fs;
-    uint64_t user_gs;
     struct registers regs;
+    uint64_t __unused;
     char fxsave[512];
 };

@@ -10,6 +10,7 @@
 #include <kernel/elf64.h>
 #include <kernel/panic.h>
 #include <kernel/sched.h>
+#include <kernel/errno.h>
 #include <kernel/file.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
@@ -229,6 +230,7 @@ struct thread *sched_new_thread(struct process *parent, void *entry, int argc, c
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
     tcb->kill_pending = false;
+    tcb->signaled = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -336,6 +338,7 @@ long fork(void) {
     tcb->sleep_end = 0;
     tcb->wakeup_pending = false;
     tcb->kill_pending = false;
+    tcb->signaled = false;
     tcb->sigframe = NULL;
     tcb->start_time = 0;
     tcb->end_time = 0;
@@ -359,7 +362,7 @@ void sched_yield(void) {
     arch_yield(this_cpu);
 }
 
-void sched_sleep(size_t ns) {
+long sched_sleep(size_t ns) {
     cli();
     acquire(&this->lock);
     if (this->wakeup_pending)
@@ -372,36 +375,46 @@ void sched_sleep(size_t ns) {
 
     sched_yield();
     sti();
+
+    long ret = this->signaled ? -EINTR : 0;
+    this->signaled = false;
+    return ret;
 }
 
-void sched_block(struct thread *tcb, size_t ns) {
+long sched_block(struct thread *tcb, size_t ns) {
     cli();
     acquire(&tcb->lock);
-    if (tcb->wakeup_pending) {
+    if (tcb->wakeup_pending || tcb->signaled) {
         tcb->wakeup_pending = false;
+        long ret = tcb->signaled ? -EINTR : 0;
+        tcb->signaled = false;
+
         release(&tcb->lock);
         sti();
-        return;
+        return ret;
     }
 
     if (ns > 0) {
         size_t sec, nsec;
         uptime(&sec, &nsec);
         tcb->sleep_end = sec * 1000000000UL + nsec + ns;
-        tcb->state = THREAD_PAUSED;
     } else {
         tcb->sleep_end = 0;
-        tcb->state = THREAD_PAUSED;
     }
+    tcb->state = THREAD_PAUSED;
 
     if (tcb != this) {
         release(&tcb->lock);
         sti();
-        return;
+        return 0;
     }
     
     sched_yield();
     sti();
+
+    long ret = tcb->signaled ? -EINTR : 0;
+    tcb->signaled = false;
+    return ret;
 }
 
 void sched_wake(struct thread *tcb) {
@@ -566,7 +579,6 @@ void sched_schedule(struct registers *r) {
         this_cpu->total_time += this->last_cpu_time;
 
         release(&this->lock);
-    find_next:
         this_cpu->current_tcb = sched_find_next(this_cpu, now);
         set_tcb((uintptr_t)this_cpu->current_tcb->value);
     } else {
@@ -575,13 +587,6 @@ void sched_schedule(struct registers *r) {
         this_cpu->current_tcb = node;
     }
     acquire(&this->lock);
-
-    enum thread_state state = this->state;
-    signal_check_pending(this);
-    if (this->state != state) {
-        release(&this->lock);
-        goto find_next;
-    }
 
     this->start_time = now;
     if (this->state == THREAD_READY)

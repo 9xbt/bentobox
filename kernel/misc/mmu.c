@@ -31,6 +31,8 @@ static volatile struct limine_executable_address_request kernel_address_request 
 
 extern char text_start_ld[];
 extern char text_end_ld[];
+extern char sigret_start_ld[];
+extern char sigret_end_ld[];
 extern char rodata_start_ld[];
 extern char rodata_end_ld[];
 extern char data_start_ld[];
@@ -142,6 +144,8 @@ void mmu_initialize(void) {
 
     void *text_start    = (void *)ALIGN_DOWN((uintptr_t)text_start_ld, PAGE_SIZE);
     void *text_end      = (void *)ALIGN_UP((uintptr_t)text_end_ld, PAGE_SIZE);
+    void *sigret_start  = (void *)ALIGN_DOWN((uintptr_t)sigret_start_ld, PAGE_SIZE);
+    void *sigret_end    = (void *)ALIGN_UP((uintptr_t)sigret_end_ld, PAGE_SIZE);
     void *rodata_start  = (void *)ALIGN_DOWN((uintptr_t)rodata_start_ld, PAGE_SIZE);
     void *rodata_end    = (void *)ALIGN_UP((uintptr_t)rodata_end_ld, PAGE_SIZE);
     void *data_start    = (void *)ALIGN_DOWN((uintptr_t)data_start_ld, PAGE_SIZE);
@@ -159,6 +163,8 @@ void mmu_initialize(void) {
 
     for (void *text = text_start; text < text_end; text += PAGE_SIZE)
         mmu_map(kernel_pd, text, text - virt_base + phys_base, text_flags);
+    for (void *sigret = sigret_start; sigret < sigret_end; sigret += PAGE_SIZE)
+        mmu_map(kernel_pd, sigret, sigret - virt_base + phys_base, text_flags);
     for (void *rodata = rodata_start; rodata < rodata_end; rodata += PAGE_SIZE)
         mmu_map(kernel_pd, rodata, rodata - virt_base + phys_base, rodata_flags);
     for (void *data = data_start; data < data_end; data += PAGE_SIZE)

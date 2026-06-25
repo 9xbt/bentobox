@@ -1,4 +1,3 @@
-#include "kernel/file.h"
 #include <stddef.h>
 #include <bentobox/setfont.h>
 #include <kernel/lfbvideo.h>

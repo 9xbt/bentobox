@@ -20,7 +20,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 
-static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll) {
+static long sys_read_write(int fd, void *buf, size_t len, bool write) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
         return -EBADFD;
@@ -29,26 +29,28 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll)
     if (!len)
         return 0;
 
+    if (!(file->flags & O_NONBLOCK)) {
+        long ev;
+    retry:
+        while (!((ev = vfs_poll(file->node, write ? POLLOUT : POLLIN, -1)) & (write ? POLLOUT : POLLIN))) {
+            if (ev < 0)
+                return ev;
+            if (ev & POLLHUP)
+                return -EIO;
+        }
+    }
+
     void *buffer = kmalloc(len);
     if (write && copy_from_user(buffer, buf, len) < 0) {
         kfree(buffer);
         return -EFAULT;
     }
 
-    if (!(file->flags & O_NONBLOCK) && poll) {
-        long ev;
-    retry:
-        while (!((ev = vfs_poll(file->node, write ? POLLOUT : POLLIN, -1)) & (write ? POLLOUT : POLLIN))) {
-            if (ev & POLLHUP)
-                return -EIO;
-        }
-    }
-
     long ret = write ?
         vfs_write(file->node, buffer, file->offset, len) :
         vfs_read(file->node, buffer, file->offset, len);
 
-    if (ret == -EAGAIN && !(file->flags & O_NONBLOCK) && poll)
+    if (ret == -EAGAIN && !(file->flags & O_NONBLOCK))
         goto retry;
     
     if (ret < 0) {
@@ -66,11 +68,11 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write, bool poll)
 }
 
 long sys_read(int fd, void *buffer, size_t len) {
-    return sys_read_write(fd, buffer, len, false, true);
+    return sys_read_write(fd, buffer, len, false);
 }
 
 long sys_write(int fd, void *buffer, size_t len) {
-    return sys_read_write(fd, buffer, len, true, true);
+    return sys_read_write(fd, buffer, len, true);
 }
 
 #define SEEK_SET    0
@@ -669,13 +671,11 @@ long sys_ppoll(struct pollfd *fds, int nfds, const struct timespec *timeout, con
 
     if (!nfds) {
         if (!timeout) {
-            sched_block(this, 0);
-            return 0;
+            return sched_block(this, 0);
         } else if (!to.tv_sec && !to.tv_nsec) {
             return 0;
         } else {
-            sched_block(this, to.tv_sec * 1000000000 + to.tv_nsec);
-            return 0;
+            return sched_block(this, to.tv_sec * 1000000000 + to.tv_nsec);
         }
     }
 
@@ -764,9 +764,7 @@ long sys_sleep(struct timespec *ts) {
     struct timespec tv;
     if (copy_from_user(&tv, ts, sizeof tv) < 0)
         return -EFAULT;
-
-    sched_sleep(tv.tv_sec * 1000000000UL + tv.tv_nsec);
-    return 0;
+    return sched_sleep(tv.tv_sec * 1000000000UL + tv.tv_nsec);
 }
 
 #define CLOCK_REALTIME           0
@@ -902,7 +900,7 @@ static long sys_recvfrom_sendto(int fd, void *buffer, size_t size, int flags, co
     (void)flags;
     (void)addr;
     (void)addrlen;
-    return sys_read_write(fd, buffer, size, write, true);
+    return sys_read_write(fd, buffer, size, write);
 }
 
 long sys_recvfrom(int fd, void *buffer, size_t size, int flags, const void *addr, socklen_t addrlen) {

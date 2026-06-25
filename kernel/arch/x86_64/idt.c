@@ -161,10 +161,9 @@ void isr_handler(struct registers *r) {
                 signal_send(proc, SIGSEGV);
                 break;
         }
-        
-        if (tcb->state == THREAD_RUNNING)
-            tcb->state = THREAD_READY;
-        sched_schedule(r);
+
+        tcb->syscall_regs = r;
+        signal_check_pending(tcb);
 
         cpu->current_irq = 0xff;
         if (r->cs == 0x23)

@@ -324,7 +324,7 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
     if (!node)
         return -ENOENT;
     if (!node->ops || !node->ops->poll)
-        return -1UL;
+        return POLLIN | POLLOUT;
 
     node_t *item = list_create_node(this);
     acquire(&node->waiters->lock);
@@ -349,9 +349,15 @@ long vfs_poll(vfs_node_t *node, long events, long timeout) {
             long remaining = timeout - (now - start);
             if (remaining <= 0)
                 break;
-            sched_block(this, remaining);
+            if (sched_block(this, remaining) < 0) {
+                poll = -EINTR;
+                break;
+            }
         } else {
-            sched_block(this, 0);
+            if (sched_block(this, 0) < 0) {
+                poll = -EINTR;
+                break;
+            }
         }
     }
 
@@ -387,15 +393,18 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
     uptime(&sec, &nsec);
     size_t start = sec * 1000000000 + nsec;
 
-    int ready = 0;
+    long ready = 0;
     for (;;) {
         ready = 0;
         for (int fd = 0; fd < nfds; fd++) {
             vfs_node_t *node = nodes[fd];
-            if (!node || !node->ops || !node->ops->poll)
+            if (!node)
                 continue;
-
-            if ((revents[fd] = node->ops->poll(node, events[fd])))
+            
+            if (!node->ops || !node->ops->poll) {
+                revents[fd] = POLLIN | POLLOUT;
+                ready++;
+            } else if ((revents[fd] = node->ops->poll(node, events[fd])))
                 ready++;
         }
 
@@ -409,9 +418,15 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
             long remaining = timeout - (now - start);
             if (remaining <= 0)
                 break;
-            sched_block(this, remaining);
+            if (sched_block(this, remaining) < 0) {
+                ready = -EINTR;
+                break;
+            }
         } else {
-            sched_block(this, 0);
+            if (sched_block(this, 0) < 0) {
+                ready = -EINTR;
+                break;
+            }
         }
     }
 

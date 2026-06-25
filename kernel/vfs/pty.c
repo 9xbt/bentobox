@@ -369,7 +369,7 @@ long ptmx_ioctl(struct vfs_node *node, int op, void *arg) {
             long ret = copy_from_user(&pty->ws, arg, sizeof(struct winsize));
             if (ret < 0)
                 return ret;
-            // signal_send_pgrp(pty->pgid, SIGWINCH);
+            signal_send_pgrp(pty->pgid, SIGWINCH);
             return ret;
         }
         case TIOCGPGRP:

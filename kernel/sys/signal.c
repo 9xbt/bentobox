@@ -11,9 +11,6 @@ extern void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, 
 static void setup_signal_frame(struct thread *tcb, int sig, struct sigaction *action) {
     struct process *proc = tcb->parent;
     
-    uintptr_t *pm = mmu_get_pm();
-    mmu_switch_pm(tcb->parent->pm);
-    
     struct sigframe *frame = (struct sigframe *)ALIGN_DOWN(tcb->ctx.user_stack - sizeof(struct sigframe), 16);
     frame->sig = sig;
     frame->oldmask = proc->blocked;
@@ -28,8 +25,6 @@ static void setup_signal_frame(struct thread *tcb, int sig, struct sigaction *ac
         sigaddset(&proc->blocked, sig);
     
     tcb->sigframe = frame;
-    
-    mmu_switch_pm(pm);
 }
 
 int signal_handle(struct thread *tcb, int sig) {
@@ -55,35 +50,31 @@ int signal_handle(struct thread *tcb, int sig) {
             case SIGFPE:
             case SIGABRT:
             case SIGQUIT:
-                if (SCHED_KILLABLE(tcb)) {
-                    proc->psig.sig[word] &= ~(1UL << bit);
-                    release(&tcb->lock);
-                    sched_exit_group(proc, sig);
-                }
-                return 0;
+                proc->psig.sig[word] &= ~(1UL << bit);
+                release(&tcb->lock);
+                sched_exit_group(proc, sig);
+                return 1;
             case SIGILL:
-                if (SCHED_KILLABLE(tcb)) {
-                    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
+                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Illegal instruction\n", proc->name);
 
-                    proc->psig.sig[word] &= ~(1UL << bit);
-                    release(&tcb->lock);
-                    sched_exit_group(proc, sig);
-                }
-                return 0;
+                tcb->state = THREAD_PAUSED;
+                proc->psig.sig[word] &= ~(1UL << bit);
+                release(&tcb->lock);
+                sched_exit_group(proc, sig);
+                return 1;
             case SIGSEGV:
-                if (SCHED_KILLABLE(tcb)) {
-                    dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
+                dprintf(LOG_DEBUG, "\033[93m%s:\033[0m Segmentation fault\n", proc->name);
 
-                    proc->psig.sig[word] &= ~(1UL << bit);
-                    release(&tcb->lock);
-                    sched_exit_group(proc, sig);
-                }
-                return 0;
+                tcb->state = THREAD_PAUSED;
+                proc->psig.sig[word] &= ~(1UL << bit);
+                release(&tcb->lock);
+                sched_exit_group(proc, sig);
+                return 1;
             case SIGCHLD:
             case SIGURG:
             case SIGWINCH:
                 proc->psig.sig[word] &= ~(1UL << bit);
-                return 0;
+                return 1;
             case SIGSTOP:
             case SIGTSTP:
             case SIGTTIN:
@@ -94,22 +85,19 @@ int signal_handle(struct thread *tcb, int sig) {
                     acquire(&tcb->lock);
                 }
                 proc->psig.sig[word] &= ~(1UL << bit);
-                return 0;
+                return 1;
             case SIGCONT:
                 release(&tcb->lock);
                 sched_wake(tcb);
                 acquire(&tcb->lock);
                 proc->psig.sig[word] &= ~(1UL << bit);
-                return 0;
+                return 1;
             default:
                 dprintf(LOG_DEBUG, "\033[93m%s:\033[0m unhandled signal %d\n", proc->name, sig);
                 proc->psig.sig[word] &= ~(1UL << bit);
-                return 0;
+                return 1;
         }
     }
-    
-    if (!tcb->syscall_regs)
-        return 1;
 
     proc->psig.sig[word] &= ~(1UL << bit);
     setup_signal_frame(tcb, sig, action);
@@ -135,31 +123,28 @@ int signal_send(struct process *proc, int sig) {
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;
+    tcb->signaled = true;
     release(&proc->threads->lock);
     
-    assert(tcb);
     sched_wake(tcb);
     return 0;
 }
 
 int signal_send_pgrp(int pgid, int sig) {
-    int err = -ESRCH;
+    int ret = -ESRCH;
     acquire(&processes->lock);
     foreach(i, processes) {
         struct process *proc = i->value;
         if (proc->pgid == pgid) {
             signal_send(proc, sig);
-            err = 0;
+            ret = 0;
         }
     }
     release(&processes->lock);
-    return err;
+    return ret;
 }
 
 void signal_check_pending(struct thread *tcb) {
-    if (!tcb || !tcb->parent || tcb->sigframe)
-        return;
-
     struct process *proc = tcb->parent;
     for (int sig = 1; sig < _NSIG; sig++) {
         if (sigismember(&proc->psig, sig) && !sigismember(&proc->blocked, sig)) {

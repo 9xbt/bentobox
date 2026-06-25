@@ -11,6 +11,7 @@ PHDRS
 {
     limine_requests PT_LOAD;
     text PT_LOAD;
+    sigret PT_LOAD;
     rodata PT_LOAD;
     data PT_LOAD;
 }
@@ -38,6 +39,14 @@ SECTIONS
         *(.text .text.*)
     } :text
     text_end_ld = .;
+
+    . = ALIGN(CONSTANT(MAXPAGESIZE));
+    
+    sigret_start_ld = .;
+    .sigret : {
+        *(.sigret)
+    } :sigret
+    sigret_end_ld = .;
 
     /* Move to the next memory page for .rodata */
     . = ALIGN(CONSTANT(MAXPAGESIZE));

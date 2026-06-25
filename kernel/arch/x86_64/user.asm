@@ -55,7 +55,7 @@ user_copy_fail:
     leave
     ret
 
-align 4096
+section .sigret
 signal_leave:
     mov rax, 25
     syscall

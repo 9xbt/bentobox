@@ -59,6 +59,7 @@ struct thread {
     size_t sleep_end;
     bool wakeup_pending;
     bool kill_pending;
+    bool signaled;
     struct sigframe *sigframe;
     uint64_t start_time;
     uint64_t end_time;
@@ -109,8 +110,8 @@ void sched_free_pid(int pid);
 void sched_free_tid(int tid);
 bool sched_pid_exists(int pid);
 void sched_yield(void);
-void sched_sleep(size_t ns);
-void sched_block(struct thread *tcb, size_t ns);
+long sched_sleep(size_t ns);
+long sched_block(struct thread *tcb, size_t ns);
 void sched_wake(struct thread *tcb);
 bool sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);
