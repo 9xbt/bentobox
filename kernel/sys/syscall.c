@@ -459,10 +459,11 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     if (!length)
         return -EINVAL;
 
-    uint64_t mmu_flags = 0;
+    uint64_t mmu_flags = 0, mmu_default_flags = 0;
     if (prot != PROT_NONE) {
         #ifdef __x86_64__
         mmu_flags = PTE_USER;
+        mmu_default_flags = PTE_PRESENT | PTE_WRITABLE;
         if (prot & PROT_READ) mmu_flags |= PTE_PRESENT;
         if (prot & PROT_WRITE) mmu_flags |= PTE_WRITABLE;
         if (!(prot & PROT_EXEC)) mmu_flags |= PTE_NX;
@@ -476,15 +477,27 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
     if (fd == -1) {
         if (offset != 0)
             return -EINVAL;
-
         return (long)vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, 0, pages, mmu_flags);
     }
+
     struct file *file = file_get(fd);
     if (!file)
         return -EBADF;
-    if (!file->node->ops || !file->node->ops->mmap)
-        return -EINVAL;
-    return file->node->ops->mmap(file->node, addr, pages, mmu_flags, flags, offset);
+    vfs_node_t *node = file->node;
+
+    if (!node->ops || !node->ops->mmap) {
+        if (node->type != VFS_FILE)
+            return -EINVAL;
+
+        void *ptr = vmalloc(this_proc->vma, this_proc->pm, (flags & MAP_FIXED) ? (uintptr_t)addr : 0, 0, pages, mmu_default_flags);
+        if (vfs_read(node, ptr, offset, length < node->size - offset ? length : node->size - offset) < 0) {
+            vfree(this_proc->vma, this_proc->pm, ptr, pages);
+            return -EIO;
+        }
+        vprotect(this_proc->vma, this_proc->pm, ptr, pages, mmu_flags);
+        return (long)ptr;
+    }
+    return node->ops->mmap(node, addr, pages, mmu_flags, flags, offset);
 }
 
 long sys_munmap(void *addr, size_t length) {

@@ -1,0 +1,8 @@
+name=rpd-wallpaper
+version=0.5
+tarball_url="https://archive.raspberrypi.org/debian/pool/main/r/rpd-wallpaper/rpd-wallpaper_${version}.tar.xz"
+tarball_blake2b="af62617edd598a48e115d2872a99d86ef80e9d23f8ac5815bdc010c6c47f4a635db92e230928e93ba30e9f2bb19400529810ca7f03de1397e1520828f9e42ae0"
+
+prepare() {
+    :
+}

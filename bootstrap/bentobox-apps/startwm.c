@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <time.h>
+#include <string.h>
 
 int main(int argc, char **argv) {
     char *wm = argc > 1 ? argv[1] : "twm";
@@ -40,10 +41,9 @@ int main(int argc, char **argv) {
         _exit(1);
     }
 
-    system("xset r rate 300 50");
-
-    printf("\033[H\033[J");
-    fflush(stdout);
+    system("xset r rate 300 50 > /tmp/wm.log 2>&1");
+    if (strcmp(wm, "fvwm3"))
+        system("~/.fehbg > /tmp/wm.log 2>&1");
 
     waitpid(wmpid, NULL, 0);
     waitpid(xpid, NULL, 0);

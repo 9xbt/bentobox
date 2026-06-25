@@ -1,0 +1,15 @@
+name=feh
+revision=1
+from_source=feh
+imagedeps="build-essential"
+hostdeps="gcc binutils pkgconfig"
+deps="mlibc libX11 libXt libpng imlib2"
+
+build() {
+    cp -rp ${source_dir}/* .
+	make CC=${TARGET}-gcc xinerama=0 curl=0 -j${parallelism} PREFIX=${prefix}
+}
+
+package() {
+	make install DESTDIR=${dest_dir} PREFIX=${prefix}
+}

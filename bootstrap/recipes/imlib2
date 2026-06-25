@@ -3,7 +3,7 @@ revision=1
 from_source=imlib2
 imagedeps="build-essential"
 hostdeps="gcc binutils pkgconfig"
-deps="mlibc freetype libXext libpng"
+deps="mlibc freetype libXext libpng libjpeg-turbo"
 
 configure() {
 	cp -rp ${source_dir}/* .

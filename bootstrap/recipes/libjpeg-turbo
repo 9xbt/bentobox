@@ -1,0 +1,27 @@
+name=libjpeg-turbo
+revision=1
+from_source=libjpeg-turbo
+imagedeps="build-essential cmake ninja-build"
+hostdeps="gcc binutils"
+deps="mlibc"
+
+configure() {
+	cmake -G Ninja \
+		-DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+        -DCMAKE_INSTALL_PREFIX=${prefix} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_STATIC=FALSE \
+		-DENABLE_DOCS=OFF \
+		-DCMAKE_INSTALL_DEFAULT_LIBDIR=lib \
+		-DWITH_JPEG8=ON \
+		-DCMAKE_SYSTEM_PROCESSOR=${JINX_ARCH} \
+		${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

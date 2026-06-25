@@ -1,0 +1,14 @@
+name=rpd-wallpaper
+revision=1
+from_source=rpd-wallpaper
+imagedeps=""
+
+build() {
+    :
+}
+
+package() {
+    mkdir -p ${dest_dir}/${prefix}/share/rpd-wallpaper
+    cp ${source_dir}/*.jpg ${dest_dir}/${prefix}/share/rpd-wallpaper
+    cp ${source_dir}/license.txt ${dest_dir}/${prefix}/share/rpd-wallpaper
+}
