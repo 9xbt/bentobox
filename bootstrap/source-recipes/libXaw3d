@@ -1,0 +1,8 @@
+name=libXaw3d
+version=1.6.6
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXaw3d-${version}.tar.xz"
+tarball_blake2b="d0c7be64283837a7b32f67a2671eebd6d608818819afc4055c360d46152a3348d895159e9a7b7321913b2fea5ec8c587043e921127043d4d37f929a4b71bd27d"
+
+prepare() {
+    :
+}

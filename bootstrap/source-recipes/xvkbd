@@ -1,0 +1,8 @@
+name=xvkbd
+version=4.1
+tarball_url="http://t-sato.in.coocan.jp/xvkbd/xvkbd-${version}.tar.gz"
+tarball_blake2b="45667706005f508e22dcd6d24631b5488ffd32b0bba2cb14e67ce1f77c5fdf3f667ca1431a0833e311bbffbc5baf08daed8ff736158c72178ae5d079f694d9d7"
+
+prepare() {
+    :
+}

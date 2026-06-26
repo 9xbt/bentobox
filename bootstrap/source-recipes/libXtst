@@ -1,0 +1,8 @@
+name=libXtst
+version=1.2.5
+tarball_url="https://xorg.freedesktop.org/archive/individual/lib/libXtst-${version}.tar.xz"
+tarball_blake2b="daf9d3c5412623a06c8579b341c1ab6e720719c4f3151acf5c735ea08c79c33800993d55cd9f9e8660be85e290fac641e5e9266deb4d317d9957ced847b1ebb1"
+
+prepare() {
+    :
+}

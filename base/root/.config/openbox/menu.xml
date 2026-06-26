@@ -19,6 +19,14 @@
       </startupnotify>
     </action>
   </item>
+  <item label="xvkbd">
+    <action name="Execute">
+      <command>xvkbd</command>
+      <startupnotify>
+        <enabled>yes</enabled>
+      </startupnotify>
+    </action>
+  </item>
 </menu>
 
 <menu id="apps-editors-menu" label="Editors">
