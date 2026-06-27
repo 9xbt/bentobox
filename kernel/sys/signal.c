@@ -43,6 +43,7 @@ int signal_handle(struct thread *tcb, int sig) {
     }
     if (action->sa_handler == SIG_DFL) {
         switch (sig) {
+            case SIGHUP:
             case SIGINT:
             case SIGTERM:
             case SIGKILL:
