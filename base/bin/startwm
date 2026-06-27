@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+WM="${1:-twm}"
+export DISPLAY=":0"
+
+X -logfile /tmp/X.log &
+XPID=$!
+
+while true; do
+    [ -S /tmp/.X11-unix/X0 ] && break
+    if [ $SECONDS -gt 15 ]; then
+        echo "timeout waiting for X"
+        exit 1
+    fi
+    sleep 0.1
+done
+
+"$WM" >> /tmp/wm.log 2>&1 &
+xset r rate 300 50 >> /tmp/wm.log 2>&1
+[[ -f ~/.fehbg && "$WM" != "fvwm3" ]] && ~/.fehbg >> /tmp/wm.log 2>&1
+
+stty -echo -echoctl -isig -icanon min 0 time 0
+wait $XPID
