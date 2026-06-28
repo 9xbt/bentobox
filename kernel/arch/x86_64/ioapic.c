@@ -1,8 +1,11 @@
 #include <stdbool.h>
+#include <stddef.h>
 #include <kernel/arch/x86_64/ioapic.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/printf.h>
 #include <kernel/panic.h>
 #include <kernel/acpi.h>
+#include <kernel/irq.h>
 #include <kernel/mmu.h>
 
 uint32_t ioapic_read(struct madt_ioapic* ioapic, uint8_t reg) {
@@ -63,6 +66,16 @@ void ioapic_redirect_irq(uint32_t lapic_id, uint8_t vector, uint8_t irq, bool ma
     ioapic_redirect_gsi(lapic_id, vector, irq, 0, mask);
 }
 
+void ioapic_domain_alloc(struct irq_domain *domain, int virq, int hwirq) {
+    ioapic_redirect_irq(0, domain->base + virq, hwirq, false);
+}
+
+void ioapic_domain_free(struct irq_domain *domain, int virq, int hwirq) {
+    ioapic_redirect_irq(0, domain->base + virq, hwirq, true);
+}
+
+irq_domain_t *ioapic_domain = NULL;
+
 void ioapic_install(void) {
     struct madt_ioapic *ioapic = madt_ioapic_list[0];
 
@@ -78,4 +91,6 @@ void ioapic_install(void) {
         ioapic_redirect_irq(0, i + 32, i, true);
 
     dprintf(LOG_INFO, "\033[93mapic:\033[0m I/O APIC #%u handling GSI %u-%u\n", 0, ioapic->gsi_base, ioapic->gsi_base + count);
+
+    ioapic_domain = irq_create_domain(lapic_domain->chip, lapic_domain, ioapic->gsi_base, count, ioapic_domain_alloc, ioapic_domain_free);
 }

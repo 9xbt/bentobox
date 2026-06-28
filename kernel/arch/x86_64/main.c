@@ -152,7 +152,6 @@ void arch_restore_context(void) {
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
-    lapic_eoi();
     lapic_oneshot(0x80, 5);
 }
 
@@ -172,7 +171,7 @@ void arch_set_tls(uint64_t base) {
 
 void arch_jumpstart(void) {
     set_tcb(0);
-    irq_register(0x80 - 32, sched_schedule);
+    irq_allocate(lapic_domain, sched_schedule, 0x80, 0x80);
     for (size_t i = 0; i < cpu_count; i++) {
         struct cpu *core = get_core(i);
         if (get_logical_id() != i)
@@ -182,7 +181,7 @@ void arch_jumpstart(void) {
 }
 
 extern struct thread stub_thread;
-
+extern irq_t **irq_handlers;
 void kmain(void) {
     if (LIMINE_BASE_REVISION_SUPPORTED == false) {
         arch_fatal();
@@ -201,8 +200,10 @@ void kmain(void) {
     tss_install();
     set_tcb((uintptr_t)&stub_thread);
     mmu_initialize();
-    framebuffer_initialize();
+    irq_handlers = kmalloc(sizeof(struct irq_t *) * 256);
+    memset(irq_handlers, 0, sizeof(struct irq_t *) * 256);
     elf64_module(ksym_request.response->executable_file);
+    framebuffer_initialize();
     acpi_install();
     lapic_install();
     ioapic_install();

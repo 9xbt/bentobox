@@ -116,5 +116,5 @@ void sched_wake(struct thread *tcb);
 bool sched_exit(struct thread *tcb);
 void sched_exit_group(struct process *proc, int status);
 void sched_clean_tcb(struct thread *tcb);
-void sched_schedule(struct registers *r);
+void sched_schedule(struct irq *irq, struct registers *r);
 void sched_install(void);

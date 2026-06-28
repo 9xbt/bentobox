@@ -11,6 +11,7 @@
 #include <kernel/acpi.h>
 #include <kernel/args.h>
 #include <kernel/list.h>
+#include <kernel/irq.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 #include <limine.h>
@@ -50,7 +51,6 @@ void smp_tlb_invalidate() {
         asm volatile ("invlpg (%0)" ::"r"(va) : "memory");
     }
     __atomic_store_n(&this_cpu->tlb_pending, false, __ATOMIC_SEQ_CST);
-    lapic_eoi();
 }
 
 void smp_bootstrap(void) {
@@ -65,7 +65,7 @@ void smp_bootstrap(void) {
     asm volatile("cpuid" : "=a"(eax), "=b"(bspid), "=c"(_), "=d"(_) : "a"(eax));
     bspid >>= 24;
 
-    irq_register(0x81 - 32, smp_tlb_invalidate);
+    irq_allocate(lapic_domain, smp_tlb_invalidate, 0x81, 0x81);
 
     for (size_t i = 0; i < cpu_count; i++) {
         if (smp_request.response->cpus[i]->lapic_id != bspid)
@@ -85,8 +85,7 @@ void smp_initialize(void) {
         core->threads = list_create();
         core->current_tcb = NULL;
         core->idle_tcb = NULL;
-        core->idle_time = 0;
-        core->total_time = 0;
+        core->idle_time = core->total_time = core->last_reset = 0;
         core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
         core->tlb_pending = false;
         core->current_irq = 0xff;

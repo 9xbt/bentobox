@@ -543,7 +543,8 @@ node_t *sched_find_next(struct cpu *cpu, size_t now) {
     return cpu->idle_tcb;
 }
 
-void sched_schedule(struct registers *r) {
+void sched_schedule(struct irq *irq, struct registers *r) {
+    (void)irq;
     size_t sec, nsec;
     uptime(&sec, &nsec);
     size_t now = sec * 1000000000UL + nsec;

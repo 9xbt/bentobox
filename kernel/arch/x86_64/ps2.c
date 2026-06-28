@@ -114,32 +114,25 @@ static vfs_node_t *tty1, *kb, *mouse;
 static fifo_t *kb_fifo, *mouse_fifo;
 static struct thread *kb_worker, *mouse_worker;
 
-void irq1_handler(struct registers *r) {
-    (void)r;
-    
+void irq1_handler() {
     uint8_t key = inb(0x60);
     fifo_enqueue(kb_fifo, key);
     sched_wake(kb_worker);
-    
-    lapic_eoi();
 }
 
-void irq12_handler(struct registers *r) {
-    (void)r;
+void irq12_handler() {
     static int pi = 0;
     static struct ps2_mouse_packet state = {0};
     struct ps2_device *dev = mouse->device;
 
     if (!(inb(PS2_STATUS) & (1 << 5))) {
         dprintf(LOG_ERR, "\033[93mi8042:\033[0m not a mouse packet\n");
-        lapic_eoi();
         return;
     }
 
     uint8_t data = inb(PS2_DATA);
     if (pi == 0 && !(data & (1 << 3))) {
         dprintf(LOG_ERR, "\033[93mi8042:\033[0m corrupt mouse packet\n");
-        lapic_eoi();
         return;
     }
 
@@ -167,8 +160,6 @@ void irq12_handler(struct registers *r) {
         sched_wake(mouse_worker);
         pi = 0;
     }
-
-    lapic_eoi();
 }
 
 static void ps2_keyboard_enqueue_key(uint8_t key, int value) {
@@ -455,8 +446,8 @@ void ps2_hid_install(void) {
     kb_worker = sched_new_thread(proc, ps2_keyboard_worker, 0, NULL, NULL, NULL, 0, NULL);
     kb_worker->state = THREAD_PAUSED;
 
-    irq_register(1, irq1_handler);
-    ioapic_redirect_irq(0, 33, 1, false);
+    irq_allocate(ioapic_domain, irq1_handler, 1, -1);
+    // ioapic_redirect_irq(0, 33, 1, false);
     
     ps2_flush_buffer();
     ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
@@ -482,8 +473,9 @@ void ps2_hid_install(void) {
     mouse_worker = sched_new_thread(proc, ps2_mouse_worker, 0, NULL, NULL, NULL, 0, NULL);
     mouse_worker->state = THREAD_PAUSED;
 
-    irq_register(12, irq12_handler);
-    ioapic_redirect_irq(0, 44, 12, false);
+    // irq_register(12, irq12_handler);
+    irq_allocate(ioapic_domain, irq12_handler, 12, -1);
+    // ioapic_redirect_irq(0, 44, 12, false);
     
 no_mouse:
     sched_add_process(proc);

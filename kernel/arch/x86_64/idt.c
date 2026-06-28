@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/arch/x86_64/idt.h>
@@ -21,8 +22,6 @@ __attribute__((aligned(0x10)))
 struct idt_entry idt_entries[256];
 struct idtr idt_descriptor;
 extern void *idt_int_table[];
-
-void *irq_handlers[256];
 
 const char *isr_errors[32] = {
     "division by zero",
@@ -59,6 +58,8 @@ const char *isr_errors[32] = {
     "reserved"
 };
 
+extern irq_t **irq_handlers;
+
 void idt_install(void) {
     for (uint16_t i = 0; i < 256; i++) {
         idt_set_entry(i, (uint64_t)idt_int_table[i], 0x08, 0x8E);
@@ -90,26 +91,18 @@ void idt_set_entry(uint8_t index, uint64_t base, uint16_t selector, uint8_t type
     idt_entries[index].resv = 0;
 }
 
-void irq_register(uint8_t vector, void *handler) {
-    irq_handlers[vector] = handler;
-}
-
-void irq_unregister(uint8_t vector) {
-    irq_handlers[vector] = (void *)0;
-}
-
 extern void user_copy_fail();
 
 void isr_handler(struct registers *r) {
-    if (r->int_no == 15 || r->int_no == 255) {
+    if (r->int_no == 15 || r->int_no == 255)
         return;
-    }
     if (r->int_no == 2) {
         asm ("cli");
 	    for (;;) asm ("hlt");
     }
     if (r->cs == 0x23)
         asm volatile ("swapgs");
+
     struct cpu *cpu = get_core_logical(get_logical_id());
     struct thread *tcb = cpu->current_tcb ? cpu->current_tcb->value : NULL;
     struct process *proc = tcb ? tcb->parent : NULL;
@@ -205,11 +198,16 @@ void irq_handler(struct registers *r) {
     struct cpu *cpu = get_core_logical(get_logical_id());
     cpu->current_irq = r->int_no;
 
-    void(*handler)(struct registers *) = irq_handlers[r->int_no - 32];
-    if (handler != NULL)
-        handler(r);
+    irq_t *irq = irq_handlers[r->int_no];
+    if (irq) {
+        void(*handler)(struct irq *, struct registers *) = irq->handler;
+        handler(irq, r);
+        irq_eoi(irq);
+    }
 
     cpu->current_irq = 0xff;
     if (r->cs == 0x23)
         asm volatile ("swapgs");
+    if (r->int_no == 255)
+        lapic_eoi();
 }

@@ -1,4 +1,8 @@
 #pragma once
+#include <stdbool.h>
+#include <stdint.h>
+#include <kernel/irq.h>
+
 #define LAPIC_ESR           0x280
 #define LAPIC_ICRLO         0x0300
 #define LAPIC_ICRHI         0x0310
@@ -18,8 +22,7 @@
 #define CPUID_FEAT_EDX_APIC     (1 << 9)
 #define CPUID_FEAT_ECX_X2APIC   (1 << 21)
 
-#include <stdbool.h>
-#include <stdint.h>
+extern irq_domain_t *lapic_domain;
 
 void lapic_install(void);
 void lapic_reinstall(void);

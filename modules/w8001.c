@@ -83,9 +83,7 @@ void wacom_worker(void) {
     }
 }
 
-void wacom_irq_handler(struct registers *r) {
-    (void)r;
-
+void wacom_irq_handler() {
     static int pi = 0;
     static unsigned char data[W8001_MAX_LENGTH];
 
@@ -115,8 +113,6 @@ void wacom_irq_handler(struct registers *r) {
 
         iir = inb(W8001_PORT + 2);
     }
-
-    lapic_eoi();
 }
 
 long wacom_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
@@ -167,8 +163,8 @@ int init() {
         return -ENODEV;
 
     dprintf(LOG_INFO, "\033[93mw8001:\033[0m found tablet at port 0x%x\n", W8001_PORT);
-    irq_register(4, wacom_irq_handler);
-    ioapic_redirect_irq(0, 36, 4, false);
+    // irq_register(4, wacom_irq_handler);
+    // ioapic_redirect_irq(0, 36, 4, false);
     outb(W8001_PORT + 1, 0x01);
 
     struct input_device *dev = input_create(INPUT_TABLET, BUS_RS232, 0x056a, 0x90, 0x100);

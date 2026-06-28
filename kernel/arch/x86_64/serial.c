@@ -1,5 +1,6 @@
 #include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/arch/x86_64/serial.h>
+#include <kernel/arch/x86_64/ioapic.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
@@ -126,13 +127,11 @@ static void serial_tty_flush(vfs_node_t *node) {
         sched_wake(serial_tty_worker);
 }
 
-void serial_irq_handler(struct registers *r) {
-    (void)r;
+void serial_irq_handler() {
     uint8_t iir = inb(COM1 + 2);
     if ((iir & 0x06) == 0x04) {
         tty_enqueue(ttyS0, inb(COM1));
     }
-    lapic_eoi();
 }
 
 void serial_install(void) {
@@ -145,8 +144,8 @@ void serial_install(void) {
     ((tty_t *)ttyS0->device)->ioctl = serial_tty_ioctl;
     ((tty_t *)ttyS0->device)->flush = serial_tty_flush;
     
-    irq_register(4, serial_irq_handler);
-    ioapic_redirect_irq(0, 36, 4, false);
+    irq_allocate(ioapic_domain, serial_irq_handler, 4, -1);
+    // ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 
     struct process *proc = sched_new_process("ttyS0 worker", false);

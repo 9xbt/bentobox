@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <kernel/arch/x86_64/lapic.h>
 #include <kernel/arch/x86_64/user.h>
 #include <kernel/assert.h>
@@ -6,6 +7,7 @@
 #include <kernel/sched.h>
 #include <kernel/acpi.h>
 #include <kernel/time.h>
+#include <kernel/irq.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
 
@@ -101,6 +103,13 @@ void lapic_reinstall(void) {
     asm volatile ("sti");
 }
 
+void lapic_domain_eoi(irq_t *irq) {
+    (void)irq;
+    lapic_eoi();
+}
+
+irq_domain_t *lapic_domain = NULL;
+
 void lapic_install(void) {
     if (!__check_apic())
         panic("APIC not supported");
@@ -116,6 +125,9 @@ void lapic_install(void) {
     lapic_write(LAPIC_SIV, lapic_read(LAPIC_SIV) | 0x1ff);
     lapic_calibrate_timer();
     dprintf(LOG_INFO, "\033[93mapic:\033[0m enabled local APIC timer\n");
+
+    // TODO
+    lapic_domain = irq_create_domain(irq_create_chip(lapic_domain_eoi), NULL, 32, 208, NULL, NULL);
 
     asm volatile ("sti");
 }

@@ -5,6 +5,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/acpi.h>
 #include <kernel/list.h>
+#include <kernel/irq.h>
 
 #define SMP_MAX_CORES   32
 

@@ -1,4 +1,8 @@
 #pragma once
+#include <stdbool.h>
+#include <stdint.h>
+#include <kernel/irq.h>
+
 #define IOAPIC_ID     0x0
 #define IOAPIC_VER    0x1
 #define IOAPIC_ARB    0x2
@@ -21,8 +25,7 @@
 
 #define IOAPIC_DEST_FIELD_SHIFT     56
 
-#include <stdbool.h>
-#include <stdint.h>
+extern irq_domain_t *ioapic_domain;
 
 void ioapic_install(void);
 void ioapic_redirect_irq(uint32_t lapic_id, uint8_t vector, uint8_t irq, bool mask);
