@@ -3,17 +3,69 @@
 #include <kernel/printf.h>
 #include <kernel/virtio.h>
 #include <kernel/malloc.h>
+#include <kernel/string.h>
 #include <kernel/errno.h>
 #include <kernel/pci.h>
 #include <kernel/mmu.h>
 
 list_t *virtio_devices = NULL;
 
-void vio_initialize_device(pci_device *dev) {
-    dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m initializing Virtio device %04x:%04x\n", dev->vendor_id, dev->device_id);
-    
+struct virtq *virtio_setup_virtqueue(struct virtio_device *viodev, uint16_t index) {
+    viodev->common_cfg->queue_select = index;
+    uint16_t num = viodev->common_cfg->queue_size;
+    assert(16 * num <= 4096);
+    dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m virtq num %u\n", num);
+
+    struct virtq_desc *desc = VIRTUAL_HHDM(mmu_alloc());
+    struct virtq_avail *avail = VIRTUAL_HHDM(mmu_alloc());
+    struct virtq_used *used = VIRTUAL_HHDM(mmu_alloc());
+    memset(desc, 0, PAGE_SIZE);
+    memset(avail, 0, PAGE_SIZE);
+    memset(used, 0, PAGE_SIZE);
+
+    viodev->common_cfg->queue_desc = (uint64_t)PHYSICAL_HHDM(desc);
+    viodev->common_cfg->queue_driver = (uint64_t)PHYSICAL_HHDM(avail);
+    viodev->common_cfg->queue_device = (uint64_t)PHYSICAL_HHDM(used);
+
+    struct virtq *vq = kmalloc(sizeof(struct virtq));
+    vq->viodev = viodev;
+    vq->index = index;
+    vq->num = num;
+    vq->last_index = 0;
+    vq->avail_index = 0;
+    vq->notify = (void *)viodev->notify_base + (viodev->common_cfg->queue_notify_off * viodev->notify_base->notify_off_multiplier);
+    vq->desc = desc;
+    vq->avail = avail;
+    vq->used = used;
+
+    for (int i = 0; i < num - 1; i++)
+        vq->desc[i].next = i + 1;
+    vq->desc[num - 1].next = 0;
+
+    viodev->common_cfg->queue_enable = 1;
+    viodev->queues[index] = vq;
+    return vq;
+}
+
+void virtio_add_buffer(struct virtq *vq, void *phys, uint32_t len) {
+    uint16_t index = vq->last_index;
+    vq->last_index = vq->desc[index].next;
+
+    struct virtq_desc *desc = &vq->desc[index];
+    desc->addr = (uint64_t)phys;
+    desc->len = len;
+    desc->flags = VIRTQ_DESC_F_WRITE;
+    desc->next = 0;
+
+    vq->avail->ring[vq->avail_index % vq->num] = index;
+    vq->avail_index++;
+    vq->avail->idx = vq->avail_index;
+}
+
+void virtio_initialize_device(pci_device *dev) {
+    dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m initializing virtio device %04x:%04x\n", dev->vendor_id, dev->device_id);
     if (dev->device_id < 0x1040) {
-        dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m transitional Virtio devices are not supported!\n");
+        dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m transitional virtio devices not supported!\n");
         return;
     }
 
@@ -36,7 +88,7 @@ void vio_initialize_device(pci_device *dev) {
 
         uint8_t type = (dword1 >> 24) & 0xFF;
         uint8_t bar = dword2 & 0xFF;
-        void *bar_base = pci_map_bar(dev, bar, ALIGN_UP(length, PAGE_SIZE) / PAGE_SIZE);
+        void *bar_base = pci_map_bar(dev, bar, ALIGN_UP(offset + length, PAGE_SIZE) / PAGE_SIZE);
         assert(bar_base);
         void *region = (void *)((uintptr_t)bar_base + offset);
 
@@ -62,10 +114,14 @@ void vio_initialize_device(pci_device *dev) {
     viodev->common_cfg->device_status = 0;
     viodev->common_cfg->device_status |= VIRTIO_STATUS_ACKNOWLEDGE;
 
+    viodev->num_queues = viodev->common_cfg->num_queues;
+    viodev->queues = kmalloc(sizeof(struct virtq *) * viodev->num_queues);
+    memset(viodev->queues, 0, sizeof(struct virtq *) * viodev->num_queues);
+
     list_insert(virtio_devices, viodev);
 }
 
-list_t *vio_find_devices(enum virtio_device_type type) {
+list_t *virtio_find_devices(enum virtio_device_type type) {
     list_t *devices = list_create();
     if (!virtio_devices)
         return devices;
@@ -91,7 +147,7 @@ int init() {
 
     foreach(i, devices) {
         pci_device *dev = i->value;
-        vio_initialize_device(dev);
+        virtio_initialize_device(dev);
     }
 
     return 0;
@@ -103,7 +159,7 @@ int fini() {
 }
 
 struct Module metadata = {
-    .name = "virtio",
+    .name = "Virtio",
     .init = init,
     .fini = fini
 };

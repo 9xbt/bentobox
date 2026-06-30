@@ -447,7 +447,6 @@ void ps2_hid_install(void) {
     kb_worker->state = THREAD_PAUSED;
 
     irq_allocate(ioapic_domain, irq1_handler, 1, -1);
-    // ioapic_redirect_irq(0, 33, 1, false);
     
     ps2_flush_buffer();
     ps2_send_mouse_command(PS2_MOUSE_ENABLE_REPORTING);
@@ -473,9 +472,7 @@ void ps2_hid_install(void) {
     mouse_worker = sched_new_thread(proc, ps2_mouse_worker, 0, NULL, NULL, NULL, 0, NULL);
     mouse_worker->state = THREAD_PAUSED;
 
-    // irq_register(12, irq12_handler);
     irq_allocate(ioapic_domain, irq12_handler, 12, -1);
-    // ioapic_redirect_irq(0, 44, 12, false);
     
 no_mouse:
     sched_add_process(proc);

@@ -145,7 +145,6 @@ void serial_install(void) {
     ((tty_t *)ttyS0->device)->flush = serial_tty_flush;
     
     irq_allocate(ioapic_domain, serial_irq_handler, 4, -1);
-    // ioapic_redirect_irq(0, 36, 4, false);
     outb(COM1 + 1, 0x01);
 
     struct process *proc = sched_new_process("ttyS0 worker", false);

@@ -77,13 +77,14 @@ void arch_do_backtrace(void) {
 void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) {
     struct context *ctx = &tcb->ctx;
     memset(ctx, 0, sizeof(struct context));
-    memset(ctx->fxsave, 0, sizeof(ctx->fxsave));
     
     ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
     ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
     if (user) {
         ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, SCHED_USER_STACK_PAGES, PTE_PRESENT | PTE_WRITABLE | PTE_USER | PTE_NX);
         ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (SCHED_USER_STACK_SIZE);
+    } else {
+        ctx->regs.rdi = (uint64_t)stack;
     }
     ctx->regs.rsp = ctx->user_stack ?: ctx->stack;
     ctx->regs.rip = (uint64_t)entry;

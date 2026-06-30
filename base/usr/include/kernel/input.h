@@ -129,6 +129,7 @@ struct input_absinfo {
 #define ID_PRODUCT 	2
 #define ID_VERSION 	3
 
+#define BUS_VIRTUAL	0x06
 #define BUS_I8042 	0x11
 #define BUS_RS232 	0x13
 
