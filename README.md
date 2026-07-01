@@ -11,7 +11,7 @@ bentobox is a 64-bit SMP-enabled operating system targeting x86_64 and aarch64, 
 - Interrupt controllers: APIC (x86_64), GICv2 (aarch64)
 - ACPI table parsing & full ACPI mode using [uACPI](https://github.com/uACPI/uACPI)
 - PCI(e) support
-- Input devices: PS/2 (x86_64), virtio-input (aarch64), Wacom W8001 penabled touchscreen
+- Input devices: PS/2 (x86_64), Virtio, Wacom W8001 penabled touchscreen (x86_64)
 - Elf64 modules & binaries, dynamic linking, CoW
 
 ## Building the userspace
@@ -20,18 +20,18 @@ Packages required:
 - git
 - pkg-config
 
-Start by running `make jinx` to download and patch [jinx](https://codeberg.org/mintsuki/jinx).
+Start by running `make jinx` to download and patch [jinx](https://codeberg.org/mintsuki/jinx). Append ARCH=aarch64 if building for ARM64.
 
 Then `cd bootstrap/build-x86_64` (or `build-aarch64` if targeting aarch64), and run `jinx host-build '*'` to build the toolchain. This will also build [mlibc](https://github.com/managarm/mlibc) and its headers as `gcc` and `libstdc++-v3` require them.
 
 Now you can build the base system. Run `jinx build base` to build a minimal system (or `jinx build '*'` to build a full distro), followed by `jinx install base base` (or `jinx install base '*'` if building a full distro).
 
 > [!NOTE]
-> Building a full distro might take some time; it could be a good time to make some coffee!
+> Building a full distro may take a while; might be a good time to make some coffee!
 
-If you do not want to build a full distro but still get extra apps like Xorg, simply `jinx install base [package]` (package names in `bootstrap/recipes`).
+If you do not want to build a full distro but still get extra functionality like Xorg, simply `jinx install base [package]` (package names in `bootstrap/recipes`).
 
-Finally, run `make hdd -j$(nproc)` to make a hard disk image (or `make livecd -j$(nproc)` if you prefer an initrd).
+Finally, run `make hdd -j$(nproc)` to make a hard disk image (or `make livecd -j$(nproc)` if you prefer an initrd). Append ARCH=aarch64 if building for ARM64.
 
 ## Building the kernel
 ### x86_64
@@ -42,7 +42,7 @@ Packages required:
 - nasm
 - qemu-system-x86
 
-To build and run bentobox in QEMU run `make run -j$(nproc)`. If your machine doesn't support KVM append `QEMUFLAGS="-display sdl` to the make command.
+To build and run bentobox in QEMU run `make run -j$(nproc)`. If your machine doesn't support KVM overwrite QEMUFLAGS: `QEMUFLAGS="-display sdl`.
 
 Otherwise, run `make -j$(nproc)` to build the kernel and write `bin/x86_64/image.iso` to a USB drive and give it a try on real hardware!
 
@@ -53,7 +53,7 @@ Packages required:
 - xorriso
 - qemu-system-aarch64
 
-Run `make run -j$(nproc) ARCH=aarch64` to run the kernel and run it in QEMU.
+Start by running `. build/activate.sh` to source the toolchain, then run `make run -j$(nproc) ARCH=aarch64` to run the kernel and run it in QEMU.
 
 ## Screenshots
 <p><img src="https://github.com/user-attachments/assets/c18b1f3e-f838-4839-a352-ecd221ba8f36" alt="image"></p>
