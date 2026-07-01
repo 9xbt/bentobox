@@ -1,10 +1,12 @@
 #include <stdint.h>
 #include <kernel/arch/aarch64/regs.h>
+#include <kernel/arch/aarch64/gic.h>
 #include <kernel/arch/aarch64/mmu.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/assert.h>
 #include <kernel/errno.h>
 #include <kernel/tty.h>
 #include <kernel/vfs.h>
@@ -48,7 +50,8 @@ void uart_putchar(char c) {
     pl011_write(UARTDR, c);
 }
 
-void uart_write(const char *s, size_t len) {
+void uart_write(int loglevel, const char *s, size_t len) {
+    (void)loglevel;
     acquire(&uart_lock);
     for (size_t i = 0; i < len; i++) {
         uart_putchar(s[i]);
@@ -57,26 +60,53 @@ void uart_write(const char *s, size_t len) {
 }
 
 void uart_puts(const char *str) {
-    uart_write(str, strlen(str));
+    uart_write(0, str, strlen(str));
 }
 
-static void serial_tty_worker_thread(void) {
-    tty_t *tty = vfs_open(NULL, "/dev/ttyS0", 0)->device;
-    int c;
-    for (;;) {
-        acquire(&uart_lock);
-        while (fifo_dequeue(tty->ofifo, &c) > 0) {
-            if (c > 0)
-                uart_putchar(c);
-        }
-        release(&uart_lock);
+static struct thread *uart_tty_worker = NULL;
 
-        this->state = THREAD_PAUSED;
-        sched_yield();
+static void uart_tty_worker_thread(void) {
+    vfs_node_t *node = vfs_open(NULL, "/dev/ttyS0", 0).node;
+    assert(node);
+    tty_t *tty = node->device;
+    char c;
+    for (;;) {
+        if (fifo_is_empty(tty->ofifo)) {
+            sched_block(this, 0);
+        }
+
+        while (fifo_dequeue(tty->ofifo, &c) > 0) {
+            switch (c) {
+                case 0x03:
+                    uart_puts("^C");
+                    continue;
+                case 0x1A:
+                    uart_puts("^Z");
+                    continue;
+                case 0x0C:
+                    uart_puts("\033[H\033[J");
+                    continue;
+                case 0x1C:
+                    uart_puts("^\\");
+                    continue;
+                default:
+                    uart_putchar(c);
+                    continue;
+            }
+        }
+
+        vfs_wake_waiters(node);
+        sched_block(this, 0);
     }
 }
 
-static long pl011_tty_ioctl(vfs_node_t *node, int op, void *arg) {
+static void uart_tty_flush(vfs_node_t *node) {
+    (void)node;
+    if (uart_tty_worker)
+        sched_wake(uart_tty_worker);
+}
+
+static long uart_tty_ioctl(vfs_node_t *node, int op, void *arg) {
     (void)node;
     switch (op) {
         case TIOCGWINSZ: {
@@ -86,15 +116,16 @@ static long pl011_tty_ioctl(vfs_node_t *node, int op, void *arg) {
             };
             return copy_to_user(arg, &ws, sizeof ws);
         }
+        case TIOCSWINSZ:
+            return 0;
         default:
             dprintf(LOG_DEBUG, "\033[93m%s:\033[0m function 0x%lx not implemented\n", __func__, op);
             return -EINVAL;
     }
 }
 
-void pl011_irq_handler(struct registers *r) {
-    (void)r;
-    ttyS0->tty_ops->enqueue(ttyS0, pl011_read(UARTDR) & 0xFF);
+void pl011_irq_handler() {
+    tty_enqueue(ttyS0, pl011_read(UARTDR) & 0xFF);
     pl011_write(UARTICR, 0x10);
 }
 
@@ -103,24 +134,23 @@ void pl011_install(void) {
     mmu_map(kernel_pd, (void *)pl011_base, (void *)0x09000000, PTE_VALID | PTE_AF | PTE_RW | PTE_PXN);
     
     uart_puts((char *)kernel_rb->buffer);
-    dprintf(LOG_INFO, "\033[93muart:\033[0m mapped pl011 base\n");
 }
 
 void pl011_initialize(void) {
     pl011_write(UARTCR, 0);
     pl011_write(UARTLCR_H, 0x70);
     pl011_write(UARTCR, 0x301);
-    pl011_write(UARTIMSC, 0x10); 
+    pl011_write(UARTIMSC, 0x10);
 
-    ttyS0 = vfs_create_node("ttyS0", VFS_CHARDEVICE);
+    ttyS0 = devfs_create_numbered(DEVFS_STTY);
     ttyS0->perms = 0600;
     ttyS0->device = tty_create(ttyS0);
-    ((tty_t *)ttyS0->device)->ioctl = pl011_tty_ioctl;
-    vfs_add_node(vfs_lookup(NULL, "/dev", true, VFS_DIRECTORY), ttyS0);
-
-    tty_t *tty = ttyS0->device;
+    ((tty_t *)ttyS0->device)->ioctl = uart_tty_ioctl;
+    ((tty_t *)ttyS0->device)->flush = uart_tty_flush;
 
     struct process *proc = sched_new_process("uart tty", false);
-    tty->worker = sched_new_thread(proc, serial_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
+    uart_tty_worker = sched_new_thread(proc, uart_tty_worker_thread, 0, NULL, NULL, NULL, 0, NULL);
     sched_add_process(proc);
+
+    irq_allocate(gic_domain, pl011_irq_handler, 33, 33);
 }

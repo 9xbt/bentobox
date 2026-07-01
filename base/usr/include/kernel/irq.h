@@ -29,3 +29,4 @@ irq_domain_t *irq_create_domain(irq_chip_t *chip, irq_domain_t *parent,
     int base, int count, void(*alloc)(struct irq_domain *, int, int),
     void(*free)(struct irq_domain *, int, int));
 void irq_eoi(irq_t *irq);
+void irq_allocate_table(uint32_t num);

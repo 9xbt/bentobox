@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <kernel/arch/aarch64/vectors.h>
-#include <kernel/arch/aarch64/virtio.h>
 #include <kernel/arch/aarch64/pl011.h>
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -81,6 +80,8 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     if (user) {
         ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, SCHED_USER_STACK_PAGES, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
         ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (SCHED_USER_STACK_SIZE);
+    } else {
+        ctx->regs.x0 = (uint64_t)stack;
     }
 }
 
@@ -98,11 +99,8 @@ void arch_context_fork(struct thread *tcb) {
     ctx->elr_elx = this->ctx.elr_el0;
     ctx->spsr_elx = this->ctx.spsr_el0;
     asm volatile("mrs %0, TPIDR_EL0" : "=r"(ctx->tpidr_el0));
-    uint64_t fpsr, fpcr;
-    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
-    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
-    ctx->fpsr = (uint32_t)fpsr;
-    ctx->fpcr = (uint32_t)fpcr;
+    asm volatile("mrs %0, fpsr" : "=r"(ctx->fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(ctx->fpcr));
     aarch64_save_fp(tcb->ctx.fp);
 
     ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
@@ -118,37 +116,38 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
     memcpy(ctx, &tcb->ctx, sizeof tcb->ctx);
     memcpy(&ctx->regs, tcb->syscall_regs, sizeof(struct registers));
 
-    tcb->ctx.elr_elx = (uint64_t)action->sa_handler;
-    tcb->ctx.spsr_elx = 0x0;
-    tcb->ctx.regs.x0 = sig;
-    tcb->ctx.regs.x30 = frame->pretcode;
+    aarch64_save_fp(ctx->fp);
+    asm volatile("mrs %0, SP_EL0" : "=r"(ctx->user_stack));
+
+    asm volatile("mrs %0, fpsr" : "=r"(ctx->fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(ctx->fpcr));
 
     uintptr_t sp = (uintptr_t)frame;
     sp &= ~15;
-    tcb->ctx.user_stack = sp;
+    asm volatile("msr SP_EL0, %0" :: "r"(sp));
+    tcb->ctx.elr_el0 = (uint64_t)action->sa_handler;
+    tcb->ctx.spsr_el0 = 0x0;
+    tcb->syscall_regs->x0 = sig;
+    tcb->syscall_regs->x30 = frame->pretcode;
 }
 
 long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
     memcpy(&tcb->ctx, &frame->ctx, sizeof tcb->ctx);
     memcpy(tcb->syscall_regs, &frame->ctx.regs, sizeof(struct registers));
-    aarch64_restore_fp(tcb->ctx.fp);
+    asm volatile("msr fpsr, %0" :: "r"(tcb->ctx.fpsr));
+    asm volatile("msr fpcr, %0" :: "r"(tcb->ctx.fpcr));
 
-    uint64_t fpsr = tcb->ctx.fpsr, fpcr = tcb->ctx.fpcr;
-    asm volatile("msr fpsr, %0" :: "r"(fpsr));
-    asm volatile("msr fpcr, %0" :: "r"(fpcr));
+    asm volatile("msr SP_EL0, %0" :: "r"(tcb->ctx.user_stack));
+    aarch64_restore_fp(this->ctx.fp);
 
-    asm volatile("msr TPIDR_EL0, %0" :: "r"(this->ctx.tpidr_el0));
-
-    asm volatile("msr SP_EL0, %0" :: "r"(this->ctx.user_stack));
-
-    asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
-    asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
+    this->ctx.elr_el0 = tcb->ctx.elr_el0;
+    this->ctx.spsr_el0 = tcb->ctx.spsr_el0;
 
     return frame->ctx.regs.x0;
 }
 
 void arch_save_context(void) {
-    asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(0));
+    asm volatile("msr CNTP_CTL_EL0, %0" :: "r"((uint64_t)0));
     
     asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
     asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_elx));
@@ -157,20 +156,15 @@ void arch_save_context(void) {
 
     asm volatile("mrs %0, TPIDR_EL0" : "=r"(this->ctx.tpidr_el0));
 
-    uint64_t fpsr, fpcr;
-    asm volatile("mrs %0, fpsr" : "=r"(fpsr));
-    asm volatile("mrs %0, fpcr" : "=r"(fpcr));
-
-    this->ctx.fpsr = (uint32_t)fpsr;
-    this->ctx.fpcr = (uint32_t)fpcr;
+    asm volatile("mrs %0, fpsr" : "=r"(this->ctx.fpsr));
+    asm volatile("mrs %0, fpcr" : "=r"(this->ctx.fpcr));
 
     aarch64_save_fp(this->ctx.fp);
 }
 
 void arch_restore_context(void) {
-    uint64_t fpsr = this->ctx.fpsr, fpcr = this->ctx.fpcr;
-    asm volatile("msr fpsr, %0" :: "r"(fpsr));
-    asm volatile("msr fpcr, %0" :: "r"(fpcr));
+    asm volatile("msr fpsr, %0" :: "r"(this->ctx.fpsr));
+    asm volatile("msr fpcr, %0" :: "r"(this->ctx.fpcr));
 
     aarch64_restore_fp(this->ctx.fp);
     mmu_switch_pm(this_proc->pm);
@@ -182,7 +176,7 @@ void arch_restore_context(void) {
     asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_elx));
     asm volatile("msr SPSR_EL1, %0" :: "r"(this->ctx.spsr_elx));
 
-    asm volatile("msr CNTP_CTL_EL0, %0" :: "r"(1));
+    asm volatile("msr CNTP_CTL_EL0, %0" :: "r"((uint64_t)1));
 
     uint64_t cntfrq_el0;
     asm volatile("mrs %0, CNTFRQ_EL0" : "=r"(cntfrq_el0));
@@ -209,6 +203,7 @@ void kmain(void) {
     }
 
     early_log_initialize();
+    log_register_sink(uart_write);
 
     dprintf(LOG_INFO, "%s %d.%d.%d %s %s %s %s\n",
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
@@ -218,6 +213,7 @@ void kmain(void) {
 
     vectors_install();
     mmu_initialize();
+    irq_allocate_table(1024);
     framebuffer_initialize();
     pl011_install();
     elf64_module(ksym_request.response->executable_file);
@@ -227,7 +223,10 @@ void kmain(void) {
     smp_bootstrap();
 
     generic_startup();
+
     pl011_initialize();
-    virtio_install();
+    irq_allocate(gic_domain, sched_schedule, 0, 0);
+    irq_allocate(gic_domain, sched_schedule, 30, 30);
+    
     generic_main();
 }

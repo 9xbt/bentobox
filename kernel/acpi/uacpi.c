@@ -124,43 +124,65 @@ void uacpi_kernel_io_unmap(uacpi_handle handle) {
     (void)handle;
 }
 
-#ifdef __x86_64__
 uacpi_status uacpi_kernel_io_read8(uacpi_handle handle, uacpi_size offset, uacpi_u8 *out_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     *out_value = inb(port);
+    #else
+    *out_value = *(uint8_t *)(handle + offset);
+    #endif
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read16(uacpi_handle handle, uacpi_size offset, uacpi_u16 *out_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     *out_value = inw(port);
+    #else
+    *out_value = *(uint16_t *)(handle + offset);
+    #endif
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read32(uacpi_handle handle, uacpi_size offset, uacpi_u32 *out_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     *out_value = inl(port);
+    #else
+    *out_value = *(uint32_t *)(handle + offset);
+    #endif
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write8(uacpi_handle handle, uacpi_size offset, uacpi_u8 in_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     outb(port, in_value);
+    #else
+    *(uint8_t *)(handle + offset) = in_value;
+    #endif
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write16(uacpi_handle handle, uacpi_size offset, uacpi_u16 in_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     outw(port, in_value);
+    #else
+    *(uint16_t *)(handle + offset) = in_value;
+    #endif
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write32(uacpi_handle handle, uacpi_size offset, uacpi_u32 in_value) {
+    #ifdef __x86_64__
     uacpi_io_addr port = (uacpi_io_addr)(handle + offset);
     outl(port, in_value);
+    #else
+    *(uint32_t *)(handle + offset) = in_value;
+    #endif
     return UACPI_STATUS_OK;
 }
-#endif
 
 void *uacpi_kernel_alloc(uacpi_size n) {
     return kmalloc(n);

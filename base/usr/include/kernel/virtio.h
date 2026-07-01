@@ -2,6 +2,7 @@
 #include <kernel/input.h>
 #include <kernel/fifo.h>
 #include <kernel/list.h>
+#include <kernel/vfs.h>
 #include <stdint.h>
 
 #define VIRTIO_VENDOR    0x1af4
@@ -218,6 +219,10 @@ struct virtio_input_device {
     struct virtio_device *viodev;
     struct input_device *input_dev;
     struct fifo *fifo;
+    struct vfs_node *tty;
+    bool caps;
+    bool shift;
+    bool ctrl;
 };
 
 struct virtq *virtio_setup_virtqueue(struct virtio_device *viodev, uint16_t index);

@@ -28,7 +28,6 @@ _ap_trampoline:
 
 .global user_copy_fail
 user_copy_fail:
-    ldp x29, x30, [sp], #16
     ret
 
 .globl __aarch64_swp1_acq

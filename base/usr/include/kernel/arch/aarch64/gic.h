@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <kernel/acpi.h>
+#include <kernel/irq.h>
 
 #define GICD_CTLR       0x000
 #define GICD_ISENABLER0 0x100
@@ -12,6 +13,8 @@
 #define GICC_PMR        0x04
 #define GICC_IAR        0x0C
 #define GICC_EOIR       0x10
+
+extern irq_domain_t *gic_domain;
 
 void gic_install(void);
 void gic_initialize(void);

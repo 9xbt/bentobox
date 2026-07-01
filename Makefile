@@ -3,8 +3,14 @@
 OUTPUT := kernel
 ARCH := x86_64
 TOOLCHAIN :=
-
 TOOLCHAIN_PREFIX :=
+
+ifeq ($(ARCH),aarch64)
+    ifeq ($(TOOLCHAIN),)
+        TOOLCHAIN := aarch64-pc-bentobox
+    endif
+endif
+
 ifneq ($(TOOLCHAIN),)
     ifeq ($(TOOLCHAIN_PREFIX),)
         TOOLCHAIN_PREFIX := $(TOOLCHAIN)-
@@ -37,7 +43,11 @@ OBJ := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
 OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
-MODULE_SOURCES := $(shell find modules -type f -name '*.c')
+MODULE_SOURCES := $(shell \
+	find modules -type f -name '*.c' | \
+	while read f; do \
+		grep -Eq '@package.*\b$(ARCH)\b' "$$f" && echo "$$f"; \
+	done)
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
 
 .PHONY: all
@@ -129,3 +139,7 @@ bootstrap/jinx:
 	curl -o $@ https://codeberg.org/Mintsuki/jinx/raw/commit/e6f44d1bd8c6a504fc3fbfcc16ddb549e2e89a3c/jinx
 	chmod +x $@
 	cd bootstrap && patch < ../build/jinx.diff
+
+build/ovmf/edk2-ovmf-bins.tar.gz:
+	curl -o $@ -L https://github.com/osdev0/edk2-ovmf-stable-bins/releases/latest/download/edk2-ovmf-bins.tar.gz
+	tar -xzf $@ -C build/ovmf

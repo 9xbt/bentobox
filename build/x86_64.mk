@@ -19,8 +19,8 @@ HOST_LIBS :=
 all: $(IMAGE_NAME).iso
 
 .PHONY: run
-run: build/ovmf/ovmf-code-$(ARCH).fd $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
+run: build/ovmf/edk2-ovmf-bins.tar.gz $(IMAGE_NAME).iso
+	@qemu-system-$(ARCH) -M q35 -drive if=pflash,unit=0,format=raw,file=build/ovmf/edk2-ovmf-bins/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 -serial stdio $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-drive file=$(IMAGE_NAME).hdd,format=raw" ) $(QEMUFLAGS)
 
 .PHONY: run-bios
 run-bios: $(IMAGE_NAME).iso

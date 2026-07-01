@@ -1,5 +1,6 @@
 #include <kernel/assert.h>
 #include <kernel/malloc.h>
+#include <kernel/string.h>
 #include <kernel/panic.h>
 #include <kernel/irq.h>
 #include <kernel/smp.h>
@@ -69,4 +70,9 @@ void irq_eoi(irq_t *irq) {
     irq_domain_t *domain = get_root_domain(irq);
     if (domain->chip && domain->chip->eoi)
         domain->chip->eoi(irq);
+}
+
+void irq_allocate_table(uint32_t num) {
+    irq_handlers = kmalloc(sizeof(struct irq_t *) * num);
+    memset(irq_handlers, 0, sizeof(struct irq_t *) * num);
 }

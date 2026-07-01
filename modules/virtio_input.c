@@ -1,3 +1,8 @@
+/*
+ * @package x86_64
+ * @package aarch64
+ */
+
 #include <kernel/assert.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
@@ -10,6 +15,90 @@
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
+#include <kernel/tty.h>
+
+static const char keycode_map[128] = {
+    [2]  = '1',  [3]  = '2',  [4]  = '3',  [5]  = '4',  [6]  = '5',  [7]  = '6',
+    [8]  = '7',  [9]  = '8',  [10] = '9',  [11] = '0',  [12] = '-',  [13] = '=',
+    [14] = '\b', [15] = '\t', [16] = 'q',  [17] = 'w',  [18] = 'e',  [19] = 'r',
+    [20] = 't',  [21] = 'y',  [22] = 'u',  [23] = 'i',  [24] = 'o',  [25] = 'p',
+    [26] = '[',  [27] = ']',  [28] = '\n', [30] = 'a',  [31] = 's',  [32] = 'd',
+    [33] = 'f',  [34] = 'g',  [35] = 'h',  [36] = 'j',  [37] = 'k',  [38] = 'l',
+    [39] = ';',  [40] = '\'', [41] = '`',  [43] = '\\', [44] = 'z',  [45] = 'x',
+    [46] = 'c',  [47] = 'v',  [48] = 'b',  [49] = 'n',  [50] = 'm',  [51] = ',',
+    [52] = '.',  [53] = '/',  [57] = ' ',
+};
+
+static const char keycode_map_shift[128] = {
+    [2]  = '!',  [3]  = '@',  [4]  = '#',  [5]  = '$',  [6]  = '%',  [7]  = '^',
+    [8]  = '&',  [9]  = '*',  [10] = '(',  [11] = ')',  [12] = '_',  [13] = '+',
+    [14] = '\b', [15] = '\t', [16] = 'Q',  [17] = 'W',  [18] = 'E',  [19] = 'R',
+    [20] = 'T',  [21] = 'Y',  [22] = 'U',  [23] = 'I',  [24] = 'O',  [25] = 'P',
+    [26] = '{',  [27] = '}',  [28] = '\n', [30] = 'A',  [31] = 'S',  [32] = 'D',
+    [33] = 'F',  [34] = 'G',  [35] = 'H',  [36] = 'J',  [37] = 'K',  [38] = 'L',
+    [39] = ':',  [40] = '"',  [41] = '~',  [43] = '|',  [44] = 'Z',  [45] = 'X',
+    [46] = 'C',  [47] = 'V',  [48] = 'B',  [49] = 'N',  [50] = 'M',  [51] = '<',
+    [52] = '>',  [53] = '?',  [57] = ' ',
+};
+
+static const char keycode_map_caps[128] = {
+    [2]  = '1',  [3]  = '2',  [4]  = '3',  [5]  = '4',  [6]  = '5',  [7]  = '6',
+    [8]  = '7',  [9]  = '8',  [10] = '9',  [11] = '0',  [12] = '-',  [13] = '=',
+    [14] = '\b', [15] = '\t', [16] = 'Q',  [17] = 'W',  [18] = 'E',  [19] = 'R',
+    [20] = 'T',  [21] = 'Y',  [22] = 'U',  [23] = 'I',  [24] = 'O',  [25] = 'P',
+    [26] = '[',  [27] = ']',  [28] = '\n', [30] = 'A',  [31] = 'S',  [32] = 'D',
+    [33] = 'F',  [34] = 'G',  [35] = 'H',  [36] = 'J',  [37] = 'K',  [38] = 'L',
+    [39] = ';',  [40] = '\'', [41] = '`',  [43] = '\\', [44] = 'Z',  [45] = 'X',
+    [46] = 'C',  [47] = 'V',  [48] = 'B',  [49] = 'N',  [50] = 'M',  [51] = ',',
+    [52] = '.',  [53] = '/',  [57] = ' ',
+};
+
+void virtio_input_parse_key_event(struct virtio_input_device *dev, struct virtio_input_event *ev) {
+    switch (ev->code) {
+        case KEY_CAPSLOCK:
+            if (ev->value == 1)
+                dev->caps = !dev->caps;
+            break;
+        case KEY_LEFTSHIFT:
+        case KEY_RIGHTSHIFT:
+            dev->shift = ev->value;
+            break;
+        case KEY_LEFTCTRL:
+            dev->ctrl = ev->value;
+            break;
+        case KEY_UP:
+            if (ev->value == 1)
+                tty_enqueue_string(dev->tty, "\033[A");
+            break;
+        case KEY_DOWN:
+            if (ev->value == 1)
+                tty_enqueue_string(dev->tty, "\033[B");
+            break;
+        case KEY_RIGHT:
+            if (ev->value == 1)
+                tty_enqueue_string(dev->tty, "\033[C");
+            break;
+        case KEY_LEFT:
+            if (ev->value == 1)
+                tty_enqueue_string(dev->tty, "\033[D");
+            break;
+        default:
+            if (ev->value == 1) {
+                int c;
+                if (dev->ctrl) {
+                    c = keycode_map_caps[ev->code] - '@';
+                } else if (dev->shift) {
+                    c = keycode_map_shift[ev->code];
+                } else if (dev->caps) {
+                    c = keycode_map_caps[ev->code];
+                } else {
+                    c = keycode_map[ev->code];
+                }
+                tty_enqueue(dev->tty, c);
+            }
+            break;
+    }
+}
 
 long virtio_input_read_event(vfs_node_t *node, void *buffer, long offset, size_t len) {
     (void)offset;
@@ -70,19 +159,19 @@ void virtio_input_worker(vfs_node_t *node) {
         struct virtq_used_elem *elem = &eventq->used->ring[eventq->last_index % eventq->num];
         uint16_t desc_idx = elem->id;
 
-        volatile struct virtio_input_event *event = VIRTUAL_HHDM(eventq->desc[desc_idx].addr);
+        struct virtio_input_event event = *(volatile struct virtio_input_event *)VIRTUAL_HHDM(eventq->desc[desc_idx].addr);
 
         if (node->waiters->length > 0) {
             struct input_event iev = {
-                .type  = event->type,
-                .code  = event->code,
-                .value = event->value
+                .type  = event.type,
+                .code  = event.code,
+                .value = event.value
             };
             fifo_enqueue(device->fifo, iev);
             vfs_wake_waiters(node);
         }
 
-        // dprintf(LOG_DEBUG, "event: type=%d code=%d value=%d\n", event->type, event->code, event->value);
+        virtio_input_parse_key_event(device, &event);
 
         eventq->avail->ring[eventq->avail_index % eventq->num] = desc_idx;
         eventq->avail_index++;
@@ -116,6 +205,9 @@ void virtio_input_initialize_device(struct virtio_device *viodev) {
     device->viodev = viodev;
     device->input_dev = input_create(INPUT_KEYBOARD, BUS_VIRTUAL, VIRTIO_VENDOR, 0, 0);
     device->fifo = fifo_create(256, struct input_event);
+    device->tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE).node;
+    assert(device->tty);
+    device->caps = device->shift = device->ctrl = false;
 
     vfs_node_t *node = devfs_create_numbered(DEVFS_EVENT);
     node->ops = &virtio_input_ops;
@@ -130,6 +222,9 @@ void virtio_input_initialize_device(struct virtio_device *viodev) {
 
 int init() {
     list_t *devices = virtio_find_devices(VIRTIO_INPUT);
+    if (!devices)
+        return -ENODEV;
+
     foreach(i, devices) {
         struct virtio_device *viodev = i->value;
         virtio_input_initialize_device(viodev);

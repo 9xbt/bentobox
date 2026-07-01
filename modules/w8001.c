@@ -1,8 +1,9 @@
+/*
+ * @package x86_64
+ */
+
 #include <kernel/arch/x86_64/serial.h>
 #include <kernel/arch/x86_64/ioapic.h>
-#include <kernel/arch/x86_64/lapic.h>
-#include <kernel/arch/x86_64/regs.h>
-#include <kernel/arch/x86_64/idt.h>
 #include <kernel/arch/x86_64/io.h>
 #include <kernel/module.h>
 #include <kernel/string.h>
@@ -12,6 +13,7 @@
 #include <kernel/sched.h>
 #include <kernel/w8001.h>
 #include <kernel/fifo.h>
+#include <kernel/irq.h>
 #include <kernel/vfs.h>
 
 static vfs_node_t *event;
@@ -163,8 +165,7 @@ int init() {
         return -ENODEV;
 
     dprintf(LOG_INFO, "\033[93mw8001:\033[0m found tablet at port 0x%x\n", W8001_PORT);
-    // irq_register(4, wacom_irq_handler);
-    // ioapic_redirect_irq(0, 36, 4, false);
+    irq_allocate(ioapic_domain, wacom_irq_handler, 4, -1);
     outb(W8001_PORT + 1, 0x01);
 
     struct input_device *dev = input_create(INPUT_TABLET, BUS_RS232, 0x056a, 0x90, 0x100);

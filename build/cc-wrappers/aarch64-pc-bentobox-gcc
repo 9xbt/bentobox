@@ -1,0 +1,7 @@
+#!/bin/bash
+# IMPORTANT! These wrappers only exit so the kernel can use the same aarch64
+# toolchain that gets built in bootstrap/, as such they won't compile regular
+# files.
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+LD_LIBRARY_PATH="$DIR/../../bootstrap/build-aarch64/host-pkgs/binutils/usr/local/x86_64-pc-linux-gnu/aarch64-pc-bentobox/lib/:$PATH" exec $DIR/../../bootstrap/build-aarch64/host-pkgs/gcc/usr/local/bin/aarch64-pc-bentobox-gcc -B $DIR/../../bootstrap/build-aarch64/host-pkgs/binutils/usr/local/aarch64-pc-bentobox/bin/ "$@"

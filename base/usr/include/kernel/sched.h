@@ -26,6 +26,8 @@
 #define sti() if (this_cpu->current_irq == 0xff) asm ("sti");
 #elif __aarch64__
 #define wfi() asm ("wfi");
+#define cli() if (this_cpu->current_irq == 0xff) asm ("msr daifset, #2");
+#define sti() if (this_cpu->current_irq == 0xff) asm ("msr daifclr, #2");
 #endif
 
 enum thread_state {

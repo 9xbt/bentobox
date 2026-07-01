@@ -1,7 +1,7 @@
-diff --git a/config.sub b/config.sub
-index 38f3d037a..3338b363e 100755
---- a/config.sub
-+++ b/config.sub
+diff --git gcc-clean/config.sub gcc-workdir/config.sub
+index 38f3d03..3338b36 100755
+--- gcc-clean/config.sub
++++ gcc-workdir/config.sub
 @@ -1749,7 +1749,7 @@ case $os in
  	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
  	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
@@ -11,10 +11,10 @@ index 38f3d037a..3338b363e 100755
  		;;
  	# This one is extra strict with allowed versions
  	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
-diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
-index 7112f4dcd..c975901ab 100755
---- a/fixincludes/mkfixinc.sh
-+++ b/fixincludes/mkfixinc.sh
+diff --git gcc-clean/fixincludes/mkfixinc.sh gcc-workdir/fixincludes/mkfixinc.sh
+index 7112f4d..c975901 100755
+--- gcc-clean/fixincludes/mkfixinc.sh
++++ gcc-workdir/fixincludes/mkfixinc.sh
 @@ -11,6 +11,7 @@ target=fixinc.sh
  
  # Check for special fix rules for particular targets
@@ -23,52 +23,11 @@ index 7112f4dcd..c975901ab 100755
      i?86-*-cygwin* | \
      *-mingw32* | \
      powerpc-*-eabisim* | \
-diff --git a/gcc/config.gcc b/gcc/config.gcc
-index eb09eedfb..df9c4f9c1 100644
---- a/gcc/config.gcc
-+++ b/gcc/config.gcc
-@@ -801,6 +801,15 @@ case ${target} in
-     "" | yes | posix) thread_file='posix' ;;
-   esac
-   ;;
-+*-*-bentobox*)
-+  extra_options="$extra_options gnu-user.opt"
-+  gas=yes
-+  gnu_ld=yes
-+  default_use_cxa_atexit=yes
-+  use_gcc_stdint=provide
-+  tmake_file="${tmake_file} t-slibgcc"
-+  thread_file='posix'
-+  ;;
- *-*-dragonfly*)
-   gas=yes
-   gnu_ld=yes
-@@ -1224,6 +1233,10 @@ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
- 	done
- 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
- 	;;
-+aarch64*-*-bentobox*)
-+	tm_file="${tm_file} elfos.h gnu-user.h glibc-stdint.h aarch64/aarch64-elf.h aarch64/bentobox.h"
-+	tmake_file="${tmake_file} aarch64/t-aarch64"
-+	;;
- aarch64*-*-freebsd*)
- 	tm_file="${tm_file} elfos.h ${fbsd_tm_file}"
- 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-freebsd.h"
-@@ -1941,6 +1954,9 @@ i[34567]86-*-darwin*)
- 	tmake_file="${tmake_file} ${cpu_type}/t-darwin32-biarch t-slibgcc"
- 	tm_file="${cpu_type}/darwin32-biarch.h ${tm_file} "
- 	;;
-+x86_64-*-bentobox*)
-+	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h gnu-user.h glibc-stdint.h i386/x86-64.h i386/gnu-user-common.h i386/gnu-user64.h i386/bentobox.h"
-+	;;
- x86_64-*-darwin1[89]* | x86_64-*-darwin2*)
- 	# Only 64b from now
- 	tm_defines="${tm_defines} TARGET_64BIT_DEFAULT=(OPTION_MASK_ISA_64BIT|OPTION_MASK_ABI_64)"
-diff --git a/gcc/config/aarch64/bentobox.h b/gcc/config/aarch64/bentobox.h
+diff --git gcc-workdir/gcc/config/aarch64/bentobox.h gcc-workdir/gcc/config/aarch64/bentobox.h
 new file mode 100644
-index 000000000..5531bc40d
+index 0000000..5531bc4
 --- /dev/null
-+++ b/gcc/config/aarch64/bentobox.h
++++ gcc-workdir/gcc/config/aarch64/bentobox.h
 @@ -0,0 +1,37 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_BENTOBOX
@@ -107,11 +66,11 @@ index 000000000..5531bc40d
 +    builtin_assert ("system=unix");   \
 +    builtin_assert ("system=posix");   \
 +  } while(0);
-diff --git a/gcc/config/i386/bentobox.h b/gcc/config/i386/bentobox.h
+diff --git gcc-workdir/gcc/config/i386/bentobox.h gcc-workdir/gcc/config/i386/bentobox.h
 new file mode 100644
-index 000000000..26bd04349
+index 0000000..26bd043
 --- /dev/null
-+++ b/gcc/config/i386/bentobox.h
++++ gcc-workdir/gcc/config/i386/bentobox.h
 @@ -0,0 +1,36 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_BENTOBOX
@@ -149,10 +108,51 @@ index 000000000..26bd04349
 +    builtin_assert ("system=unix");   \
 +    builtin_assert ("system=posix");   \
 +  } while(0);
-diff --git a/gcc/cp/module.cc b/gcc/cp/module.cc
-index 7f2922261..bc6fab0a1 100644
---- a/gcc/cp/module.cc
-+++ b/gcc/cp/module.cc
+diff --git gcc-clean/gcc/config.gcc gcc-workdir/gcc/config.gcc
+index eb09eed..df9c4f9 100644
+--- gcc-clean/gcc/config.gcc
++++ gcc-workdir/gcc/config.gcc
+@@ -801,6 +801,15 @@ case ${target} in
+     "" | yes | posix) thread_file='posix' ;;
+   esac
+   ;;
++*-*-bentobox*)
++  extra_options="$extra_options gnu-user.opt"
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=provide
++  tmake_file="${tmake_file} t-slibgcc"
++  thread_file='posix'
++  ;;
+ *-*-dragonfly*)
+   gas=yes
+   gnu_ld=yes
+@@ -1224,6 +1233,10 @@ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	done
+ 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
+ 	;;
++aarch64*-*-bentobox*)
++	tm_file="${tm_file} elfos.h gnu-user.h glibc-stdint.h aarch64/aarch64-elf.h aarch64/bentobox.h"
++	tmake_file="${tmake_file} aarch64/t-aarch64"
++	;;
+ aarch64*-*-freebsd*)
+ 	tm_file="${tm_file} elfos.h ${fbsd_tm_file}"
+ 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-freebsd.h"
+@@ -1941,6 +1954,9 @@ i[34567]86-*-darwin*)
+ 	tmake_file="${tmake_file} ${cpu_type}/t-darwin32-biarch t-slibgcc"
+ 	tm_file="${cpu_type}/darwin32-biarch.h ${tm_file} "
+ 	;;
++x86_64-*-bentobox*)
++	tm_file="${tm_file} i386/unix.h i386/att.h elfos.h gnu-user.h glibc-stdint.h i386/x86-64.h i386/gnu-user-common.h i386/gnu-user64.h i386/bentobox.h"
++	;;
+ x86_64-*-darwin1[89]* | x86_64-*-darwin2*)
+ 	# Only 64b from now
+ 	tm_defines="${tm_defines} TARGET_64BIT_DEFAULT=(OPTION_MASK_ISA_64BIT|OPTION_MASK_ABI_64)"
+diff --git gcc-clean/gcc/cp/module.cc gcc-workdir/gcc/cp/module.cc
+index 7f29222..bc6fab0 100644
+--- gcc-clean/gcc/cp/module.cc
++++ gcc-workdir/gcc/cp/module.cc
 @@ -1697,8 +1697,10 @@ elf_in::defrost (const char *name)
  	      set_error (errno);
  	  else
@@ -175,11 +175,11 @@ index 7f2922261..bc6fab0a1 100644
  
    hdr.buffer = (char *)mapping;
  #else
-diff --git a/libgcc/config.host b/libgcc/config.host
-index 6a88ee5a2..e4c908125 100644
---- a/libgcc/config.host
-+++ b/libgcc/config.host
-@@ -412,6 +412,12 @@ aarch64*-*-elf | aarch64*-*-rtems*)
+diff --git gcc-clean/libgcc/config.host gcc-workdir/libgcc/config.host
+index 6a88ee5..cfd8230 100644
+--- gcc-clean/libgcc/config.host
++++ gcc-workdir/libgcc/config.host
+@@ -412,6 +412,13 @@ aarch64*-*-elf | aarch64*-*-rtems*)
  	md_unwind_def_header=aarch64/aarch64-unwind-def.h
  	md_unwind_header=aarch64/aarch64-unwind.h
  	;;
@@ -187,12 +187,13 @@ index 6a88ee5a2..e4c908125 100644
 +	extra_parts="$extra_parts crti.o crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o crtn.o"
 +	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
 +	tmake_file="${tmake_file} ${cpu_type}/t-lse ${cpu_type}/t-softfp t-softfp t-crtfm t-slibgcc-libgcc t-slibgcc t-slibgcc-gld t-slibgcc-elf-ver t-libgcc-pic"
++	md_unwind_def_header=aarch64/aarch64-unwind-def.h
 +	md_unwind_header=aarch64/aarch64-unwind.h
 +	;;
  aarch64*-*-freebsd*)
  	extra_parts="$extra_parts crtfastmath.o"
  	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
-@@ -767,6 +773,10 @@ x86_64-*-elf* | x86_64-*-rtems*)
+@@ -767,6 +774,10 @@ x86_64-*-elf* | x86_64-*-rtems*)
  x86_64-*-fuchsia*)
  	tmake_file="$tmake_file t-libgcc-pic"
  	;;
@@ -203,10 +204,10 @@ index 6a88ee5a2..e4c908125 100644
  i[34567]86-*-dragonfly*)
  	tmake_file="${tmake_file} i386/t-dragonfly i386/t-crtstuff"
  	md_unwind_header=i386/dragonfly-unwind.h
-diff --git a/libiberty/getopt.c b/libiberty/getopt.c
-index 0f64a8f5d..6772d1d11 100644
---- a/libiberty/getopt.c
-+++ b/libiberty/getopt.c
+diff --git gcc-clean/libiberty/getopt.c gcc-workdir/libiberty/getopt.c
+index 0f64a8f..6772d1d 100644
+--- gcc-clean/libiberty/getopt.c
++++ gcc-workdir/libiberty/getopt.c
 @@ -106,7 +106,7 @@
     Also, when `ordering' is RETURN_IN_ORDER,
     each non-option ARGV-element is returned here.  */
@@ -249,10 +250,10 @@ index 0f64a8f5d..6772d1d11 100644
  int
  getopt (int argc, char *const *argv, const char *optstring)
  {
-diff --git a/libstdc++-v3/configure b/libstdc++-v3/configure
-index 527548051..75ddc83e2 100755
---- a/libstdc++-v3/configure
-+++ b/libstdc++-v3/configure
+diff --git gcc-clean/libstdc++-v3/configure gcc-workdir/libstdc++-v3/configure
+index 5275480..75ddc83 100755
+--- gcc-clean/libstdc++-v3/configure
++++ gcc-workdir/libstdc++-v3/configure
 @@ -38878,7 +38878,7 @@ $as_echo "#define HAVE_TLS 1" >>confdefs.h
  
    fi
@@ -262,10 +263,10 @@ index 527548051..75ddc83e2 100755
  
    # All these tests are for C++; save the language and the compiler flags.
    # The CXXFLAGS thing is suspicious, but based on similar bits previously
-diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
-index b3269cb88..432449b37 100644
---- a/libstdc++-v3/crossconfig.m4
-+++ b/libstdc++-v3/crossconfig.m4
+diff --git gcc-clean/libstdc++-v3/crossconfig.m4 gcc-workdir/libstdc++-v3/crossconfig.m4
+index b3269cb..432449b 100644
+--- gcc-clean/libstdc++-v3/crossconfig.m4
++++ gcc-workdir/libstdc++-v3/crossconfig.m4
 @@ -67,6 +67,13 @@ case "${host}" in
      AC_DEFINE(HAVE_USELOCALE)
      ;;

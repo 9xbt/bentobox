@@ -32,6 +32,6 @@ struct context {
     uint64_t spsr_el0;
     uint64_t tpidr_el0;
     __uint128_t fp[32];
-    uint32_t fpsr;
-    uint32_t fpcr;
+    uint64_t fpsr;
+    uint64_t fpcr;
 };

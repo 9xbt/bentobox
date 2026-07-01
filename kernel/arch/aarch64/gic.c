@@ -5,6 +5,7 @@
 #include <kernel/acpi.h>
 #include <kernel/mmu.h>
 #include <kernel/smp.h>
+#include <kernel/irq.h>
 #include <stdint.h>
 
 uint32_t gicd_read(struct madt_gicd *gicd, uint32_t offset) {
@@ -41,6 +42,8 @@ void gic_initialize(void) {
     gicd_write(gicd, GICD_ISENABLER0 + 4, 1 << 1);
 }
 
+irq_domain_t *gic_domain = NULL;
+
 void gic_install(void) {
     if (!madt_gicds || !madt_giccs)
         panic("couldn't find GIC");
@@ -62,6 +65,8 @@ void gic_install(void) {
 
     gic_initialize();
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized CPU interfaces\n");
+
+    gic_domain = irq_create_domain(NULL, NULL, 0, 1019, NULL, NULL);
     
     asm volatile ("msr daifclr, #2");
 }

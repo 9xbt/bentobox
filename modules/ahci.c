@@ -1,3 +1,8 @@
+/*
+ * @package x86_64
+ * @package aarch64
+ */
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <kernel/spinlock.h>

@@ -43,6 +43,15 @@ struct limine_executable_file_request ksym_request = {
 extern void generic_startup(void);
 extern void generic_main(void);
 
+void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
+    void *ret = dest;
+    asm volatile("rep movsb"
+                 : "=D"(dest), "=S"(src), "=c"(n)
+                 : "0"(dest), "1"(src), "2"(n)
+                 : "memory");
+    return ret;
+}
+
 void arch_fatal(void) {
 	asm ("cli");
 	for (;;) asm ("hlt");
@@ -201,8 +210,7 @@ void kmain(void) {
     tss_install();
     set_tcb((uintptr_t)&stub_thread);
     mmu_initialize();
-    irq_handlers = kmalloc(sizeof(struct irq_t *) * 256);
-    memset(irq_handlers, 0, sizeof(struct irq_t *) * 256);
+    irq_allocate_table(256);
     elf64_module(ksym_request.response->executable_file);
     framebuffer_initialize();
     acpi_install();

@@ -1,3 +1,8 @@
+/*
+ * @package x86_64
+ * @package aarch64
+ */
+
 #include <kernel/assert.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
@@ -122,9 +127,9 @@ void virtio_initialize_device(pci_device *dev) {
 }
 
 list_t *virtio_find_devices(enum virtio_device_type type) {
-    list_t *devices = list_create();
     if (!virtio_devices)
-        return devices;
+        return NULL;
+    list_t *devices = list_create();
 
     foreach(i, virtio_devices) {
         struct virtio_device *viodev = i->value;
@@ -138,8 +143,8 @@ list_t *virtio_find_devices(enum virtio_device_type type) {
 int init() {
     list_t *devices = pci_get_devices_from_vendor(VIRTIO_VENDOR);
     if (!devices->length) {
-        dprintf(LOG_INFO, "\033[93mvirtio:\033[0m no devices found\n");
         list_free(devices);
+        devices = NULL;
         return -ENODEV;
     }
 

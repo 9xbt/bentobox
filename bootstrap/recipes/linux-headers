@@ -9,5 +9,10 @@ build() {
 
 package() {
 	cd ${source_dir}
-	make headers_install ARCH=x86_64 INSTALL_HDR_PATH=${dest_dir}/${prefix}/
+	case "$JINX_ARCH" in
+		x86_64)   ARCH=x86_64 ;;
+		aarch64)  ARCH=arm64 ;;
+		*)        echo "Unsupported architecture: $JINX_ARCH"; exit 1 ;;
+	esac
+	make headers_install ARCH=${ARCH} INSTALL_HDR_PATH=${dest_dir}/${prefix}/
 }
