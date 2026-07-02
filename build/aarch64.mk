@@ -21,7 +21,7 @@ all: $(IMAGE_NAME).iso
 
 .PHONY: run
 run: build/ovmf/edk2-ovmf-bins.tar.gz $(IMAGE_NAME).iso
-	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-pci -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/edk2-ovmf-bins/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-device ich9-ahci,id=sata -drive file=$(IMAGE_NAME).hdd,format=raw,if=none,id=disk0 -device ide-hd,drive=disk0,bus=sata.0" ) $(QEMUFLAGS)
+	@qemu-system-$(ARCH) -M virt -cpu cortex-a72 -device ramfb -device qemu-xhci -device usb-kbd -device virtio-keyboard-pci -device virtio-tablet-pci -serial stdio -drive if=pflash,unit=0,format=raw,file=build/ovmf/edk2-ovmf-bins/ovmf-code-$(ARCH).fd,readonly=on -cdrom $(IMAGE_NAME).iso -m 2G -smp 2 $$( [ -f "$(IMAGE_NAME).hdd" ] && echo "-device ich9-ahci,id=sata -drive file=$(IMAGE_NAME).hdd,format=raw,if=none,id=disk0 -device ide-hd,drive=disk0,bus=sata.0" ) $(QEMUFLAGS)
 
 $(IMAGE_NAME).iso: build/limine/limine kernel
 	@rm -rf iso_root

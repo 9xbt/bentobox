@@ -151,12 +151,14 @@ long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
     return frame->ctx.regs.rax;
 }
 
-void arch_save_context(void) {
+void arch_save_context(struct registers *r) {
+    memcpy(&(this->ctx.regs), r, sizeof(struct registers));
     this->ctx.gs = read_kernel_gs();
     asm volatile ("fxsave %0" :: "m"(this->ctx.fxsave));
 }
 
-void arch_restore_context(void) {
+void arch_restore_context(struct registers *r) {
+    memcpy(r, &(this->ctx.regs), sizeof(struct registers));
     mmu_switch_pm(this_proc->pm);
     write_kernel_gs(this->ctx.gs);
     set_kernel_stack(this->ctx.stack);

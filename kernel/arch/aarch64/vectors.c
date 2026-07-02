@@ -143,13 +143,14 @@ void el0_fault_handler(struct registers *r) {
     if (ec == 0x15) {
         asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_el0));
         asm volatile("mrs %0, SPSR_EL1" : "=r"(this->ctx.spsr_el0));
+        asm volatile("mrs %0, SP_EL0" : "=r"(this->ctx.user_stack));
         this->syscall_regs = r;
 
         size_t args[] = { r->x8, r->x0, r->x1, r->x2, r->x3, r->x4, r->x5 };
         asm ("msr daifclr, #2");
         r->x0 = syscall_handler(args);
-        signal_check_pending(this);
         asm ("msr daifset, #2");
+        signal_check_pending(this);
 
         this->syscall_regs = NULL;
         asm volatile("msr ELR_EL1, %0" :: "r"(this->ctx.elr_el0));
@@ -173,11 +174,12 @@ void el0_fault_handler(struct registers *r) {
 
 extern irq_t **irq_handlers;
 
-void irq_handler(struct registers *r) {
+void *irq_handler(struct registers *r) {
     uint32_t iar = gicc_read(this_cpu->gicc, GICC_IAR);
     uint32_t irq = iar & 0x3FF;
     if (irq == 1023)
-        return;
+        return r;
+    this_cpu->irq_frame = r;
     this_cpu->current_irq = irq;
 
     irq_t *entry = irq_handlers[irq];
@@ -188,6 +190,7 @@ void irq_handler(struct registers *r) {
 
     gicc_write(this_cpu->gicc, GICC_EOIR, iar);
     this_cpu->current_irq = 0xff;
+    return this_cpu->irq_frame;
 }
 
 void vectors_install(void) {

@@ -138,6 +138,7 @@ enum input_device_type {
 	INPUT_MOUSE,
 	INPUT_TABLET,
 	INPUT_JOYSTICK,
+	INPUT_OTHER,
 	INPUT_MAX
 };
 
@@ -147,9 +148,8 @@ struct input_device {
 	uint16_t vendor;
 	uint16_t product;
 	uint16_t version;
-	int max_x;
-	int max_y;
-	int max_pressure;
+	struct input_absinfo abs[3];
+	uint8_t *bitmap[4];
 };
 
 long input_generic_ioctl(struct input_device *input_dev, int op, void *arg);

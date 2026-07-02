@@ -169,9 +169,9 @@ int init() {
     outb(W8001_PORT + 1, 0x01);
 
     struct input_device *dev = input_create(INPUT_TABLET, BUS_RS232, 0x056a, 0x90, 0x100);
-    dev->max_x = 0x6000;
-    dev->max_y = 0x4800;
-    dev->max_pressure = 0xff;
+    dev->abs[ABS_X].maximum = 0x6000;
+    dev->abs[ABS_Y].maximum = 0x4800;
+    dev->abs[2].maximum = 0xff;
 
     event = devfs_create_numbered(DEVFS_EVENT);
     event->ops = &wacom_ops;

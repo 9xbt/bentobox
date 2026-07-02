@@ -10,6 +10,7 @@
 #include <kernel/smp.h>
 #include <kernel/irq.h>
 #include <limine.h>
+#include <stddef.h>
 
 __attribute__((used, section(".limine_requests")))
 struct limine_mp_request smp_request = {
@@ -76,6 +77,8 @@ void smp_initialize(void) {
         core->tlb_invl_rb = ringbuffer_create(PAGE_SIZE);
         core->tlb_pending = false;
         core->current_irq = 0xff;
+        core->gicc = NULL;
+        core->irq_frame = NULL;
         cpu_list[core->logical_id] = core;
     }
 }

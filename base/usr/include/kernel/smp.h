@@ -27,6 +27,7 @@ struct cpu {
 
     #ifdef __aarch64__
     struct madt_gicc *gicc;
+    struct registers *irq_frame;
     #endif
 };
 

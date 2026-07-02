@@ -75,8 +75,7 @@ void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack) 
     ctx->spsr_elx = user ? 0x0 : 0x345;
 
     ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
-    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
-    ctx->regs.x16 = ctx->stack;
+    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8 - sizeof(struct registers);
     if (user) {
         ctx->user_stack_bottom = stack ? 0 : (uint64_t)vmalloc(tcb->parent->vma, tcb->parent->pm, 0, 0, SCHED_USER_STACK_PAGES, PTE_VALID | PTE_AF | PTE_USER_RW | PTE_PXN);
         ctx->user_stack = (uint64_t)stack ?: ctx->user_stack_bottom + (SCHED_USER_STACK_SIZE);
@@ -104,11 +103,10 @@ void arch_context_fork(struct thread *tcb) {
     aarch64_save_fp(tcb->ctx.fp);
 
     ctx->stack_bottom = (uint64_t)kmalloc(SCHED_KERNEL_STACK_SIZE);
-    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8;
+    ctx->stack = ctx->stack_bottom + (SCHED_KERNEL_STACK_SIZE) - 8 - sizeof(struct registers);
     memcpy((void *)ctx->stack_bottom, (void *)this->ctx.stack_bottom, SCHED_KERNEL_STACK_SIZE);
 
     ctx->regs.x0 = 0;
-    ctx->regs.x16 = ctx->stack;
 }
 
 void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct sigaction *action, int sig) {
@@ -117,8 +115,7 @@ void arch_setup_signal_frame(struct thread *tcb, struct sigframe *frame, struct 
     memcpy(&ctx->regs, tcb->syscall_regs, sizeof(struct registers));
 
     aarch64_save_fp(ctx->fp);
-    asm volatile("mrs %0, SP_EL0" : "=r"(ctx->user_stack));
-
+    // SP_EL0 already saved by el0_fault_handler
     asm volatile("mrs %0, fpsr" : "=r"(ctx->fpsr));
     asm volatile("mrs %0, fpcr" : "=r"(ctx->fpcr));
 
@@ -146,7 +143,10 @@ long arch_restore_signal_context(struct thread *tcb, struct sigframe *frame) {
     return frame->ctx.regs.x0;
 }
 
-void arch_save_context(void) {
+void arch_save_context(struct registers *r) {
+    this->ctx.stack = (uint64_t)r;
+    memcpy(&(this->ctx.regs), r, sizeof(struct registers));
+
     asm volatile("msr CNTP_CTL_EL0, %0" :: "r"((uint64_t)0));
     
     asm volatile("mrs %0, ELR_EL1" : "=r"(this->ctx.elr_elx));
@@ -162,7 +162,11 @@ void arch_save_context(void) {
     aarch64_save_fp(this->ctx.fp);
 }
 
-void arch_restore_context(void) {
+void arch_restore_context() {
+    struct registers *r = (struct registers *)this->ctx.stack;
+    memcpy(r, &(this->ctx.regs), sizeof(struct registers));
+    this_cpu->irq_frame = r;
+
     asm volatile("msr fpsr, %0" :: "r"(this->ctx.fpsr));
     asm volatile("msr fpcr, %0" :: "r"(this->ctx.fpcr));
 

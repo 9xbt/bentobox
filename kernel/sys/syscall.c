@@ -469,6 +469,7 @@ long sys_mmap(void *addr, size_t length, int prot, int flags, int fd, long offse
         if (!(prot & PROT_EXEC)) mmu_flags |= PTE_NX;
         #elif __aarch64__
         mmu_flags = PTE_VALID | PTE_AF | (prot & PROT_WRITE ? PTE_USER_RW : PTE_USER_RO);
+        mmu_default_flags = PTE_VALID | PTE_AF | PTE_RW;
         if (!(prot & PROT_EXEC)) mmu_flags |= PTE_UXN;
         #endif
     }

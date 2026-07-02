@@ -21,8 +21,8 @@
 extern void arch_context_init(struct thread *tcb, void *entry, bool user, void *stack);
 extern void arch_context_free(struct thread *tcb);
 extern void arch_context_fork(struct thread *tcb);
-extern void arch_save_context(void);
-extern void arch_restore_context(void);
+extern void arch_save_context(struct registers *r);
+extern void arch_restore_context(struct registers *r);
 extern void arch_jumpstart(void);
 extern void arch_yield(struct cpu *cpu);
 
@@ -550,8 +550,7 @@ void sched_schedule(struct irq *irq, struct registers *r) {
     size_t now = sec * 1000000000UL + nsec;
 
     if (get_core_logical(get_logical_id())->current_tcb) {
-        memcpy(&(this->ctx.regs), r, sizeof(struct registers));
-        arch_save_context();
+        arch_save_context(r);
 
         this->end_time = now;
         this->last_cpu_time = this->end_time - this->start_time;
@@ -594,8 +593,7 @@ void sched_schedule(struct irq *irq, struct registers *r) {
         this->state = THREAD_RUNNING;
     release(&this->lock);
 
-    memcpy(r, &(this->ctx.regs), sizeof(struct registers));
-    arch_restore_context();
+    arch_restore_context(r);
 }
 
 void idle(void) {

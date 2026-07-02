@@ -148,7 +148,7 @@ void irq12_handler() {
             state.delta_x = state.xs ? (data | 0xFF00) : data;
             break;
         case 2:
-            state.delta_y = state.ys ? (data | 0xFF00) : data;
+            state.delta_y = state.ys ? -(data | 0xFF00) : -data;
             break;
         case 3:
             state.scroll = (data & 0x08) ? -(char)(data | 0xF0) : -(char)(data & 0x0F);
@@ -298,7 +298,7 @@ void ps2_mouse_worker(void) {
         }
 
         x += state.delta_x;
-        y -= state.delta_y;
+        y += state.delta_y;
         if (x < 0) x = 0;
         if (y < 0) y = 0;
         if (x > (int)framebuffer->width) x = (int)framebuffer->width - 1;

@@ -4,6 +4,7 @@
  */
 
 #include <kernel/assert.h>
+#include <kernel/bitmap.h>
 #include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/virtio.h>
@@ -154,7 +155,7 @@ void virtio_input_worker(vfs_node_t *node) {
     struct virtq *eventq = device->viodev->queues[0];
     for (;;) {
         while (eventq->last_index == eventq->used->idx)
-            sched_yield();
+            sched_sleep(5000000);
 
         struct virtq_used_elem *elem = &eventq->used->ring[eventq->last_index % eventq->num];
         uint16_t desc_idx = elem->id;
@@ -171,7 +172,8 @@ void virtio_input_worker(vfs_node_t *node) {
             vfs_wake_waiters(node);
         }
 
-        virtio_input_parse_key_event(device, &event);
+        if (event.type == EV_KEY)
+            virtio_input_parse_key_event(device, &event);
 
         eventq->avail->ring[eventq->avail_index % eventq->num] = desc_idx;
         eventq->avail_index++;
@@ -196,14 +198,40 @@ void virtio_input_initialize_device(struct virtio_device *viodev) {
     for (int i = 0; i < eventq->num; i++) {
         virtio_add_buffer(eventq, event_buf + i * sizeof(struct virtio_input_event), sizeof(struct virtio_input_event));
     }
-    
+
+    struct input_device *input_dev = input_create(INPUT_OTHER, BUS_VIRTUAL, VIRTIO_VENDOR, 0, 0);
+
+    volatile struct virtio_input_config *input_cfg = viodev->device_cfg;
+
+    for (int i = 0; i < EV_ABS + 1; i++) {
+        input_cfg->select = VIRTIO_INPUT_CFG_EV_BITS;
+        input_cfg->subsel = i;
+        if (input_cfg->size) {
+            for (int j = 0; j < input_cfg->size; j++) {
+                input_dev->bitmap[i][j] = input_cfg->u.bitmap[j];
+            }
+            bitmap_set(input_dev->bitmap[0], i);
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        input_cfg->select = VIRTIO_INPUT_CFG_ABS_INFO;
+        input_cfg->subsel = i;
+        input_dev->abs[i].value = 0;
+        input_dev->abs[i].minimum = input_cfg->u.abs.min;
+        input_dev->abs[i].maximum = input_cfg->u.abs.max;
+        input_dev->abs[i].fuzz = input_cfg->u.abs.fuzz;
+        input_dev->abs[i].flat = input_cfg->u.abs.flat;
+        input_dev->abs[i].resolution = input_cfg->u.abs.res;
+    }
+
     cfg->device_status |= VIRTIO_STATUS_DRIVER_OK;
     assert(cfg->device_status & VIRTIO_STATUS_DRIVER_OK);
     dprintf(LOG_DEBUG, "\033[93mvirtio:\033[0m input driver ok %d queues\n", viodev->num_queues);
 
     struct virtio_input_device *device = kmalloc(sizeof(struct virtio_input_device));
     device->viodev = viodev;
-    device->input_dev = input_create(INPUT_KEYBOARD, BUS_VIRTUAL, VIRTIO_VENDOR, 0, 0);
+    device->input_dev = input_dev;
     device->fifo = fifo_create(256, struct input_event);
     device->tty = vfs_lookup(NULL, "/dev/tty1", true, VFS_NONE).node;
     assert(device->tty);

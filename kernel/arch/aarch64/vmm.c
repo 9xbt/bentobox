@@ -175,6 +175,7 @@ uintptr_t mmu_get_physical(uintptr_t *pm, void *virt) {
     if ((l1 = pt_get_next_lvl(l0, l0_index, 0, false)) == NULL) return 0;
     if ((l2 = pt_get_next_lvl(l1, l1_index, 0, false)) == NULL) return 0;
     if ((l3 = pt_get_next_lvl(l2, l2_index, 0, false)) == NULL) return 0;
+    if (!(l3[l3_index] & PTE_VALID)) return 0;
 
     return (uintptr_t)PTE_GET_ADDR(l3[l3_index]) | ((uintptr_t)virt & (PAGE_SIZE - 1));
 }

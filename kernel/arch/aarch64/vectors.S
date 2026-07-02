@@ -84,8 +84,6 @@ _lower_fault_stub:
 
 .extern irq_handler
 _irq_stub:
-    mov x16, sp
-    
     stp x0, x1, [sp, #-16]!
     stp x2, x3, [sp, #-16]!
     stp x4, x5, [sp, #-16]!
@@ -106,6 +104,7 @@ _irq_stub:
     mov x29, sp
     mov x0, sp
     bl irq_handler
+    mov sp, x0
 
     ldp x30, xzr, [sp], #16
     ldp x28, x29, [sp], #16
@@ -124,7 +123,6 @@ _irq_stub:
     ldp x2, x3, [sp], #16
     ldp x0, x1, [sp], #16
 
-    mov sp, x16
     eret
 
 .globl _evt
