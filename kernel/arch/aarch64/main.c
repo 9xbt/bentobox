@@ -28,12 +28,6 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
-__attribute__((used, section(".limine_requests")))
-struct limine_executable_file_request ksym_request = {
-    .id = LIMINE_EXECUTABLE_FILE_REQUEST,
-    .revision = 0
-};
-
 extern void aarch64_save_fp(__uint128_t *);
 extern void aarch64_restore_fp(__uint128_t *);
 
@@ -217,10 +211,9 @@ void kmain(void) {
 
     vectors_install();
     mmu_initialize();
-    irq_allocate_table(1024);
-    framebuffer_initialize();
     pl011_install();
-    elf64_module(ksym_request.response->executable_file);
+    framebuffer_initialize();
+    ksym_install();
     acpi_install();
     smp_initialize();
     gic_install();

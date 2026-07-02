@@ -34,12 +34,6 @@ static volatile LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER;
 
-__attribute__((used, section(".limine_requests")))
-struct limine_executable_file_request ksym_request = {
-    .id = LIMINE_EXECUTABLE_FILE_REQUEST,
-    .revision = 0
-};
-
 extern void generic_startup(void);
 extern void generic_main(void);
 
@@ -207,14 +201,13 @@ void kmain(void) {
         __kernel_name, __kernel_version_major, __kernel_version_minor, __kernel_version_patch,
 		__kernel_commit_hash, __kernel_build_date, __kernel_build_time, __kernel_arch);
 
+    set_tcb((uintptr_t)&stub_thread);
     gdt_install();
     idt_install();
     tss_install();
-    set_tcb((uintptr_t)&stub_thread);
     mmu_initialize();
-    irq_allocate_table(256);
-    elf64_module(ksym_request.response->executable_file);
     framebuffer_initialize();
+    ksym_install();
     acpi_install();
     lapic_install();
     ioapic_install();

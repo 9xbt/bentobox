@@ -106,8 +106,7 @@ void acpi_reboot(void) {
 
     uacpi_status ret = uacpi_reboot();
     if (uacpi_unlikely_error(ret)) {
-        dprintf(LOG_ERR, "\033[93macpi:\033[0m failed to reboot: %s\n", uacpi_status_to_string(ret));
-        assert(0);
+        panic("failed to reboot: %s", uacpi_status_to_string(ret));
     }
 
     wfi();
@@ -117,16 +116,14 @@ void acpi_reboot(void) {
 void acpi_shutdown(void) {
     uacpi_status ret = uacpi_prepare_for_sleep_state(UACPI_SLEEP_STATE_S5);
     if (uacpi_unlikely_error(ret)) {
-        dprintf(LOG_ERR, "\033[93macpi:\033[0m failed to prepare for sleep: %s\n", uacpi_status_to_string(ret));
-        return;
+        panic("failed to prepare for sleep: %s", uacpi_status_to_string(ret));
     }
 
     cli();
 
     ret = uacpi_enter_sleep_state(UACPI_SLEEP_STATE_S5);
     if (uacpi_unlikely_error(ret)) {
-        dprintf(LOG_ERR, "\033[93macpi:\033[0m failed to enter sleep: %s\n", uacpi_status_to_string(ret));
-        assert(0);
+        panic("failed to enter sleep: %s", uacpi_status_to_string(ret));
     }
 
     wfi();

@@ -126,8 +126,8 @@ void lapic_install(void) {
     lapic_calibrate_timer();
     dprintf(LOG_INFO, "\033[93mapic:\033[0m enabled local APIC timer\n");
 
-    // TODO
     lapic_domain = irq_create_domain(irq_create_chip(lapic_domain_eoi), NULL, 32, 208, NULL, NULL);
+    irq_allocate_table(256);
 
     asm volatile ("sti");
 }

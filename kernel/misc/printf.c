@@ -180,7 +180,9 @@ int dprintf(int level, const char *fmt, ...) {
     size_t secs = 0, nanos = 0;
     uptime(&secs, &nanos);
 
-    int ret = vsprintf(buf + snprintf(buf, sizeof buf, "%c\033[32m[%5lu.%06lu]\033[0m ", level + 1, secs, nanos / 1000), fmt, args);
+    int ret = level == LOG_EMERG
+        ? vsprintf(buf + snprintf(buf, sizeof buf, "%c\033[91m[    !!!!    ]\033[0m ", level + 1, secs, nanos / 1000), fmt, args)
+        : vsprintf(buf + snprintf(buf, sizeof buf, "%c\033[32m[%5lu.%06lu]\033[0m ", level + 1, secs, nanos / 1000), fmt, args);
     dputs(level, buf);
     
     va_end(args);

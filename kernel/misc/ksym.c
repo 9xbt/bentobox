@@ -2,8 +2,16 @@
 #include <kernel/malloc.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/elf64.h>
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
+#include <limine.h>
+
+__attribute__((used, section(".limine_requests")))
+struct limine_executable_file_request ksym_request = {
+    .id = LIMINE_EXECUTABLE_FILE_REQUEST,
+    .revision = 0
+};
 
 struct symbol *ksym = NULL;
 static size_t ksym_used = 0, ksym_allocated = 0;
@@ -67,4 +75,8 @@ int ksym_register(const char *name, uintptr_t addr) {
     ksym[ksym_used].addr = addr;
     ksym_used++;
     return 1;
+}
+
+void ksym_install(void) {
+    elf64_module(ksym_request.response->executable_file);
 }

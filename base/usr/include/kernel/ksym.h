@@ -11,3 +11,4 @@ uintptr_t ksym_addr(const char *name);
 const char *ksym_name(uintptr_t addr);
 void ksym_expand(size_t count);
 int  ksym_register(const char *name, uintptr_t addr);
+void ksym_install(void);

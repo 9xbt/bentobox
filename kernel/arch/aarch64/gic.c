@@ -67,6 +67,7 @@ void gic_install(void) {
     dprintf(LOG_INFO, "\033[93mgic:\033[0m initialized CPU interfaces\n");
 
     gic_domain = irq_create_domain(NULL, NULL, 0, 1019, NULL, NULL);
+    irq_allocate_table(1024);
     
     asm volatile ("msr daifclr, #2");
 }

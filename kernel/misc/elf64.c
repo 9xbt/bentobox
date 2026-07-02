@@ -106,7 +106,7 @@ int elf64_module(struct limine_file *mod) {
                 for (size_t j = 0; j < symbol_count; j++) {
                     real_symbol_count += ksym_register(&strtab[symtab[j].st_name], symtab[j].st_value);
                 }
-                dprintf(LOG_INFO, "\033[93melf:\033[0m registered %ld kernel symbols\n", real_symbol_count);
+                dprintf(LOG_INFO, "\033[93mksym:\033[0m registered %ld kernel symbols\n", real_symbol_count);
                 return 0;
             }
         }
