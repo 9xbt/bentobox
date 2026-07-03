@@ -53,12 +53,12 @@ void lapic_stop_timer(void) {
     lapic_write(LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
 }
 
-void lapic_oneshot(uint8_t vector, uint32_t ms) {
+void lapic_oneshot(uint8_t vector, uint32_t ns) {
     lapic_stop_timer();
 
     lapic_write(LAPIC_TIMER_DIV, 0);
     lapic_write(LAPIC_TIMER_LVT, vector);
-    lapic_write(LAPIC_TIMER_INITCNT, lapic_ticks * ms);
+    lapic_write(LAPIC_TIMER_INITCNT, lapic_ticks * (ns / 1000));
 }
 
 void lapic_eoi(void) {
@@ -84,12 +84,12 @@ void lapic_calibrate_timer(void) {
     lapic_write(LAPIC_TIMER_LVT, (1 << 16) | 0xff);
     lapic_write(LAPIC_TIMER_INITCNT, 0xFFFFFFFF);
 
-    arch_sleep(1000000);
+    arch_sleep(10000000);
 
     lapic_write(LAPIC_TIMER_LVT, LAPIC_TIMER_DISABLE);
 
     uint32_t ticks = 0xFFFFFFFF - lapic_read(LAPIC_TIMER_CURCNT);
-    lapic_ticks = ticks;
+    lapic_ticks = ticks / 10000;
     assert(lapic_ticks != 0);
 
     lapic_stop_timer();

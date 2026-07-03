@@ -29,7 +29,7 @@ void lapic_reinstall(void);
 void lapic_calibrate_timer(void);
 void lapic_eoi(void);
 void lapic_ipi(uint32_t id, uint32_t irq);
-void lapic_oneshot(uint8_t vector, uint32_t ms);
+void lapic_oneshot(uint8_t vector, uint32_t ns);
 void lapic_stop_timer(void);
 uint32_t lapic_read(uint32_t reg);
 void lapic_write(uint32_t reg, uint32_t value);

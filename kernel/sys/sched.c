@@ -505,9 +505,10 @@ node_t *sched_find_next(struct cpu *cpu, size_t now) {
     acquire(&cpu->threads->lock);
     
     node_t *start = (cpu->current_tcb && cpu->current_tcb->next) ? cpu->current_tcb->next : cpu->threads->head, *node = start;
+    uint64_t slice = SCHED_DEFAULT_TIMESLICE;
     do {
         struct thread *t = (struct thread *)node->value;
-        node_t *next = node->next ? node->next : cpu->threads->head;
+        node_t *next = node->next ?: cpu->threads->head;
 
         acquire(&t->lock);
         if ((t->parent->state == PROCESS_ZOMBIE || t->kill_pending) && SCHED_KILLABLE(t)) {
@@ -526,10 +527,15 @@ node_t *sched_find_next(struct cpu *cpu, size_t now) {
             node = next;
             continue;
         }
-        if ((t->state == THREAD_SLEEPING || t->state == THREAD_PAUSED) && t->sleep_end && now >= t->sleep_end) {
-            t->state = THREAD_READY;
+        if ((t->state == THREAD_SLEEPING || t->state == THREAD_PAUSED) && t->sleep_end) {
+            if (now >= t->sleep_end) {
+                t->state = THREAD_READY;
+            } else if (slice > t->sleep_end - now) {
+                slice = t->sleep_end - now;
+            }
         }
         if (t->state == THREAD_READY || t->state == THREAD_RUNNING) {
+            t->timeslice = SCHED_DEFAULT_TIMESLICE;
             release(&t->lock);
             release(&cpu->threads->lock);
             return node;
@@ -539,6 +545,7 @@ node_t *sched_find_next(struct cpu *cpu, size_t now) {
         node = next;
     } while (node && node != start);
 
+    ((struct thread *)cpu->idle_tcb->value)->timeslice = slice;
     release(&cpu->threads->lock);
     return cpu->idle_tcb;
 }

@@ -17,7 +17,7 @@
 #define SCHED_USER_STACK_PAGES  256
 #define SCHED_USER_STACK_SIZE   256 * PAGE_SIZE
 #define SCHED_KERNEL_STACK_SIZE 16 * PAGE_SIZE
-#define SCHED_IMBALANCE_THRESHOLD 20
+#define SCHED_DEFAULT_TIMESLICE 5000000
 #define SCHED_KILLABLE(tcb) (tcb->syscall_regs ? (tcb->state != THREAD_RUNNING && tcb->state != THREAD_ZOMBIE) : true)
 
 #ifdef __x86_64__
@@ -66,6 +66,7 @@ struct thread {
     uint64_t start_time;
     uint64_t end_time;
     uint64_t last_cpu_time;
+    uint64_t timeslice;
     spinlock_t lock;
     int refcount;
 };
