@@ -1,0 +1,70 @@
+name=sdl2
+revision=1
+from_source=sdl2
+imagedeps="build-essential cmake ninja-build patchelf"
+hostdeps="gcc binutils pkgconfig libstdc++-v3"
+deps="mlibc libX11 libXcursor libXext libXrender libXi libXfixes libXrandr libiconv"
+
+configure() {
+	cmake -GNinja \
+		-DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+		-DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+		-DCMAKE_INSTALL_PREFIX=${prefix} \
+		-DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_FLAGS="-std=gnu11" \
+		-DX11_LIB=/sysroot/usr/lib/libX11.so \
+		-DXCURSOR_LIB=/sysroot/usr/lib/libXcursor.so \
+		-DXFIXES_LIB=/sysroot/usr/lib/libXfixes.so \
+		-DXI_LIB=/sysroot/usr/lib/libXi.so \
+		-DXRANDR_LIB=/sysroot/usr/lib/libXrandr.so \
+		-DXSS_LIB=/sysroot/usr/lib/libXss.so \
+		-DX_INCLUDEDIR=/sysroot/usr/include \
+		-DUNIX=TRUE \
+		-DSDL_AUDIO=ON \
+		-DSDL_ALTIVEC=OFF \
+		-DSDL_DISKAUDIO=OFF \
+		-DSDL_DIRECTFB=OFF \
+		-DSDL_OPENGL=OFF \
+		-DSDL_OPENGLES=OFF \
+		-DSDL_PTHREADS=ON \
+		-DSDL_PTHREADS_SEM=ON \
+		-DSDL_OSS=OFF \
+		-DSDL_ALSA=OFF \
+		-DSDL_JACK=OFF \
+		-DSDL_ESD=OFF \
+		-DSDL_PULSEAUDIO=OFF \
+		-DSDL_ARTS=OFF \
+		-DSDL_NAS=OFF \
+		-DSDL_SNDIO=OFF \
+		-DSDL_SNDIO_SHARED=OFF \
+		-DSDL_FUSIONSOUND=OFF \
+		-DSDL_LIBSAMPLERATE=OFF \
+		-DSDL_RPATH=OFF \
+		-DSDL_X11=ON \
+		-DSDL_WAYLAND=OFF \
+		-DSDL_WAYLAND_QT_TOUCH=OFF \
+		-DSDL_RPI=OFF \
+		-DSDL_COCOA=OFF \
+		-DSDL_DIRECTX=OFF \
+		-DSDL_WASAPI=OFF \
+		-DSDL_RENDER_D3D=OFF \
+		-DSDL_VIVANTE=OFF \
+		-DSDL_VULKAN=OFF \
+		-DSDL_KMSDRM=OFF \
+		-DSDL_HIDAPI=OFF \
+		-DSDL_SHARED=ON \
+		-DSDL_STATIC=OFF \
+        ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+
+	cd "${dest_dir}${prefix}/lib"
+	patchelf --set-soname libSDL2-2.0.so.0 libSDL2.so
+	ln -sf libSDL2.so libSDL2-2.0.so.0
+}

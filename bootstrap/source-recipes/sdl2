@@ -1,0 +1,8 @@
+name=sdl2
+version=2.32.10
+tarball_url="https://github.com/libsdl-org/SDL/archive/refs/tags/release-${version}.tar.gz"
+tarball_blake2b="b29c0fb8a0b6c10a4adacc7bc83dfd18ed82a3fd6fb71ffa6b01f76d64e9ce680718878de0e222e9d8cf2e1b1c1d4f5724a2b00d152ab56918053fe3e72bf65f"
+
+prepare() {
+    :
+}

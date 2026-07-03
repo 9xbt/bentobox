@@ -1,0 +1,8 @@
+name=nes
+version=1
+git_url="https://github.com/ObaraEmmanuel/NES"
+commit="192c3f93b57258702abc15e52780529890ebbf55"
+
+prepare() {
+	:
+}

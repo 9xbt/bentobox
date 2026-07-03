@@ -1,0 +1,32 @@
+name=sdl2_ttf
+revision=1
+from_source=sdl2_ttf
+imagedeps="build-essential cmake ninja-build"
+hostdeps="gcc binutils pkgconfig libstdc++-v3"
+deps="mlibc sdl2 freetype harfbuzz"
+
+configure() {
+	cmake -GNinja \
+        -DPKG_CONFIG_EXECUTABLE="/usr/local/bin/${TARGET}-pkg-config" \
+        -DCMAKE_TOOLCHAIN_FILE=${base_dir}/toolchain-${JINX_ARCH}.cmake \
+        -DCMAKE_INSTALL_PREFIX=${prefix} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DSDL2_DIR=/sysroot/usr/lib/cmake/SDL2 \
+		-Dharfbuzz_LIBRARY=/sysroot/usr/lib/libharfbuzz.so \
+		-Dharfbuzz_INCLUDE_PATH=/sysroot/usr/include/harfbuzz \
+		-DFREETYPE_LIBRARY=/sysroot/usr/lib/libfreetype.so \
+		-DFREETYPE_INCLUDE_DIRS=/sysroot/usr/include/freetype2 \
+        -DSDL2TTF_HARFBUZZ=ON \
+        -DSDL2TTF_FREETYPE=ON \
+        -DSDL2TTF_VENDORED=OFF \
+        -DBUILD_SHARED_LIBS=ON \
+        ${source_dir}
+}
+
+build() {
+	ninja
+}
+
+package() {
+	DESTDIR=${dest_dir} ninja install
+}

@@ -1,0 +1,8 @@
+name=sdl2_ttf
+version=2.24.0
+tarball_url="https://github.com/libsdl-org/SDL_ttf/archive/refs/tags/release-${version}.tar.gz"
+tarball_blake2b="9f82ca7e9aaecfd5102194008a8f7d22d8e15c366d079d141b05097acbb51677fd8d3af3052cb6f3163bfc4a1cf020cad9d317837a53a8c62dcfe7e8e1a3b3a0"
+
+prepare() {
+    :
+}
