@@ -62,6 +62,8 @@ uintptr_t *mmu_create_pagemap(void);
 uintptr_t *mmu_get_pm(void);
 void  tlb_invalidate(void *va);
 
+#define VMA_DEFAULT_SIZE (256 * 1024 * 1024)
+
 struct vma {
     uint8_t *bitmap;
     size_t pages;

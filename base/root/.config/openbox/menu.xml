@@ -39,6 +39,9 @@
   <item label="doomgeneric">
     <action name="Execute"><command>doomgeneric -iwad /usr/share/games/doom/doom.wad</command></action>
   </item>
+  <item label="tyrquake">
+    <action name="Execute"><command>sh -c 'SDL_AUDIODRIVER=dummy tyr-quake'</command></action>
+  </item>
 </menu>
 
 <menu id="apps-term-menu" label="Terminals">

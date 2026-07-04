@@ -263,7 +263,7 @@ struct process *sched_new_process(const char *name, bool user) {
     proc->children = list_create();
     proc->threads = list_create();
     proc->dead_children = list_create();
-    proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
+    proc->vma = vma_create(SCHED_VMA_BASE, VMA_DEFAULT_SIZE);
     proc->max_files = 16;
     proc->files = kmalloc(sizeof(struct file) * proc->max_files);
     memset(proc->files, 0, sizeof(struct file) * proc->max_files);

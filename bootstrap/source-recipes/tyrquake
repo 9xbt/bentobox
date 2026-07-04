@@ -1,0 +1,8 @@
+name=tyrquake
+version=0.71
+tarball_url="https://disenchant.net/files/engine/tyrquake-${version}.tar.gz"
+tarball_blake2b="1ffbc4bd1a6243e73e36f3ffbfd2f5d8154399e42f41d6b16d35acdfd04782d31d05a70c30dea611397276f71e7ef64e800ce15ef0f40dd549e360ccc8534688"
+
+prepare() {
+    :
+}

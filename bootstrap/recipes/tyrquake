@@ -1,0 +1,25 @@
+name=tyrquake
+revision=1
+from_source=tyrquake
+imagedeps="build-essential wget unzip"
+hostdeps="gcc binutils pkgconfig xorg-util-macros"
+deps="mlibc sdl2"
+allow_network="yes"
+
+configure() {
+	cp -rp ${source_dir}/* .
+}
+
+build() {
+	make bin/tyr-quake USE_SDL=Y LOCALBASE=${sysroot_dir}/${prefix} QBASEDIR=/usr/share/games/quake CC=${TARGET}-gcc SDL_CFLAGS="-I${sysroot_dir}/${prefix}/include/SDL2" SDL_LFLAGS="-lSDL2" CD_TARGET=null -j${parallelism}
+    wget https://archive.org/download/Quake_802/zQUAKE_SW-play.zip
+	unzip zQUAKE_SW-play.zip "ID1/*"
+}
+
+package() {
+	mkdir -p ${dest_dir}/${prefix}/bin
+	mkdir -p ${dest_dir}/${prefix}/share/games/quake/id1
+	cp -vf bin/* ${dest_dir}/${prefix}/bin/
+	cp ID1/PAK0.PAK ${dest_dir}/${prefix}/share/games/quake/id1/pak0.pak
+	cp ID1/CONFIG.CFG ${dest_dir}/${prefix}/share/games/quake/id1/config.cfg
+}

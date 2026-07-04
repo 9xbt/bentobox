@@ -357,6 +357,7 @@ Test (x vlc) + "VLC" Exec exec vlc
 + "Xvkbd" Exec exec xvkbd
 + "Vim" Exec exec st -e vim
 + "doomgeneric" Exec exec doomgeneric -iwad /usr/share/games/doom/doom.wad
++ "tyrquake" Exec SDL_AUDIODRIVER=dummy exec tyr-quake
 + "st" Exec exec st
 
 # Background Menu

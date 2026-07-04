@@ -1,0 +1,21 @@
+diff --git xvkbd-clean/Makefile.in xvkbd-workdir/Makefile.in
+index fb36b95..c42a1ae 100644
+--- xvkbd-clean/Makefile.in
++++ xvkbd-workdir/Makefile.in
+@@ -988,12 +988,12 @@ XVkbd-common.h: XVkbd-common.ad
+ 	[ which ad2c > /dev/null ] || ad2c XVkbd-common.ad > XVkbd-common.h
+ 
+ install-data-hook:
+-	[ -d $(DESTDIR)$(appdefaultdir) ] || mkdir $(DESTDIR)$(appdefaultdir)
++	[ -d $(DESTDIR)/usr/share/X11/app-defaults ] || mkdir -p $(DESTDIR)/usr/share/X11/app-defaults
+ 	for file in *.ad; do \
+-		$(INSTALL_DATA) $$file $(DESTDIR)$(appdefaultdir)/$${file%.ad}; \
++		$(INSTALL_DATA) $$file $(DESTDIR)/usr/share/X11/app-defaults/$${file%.ad}; \
+ 	done
+-	[ -d $(DESTDIR)$(datarootdir)/xvkbd/ ] || mkdir $(DESTDIR)$(datarootdir)/xvkbd/
+-	$(INSTALL_DATA) words.english $(DESTDIR)$(datarootdir)/xvkbd/words.english
++	[ -d $(DESTDIR)/usr/share/xvkbd/ ] || mkdir -p $(DESTDIR)/usr/share/xvkbd/
++	$(INSTALL_DATA) words.english $(DESTDIR)/usr/share/xvkbd/words.english
+ 
+ clean::
+ 	rm -f *~ *.bak

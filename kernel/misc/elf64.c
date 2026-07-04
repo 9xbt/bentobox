@@ -500,7 +500,7 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
     this_proc->name = strdup(argv[0]);
     
     vma_destroy(this_proc->vma, this_proc->pm);
-    this_proc->vma = vma_create(SCHED_VMA_BASE, SCHED_VMA_SIZE);
+    this_proc->vma = vma_create(SCHED_VMA_BASE, VMA_DEFAULT_SIZE);
 
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;

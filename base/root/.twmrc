@@ -83,7 +83,9 @@ menu "defops"
 "st"		    f.exec "exec st &"
 "xeyes"		    f.exec "exec xeyes &"
 "xclock"		f.exec "exec xclock &"
+"xvkbd"		    f.exec "exec xvkbd &"
 "doomgeneric"	f.exec "exec doomgeneric -iwad /usr/share/games/doom/doom.wad &"
+"tyrquake"	    f.exec "SDL_AUDIODRIVER=dummy exec tyr-quake &"
 ""		        f.nop
 "Kill"		    f.destroy
 "Delete"	    f.delete

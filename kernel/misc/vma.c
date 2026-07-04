@@ -24,10 +24,12 @@ struct vma *vma_create(uintptr_t base, size_t size) {
 }
 
 void vma_expand(struct vma *vma, size_t size) {
+    acquire(&vma->lock);
     size_t pages = vma->pages;
     vma->pages = ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE;
     vma->bitmap = krealloc(vma->bitmap, ALIGN_UP(vma->pages, 8) / 8);
     memset(vma->bitmap + ALIGN_UP(pages, 8) / 8, 0, ALIGN_UP(vma->pages, 8) / 8 - ALIGN_UP(pages, 8) / 8);
+    release(&vma->lock);
 }
 
 void vma_destroy(struct vma *vma, uintptr_t *pm) {
@@ -184,6 +186,11 @@ static size_t vma_find_pages(struct vma *vma, size_t start, size_t page_count) {
 }
 
 void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t page_count, uint64_t flags) {
+    if (vma != kernel_vma && page_count > vma->pages - vma->used_pages) {
+        size_t size = ALIGN_UP((vma->pages + page_count) * PAGE_SIZE, VMA_DEFAULT_SIZE);
+        vma_expand(vma, size);
+    }
+
     acquire(&vma->lock);
     
     void *ptr;

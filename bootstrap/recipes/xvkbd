@@ -8,7 +8,7 @@ deps="mlibc xorg-server libXmu libXpm libXt libXtst libXaw libXaw3d"
 configure() {
 	cp -rp ${source_dir}/* .
     cp ${base_dir}/config.sub .
-	./configure --host=${TARGET} --prefix=${prefix}
+	./configure --host=${TARGET} --prefix=${prefix} --datadir=/usr/share --with-appdefaultdir=/usr/share/X11/app-defaults --mandir=${prefix}/share/man
 }
 
 build() {
