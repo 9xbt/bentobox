@@ -122,6 +122,8 @@ long slave_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
         return -EIO;
     
     struct file *file = file_get_from_node(node);
+    if (!file)
+        return -EBADF;
     if (file->flags & O_NONBLOCK && fifo_is_full(pty->ofifo)) {
         vfs_wake_waiters(node);
         return -EAGAIN;
@@ -178,6 +180,8 @@ long slave_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
         return -EIO;
 
     struct file *file = file_get_from_node(node);
+    if (!file)
+        return -EBADF;
     if (file->flags & O_NONBLOCK && fifo_is_empty(pty->ififo)) {
         vfs_wake_waiters(node);
         return -EAGAIN;

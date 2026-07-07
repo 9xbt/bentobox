@@ -73,6 +73,6 @@ void irq_eoi(irq_t *irq) {
 }
 
 void irq_allocate_table(uint32_t num) {
-    irq_handlers = kmalloc(sizeof(struct irq_t *) * num);
-    memset(irq_handlers, 0, sizeof(struct irq_t *) * num);
+    irq_handlers = kmalloc(sizeof(irq_t *) * num);
+    memset(irq_handlers, 0, sizeof(irq_t *) * num);
 }
