@@ -58,7 +58,9 @@ void lapic_oneshot(uint8_t vector, uint32_t ns) {
 
     lapic_write(LAPIC_TIMER_DIV, 0);
     lapic_write(LAPIC_TIMER_LVT, vector);
-    lapic_write(LAPIC_TIMER_INITCNT, lapic_ticks * (ns / 1000));
+
+    uint64_t ticks = ((uint64_t)lapic_ticks * ns) / 1000;
+    lapic_write(LAPIC_TIMER_INITCNT, (uint32_t)ticks ?: 1);
 }
 
 void lapic_eoi(void) {

@@ -158,7 +158,7 @@ void arch_restore_context(struct registers *r) {
     set_kernel_stack(this->ctx.stack);
     asm volatile ("fxrstor %0" :: "m"(this->ctx.fxsave));
     write_fs(this->ctx.fs);
-    lapic_oneshot(0x80, this->timeslice > 1000 ? this->timeslice : SCHED_DEFAULT_TIMESLICE);
+    lapic_oneshot(0x80, this->timeslice);
 }
 
 void arch_yield(struct cpu *cpu) {
