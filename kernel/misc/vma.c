@@ -197,6 +197,11 @@ void *vmalloc(struct vma *vma, uintptr_t *pm, uintptr_t va, uintptr_t pa, size_t
         if (pages == (size_t)-1)
             pages = vma_find_pages(vma, 0, page_count);
         if (pages == (size_t)-1) {
+            size_t size = ALIGN_UP((vma->pages + page_count) * PAGE_SIZE, VMA_DEFAULT_SIZE);
+            vma_expand(vma, size);
+            pages = vma_find_pages(vma, 0, page_count);
+        }
+        if (pages == (size_t)-1) {
             release(&vma->lock);
             return NULL;
         }

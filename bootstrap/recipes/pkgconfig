@@ -1,0 +1,32 @@
+name=pkgconfig
+revision=1
+from_source=pkgconfig
+imagedeps="build-essential"
+hostdeps="gcc binutils"
+deps="base"
+
+configure() {
+    cp -rp ${source_dir}/* .
+    rm config.sub
+    cp ${base_dir}/config.sub .
+	./configure --host=${TARGET} --prefix=${prefix}
+}
+
+build() {
+	make -j${parallelism}
+}
+
+package() {
+	make install DESTDIR="${dest_dir}"
+	mkdir -p ${dest_dir}${prefix}/share/pkgconfig/personality.d
+	
+	cat > ${dest_dir}${prefix}/share/pkgconfig/personality.d/${TARGET}.personality << EOF
+Triplet: ${TARGET}
+DefaultSearchPaths: ${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig
+SystemIncludePaths: ${prefix}/include
+SystemLibraryPaths: ${prefix}/lib
+EOF
+
+	ln -s pkgconf ${dest_dir}${prefix}/bin/${TARGET}-pkg-config
+	ln -s pkgconf ${dest_dir}${prefix}/bin/pkg-config
+}
