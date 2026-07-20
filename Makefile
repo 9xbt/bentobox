@@ -141,5 +141,6 @@ bootstrap/jinx:
 	cd bootstrap && patch < ../build/jinx.diff
 
 build/ovmf/edk2-ovmf-bins.tar.gz:
+	mkdir -p build/ovmf
 	curl -o $@ -L https://github.com/osdev0/edk2-ovmf-stable-bins/releases/latest/download/edk2-ovmf-bins.tar.gz
 	tar -xzf $@ -C build/ovmf
