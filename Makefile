@@ -2,6 +2,7 @@
 
 OUTPUT := kernel
 ARCH := x86_64
+IMAGE_NAME := bin/$(ARCH)/image
 TOOLCHAIN :=
 TOOLCHAIN_PREFIX :=
 
@@ -27,13 +28,14 @@ LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/link
 
 include build/${ARCH}.mk
 
-SOURCES := $(shell find -L kernel cc-runtime/src -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
+SOURCES := $(shell find -L kernel -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find -L kernel/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
-SOURCES += $(shell find lib/flanterm -type f -name '*.c')
-SOURCES += $(shell find lib/uACPI/source -type f -name '*.c')
-SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.c')
-SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.S')
-SOURCES += $(shell find lib/zstd/lib/common -type f -name '*.c')
+SOURCES += $(shell find -L build/cc-runtime/src -type f 2>/dev/null | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/flanterm -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/uACPI/source -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/decompress -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/decompress -type f -name '*.S' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/common -type f -name '*.c' | LC_ALL=C sort)
 
 CFILES := $(filter %.c,$(SOURCES))
 ASFILES := $(filter %.S,$(SOURCES))
@@ -43,12 +45,14 @@ OBJ := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
 OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
-MODULE_SOURCES := $(shell \
-	find modules -type f -name '*.c' | \
-	while read f; do \
-		grep -Eq '@package.*\b$(ARCH)\b' "$$f" && echo "$$f"; \
-	done)
+MODULE_SOURCES := $(shell build/module.py modules $(ARCH) | LC_ALL=C sort)
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
+
+HOST_CC := cc
+HOST_CFLAGS := -g -O2 -pipe
+HOST_CPPFLAGS :=
+HOST_LDFLAGS :=
+HOST_LIBS :=
 
 .PHONY: all
 all: $(IMAGE_NAME).iso
@@ -91,6 +95,7 @@ obj/$(ARCH)/modules/%.ko: modules/%.c
 
 bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"
+	@mkdir -p bootstrap/build-$(ARCH)/base/*
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/
@@ -102,6 +107,7 @@ bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $
 
 $(IMAGE_NAME).hdd: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
 	@echo " HD $@"
+	@mkdir -p bootstrap/build-$(ARCH)/base/*
 	@mkdir -p "$(dir $@)"
 	@mkdir -p bin/$(ARCH)/base/bin
 	@cp -r base/* bin/$(ARCH)/base/

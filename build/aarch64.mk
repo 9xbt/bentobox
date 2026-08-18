@@ -2,19 +2,8 @@
 
 QEMUFLAGS := -display sdl
 
-ARCH := aarch64
-IMAGE_NAME := bin/$(ARCH)/image
-
 CFLAGS += -mcpu=generic -march=armv8-a+nofp+nosimd -mgeneral-regs-only -mno-outline-atomics
 LDFLAGS += -m aarch64elf
-
-HOST_CC := cc
-HOST_CFLAGS := -g -O2 -pipe
-HOST_CPPFLAGS :=
-HOST_LDFLAGS :=
-HOST_LIBS :=
-
-APPS_LDFLAGS += -m aarch64elf
 
 .PHONY: all
 all: $(IMAGE_NAME).iso
@@ -30,12 +19,9 @@ $(IMAGE_NAME).iso: build/limine/limine kernel
 	@cp bin/$(ARCH)/initrd.tar.zst iso_root/boot/ 2>/dev/null || true
 	@cp -r obj/$(ARCH)/modules/* iso_root/boot/ 2>/dev/null || true
 	@mkdir -p iso_root/boot/limine
-	@if [ -f bin/$(ARCH)/initrd.tar.zst ]; then \
-		{ echo "default_entry: 2"; grep -v '^default_entry:' build/limine.conf; } > iso_root/boot/limine/limine.conf; \
-	else \
-		cp build/limine.conf iso_root/boot/limine/; \
-	fi
 	@mkdir -p iso_root/EFI/BOOT
+	@cp build/limine.conf iso_root/boot/limine/
+	@if [ -f bin/$(ARCH)/initrd.tar.zst ]; then sed -i '1i default_entry: 2' iso_root/boot/limine/limine.conf; fi
 	@cp build/limine/limine-uefi-cd.bin iso_root/boot/limine/
 	@cp build/limine/BOOTAA64.EFI iso_root/EFI/BOOT/
 	@xorriso -as mkisofs -quiet -R -r -J \
