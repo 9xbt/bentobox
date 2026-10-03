@@ -17,3 +17,6 @@
 [submodule "lib/zstd"]
 	path = lib/zstd
 	url = https://github.com/9xbt/zstd/
+[submodule "build/qtguiconfig"]
+	path = build/qtguiconfig
+	url = https://github.com/9xbt/qtguiconfig

@@ -1,4 +1,5 @@
 #pragma once
+#include <config.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <kernel/ringbuffer.h>
@@ -6,8 +7,6 @@
 #include <kernel/acpi.h>
 #include <kernel/list.h>
 #include <kernel/irq.h>
-
-#define SMP_MAX_CORES   32
 
 struct cpu {
     size_t id;

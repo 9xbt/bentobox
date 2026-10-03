@@ -1,54 +1,71 @@
 .SUFFIXES:
 
+-include build/config.mk
+
 OUTPUT := kernel
-ARCH := x86_64
+ARCH := ${CONFIG_target}
+IMAGE_NAME := bin/$(ARCH)/image
 TOOLCHAIN :=
 TOOLCHAIN_PREFIX :=
 
 ifeq ($(ARCH),aarch64)
-    ifeq ($(TOOLCHAIN),)
-        TOOLCHAIN := aarch64-pc-bentobox
-    endif
+ifeq ($(TOOLCHAIN),)
+TOOLCHAIN := aarch64-pc-bentobox
+endif
 endif
 
 ifneq ($(TOOLCHAIN),)
-    ifeq ($(TOOLCHAIN_PREFIX),)
-        TOOLCHAIN_PREFIX := $(TOOLCHAIN)-
-    endif
+ifeq ($(TOOLCHAIN_PREFIX),)
+TOOLCHAIN_PREFIX := $(TOOLCHAIN)-
+endif
 endif
 
 GIT_HASH := $(shell git describe --always --dirty)
 
 CC := $(if $(TOOLCHAIN_PREFIX),$(TOOLCHAIN_PREFIX)gcc,cc)
 LD := $(TOOLCHAIN_PREFIX)ld
-CFLAGS += -g -O2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall -Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector -fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections -DGIT_COMMIT_HASH=\"$(GIT_HASH)\" -DFLANTERM_FB_DISABLE_BUMP_ALLOC
-CPPFLAGS := -Ibase/usr/include/ -Ibuild/limine-protocol/include -Ilib/flanterm/src -Ilib/uACPI/include -Ilib/zstd/lib -isystem build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP
+CFLAGS += -g -O2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -pipe -Wall \
+	-Wextra -Wshadow -std=gnu11 -nostdinc -ffreestanding -fno-stack-protector \
+	-fno-stack-check -fno-lto -fno-PIC -ffunction-sections -fdata-sections
+CPPFLAGS := -Ibuild/ -Ibase/usr/include/ -Ibuild/limine-protocol/include \
+	-Ilib/flanterm/src -Ilib/uACPI/include -Ilib/zstd/lib -isystem \
+	build/freestnd-c-hdrs/include -DLIMINE_API_REVISION=3 -MMD -MP \
+	-DFLANTERM_FB_DISABLE_BUMP_ALLOC -DGIT_COMMIT_HASH=\"$(GIT_HASH)\"
 LDFLAGS += -nostdlib -static -z max-page-size=0x1000 -T kernel/arch/$(ARCH)/linker.ld
 
-include build/${ARCH}.mk
+-include build/$(ARCH).mk
 
-SOURCES := $(shell find -L kernel cc-runtime/src -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
+SOURCES := $(shell find -L kernel -type f -not -path 'kernel/arch/*' 2>/dev/null | LC_ALL=C sort)
 SOURCES += $(shell find -L kernel/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
-SOURCES += $(shell find lib/flanterm -type f -name '*.c')
-SOURCES += $(shell find lib/uACPI/source -type f -name '*.c')
-SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.c')
-SOURCES += $(shell find lib/zstd/lib/decompress -type f -name '*.S')
-SOURCES += $(shell find lib/zstd/lib/common -type f -name '*.c')
+SOURCES += $(shell find -L build/cc-runtime/src -type f 2>/dev/null | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/flanterm -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/uACPI/source -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/decompress -type f -name '*.c' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/decompress -type f -name '*.S' | LC_ALL=C sort)
+SOURCES += $(shell find -L lib/zstd/lib/common -type f -name '*.c' | LC_ALL=C sort)
 
 CFILES := $(filter %.c,$(SOURCES))
 ASFILES := $(filter %.S,$(SOURCES))
 NASMFILES := $(filter %.asm,$(SOURCES))
 
-OBJ := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
+OBJ := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.o))
+OBJ += $(addprefix obj/$(ARCH)/,$(ASFILES:.S=.S.o))
 OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
+
+MODULE_SOURCES-${CONFIG_VIRTIO} += modules/virtio.c
+MODULE_SOURCES-${CONFIG_VIRTIO_INPUT} += modules/virtio_input.c
+MODULE_SOURCES-${CONFIG_W8001} += modules/w8001.c
+MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES-y:.c=.ko))
+
 HEADER_DEPS := $(addprefix obj/$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
 
-MODULE_SOURCES := $(shell \
-	find modules -type f -name '*.c' | \
-	while read f; do \
-		grep -Eq '@package.*\b$(ARCH)\b' "$$f" && echo "$$f"; \
-	done)
-MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES:.c=.ko))
+-include $(HEADER_DEPS)
+
+HOST_CC := cc
+HOST_CFLAGS := -g -O2 -pipe
+HOST_CPPFLAGS :=
+HOST_LDFLAGS :=
+HOST_LIBS :=
 
 .PHONY: all
 all: $(IMAGE_NAME).iso
@@ -56,13 +73,14 @@ all: $(IMAGE_NAME).iso
 .PHONY: kernel
 kernel: bin/$(ARCH)/$(OUTPUT) $(MODULE_OBJS) 
 
-.PHONY: hdd
-hdd: $(IMAGE_NAME).hdd
+.PHONY: config
+config:
+	python3 build/qtguiconfig/main.py --schema build/config.toml $(if $(wildcard .config),--config .config,) > build/config.h
+	python3 build/qtguiconfig/main.py --config .config --dump > build/config.mk
 
-.PHONY: livecd
-livecd: bin/$(ARCH)/initrd.tar.zst
-
--include $(HEADER_DEPS)
+.PHONY: clean
+clean:
+	@rm -rf bin obj iso_root
 
 bin/$(ARCH)/$(OUTPUT): kernel/arch/$(ARCH)/linker.ld $(OBJ)
 	@echo " LD $@"
@@ -99,25 +117,6 @@ bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $
 	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
 	@tar -C bin/$(ARCH)/base -cf bin/$(ARCH)/initrd.tar .
 	@zstd -3 -f bin/$(ARCH)/initrd.tar -o $@
-
-$(IMAGE_NAME).hdd: $(shell find bootstrap/build-$(ARCH)/base -type f) $(shell find base -type f)
-	@echo " HD $@"
-	@mkdir -p "$(dir $@)"
-	@mkdir -p bin/$(ARCH)/base/bin
-	@cp -r base/* bin/$(ARCH)/base/
-	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
-	@cp /etc/localtime bin/$(ARCH)/base/etc/
-	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
-	@truncate -s 4000M $@
-	@mkfs.ext2 -b 1024 -O ^filetype -F $@
-	@sudo mkdir -p /mnt/bentobox
-	@sudo mount -o loop $@ /mnt/bentobox
-	@sudo rsync -a --info=progress2 bin/$(ARCH)/base/* /mnt/bentobox/
-	@sudo umount /mnt/bentobox
-
-.PHONY: clean
-clean:
-	@rm -rf bin obj iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
 
 .PHONY: jinx
 jinx: bootstrap/jinx

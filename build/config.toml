@@ -1,0 +1,50 @@
+type = "schema"
+
+[[target]]
+name = "x86_64"
+default = true
+
+[[target]]
+name = "aarch64"
+
+[[option]]
+name = "SMP_MENU"
+type = "none"
+prompt = "SMP options"
+help = "Symetric multi-processing options"
+
+[[option]]
+name = "SMP_MAX_CORES"
+type = "value"
+prompt = "Maximum CPU core count"
+help = "Set the maximum CPU core count for symetric multi-processing"
+parent = "SMP_MENU"
+default = "32"
+
+[[option]]
+name = "VIRTIO_MENU"
+type = "none"
+prompt = "Virtio device drivers"
+help = "Virtio device drivers category"
+
+[[option]]
+name = "VIRTIO"
+type = "bool"
+prompt = "Virtio transport"
+help = "Enable support for virtio transport"
+parent = "VIRTIO_MENU"
+default = true
+
+[[option]]
+name = "VIRTIO_INPUT"
+type = "bool"
+prompt = "Virtio input driver"
+help = "Enable support for virtio input devices.\nRequires: Virtio transport"
+parent = "VIRTIO_MENU"
+default = true
+
+[[option]]
+name = "W8001"
+type = "bool"
+prompt = "Wacom W8001 input driver"
+help = "Enable support for Wacom W8001 serial touchscreen driver"
