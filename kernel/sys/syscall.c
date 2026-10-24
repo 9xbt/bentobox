@@ -23,7 +23,7 @@
 static long sys_read_write(int fd, void *buf, size_t len, bool write) {
     struct file *file = file_get(fd);
     if (!file || !file->open)
-        return -EBADFD;
+        return -EBADF;
     if (!file->node)
         return -ENOENT;
     if (!len)
@@ -35,8 +35,11 @@ static long sys_read_write(int fd, void *buf, size_t len, bool write) {
         while (!((ev = vfs_poll(file->node, write ? POLLOUT : POLLIN, -1)) & (write ? POLLOUT : POLLIN))) {
             if (ev < 0)
                 return ev;
-            if (ev & POLLHUP)
-                return -EIO;
+            if (ev & POLLHUP) {
+                if (write)
+                    return -EPIPE;
+                break;
+            }
         }
     }
 
@@ -876,7 +879,7 @@ long sys_mkdirat(int dirfd, const char *pathname, unsigned int mode) {
     COPY_USER_STRING(path, pathname, MAX_PATH);
     vfs_result_t r = vfs_lookup(dir, path, true, VFS_DIRECTORY);
     kfree(path);
-    if (!r.node)
+    if (r.error)
         return r.error;
 
     vfs_chmod(r.node, mode & ~this_proc->umask);

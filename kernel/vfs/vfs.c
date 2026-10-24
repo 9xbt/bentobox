@@ -69,7 +69,7 @@ vfs_node_t *vfs_add_node(vfs_node_t *parent, vfs_node_t *node) {
 long vfs_remove_node(vfs_node_t *node) {
     if (!node)
         return -EINVAL;
-    
+
     if (node->parent) {
         acquire(&node->parent->children->lock);
         list_remove_value(node->parent->children, node);
@@ -204,6 +204,7 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
     char *copy = strdup(path);
     char *saveptr;
     char *token = strtok_r(copy, "/", &saveptr), *next = strtok_r(NULL, "/", &saveptr);
+    int error = 0;
     vfs_node_t *node = cwd;
     
     while (token) {
@@ -242,6 +243,8 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
                 kfree(copy);
                 return (vfs_result_t){ NULL, -ENOENT };
             }
+        } else if (create_type != VFS_NONE && !next) {
+            error = -EEXIST;
         }
         node = child;
 
@@ -250,7 +253,7 @@ vfs_result_t vfs_lookup(vfs_node_t *cwd, const char *path, bool follow_symlinks,
     }
 
     kfree(copy);
-    return (vfs_result_t){ node, 0 };
+    return (vfs_result_t){ node, error };
 }
 
 vfs_result_t vfs_open(vfs_node_t *cwd, const char *path, long flags) {
@@ -432,13 +435,18 @@ long vfs_poll_multiplexed(vfs_node_t **nodes, short *events, short *revents, lon
 
     for (int fd = 0; fd < nfds; fd++) {
         vfs_node_t *node = nodes[fd];
+        if (!node || !node->ops || !node->ops->poll)
+            continue;
 
         acquire(&node->waiters->lock);
         node_t *item = list_find(node->waiters, this);
-        list_unlink(node->waiters, item);
-        __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
+        if (item) {
+            list_unlink(node->waiters, item);
+            __atomic_sub_fetch(&this->refcount, 1, __ATOMIC_ACQ_REL);
+        }
         release(&node->waiters->lock);
-        kfree(item);
+        if (item)
+            kfree(item);
     }
 
     return ready;

@@ -74,9 +74,13 @@ int main(int argc, char *argv[]) {
     fprintf(console, "\033[93minit:\033[0m mounting filesystems\n");
     umask(0);
     mkdir("/tmp", 0777);
+    mkdir("/var/cache", 0777);
+    mkdir("/var/log", 0777);
     mkdir("/proc", 0755);
     umask(022);
     mount("/tmp", "tmp", "tmp", 0);
+    mount("/var/cache", "tmp", "tmp", 0);
+    mount("/var/log", "tmp", "tmp", 0);
     mount("/proc", "proc", "proc", 0);
 
     FILE *fptr = fopen("/etc/hostname", "r");

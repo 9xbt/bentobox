@@ -60,6 +60,8 @@ int oct2bin(char *oct, int size) {
 
 long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     (void)flags;
+    tar_ops.create = tar_create;
+    tar_ops.remove = tar_remove;
     node->ops = &tar_ops;
 
     struct tar *tar = (struct tar *)device;
@@ -115,6 +117,9 @@ long tar_mount(vfs_node_t *node, vfs_node_t *device, long flags) {
     skip:
         tar = (struct tar *)((char *)tar + ((filesize + 511) / 512 + 1) * 512);
     }
+
+    tar_ops.create = NULL;
+    tar_ops.remove = NULL;
     return 0;
 }
 

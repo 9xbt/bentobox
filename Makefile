@@ -114,13 +114,16 @@ bin/$(ARCH)/initrd.tar.zst: $(shell find bootstrap/build-$(ARCH)/base -type f) $
 	@cp -r base/* bin/$(ARCH)/base/
 	@cp -r bootstrap/build-$(ARCH)/base/* bin/$(ARCH)/base/
 	@cp /etc/localtime bin/$(ARCH)/base/etc/
-	@find bin/$(ARCH)/apps -mindepth 1 -exec cp -rt bin/$(ARCH)/base/bin/ {} + 2>/dev/null || true
+	@sed -i 's|<string>unpacked</string>|<string>installed</string>|' "bin/$(ARCH)/base/var/db/xbps/pkgdb-0.38.plist"
 	@tar -C bin/$(ARCH)/base -cf bin/$(ARCH)/initrd.tar .
 	@zstd -3 -f bin/$(ARCH)/initrd.tar -o $@
 
 .PHONY: jinx
 jinx: bootstrap/jinx
 	mkdir -p bootstrap/build-$(ARCH)/base/var/log
+	mkdir -p bootstrap/build-$(ARCH)/base/var/cache
+	mkdir -p bootstrap/build-$(ARCH)/base/tmp
+	mkdir -p bootstrap/build-$(ARCH)/base/proc
 	ln -sf ../jinx bootstrap/build-$(ARCH)/jinx
 	cd bootstrap/build-$(ARCH) && ./jinx init .. ARCH=$(ARCH)
 

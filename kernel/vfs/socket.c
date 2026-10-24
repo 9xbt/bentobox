@@ -118,6 +118,8 @@ long socket_poll(vfs_node_t *node, long events) {
     if (sock->state == SOCKET_CONNECTED && sock->peer && sock->peer->shutdown != -1 &&
         (sock->peer->shutdown == SHUT_WR || sock->peer->shutdown == SHUT_RDWR)) {
         revents |= POLLHUP;
+        if (events & POLLIN)
+            revents |= POLLIN;
     }
     
     release(&sock->lock);
@@ -227,7 +229,7 @@ int socket_bind(int fd, const void *addr, uint32_t addrlen) {
     switch (sock->domain) {
         case PF_LOCAL: {
             struct sockaddr_un sa = {0};
-            if (copy_from_user(&sa, addr, addrlen) < 0)
+            if (copy_from_user(&sa, addr, addrlen <= sizeof(sa) ? addrlen : sizeof sa) < 0)
                 return -EFAULT;
 
             vfs_result_t r = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_SOCKET);
@@ -271,8 +273,8 @@ int socket_connect(int fd, const void *addr, uint32_t addrlen) {
     
     switch (sock->domain) {
         case PF_LOCAL: {
-            struct sockaddr_un sa;
-            if (copy_from_user(&sa, addr, addrlen) < 0)
+            struct sockaddr_un sa = {0};
+            if (copy_from_user(&sa, addr, addrlen <= sizeof(sa) ? addrlen : sizeof sa) < 0)
                 return -EFAULT;
             
             vfs_result_t r = vfs_lookup(this_proc->cwd, sa.sun_path, true, VFS_NONE);

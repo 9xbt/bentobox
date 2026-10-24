@@ -121,6 +121,14 @@ int signal_send(struct process *proc, int sig) {
 
     int word = (sig - 1) / LONG_BIT;
     int bit  = (sig - 1) % LONG_BIT;
+
+    struct sigaction *action = &proc->sighand[sig];
+    if ((action->sa_handler == SIG_IGN) ||
+        (action->sa_handler == SIG_DFL && (sig == SIGURG || sig == SIGWINCH))) {
+        release(&proc->threads->lock);
+        return 0;
+    }
+
     proc->psig.sig[word] |= (1UL << bit);
 
     struct thread *tcb = proc->threads->head->value;

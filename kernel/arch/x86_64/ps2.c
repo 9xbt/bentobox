@@ -157,8 +157,9 @@ void irq12_handler() {
 
     if (++pi >= dev->packets) {
         fifo_enqueue(mouse_fifo, state);
-        sched_wake(mouse_worker);
         pi = 0;
+        sched_wake(mouse_worker);
+        sched_yield();
     }
 }
 

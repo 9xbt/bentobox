@@ -1,8 +1,9 @@
 #!/usr/bin/bash
 WM="${1:-twm}"
 export DISPLAY=":0"
+rm /var/log/Xorg.0.log
 
-X -logfile /tmp/X.log &
+X &
 XPID=$!
 
 while true; do
@@ -15,8 +16,11 @@ while true; do
 done
 
 "$WM" >> /tmp/wm.log 2>&1 &
+WMPID=$!
 xset r rate 300 50 >> /tmp/wm.log 2>&1
 [[ -f ~/.fehbg && "$WM" != "fvwm3" ]] && ~/.fehbg >> /tmp/wm.log 2>&1
 
 stty -echo -echoctl -isig -icanon min 0 time 0
-wait $XPID
+wait $WMPID
+kill -9 $XPID
+stty sane

@@ -1,4 +1,4 @@
 name=xorg-fonts
 version=1
 revision=1
-deps="font-util libfontenc libXfont2 freetype"
+deps="font-util libfontenc libXfont2 freetype ttf-ibm-plex"
