@@ -36,7 +36,7 @@ parent = "VIRTIO_MENU"
 default = true
 
 [[option]]
-name = "VIRTIO_INPUT"
+name = "VIRTIO_DRV_INPUT"
 type = "bool"
 prompt = "Virtio input driver"
 help = "Enable support for virtio input devices.\nRequires: Virtio transport"

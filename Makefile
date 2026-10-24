@@ -53,7 +53,7 @@ OBJ += $(addprefix obj/$(ARCH)/,$(ASFILES:.S=.S.o))
 OBJ += $(addprefix obj/$(ARCH)/,$(NASMFILES:.asm=.asm.o))
 
 MODULE_SOURCES-${CONFIG_VIRTIO} += modules/virtio.c
-MODULE_SOURCES-${CONFIG_VIRTIO_INPUT} += modules/virtio_input.c
+MODULE_SOURCES-${CONFIG_VIRTIO_DRV_INPUT} += modules/virtio_input.c
 MODULE_SOURCES-${CONFIG_W8001} += modules/w8001.c
 MODULE_OBJS := $(addprefix obj/$(ARCH)/, $(MODULE_SOURCES-y:.c=.ko))
 
