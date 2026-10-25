@@ -1,12 +1,17 @@
 #include <stddef.h>
-#include <kernel/errno.h>
+#include <kernel/spinlock.h>
 #include <kernel/malloc.h>
 #include <kernel/string.h>
+#include <kernel/errno.h>
+#include <kernel/mmu.h>
 #include <kernel/vfs.h>
 
 typedef struct tmpfs {
+    spinlock_t lock;
     void *data;
     int refcount;
+    size_t size;
+    size_t capacity;
 } tmpfs_t;
 
 vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t type);
@@ -42,11 +47,16 @@ long tmpfs_read(vfs_node_t *node, void *buffer, long offset, size_t len) {
     tmpfs_t *file = node->device;
     if (!file)
         return -EINVAL;
-    if (!file->data || (size_t)offset >= node->size)
-        return 0;
     
-    size_t count = len < node->size - offset ? len : node->size - offset;
+    acquire(&file->lock);
+    if (!len || !file->data || (size_t)offset >= file->size) {
+        release(&file->lock);
+        return 0;
+    }
+
+    size_t count = len < file->size - offset ? len : file->size - offset;
     memcpy(buffer, file->data + offset, count);
+    release(&file->lock);
     return count;
 }
 
@@ -54,23 +64,35 @@ long tmpfs_write(vfs_node_t *node, const void *buffer, long offset, size_t len) 
     tmpfs_t *file = node->device;
     if (!file)
         return -EINVAL;
+    if (!len)
+        return 0;
 
+    acquire(&file->lock);
     if (offset == -1)
-        offset = node->size;
-    size_t size = offset + len;
-    
-    if (!file->data) {
-        file->data = kmalloc(size);
-        memset(file->data, 0, size);
-        node->size = size;
-    } else if (size > node->size) {
-        file->data = krealloc(file->data, size);
-        if ((size_t)offset > node->size)
-            memset(file->data + node->size, 0, offset - node->size);
-        node->size = size;
+        offset = file->size;
+    if (offset < 0 || (size_t)offset + len < len) {
+        release(&file->lock);
+        return -EINVAL;
     }
 
-    memcpy((char *)file->data + offset, buffer, len);
+    size_t size = offset + len;
+    if (size > file->capacity) {
+        size_t cap = file->capacity ? file->capacity : PAGE_SIZE;
+        while (cap < size)
+            cap *= 2;
+
+        file->data = file->data ? krealloc(file->data, cap) : kmalloc(cap);
+        file->capacity = cap;
+    }
+    if ((size_t)offset > file->size)
+        memset(file->data + file->size, 0, offset - file->size);
+
+    memcpy(file->data + offset, buffer, len);
+    if (size > file->size)
+        file->size = size;
+    node->size = file->size;
+
+    release(&file->lock);
     return len;
 }
 
@@ -82,9 +104,11 @@ vfs_result_t tmpfs_create(vfs_node_t *parent, const char *name, vfs_node_type_t 
         node->inode = inode++;
     } else if (type == VFS_FILE) {
         tmpfs_t *file = kmalloc(sizeof(tmpfs_t));
+        file->lock = 0;
         file->data = NULL;
         file->refcount = 1;
-        node->size = 0;
+        file->size = 0;
+        file->capacity = 0;
         node->inode = inode++;
         node->ops = &tmpfs_ops;
         node->device = file;
@@ -133,15 +157,27 @@ long tmpfs_truncate(vfs_node_t *node, size_t length) {
     tmpfs_t *file = node->device;
     if (!file)
         return -EINVAL;
-    if (!file->data)
+    if (!file->size)
         return 0;
 
+    acquire(&file->lock);
     if (!length) {
         kfree(file->data);
         file->data = NULL;
-    } else {
-        file->data = krealloc(file->data, length);
+        file->capacity = 0;
+    } else if (length > file->capacity) {
+        size_t cap = file->capacity ? file->capacity : PAGE_SIZE;
+        while (cap < length)
+            cap *= 2;
+        file->data = file->data ? krealloc(file->data, cap) : kmalloc(cap);
+        file->capacity = cap;
     }
+
+    if (length > file->size)
+        memset(file->data + file->size, 0, length - file->size);
+    file->size = length;
+
+    release(&file->lock);
     return 0;
 }
 
