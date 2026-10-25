@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <bentobox/sysinfo.h>
 #include <bentobox/reboot.h>
 #include <kernel/unixpipe.h>
 #include <kernel/syscall.h>
@@ -1367,6 +1368,19 @@ long sys_ftruncate(int fd, size_t length) {
     return vfs_truncate(file->node, length);
 }
 
+long sys_sysinfo(struct bb_sysinfo *info) {
+    struct mmu_memory_info minfo;
+    mmu_get_memory(&minfo);
+
+    struct bb_sysinfo kinfo = {
+        .totalram    = minfo.mem_total / PAGE_SIZE,
+        .freeram     = minfo.mem_free / PAGE_SIZE,
+        .nprocs_onln = cpu_count
+    };
+
+    return copy_to_user(info, &kinfo, sizeof kinfo);
+}
+
 typedef long (*syscall_func)(long, long, long, long, long, long);
 
 syscall_func syscalls[] = {
@@ -1448,7 +1462,8 @@ syscall_func syscalls[] = {
     [SYS_getrlimit]   = (syscall_func)(uintptr_t)sys_getrlimit,
     [SYS_setsid]      = (syscall_func)(uintptr_t)sys_setsid,
     [SYS_truncate]    = (syscall_func)(uintptr_t)sys_truncate,
-    [SYS_ftruncate]   = (syscall_func)(uintptr_t)sys_ftruncate
+    [SYS_ftruncate]   = (syscall_func)(uintptr_t)sys_ftruncate,
+    [SYS_sysinfo]     = (syscall_func)(uintptr_t)sys_sysinfo
 };
 
 long syscall_handler(size_t *args) {

@@ -225,10 +225,15 @@ void elf64_shutdown_modules(void) {
     }
 }
 
-static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, uintptr_t base) {
+static int elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, uintptr_t base) {
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
             uintptr_t p_vaddr = phdr[i].p_vaddr + base;
+
+            if (phdr[i].p_vaddr >= hhdm_offset ||
+                phdr[i].p_memsz > hhdm_offset - phdr[i].p_vaddr ||
+                phdr[i].p_filesz > phdr[i].p_memsz)
+                return -ENOEXEC;
 
             #ifdef __x86_64__
             uint64_t flags = PTE_PRESENT | PTE_USER;
@@ -276,6 +281,7 @@ static void elf64_load_sections(struct process *proc, Elf64_Ehdr *ehdr, Elf64_Ph
 			}
         }
     }
+    return 0;
 }
 
 static uintptr_t elf64_load_interp(struct process *proc, char *interp) {
@@ -504,7 +510,9 @@ int _exec(void *buffer, int argc, char *argv[], char *envp[]) {
 
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uintptr_t)buffer + ehdr->e_phoff);
     uintptr_t base = ehdr->e_type == ET_DYN ? 0x400000 : 0;
-    elf64_load_sections(this_proc, ehdr, phdr, base);
+    int ret = elf64_load_sections(this_proc, ehdr, phdr, base);
+    if (ret < 0)
+        sched_exit_group(this_proc, SIGKILL);
 
     char *interp = NULL;
     for (int j = 0; j < ehdr->e_phnum; j++) {
